@@ -44,6 +44,7 @@
         <module>ypbin-starter-i18n</module>
         <module>ypbin-starter-api-crypto</module>
         <module>ypbin-starter-social</module>
+        <module>ypbin-starter-sign</module>
     </modules>
 
     <properties>

@@ -16,6 +16,7 @@
 package cn.ypbin.starter.web.autoconfigure;
 
 import cn.ypbin.starter.web.handler.GlobalExceptionHandler;
+import cn.ypbin.starter.web.request.RepeatableReadRequestFilter;
 import cn.ypbin.starter.web.xss.XssFilter;
 import jakarta.servlet.DispatcherType;
 import org.slf4j.Logger;
@@ -77,6 +78,27 @@ public class WebAutoConfiguration {
         source.registerCorsConfiguration("/**", config);
         log.debug("[ypbin-starter] CORS filter enabled.");
         return new CorsFilter(source);
+    }
+
+    /**
+     * 可重复读请求过滤器，仅在 {@code ypbin.web.repeatable-read.enabled=true} 时装配。
+     *
+     * <p>以最高优先级排在其它过滤器之前，把带 body 的请求包装为可重复读，供 XSS、签名、
+     * 日志等下游复用同一份缓存请求，避免各自包装与 body 读取冲突。签名等模块需要读 body 时
+     * 应开启本项。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.web.repeatable-read", name = "enabled", havingValue = "true")
+    public FilterRegistrationBean<RepeatableReadRequestFilter> repeatableReadRequestFilterRegistration() {
+        FilterRegistrationBean<RepeatableReadRequestFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new RepeatableReadRequestFilter());
+        registration.addUrlPatterns("/*");
+        registration.setDispatcherTypes(DispatcherType.REQUEST);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        registration.setName("ypbinRepeatableReadRequestFilter");
+        log.debug("[ypbin-starter] repeatable-read request filter enabled.");
+        return registration;
     }
 
     /**

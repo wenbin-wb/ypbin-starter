@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-dependencies</artifactId>
+        <version>${revision}</version>
+        <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ypbin-starter-sign</artifactId>
+
+    <name>${project.artifactId}</name>
+    <description>接口签名：appId+timestamp+nonce+sign 四件套校验，@ApiSign 注解 + 全局拦截，防重放</description>
+
+    <properties>
+        <revision>1.0.0-SNAPSHOT</revision>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-core</artifactId>
+        </dependency>
+        <!-- 复用 web 模块的可重复读请求包装器（RepeatableReadRequestWrapper） -->
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <!-- 防重放的 nonce 存储：有 Redis 用 Redis，否则内存。可选依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>
