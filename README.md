@@ -8,20 +8,26 @@
 - **分层架构**：基础层（core/json/web/data/cache/security 等）单体与微服务共用，扩展层（crud/tenant/datapermission）按需引入。
 - **约定优于配置**：统一 `ypbin.*` 配置前缀，默认自动装配，零配置即可用。
 - **可覆盖可扩展**：能力 Bean 全部 `@ConditionalOnMissingBean` 可覆盖，`@ConditionalOnProperty` 可开关；模块间通过扩展点接口解耦。
-- **企业级细节**：多租户跨租户逃逸、异步上下文透传、分布式限流、数据权限门控、全局异常统一、审计字段自动填充。
+- **企业级细节**：多租户跨租户逃逸、异步上下文透传、分布式限流与幂等、数据权限门控、全局异常统一、审计字段自动填充、XSS 防护、字段加密、数据脱敏。
+- **能力齐全**：Excel 导入导出、行为验证码、邮件、国密 SM2/SM4、雪花 ID、树形结构工具开箱即用。
 - **版本治理**：`${revision}` + flatten 统一版本，对外提供 BOM 一键导入。
+- **质量保障**：spotless 统一代码风格 + license 头，核心逻辑单元测试覆盖。
 
 ## 技术栈
 
 | 项 | 版本 |
 |---|---|
 | JDK | 17 |
-| Spring Boot | 3.5.5 |
-| 认证 | Sa-Token |
-| ORM | MyBatis-Plus 3.5.16 |
+| Spring Boot | 3.5.16 |
+| 认证 | Sa-Token 1.45.0 |
+| ORM | MyBatis-Plus 3.5.17 |
 | 缓存 | Redis（Spring Data Redis） |
 | 对象存储 | AWS SDK v2（S3 兼容） |
-| API 文档 | SpringDoc OpenAPI |
+| API 文档 | SpringDoc OpenAPI 2.8.17 |
+| Excel | FastExcel 1.3.0 |
+| 验证码 | tianai-captcha 1.5.5（滑块/旋转/点选/拼接） |
+| 加解密 | AES-GCM / 国密 SM2·SM4（BouncyCastle 1.85） |
+| 邮件 | Spring Mail |
 
 ## 快速开始
 
@@ -64,16 +70,19 @@
 
 | 模块 | artifactId | 职责 | 配置前缀 |
 |---|---|---|---|
-| 核心 | `ypbin-starter-core` | 统一响应 R、异常体系、通用枚举、SpringUtils、上下文透传 | — |
-| JSON | `ypbin-starter-json` | Jackson 统一序列化（时间格式、大数字转字符串） | `ypbin.json` |
-| Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON | `ypbin.web` |
-| 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、审计字段自动填充、拦截器编排 | `ypbin.data` |
+| 核心 | `ypbin-starter-core` | 统一响应 R、异常体系、通用枚举、SpringUtils、上下文透传、树形工具 | — |
+| JSON | `ypbin-starter-json` | Jackson 统一序列化（时间格式、大数字转字符串）、`@Sensitive` 脱敏 | `ypbin.json` |
+| Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON、XSS 过滤 | `ypbin.web` |
+| 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、审计填充、拦截器编排、字段加密、雪花 ID | `ypbin.data` |
 | 缓存 | `ypbin-starter-cache` | Redis 缓存（CacheService 策略接口） | `ypbin.cache` |
 | 安全 | `ypbin-starter-security` | Sa-Token 封装（登录、权限数据源扩展点） | `ypbin.security` |
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
 | 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
 | 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP（异步、可插拔持久化） | `ypbin.log` |
-| 工具 | `ypbin-starter-tools` | 分布式限流 `@RateLimit`、AES 加解密 | `ypbin.tools` |
+| 工具 | `ypbin-starter-tools` | 分布式限流 `@RateLimit`、幂等 `@Idempotent`、AES/国密加解密 | `ypbin.tools` |
+| Excel | `ypbin-starter-excel` | 基于 FastExcel 的注解驱动导入导出 | — |
+| 验证码 | `ypbin-starter-captcha` | 行为验证码（滑块/旋转/点选/拼接） | `ypbin.captcha` |
+| 消息 | `ypbin-starter-messaging` | 邮件发送（文本/HTML/附件） | — |
 | 多租户 | `ypbin-starter-extension-tenant` | 行级租户隔离、`@TenantIgnore` 跨租户逃逸 | `ypbin.tenant` |
 | CRUD | `ypbin-starter-extension-crud` | 通用控制器/服务基类，防 Over-Posting | — |
 | 数据权限 | `ypbin-starter-extension-datapermission` | 行级数据范围过滤、`@DataPermission` 门控 | `ypbin.data-permission` |
@@ -107,6 +116,20 @@ public ThreadPoolTaskExecutor taskExecutor(TaskDecorator contextAwareTaskDecorat
 
 各模块（如 tenant）自行注册 `ContextPropagator` Bean，无需你手动列举要透传的内容。
 
+**树形结构工具** `TreeUtils`：菜单、部门、分类等实现 `TreeNode` 接口后，一行代码把扁平列表组装成树（O(n)）：
+
+```java
+public class MenuNode implements TreeNode<MenuNode, Long> {
+    private Long id;
+    private Long parentId;
+    private List<MenuNode> children;
+    // getId / getParentId / setChildren ...
+}
+
+List<MenuNode> tree = TreeUtils.build(flatList);        // 自动识别根节点
+List<MenuNode> tree2 = TreeUtils.build(flatList, 0L);   // 指定根父 ID
+```
+
 ### web — Web 层
 
 引入即生效，无需注解：
@@ -121,7 +144,12 @@ ypbin:
     cors:
       enabled: true
       allowed-origin-patterns: ["https://*.example.com"]
+    xss:
+      enabled: true                 # XSS 过滤默认关闭，按需开启
+      excludes: ["/webhook/**"]     # 放行路径（不做清洗）
 ```
+
+XSS 过滤开启后自动清洗请求参数中的脚本注入（`<script>`、`javascript:`、`on事件` 等），转义而非删除正常内容。
 
 ### data — 数据访问
 
@@ -140,6 +168,29 @@ public class Article extends BaseEntity {
 }
 ```
 
+**雪花 ID** `IdGenerator`：主动获取分布式唯一 ID（提前生成主键、订单号等）：
+
+```java
+long id = IdGenerator.nextId();
+String idStr = IdGenerator.nextIdStr();
+```
+
+**字段加密**：敏感字段存库自动加密、读库自动解密，对业务透明。配置密钥后在字段上挂 TypeHandler：
+
+```yaml
+ypbin:
+  data:
+    encrypt:
+      key: 1234567890abcdef   # AES 密钥，16/24/32 字节
+```
+
+```java
+@TableField(typeHandler = EncryptTypeHandler.class)
+private String idCard;   // 入库密文，查询回来自动解密
+```
+
+默认 AES-GCM 实现；需要国密/KMS 时实现 `FieldEncryptor` 覆盖默认 Bean。
+
 ### json — 序列化
 
 统一 Jackson 配置，引入即生效：
@@ -154,6 +205,21 @@ ypbin:
     date-time-format: yyyy-MM-dd HH:mm:ss
     write-big-number-as-string: true   # 默认 true
 ```
+
+**数据脱敏** `@Sensitive`：响应字段序列化时自动打码，不改动库中原值：
+
+```java
+@Sensitive(SensitiveType.PHONE)
+private String phone;      // 输出 138****8000
+
+@Sensitive(SensitiveType.ID_CARD)
+private String idCard;     // 输出 110101********1234
+
+@Sensitive(value = SensitiveType.CUSTOM, prefixKeep = 2, suffixKeep = 2)
+private String custom;     // 保留前 2 后 2
+```
+
+内置类型：`CHINESE_NAME` / `PHONE` / `ID_CARD` / `EMAIL` / `BANK_CARD` / `ADDRESS` / `ALL` / `CUSTOM`。
 
 ### cache — 缓存
 
@@ -264,11 +330,33 @@ public void sendSms(Long userId) { ... }
 - `byIp = true`（默认）时把客户端 IP 纳入限流键。
 - 分布式版基于 `StringRedisTemplate` + Lua 脚本，多节点共享窗口。
 
+**幂等** `@Idempotent`（防重复提交，有 Redis 用 Redis+Lua，否则内存）：
+
+```java
+@Idempotent(key = "#req.orderNo", interval = 10, message = "请勿重复提交")
+public void create(OrderReq req) { ... }
+```
+
+同一幂等键在 `interval` 秒内的重复调用被拒绝；`key` 支持 SpEL，留空则用「方法 + 参数指纹」。
+
 **AES 加解密** `AesUtils`：AES-GCM 认证加密，随机 IV 前置：
 
 ```java
 String cipher = AesUtils.encrypt("secret", key);   // key 长度 16/24/32
 String plain = AesUtils.decrypt(cipher, key);
+```
+
+**国密 SM4/SM2**（基于 BouncyCastle，合规场景）：
+
+```java
+// SM4 对称（16 字节密钥）
+String c = Sm4Utils.encrypt("secret", "1234567890abcdef");
+String p = Sm4Utils.decrypt(c, "1234567890abcdef");
+
+// SM2 非对称
+Sm2Utils.KeyPairBase64 kp = Sm2Utils.generateKeyPair();
+String cipher = Sm2Utils.encrypt("secret", kp.publicKey());
+String plain  = Sm2Utils.decrypt(cipher, kp.privateKey());
 ```
 
 ### extension-crud — 通用 CRUD
@@ -349,6 +437,58 @@ public class MyDataScopeHandler implements DataScopeHandler {
 @DataPermission
 public List<Order> listByScope(OrderQuery q) { ... }
 ```
+
+### excel — 导入导出
+
+基于 FastExcel，注解驱动。实体字段用 `@ExcelProperty` 标注列名：
+
+```java
+public class UserExcel {
+    @ExcelProperty("用户名")
+    private String username;
+    @ExcelProperty("年龄")
+    private Integer age;
+}
+
+// 导入
+List<UserExcel> list = ExcelUtils.read(inputStream, UserExcel.class);
+
+// 导出到 HTTP 响应（浏览器下载，文件名自动 UTF-8 编码）
+ExcelUtils.export(response, "用户列表", UserExcel.class, list);
+```
+
+### captcha — 行为验证码
+
+基于 tianai-captcha，支持滑块、旋转、点选、拼接，带行为轨迹校验。验证码状态由其自带缓存
+（本地/Redis 自动切换）管理，一次性有效：
+
+```java
+@Autowired
+private CaptchaService captchaService;
+
+// 生成（默认滑块，也可传 CaptchaTypeConstant.ROTATE 等）
+ApiResponse<?> data = captchaService.generate();   // 返回 id + 图片，前端渲染
+
+// 校验：前端回传采集到的行为轨迹
+boolean ok = captchaService.verify(id, track);
+```
+
+图片资源、二次校验等通过 tianai 自身的配置项调整。
+
+### messaging — 邮件
+
+基于 Spring Mail，配置好 `spring.mail.*` 后自动装配 `MailService`：
+
+```java
+@Autowired
+private MailService mailService;
+
+mailService.sendText("to@example.com", "标题", "正文");
+mailService.sendHtml("to@example.com", "标题", "<h1>HTML 正文</h1>");
+mailService.sendWithAttachments("to@example.com", "标题", "正文", false, new File("report.xlsx"));
+```
+
+发件人默认取 `spring.mail.username`。
 
 ## 构建与发布
 
