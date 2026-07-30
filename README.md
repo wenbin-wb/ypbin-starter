@@ -72,17 +72,22 @@
 |---|---|---|---|
 | 核心 | `ypbin-starter-core` | 统一响应 R、异常体系、通用枚举、SpringUtils、上下文透传、树形工具 | — |
 | JSON | `ypbin-starter-json` | Jackson 统一序列化（时间格式、大数字转字符串）、`@Sensitive` 脱敏 | `ypbin.json` |
-| Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON、XSS 过滤 | `ypbin.web` |
+| Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON、XSS 过滤、可重复读请求 | `ypbin.web` |
 | 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、审计填充、拦截器编排、字段加密、雪花 ID | `ypbin.data` |
 | 缓存 | `ypbin-starter-cache` | Redis 缓存（CacheService 策略接口） | `ypbin.cache` |
-| 安全 | `ypbin-starter-security` | Sa-Token 封装（登录、权限数据源扩展点） | `ypbin.security` |
+| 安全 | `ypbin-starter-security` | Sa-Token 封装（登录、权限数据源扩展点）、密码编码器 | `ypbin.security` |
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
 | 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
-| 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP（异步、可插拔持久化） | `ypbin.log` |
+| 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP + 全量访问日志拦截器 | `ypbin.log` |
 | 工具 | `ypbin-starter-tools` | 分布式限流 `@RateLimit`、幂等 `@Idempotent`、AES/国密加解密 | `ypbin.tools` |
 | Excel | `ypbin-starter-excel` | 基于 FastExcel 的注解驱动导入导出 | — |
 | 验证码 | `ypbin-starter-captcha` | 行为验证码（滑块/旋转/点选/拼接） | `ypbin.captcha` |
-| 消息 | `ypbin-starter-messaging` | 邮件发送（文本/HTML/附件） | — |
+| 消息 | `ypbin-starter-messaging` | 邮件、WebSocket（STOMP）、MQTT（Paho） | `ypbin.websocket` / `ypbin.mqtt` |
+| 敏感词 | `ypbin-starter-sensitive-words` | Hutool DFA 敏感词检测/替换，可插拔词库 | `ypbin.sensitive-words` |
+| 国际化 | `ypbin-starter-i18n` | Spring MessageSource 多语言，参数/头解析 Locale | `ypbin.i18n` |
+| 接口加解密 | `ypbin-starter-api-crypto` | `@ApiEncrypt` 请求解密/响应加密（Advice） | `ypbin.api-crypto` |
+| 接口签名 | `ypbin-starter-sign` | `@ApiSign` 四件套验签、防重放、MD5/HMAC 可配 | `ypbin.sign` |
+| 第三方登录 | `ypbin-starter-social` | JustAuth OAuth 登录，按平台可插拔 | `ypbin.social` |
 | 多租户 | `ypbin-starter-extension-tenant` | 行级租户隔离、`@TenantIgnore` 跨租户逃逸 | `ypbin.tenant` |
 | CRUD | `ypbin-starter-extension-crud` | 通用控制器/服务基类，防 Over-Posting | — |
 | 数据权限 | `ypbin-starter-extension-datapermission` | 行级数据范围过滤、`@DataPermission` 门控 | `ypbin.data-permission` |
@@ -150,6 +155,17 @@ ypbin:
 ```
 
 XSS 过滤开启后自动清洗请求参数中的脚本注入（`<script>`、`javascript:`、`on事件` 等），转义而非删除正常内容。
+
+**可重复读请求**：Servlet 请求体默认只能读一次。开启后以最高优先级包装请求，缓存 body 供签名校验、日志、Controller 等多方重复读取，解决"body 被上游读走后下游读空"。签名模块依赖它：
+
+```yaml
+ypbin:
+  web:
+    repeatable-read:
+      enabled: true    # 启用接口签名时需一并开启
+```
+
+文件上传（multipart）不缓存，避免大文件占用内存。
 
 ### data — 数据访问
 
@@ -254,6 +270,13 @@ public class MyPermissionProvider implements PermissionProvider {
 
 引入本模块后会自动对接 data 的审计字段（用当前登录用户填充 createUser/updateUser）。
 
+**密码编码器** `PasswordEncoderUtil`：BCrypt 加密（自带随机盐），校验用 `matches` 而非比较密文：
+
+```java
+String hash = PasswordEncoderUtil.encode(rawPassword);
+boolean ok = PasswordEncoderUtil.matches(rawPassword, hash);
+```
+
 ### api-doc — API 文档
 
 SpringDoc OpenAPI 开箱即用，配置文档元信息：
@@ -316,6 +339,18 @@ public R<Void> create(@RequestBody OrderReq req) { ... }
 - 请求体从 AOP 入参序列化（能拿到 `@RequestBody` 的 JSON），过滤文件流等不可序列化参数。
 - 持久化：实现 `LogDao` 落库（默认仅打印到日志）；操作人来源实现 `LogUserProvider`。
 - 写日志通过事件 + `@Async` 异步执行，DB 抖动不影响主接口。
+
+**全量访问日志**（与 `@Log` 互补，无需注解，记录所有请求的 URI/方法/状态/耗时/IP）：
+
+```yaml
+ypbin:
+  log:
+    access:
+      enabled: true
+      exclude-path-patterns: ["/actuator/**", "/static/**"]
+```
+
+`@Log` 精准采集业务操作（可落库），访问日志是全量流水（打印到日志），按需选用或并用。
 
 ### tools — 常用工具
 
@@ -475,9 +510,9 @@ boolean ok = captchaService.verify(id, track);
 
 图片资源、二次校验等通过 tianai 自身的配置项调整。
 
-### messaging — 邮件
+### messaging — 消息（邮件 / WebSocket / MQTT）
 
-基于 Spring Mail，配置好 `spring.mail.*` 后自动装配 `MailService`：
+**邮件**：基于 Spring Mail，配置好 `spring.mail.*` 后自动装配 `MailService`：
 
 ```java
 @Autowired
@@ -489,6 +524,160 @@ mailService.sendWithAttachments("to@example.com", "标题", "正文", false, new
 ```
 
 发件人默认取 `spring.mail.username`。
+
+**WebSocket（STOMP 实时推送）**：需引入 `spring-boot-starter-websocket` 并开启：
+
+```yaml
+ypbin:
+  websocket:
+    enabled: true
+    endpoint: /ws
+    broker-prefix: /topic
+    heartbeat-server: 10000   # 服务端心跳(ms)，保活并探测半开连接
+```
+
+业务方注入 `SimpMessagingTemplate` 向客户端广播。**可靠性说明**：内置 SimpleBroker 为内存代理，服务重启消息丢失、不保证送达；生产需可靠投递时，自定义 `WebSocketMessageBrokerConfigurer` 接入 RabbitMQ/ActiveMQ 的 STOMP relay。
+
+**MQTT（Paho）**：需引入 `org.eclipse.paho.client.mqttv3` 并开启：
+
+```yaml
+ypbin:
+  mqtt:
+    enabled: true
+    url: tcp://127.0.0.1:1883
+    default-qos: 1
+    automatic-reconnect: true       # 断线自动重连
+    max-reconnect-delay: 30000      # 重连退避上限(ms)
+    max-inflight: 10                # QoS1/2 最大在途消息
+    persistence-dir: /data/mqtt     # 文件持久化，重启不丢 QoS1/2 未确认消息（留空则内存）
+```
+
+```java
+@Autowired
+private MqttPublisher mqttPublisher;
+
+mqttPublisher.publish("device/1/cmd", payload);          // 默认 QoS
+mqttPublisher.publish("device/1/cmd", payload, 2, false); // 指定 QoS/retained
+```
+
+订阅用 `mqttPublisher.getClient()` 拿到 Paho 客户端自行 subscribe。
+
+### sensitive-words — 敏感词过滤
+
+基于 Hutool DFA，检测/替换敏感词。词库来源：配置静态词库，或实现 `SensitiveWordProvider` 从库/远程加载：
+
+```yaml
+ypbin:
+  sensitive-words:
+    words: [敏感词1, 敏感词2]
+    replacement: '*'
+```
+
+```java
+@Autowired
+private SensitiveWordService service;
+
+boolean hit = service.contains(text);
+String clean = service.filter(text, '*');   // 命中词替换为等长 *
+List<String> hits = service.findAll(text);
+service.reload(newWords);                    // 词库热更新
+```
+
+### i18n — 国际化
+
+基于 Spring MessageSource（配 `spring.messages.basename` 指定资源文件）。按请求参数（`?lang=en_US`）或请求头（`Accept-Language`）解析语言：
+
+```yaml
+ypbin:
+  i18n:
+    param-name: lang
+    default-locale: zh_CN
+```
+
+```java
+// 静态调用，按当前请求 Locale 翻译；args 为占位参数
+String msg = I18nUtil.message("user.not.found");
+String msg2 = I18nUtil.message("greeting", userName);
+```
+
+### api-crypto — 接口加解密
+
+`@ApiEncrypt` 标注的接口自动对请求体解密、响应体加密，对 Controller 透明。基于 Spring MVC 的 RequestBody/ResponseBodyAdvice：
+
+```yaml
+ypbin:
+  api-crypto:
+    key: 1234567890abcdef   # AES 密钥；配置后装配默认 AES 实现
+```
+
+```java
+@ApiEncrypt                       // 请求体解密 + 响应体加密
+@PostMapping("/secure")
+public R<Data> secure(@RequestBody Req req) { ... }
+
+@ApiEncrypt(requestDecrypt = false)   // 仅加密响应
+@GetMapping("/only-resp")
+public R<Data> onlyResp() { ... }
+```
+
+默认 AES-GCM；实现 `ApiCryptoProvider` 可换国密 SM4 / RSA。返回 `R` 时仅加密其 data，保留统一结构。
+
+### sign — 接口签名
+
+对外提供给第三方对接的接口做签名校验（`appId + timestamp + nonce + sign` 四件套），防篡改与重放。**需同时开启 web 的可重复读请求**（见 web 章节）：
+
+```yaml
+ypbin:
+  sign:
+    enabled: true
+    mode: ANNOTATION          # ANNOTATION（仅 @ApiSign 接口）或 GLOBAL（全局，按 skip-path 排除）
+    algorithm: HMAC_SHA256    # 或 MD5（兼容旧系统）
+    timeout: 60               # 签名有效期(秒)
+    replay-protect: true      # nonce 防重放（有 Redis 用 Redis，否则内存）
+    apps:
+      - app-id: app-001
+        app-secret: your-secret
+        app-name: 合作方A
+  web:
+    repeatable-read:
+      enabled: true           # 签名校验需读 body，必须开启
+```
+
+```java
+@ApiSign                          // 该接口要求验签
+@PostMapping("/open/order")
+public R<Void> createOrder(@RequestBody OrderReq req) { ... }
+```
+
+**第三方对接方**用 `SignClient` 生成签名（算法需与服务端一致）：
+
+```java
+Map<String, String> signed = SignClient.sign(bizParams, "app-001", "your-secret", SignAlgorithm.HMAC_SHA256);
+// signed 含 appId/timestamp/nonce/sign + 业务参数，随请求发送
+```
+
+### social — 第三方登录
+
+基于 JustAuth 的 OAuth 登录。各平台的 appId/secret/回调由业务方持有，故为每个平台实现 `AuthRequestProvider` 注册授权请求，`SocialService` 按平台调度：
+
+```java
+@Component
+public class GithubAuthProvider implements AuthRequestProvider {
+    @Override public String getSource() { return "github"; }
+    @Override public AuthRequest getAuthRequest() {
+        return new AuthGithubRequest(AuthConfig.builder()
+            .clientId("...").clientSecret("...").redirectUri("...").build());
+    }
+}
+```
+
+```java
+@Autowired
+private SocialService socialService;
+
+String url = socialService.authorizeUrl("github");        // 生成授权跳转地址
+AuthUser user = socialService.login("github", callback);  // 回调换取用户信息
+```
 
 ## 构建与发布
 
