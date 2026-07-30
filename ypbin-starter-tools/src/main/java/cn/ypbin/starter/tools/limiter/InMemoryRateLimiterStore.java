@@ -25,12 +25,20 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>单机场景默认实现。每个 key 维护一个计数器与窗口过期时间，窗口过期后重置。
  * 分布式场景请实现基于 Redis 的 {@link RateLimiterStore} 覆盖本 Bean。</p>
  *
+ * <p>内置惰性清理：过期的 key 若不再访问会长期占用内存（尤其按 IP 限流时 key 基数无上限），
+ * 故每隔一定间隔在写入时顺带清除已过期条目，避免 map 无限膨胀导致 OOM。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
 public class InMemoryRateLimiterStore implements RateLimiterStore {
 
+    /** 惰性清理最小间隔（毫秒），避免每次请求都全表扫描 */
+    private static final long CLEANUP_INTERVAL_MILLIS = 60_000L;
+
     private final ConcurrentHashMap<String, Window> windows = new ConcurrentHashMap<>();
+
+    private final AtomicLong lastCleanup = new AtomicLong(System.currentTimeMillis());
 
     @Override
     public long incrementAndGet(String key, Duration window) {
@@ -42,7 +50,23 @@ public class InMemoryRateLimiterStore implements RateLimiterStore {
             }
             return existing;
         });
+        cleanupIfNeeded(now);
         return w.count.incrementAndGet();
+    }
+
+    /**
+     * 惰性清理过期条目：距上次清理超过间隔时触发，用 CAS 抢占确保同一时刻只有一个线程执行。
+     */
+    private void cleanupIfNeeded(long now) {
+        long last = lastCleanup.get();
+        if (now - last < CLEANUP_INTERVAL_MILLIS) {
+            return;
+        }
+        if (!lastCleanup.compareAndSet(last, now)) {
+            // 其它线程已抢到清理任务
+            return;
+        }
+        windows.entrySet().removeIf(entry -> now >= entry.getValue().expireAt);
     }
 
     /**

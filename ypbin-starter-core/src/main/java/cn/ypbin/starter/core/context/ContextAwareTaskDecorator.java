@@ -42,39 +42,46 @@ public class ContextAwareTaskDecorator implements TaskDecorator {
     @Override
     @NonNull
     public Runnable decorate(@NonNull Runnable runnable) {
-        // 主线程：抓取快照
-        Map<String, String> mdc = MDC.getCopyOfContextMap();
+        // 主线程（提交时）：抓取要传播的快照
+        Map<String, String> capturedMdc = MDC.getCopyOfContextMap();
         Object[] snapshots = new Object[propagators.size()];
         for (int i = 0; i < propagators.size(); i++) {
             snapshots[i] = propagators.get(i).capture();
         }
 
         return () -> {
-            // 子线程执行前：还原
-            if (mdc != null) {
-                MDC.setContextMap(mdc);
+            // 执行线程可能是新线程，也可能是提交线程本身（如 CallerRunsPolicy）。
+            // 因此先备份"执行线程原有上下文"，执行后精确恢复，而非无条件 clear，
+            // 否则会污染调用者自身正在进行的请求上下文。
+            Map<String, String> backupMdc = MDC.getCopyOfContextMap();
+            Object[] backups = new Object[propagators.size()];
+            for (int i = 0; i < propagators.size(); i++) {
+                backups[i] = propagators.get(i).capture();
             }
+
+            applyMdc(capturedMdc);
             restoreAll(snapshots);
             try {
                 runnable.run();
             } finally {
-                // 子线程执行后：清理，防止线程池复用串上下文
-                clearAll();
-                MDC.clear();
+                restoreAll(backups);
+                applyMdc(backupMdc);
             }
         };
+    }
+
+    private void applyMdc(Map<String, String> mdc) {
+        if (mdc != null) {
+            MDC.setContextMap(mdc);
+        } else {
+            MDC.clear();
+        }
     }
 
     @SuppressWarnings("unchecked")
     private void restoreAll(Object[] snapshots) {
         for (int i = 0; i < propagators.size(); i++) {
             ((ContextPropagator<Object>) propagators.get(i)).restore(snapshots[i]);
-        }
-    }
-
-    private void clearAll() {
-        for (ContextPropagator<?> propagator : propagators) {
-            propagator.clear();
         }
     }
 }

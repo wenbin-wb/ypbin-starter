@@ -20,10 +20,11 @@ import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.model.PageResult;
 import cn.ypbin.starter.crud.service.BaseService;
 import java.io.Serializable;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.BeanUtils;
+import org.springframework.core.GenericTypeResolver;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,6 +54,9 @@ import org.springframework.web.bind.annotation.RequestBody;
  * @since 2026-07-30
  */
 public abstract class BaseController<T, ID extends Serializable, REQ, RESP> {
+
+    /** 泛型参数解析结果缓存，避免每次请求都反射解析 */
+    private static final Map<Class<?>, Class<?>[]> TYPE_ARG_CACHE = new ConcurrentHashMap<>();
 
     /**
      * 提供业务服务实例。
@@ -142,14 +146,14 @@ public abstract class BaseController<T, ID extends Serializable, REQ, RESP> {
 
     @SuppressWarnings("unchecked")
     private <X> Class<X> resolveTypeArg(int index) {
-        Type superClass = getClass().getGenericSuperclass();
-        if (superClass instanceof ParameterizedType pt) {
-            Type arg = pt.getActualTypeArguments()[index];
-            if (arg instanceof Class<?> clazz) {
-                return (Class<X>) clazz;
-            }
+        // 用 Spring 的解析器：可跨多层继承、并正确处理 CGLIB 代理类（控制器被 @Log/@Transactional 等代理时
+        // getClass().getGenericSuperclass() 会失效）。首次解析结果按类缓存。
+        Class<?>[] args = TYPE_ARG_CACHE.computeIfAbsent(getClass(),
+            clazz -> GenericTypeResolver.resolveTypeArguments(clazz, BaseController.class));
+        if (args == null || index >= args.length || args[index] == null) {
+            throw new IllegalStateException("无法解析泛型类型参数，请在子类覆盖 toEntity/toResp 方法");
         }
-        throw new IllegalStateException("无法解析泛型类型参数，请在子类覆盖 toEntity/toResp 方法");
+        return (Class<X>) args[index];
     }
 
     private <X> X instantiate(Class<X> type) {
