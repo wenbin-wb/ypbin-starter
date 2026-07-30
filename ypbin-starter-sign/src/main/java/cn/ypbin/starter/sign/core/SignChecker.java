@@ -18,6 +18,8 @@ package cn.ypbin.starter.sign.core;
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -104,8 +106,9 @@ public class SignChecker {
 
         Map<String, String> params = collectParams(request);
         String expected = SignGenerator.generate(params, app.getAppSecret(), properties.getAlgorithm());
-        if (!expected.equals(sign)) {
-            log.warn("[ypbin-starter] 签名不匹配 appId={}, client={}, server={}", appId, sign, expected);
+        // 恒定时间比较，避免逐字符短路带来的时序侧信道；不记录明文签名，防泄漏
+        if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8))) {
+            log.warn("[ypbin-starter] 签名验证失败 appId={}", appId);
             return SignResult.fail("签名验证失败");
         }
         return SignResult.ok();
