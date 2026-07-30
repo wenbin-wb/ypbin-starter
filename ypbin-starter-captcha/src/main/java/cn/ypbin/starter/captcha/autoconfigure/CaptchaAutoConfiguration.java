@@ -16,6 +16,7 @@
 package cn.ypbin.starter.captcha.autoconfigure;
 
 import cloud.tianai.captcha.application.ImageCaptchaApplication;
+import cloud.tianai.captcha.spring.autoconfiguration.ImageCaptchaAutoConfiguration;
 import cn.ypbin.starter.captcha.core.CaptchaService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -35,7 +36,7 @@ import org.springframework.context.annotation.Bean;
  * @author wenbin
  * @since 2026-07-30
  */
-@AutoConfiguration
+@AutoConfiguration(after = ImageCaptchaAutoConfiguration.class)
 @ConditionalOnClass(ImageCaptchaApplication.class)
 @ConditionalOnProperty(prefix = "ypbin.captcha", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class CaptchaAutoConfiguration {

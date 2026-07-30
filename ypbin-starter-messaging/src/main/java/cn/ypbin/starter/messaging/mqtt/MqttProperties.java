@@ -59,7 +59,7 @@ public class MqttProperties {
     /** 自动重连的最大间隔（毫秒），指数退避的上限 */
     private int maxReconnectDelay = 30_000;
 
-    /** 最大未确认消息数（QoS1/2 高吞吐时提高，0 表示不限制在途窗口） */
+    /** 最大在途（未确认）消息数，QoS1/2 高吞吐时调大。注意不可设为 0（会阻塞所有 QoS≥1 发布） */
     private int maxInflight = 10;
 
     /**

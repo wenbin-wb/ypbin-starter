@@ -98,7 +98,9 @@ public class MailService {
             helper.setText(content, html);
             if (attachments != null) {
                 for (File attachment : attachments) {
-                    helper.addAttachment(attachment.getName(), new FileSystemResource(attachment));
+                    if (attachment != null) {
+                        helper.addAttachment(attachment.getName(), new FileSystemResource(attachment));
+                    }
                 }
             }
             mailSender.send(message);

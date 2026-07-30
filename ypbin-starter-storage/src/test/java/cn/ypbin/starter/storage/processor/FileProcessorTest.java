@@ -20,6 +20,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import cn.ypbin.starter.storage.exception.StorageException;
 import cn.ypbin.starter.storage.model.UploadContext;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,9 +52,35 @@ class FileProcessorTest {
     }
 
     @Test
-    void sizeValidator_notSupported_whenNoLimitOrUnknownSize() {
+    void sizeValidator_notSupported_whenNoLimit() {
+        // 未配置上限：不参与
         assertThat(new FileSizeValidator(-1).support(sizedContext(500))).isFalse();
-        assertThat(new FileSizeValidator(1000).support(sizedContext(-1))).isFalse();
+    }
+
+    @Test
+    void sizeValidator_unknownSize_wrapsWithBoundedStream() {
+        // 配了上限但大小未知：参与，并把流包装为 BoundedInputStream 兜底防无限落盘
+        FileSizeValidator validator = new FileSizeValidator(1000);
+        UploadContext ctx = new UploadContext();
+        ctx.setSize(-1);
+        ctx.setInputStream(new ByteArrayInputStream(new byte[10]));
+        assertThat(validator.support(ctx)).isTrue();
+        validator.process(ctx);
+        assertThat(ctx.getInputStream()).isInstanceOf(BoundedInputStream.class);
+    }
+
+    @Test
+    void sizeValidator_unknownSize_boundedStreamThrowsWhenExceeded() throws Exception {
+        // 未知大小流实际读取超过上限时中断
+        FileSizeValidator validator = new FileSizeValidator(4);
+        UploadContext ctx = new UploadContext();
+        ctx.setSize(-1);
+        ctx.setInputStream(new ByteArrayInputStream(new byte[10]));
+        validator.process(ctx);
+        InputStream wrapped = ctx.getInputStream();
+        assertThatThrownBy(() -> wrapped.readAllBytes())
+            .isInstanceOf(StorageException.class)
+            .hasMessageContaining("上限");
     }
 
     @Test

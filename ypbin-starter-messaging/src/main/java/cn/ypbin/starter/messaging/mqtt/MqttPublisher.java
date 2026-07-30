@@ -58,6 +58,9 @@ public class MqttPublisher {
      * @param retained 是否保留消息
      */
     public void publish(String topic, String payload, int qos, boolean retained) {
+        if (topic == null || payload == null) {
+            throw new IllegalArgumentException("MQTT 主题与消息内容不能为空");
+        }
         try {
             MqttMessage message = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
             message.setQos(qos);

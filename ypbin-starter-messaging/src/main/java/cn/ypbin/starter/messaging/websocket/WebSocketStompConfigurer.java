@@ -16,7 +16,7 @@
 package cn.ypbin.starter.messaging.websocket;
 
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
@@ -27,8 +27,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * 业务方注入 {@code SimpMessagingTemplate} 即可向客户端广播。需要鉴权 / 拦截时可提供自定义
  * {@link WebSocketMessageBrokerConfigurer} 覆盖。</p>
  *
- * <p>启用服务端心跳（保活 + 探测半开连接）：SimpleBroker 的心跳需配套 {@link ThreadPoolTaskScheduler}
- * 才生效，本类在心跳间隔大于 0 时自动创建并绑定。</p>
+ * <p>启用服务端心跳（保活 + 探测半开连接）：SimpleBroker 的心跳需配套 {@link TaskScheduler}
+ * 才生效，调度器由 Spring 容器管理（见自动配置），生命周期随容器销毁，不会泄漏线程。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -36,9 +36,11 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketStompConfigurer implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketProperties properties;
+    private final TaskScheduler heartbeatScheduler;
 
-    public WebSocketStompConfigurer(WebSocketProperties properties) {
+    public WebSocketStompConfigurer(WebSocketProperties properties, TaskScheduler heartbeatScheduler) {
         this.properties = properties;
+        this.heartbeatScheduler = heartbeatScheduler;
     }
 
     @Override
@@ -52,15 +54,7 @@ public class WebSocketStompConfigurer implements WebSocketMessageBrokerConfigure
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker(properties.getBrokerPrefix())
             .setHeartbeatValue(new long[] {properties.getHeartbeatServer(), properties.getHeartbeatClient()})
-            .setTaskScheduler(heartbeatScheduler());
+            .setTaskScheduler(heartbeatScheduler);
         registry.setApplicationDestinationPrefixes(properties.getApplicationPrefix());
-    }
-
-    private ThreadPoolTaskScheduler heartbeatScheduler() {
-        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(1);
-        scheduler.setThreadNamePrefix("ypbin-ws-heartbeat-");
-        scheduler.initialize();
-        return scheduler;
     }
 }

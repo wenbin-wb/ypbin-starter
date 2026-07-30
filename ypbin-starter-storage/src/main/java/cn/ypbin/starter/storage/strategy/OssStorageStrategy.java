@@ -38,6 +38,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
@@ -155,6 +156,13 @@ public class OssStorageStrategy implements StorageStrategy {
             return true;
         } catch (NoSuchKeyException e) {
             return false;
+        } catch (S3Exception e) {
+            // HEAD 无 body，SDK 常无法还原为 NoSuchKeyException，而是抛 404 的 S3Exception；
+            // 部分兼容服务无 ListBucket 权限时对不存在对象返回 403。仅 404 视为不存在，其余抛出。
+            if (e.statusCode() == 404) {
+                return false;
+            }
+            throw e;
         }
     }
 
@@ -191,7 +199,11 @@ public class OssStorageStrategy implements StorageStrategy {
         info.setFileName(context.getFileName());
         info.setContentType(context.getContentType());
         info.setSize(size);
-        info.setUrl(url(bucket, key, null));
+        // 仅配置了自定义域名（稳定直链）时才落库 URL；私有桶只能生成临时签名 URL，
+        // 落库会 1 小时失效且反查不可靠，故留空，访问时由 url(...) 按需实时生成。
+        if (config.getDomain() != null && !config.getDomain().isBlank()) {
+            info.setUrl(url(bucket, key, null));
+        }
         info.setCreateTime(LocalDateTime.now());
         int dot = key.lastIndexOf('.');
         if (dot >= 0) {

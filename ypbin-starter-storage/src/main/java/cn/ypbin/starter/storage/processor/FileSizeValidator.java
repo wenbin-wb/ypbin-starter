@@ -37,14 +37,23 @@ public class FileSizeValidator implements FileProcessor {
 
     @Override
     public boolean support(UploadContext context) {
-        return maxFileSize > 0 && context.getSize() > 0;
+        // 只要配置了上限就参与：大小已知时直接校验，未知时用限流流兜底
+        return maxFileSize > 0;
     }
 
     @Override
     public void process(UploadContext context) {
-        if (context.getSize() > maxFileSize) {
-            throw new StorageException(
-                "文件大小 " + context.getSize() + " 字节超过上限 " + maxFileSize + " 字节");
+        if (context.getSize() > 0) {
+            // 已知大小：直接校验，避免无谓包装
+            if (context.getSize() > maxFileSize) {
+                throw new StorageException(
+                    "文件大小 " + context.getSize() + " 字节超过上限 " + maxFileSize + " 字节");
+            }
+            return;
+        }
+        // 未知大小（缺 Content-Length 的流式上传）：包装为限流流，写入超上限即中断，防无限落盘
+        if (context.getInputStream() != null) {
+            context.setInputStream(new BoundedInputStream(context.getInputStream(), maxFileSize));
         }
     }
 

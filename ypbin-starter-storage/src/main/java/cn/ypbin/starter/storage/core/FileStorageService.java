@@ -84,7 +84,11 @@ public class FileStorageService {
     }
 
     /**
-     * 删除文件（含记录）。
+     * 删除物理文件（不含元数据记录）。
+     *
+     * <p>仅删除存储后端的文件本身。若使用了 {@code FileRecorder} 记录元数据，请在业务侧
+     * 另行调用 {@code fileRecorder.deleteByUrl(...)} 清理记录——因删除按 platform/bucket/path
+     * 定位，而记录以 URL 为键，二者语义不同，框架不代为反查删除以免误删。</p>
      *
      * @param platform 平台标识
      * @param bucket   桶

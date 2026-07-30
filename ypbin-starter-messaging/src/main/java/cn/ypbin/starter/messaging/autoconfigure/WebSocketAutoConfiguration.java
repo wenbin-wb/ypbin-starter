@@ -24,6 +24,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
@@ -44,9 +46,23 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketAutoConfiguration {
 
+    /**
+     * 心跳调度器：声明为容器管理的 Bean，ThreadPoolTaskScheduler 实现 DisposableBean，
+     * 上下文关闭时自动 shutdown，不会残留线程。
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "webSocketHeartbeatScheduler")
+    public TaskScheduler webSocketHeartbeatScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setThreadNamePrefix("ypbin-ws-heartbeat-");
+        return scheduler;
+    }
+
     @Bean
     @ConditionalOnMissingBean
-    public WebSocketStompConfigurer webSocketStompConfigurer(WebSocketProperties properties) {
-        return new WebSocketStompConfigurer(properties);
+    public WebSocketStompConfigurer webSocketStompConfigurer(WebSocketProperties properties,
+        TaskScheduler webSocketHeartbeatScheduler) {
+        return new WebSocketStompConfigurer(properties, webSocketHeartbeatScheduler);
     }
 }

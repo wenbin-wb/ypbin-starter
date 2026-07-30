@@ -23,6 +23,7 @@ import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -45,7 +46,9 @@ import org.springframework.context.annotation.Bean;
 @EnableConfigurationProperties(MqttProperties.class)
 public class MqttAutoConfiguration {
 
-    @Bean(destroyMethod = "close")
+    // 不用 destroyMethod="close"：Paho 的 close() 在仍连接时抛 MqttException(32100)。
+    // 由下方 DisposableBean 先 disconnect 再 close，优雅释放连接与持久化资源。
+    @Bean
     @ConditionalOnMissingBean
     public IMqttClient mqttClient(MqttProperties properties) throws Exception {
         String clientId = (properties.getClientId() != null && !properties.getClientId().isBlank())
@@ -80,5 +83,22 @@ public class MqttAutoConfiguration {
     @ConditionalOnMissingBean
     public MqttPublisher mqttPublisher(IMqttClient client, MqttProperties properties) {
         return new MqttPublisher(client, properties.getDefaultQos());
+    }
+
+    /**
+     * MQTT 客户端优雅关闭：先 disconnect 再 close，避免 Paho 在仍连接时 close() 抛
+     * MqttException(32100)，并释放持久化资源。
+     */
+    @Bean
+    public DisposableBean mqttClientShutdown(IMqttClient client) {
+        return () -> {
+            try {
+                if (client.isConnected()) {
+                    client.disconnect();
+                }
+            } finally {
+                client.close();
+            }
+        };
     }
 }

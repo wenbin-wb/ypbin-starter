@@ -87,7 +87,7 @@ public class LogAspect {
             try {
                 record.setTimeTakenMillis(Duration.between(start, Instant.now()).toMillis());
                 fillMeta(record, methodLog, classLog);
-                collector.collect(record, resolveIncludes(methodLog), point.getArgs(), result, null);
+                collector.collect(record, resolveIncludes(methodLog, classLog), point.getArgs(), result, null);
                 // 仅发布事件，持久化由异步监听器完成，不占用业务请求线程
                 eventPublisher.publishEvent(new LogEvent(record));
             } catch (Exception e) {
@@ -110,13 +110,19 @@ public class LogAspect {
         record.setModule(module);
     }
 
-    private Set<Include> resolveIncludes(Log methodLog) {
+    private Set<Include> resolveIncludes(Log methodLog, Log classLog) {
         Set<Include> result = EnumSet.noneOf(Include.class);
         result.addAll(globalIncludes);
-        if (methodLog != null) {
-            result.addAll(Set.of(methodLog.includes()));
-            Set.of(methodLog.excludes()).forEach(result::remove);
-        }
+        // 先应用类级（对类下所有方法生效），再用方法级覆盖，实现"方法级优先"
+        applyIncludes(result, classLog);
+        applyIncludes(result, methodLog);
         return result;
+    }
+
+    private void applyIncludes(Set<Include> result, Log log) {
+        if (log != null) {
+            result.addAll(Set.of(log.includes()));
+            Set.of(log.excludes()).forEach(result::remove);
+        }
     }
 }
