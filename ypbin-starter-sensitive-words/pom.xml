@@ -11,10 +11,10 @@
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
     </parent>
 
-    <artifactId>ypbin-starter-security</artifactId>
+    <artifactId>ypbin-starter-sensitive-words</artifactId>
 
     <name>${project.artifactId}</name>
-    <description>认证授权：基于 Sa-Token 的登录辅助、权限数据源扩展点与放行配置</description>
+    <description>敏感词过滤：基于 Hutool DFA 的敏感词检测、替换、可插拔词库</description>
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
@@ -25,21 +25,14 @@
             <groupId>cn.ypbin.starter</groupId>
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
-        <!-- 可选：引入后 security 提供的 AuditorProvider 实现可对接 data 模块的审计填充 -->
-        <dependency>
-            <groupId>cn.ypbin.starter</groupId>
-            <artifactId>ypbin-starter-data</artifactId>
-            <optional>true</optional>
-        </dependency>
 
         <dependency>
-            <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-dfa</artifactId>
         </dependency>
-        <!-- 密码编码器（BCrypt/Pbkdf2 等），轻量，不含完整 Spring Security -->
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

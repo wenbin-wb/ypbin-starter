@@ -1,1 +1,3 @@
 cn.ypbin.starter.messaging.autoconfigure.MailAutoConfiguration
+cn.ypbin.starter.messaging.autoconfigure.WebSocketAutoConfiguration
+cn.ypbin.starter.messaging.autoconfigure.MqttAutoConfiguration

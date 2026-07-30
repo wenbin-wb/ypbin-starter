@@ -40,6 +40,9 @@
         <module>ypbin-starter-excel</module>
         <module>ypbin-starter-captcha</module>
         <module>ypbin-starter-messaging</module>
+        <module>ypbin-starter-sensitive-words</module>
+        <module>ypbin-starter-i18n</module>
+        <module>ypbin-starter-api-crypto</module>
     </modules>
 
     <properties>

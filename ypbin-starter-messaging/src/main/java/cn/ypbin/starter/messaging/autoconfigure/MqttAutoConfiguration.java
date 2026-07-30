@@ -1,0 +1,74 @@
+/*
+ * Copyright (c) 2024-present ypbin-starter authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package cn.ypbin.starter.messaging.autoconfigure;
+
+import cn.ypbin.starter.messaging.mqtt.MqttProperties;
+import cn.ypbin.starter.messaging.mqtt.MqttPublisher;
+import org.eclipse.paho.client.mqttv3.IMqttClient;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+
+/**
+ * MQTT 自动配置。
+ *
+ * <p>仅在引入 Paho 客户端且 {@code ypbin.mqtt.enabled=true} 时生效。创建并连接 Paho 客户端，
+ * 装配 {@link MqttPublisher}。客户端以 destroy 方法在容器关闭时断开。</p>
+ *
+ * @author wenbin
+ * @since 2026-07-30
+ */
+@AutoConfiguration
+@ConditionalOnClass(MqttClient.class)
+@ConditionalOnProperty(prefix = "ypbin.mqtt", name = "enabled", havingValue = "true")
+@EnableConfigurationProperties(MqttProperties.class)
+public class MqttAutoConfiguration {
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean
+    public IMqttClient mqttClient(MqttProperties properties) throws Exception {
+        String clientId = (properties.getClientId() != null && !properties.getClientId().isBlank())
+            ? properties.getClientId()
+            : MqttClient.generateClientId();
+        MqttClient client = new MqttClient(properties.getUrl(), clientId, new MemoryPersistence());
+
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setAutomaticReconnect(true);
+        options.setCleanSession(properties.isCleanSession());
+        options.setConnectionTimeout(properties.getConnectionTimeout());
+        options.setKeepAliveInterval(properties.getKeepAliveInterval());
+        if (properties.getUsername() != null && !properties.getUsername().isBlank()) {
+            options.setUserName(properties.getUsername());
+        }
+        if (properties.getPassword() != null && !properties.getPassword().isBlank()) {
+            options.setPassword(properties.getPassword().toCharArray());
+        }
+        client.connect(options);
+        return client;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public MqttPublisher mqttPublisher(IMqttClient client, MqttProperties properties) {
+        return new MqttPublisher(client, properties.getDefaultQos());
+    }
+}

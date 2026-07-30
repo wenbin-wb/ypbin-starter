@@ -98,6 +98,21 @@
                 <artifactId>ypbin-starter-messaging</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-sensitive-words</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-i18n</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-api-crypto</artifactId>
+                <version>${revision}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
