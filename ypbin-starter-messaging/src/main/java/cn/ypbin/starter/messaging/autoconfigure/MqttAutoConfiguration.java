@@ -19,8 +19,10 @@ import cn.ypbin.starter.messaging.mqtt.MqttProperties;
 import cn.ypbin.starter.messaging.mqtt.MqttPublisher;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -49,13 +51,21 @@ public class MqttAutoConfiguration {
         String clientId = (properties.getClientId() != null && !properties.getClientId().isBlank())
             ? properties.getClientId()
             : MqttClient.generateClientId();
-        MqttClient client = new MqttClient(properties.getUrl(), clientId, new MemoryPersistence());
+
+        // 配置了持久化目录则用文件持久化（重启后 QoS1/2 未确认消息不丢），否则内存
+        MqttClientPersistence persistence =
+            (properties.getPersistenceDir() != null && !properties.getPersistenceDir().isBlank())
+                ? new MqttDefaultFilePersistence(properties.getPersistenceDir())
+                : new MemoryPersistence();
+        MqttClient client = new MqttClient(properties.getUrl(), clientId, persistence);
 
         MqttConnectOptions options = new MqttConnectOptions();
-        options.setAutomaticReconnect(true);
+        options.setAutomaticReconnect(properties.isAutomaticReconnect());
+        options.setMaxReconnectDelay(properties.getMaxReconnectDelay());
         options.setCleanSession(properties.isCleanSession());
         options.setConnectionTimeout(properties.getConnectionTimeout());
         options.setKeepAliveInterval(properties.getKeepAliveInterval());
+        options.setMaxInflight(properties.getMaxInflight());
         if (properties.getUsername() != null && !properties.getUsername().isBlank()) {
             options.setUserName(properties.getUsername());
         }

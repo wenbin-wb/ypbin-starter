@@ -41,6 +41,12 @@ public class WebSocketProperties {
     /** 允许跨域的来源模式 */
     private String allowedOriginPatterns = "*";
 
+    /** 服务端心跳发送间隔（毫秒），0 表示不发送。用于保活与探测半开连接 */
+    private long heartbeatServer = 10_000L;
+
+    /** 期望客户端心跳间隔（毫秒），0 表示不要求 */
+    private long heartbeatClient = 10_000L;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -79,5 +85,21 @@ public class WebSocketProperties {
 
     public void setAllowedOriginPatterns(String allowedOriginPatterns) {
         this.allowedOriginPatterns = allowedOriginPatterns;
+    }
+
+    public long getHeartbeatServer() {
+        return heartbeatServer;
+    }
+
+    public void setHeartbeatServer(long heartbeatServer) {
+        this.heartbeatServer = heartbeatServer;
+    }
+
+    public long getHeartbeatClient() {
+        return heartbeatClient;
+    }
+
+    public void setHeartbeatClient(long heartbeatClient) {
+        this.heartbeatClient = heartbeatClient;
     }
 }
