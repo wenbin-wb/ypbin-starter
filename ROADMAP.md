@@ -166,7 +166,21 @@ ypbin-starter/                        聚合 POM
 - ✅ 树形结构工具 TreeUtils（core：TreeNode 契约 + O(n) 列表转树 + 过滤）
 
 抽取共享：SpelKeyResolver（tools，限流/幂等共用 SpEL 键解析）。
-明确不做：Excel、验证码、国密 SM、分布式事务、灰度、代码生成（属微服务层或独立大工程，违背粗粒度定位）。
+
+### 里程碑 M8 — 补齐参考项目特色能力（用户确认全做）✅ 全部完成
+- ✅ Excel 导入导出（ypbin-starter-excel，FastExcel：ExcelUtils 读/写/HTTP导出，注解驱动）
+- ✅ 验证码（ypbin-starter-captcha，easy-captcha：CaptchaService 生成+一次性校验，可插拔 CaptchaStore）
+- ✅ 邮件（ypbin-starter-messaging，Spring Mail：MailService 文本/HTML/附件，ConditionalOnBean 装配）
+- ✅ 国密 SM2/SM4（ypbin-starter-tools crypto，BouncyCastle：Sm4Utils 对称 + Sm2Utils 非对称+密钥对生成）
+- 全量 19 模块 BUILD SUCCESS，30 单测全绿（新增 SM2/SM4 往返 3 个）。
+
+依赖策略：允许联网从中央仓库下载（FastExcel / easy-captcha / BouncyCastle 等）。
+仍不做：短信多厂商、分布式事务、灰度、代码生成（依赖重或属微服务/独立工程）。
+
+### 单元测试（M6 补充）
+- ✅ 引入 junit-jupiter + assertj（test scope）；27 个核心逻辑单测全绿
+  （TreeUtils / SensitiveType / XssCleaner / AesFieldEncryptor / 限流并发 / 幂等并发）
+- ✅ .gitattributes 统一行尾为 LF
 
 ## 6. 防侵权基线
 

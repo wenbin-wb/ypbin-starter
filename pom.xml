@@ -37,6 +37,9 @@
         <module>ypbin-starter-extension-tenant</module>
         <module>ypbin-starter-extension-crud</module>
         <module>ypbin-starter-extension-datapermission</module>
+        <module>ypbin-starter-excel</module>
+        <module>ypbin-starter-captcha</module>
+        <module>ypbin-starter-messaging</module>
     </modules>
 
     <properties>

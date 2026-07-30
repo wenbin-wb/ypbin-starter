@@ -11,10 +11,10 @@
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
     </parent>
 
-    <artifactId>ypbin-starter-tools</artifactId>
+    <artifactId>ypbin-starter-captcha</artifactId>
 
     <name>${project.artifactId}</name>
-    <description>常用工具：限流、幂等（注解 + AOP，可插拔存储）、加解密工具</description>
+    <description>验证码：基于 easy-captcha 的图形验证码生成与校验，可插拔存储</description>
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
@@ -27,31 +27,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.whvcse</groupId>
+            <artifactId>easy-captcha</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
-        <!-- 分布式限流基于 Redis + Lua，可选：无 Redis 时退化为内存限流 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <!-- 采集请求信息用于限流 key，可选 -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <!-- 国密 SM2/SM4 基于 BouncyCastle，可选：不用国密时无需引入 -->
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk18on</artifactId>
-            <optional>true</optional>
+            <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
