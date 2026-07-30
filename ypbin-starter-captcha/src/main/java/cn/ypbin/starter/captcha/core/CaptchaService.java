@@ -15,58 +15,69 @@
  */
 package cn.ypbin.starter.captcha.core;
 
-import cn.ypbin.starter.captcha.autoconfigure.CaptchaProperties;
-import com.wf.captcha.SpecCaptcha;
-import com.wf.captcha.base.Captcha;
-import java.time.Duration;
-import java.util.UUID;
+import cloud.tianai.captcha.application.ImageCaptchaApplication;
+import cloud.tianai.captcha.common.constant.CaptchaTypeConstant;
+import cloud.tianai.captcha.common.response.ApiResponse;
+import cloud.tianai.captcha.validator.common.model.dto.ImageCaptchaTrack;
 
 /**
- * 验证码服务。
+ * 验证码服务（薄封装）。
  *
- * <p>生成图形验证码（返回 Base64 图片 + 标识），并将答案存入 {@link CaptchaStore}；
- * 校验时按标识取出答案比对，一次性失效。基于 easy-captcha 的算术/字符类型可配。</p>
+ * <p>委托给 tianai-captcha 的 {@link ImageCaptchaApplication}，支持滑块、旋转、点选、拼接等
+ * 行为验证码。生成的验证码数据（含图片、id）由前端渲染，用户完成行为后回传轨迹 {@link ImageCaptchaTrack}
+ * 校验。验证码状态由 tianai starter 自带的缓存（本地/Redis 自动切换）管理，一次性有效。</p>
+ *
+ * <p>验证码类型见 {@link CaptchaTypeConstant}：SLIDER（滑块）/ ROTATE（旋转）/
+ * CONCAT（拼接）/ WORD_IMAGE_CLICK（文字点选）。</p>
  *
  * @author wenbin
  * @since 2026-07-30
  */
 public class CaptchaService {
 
-    private final CaptchaStore store;
-    private final CaptchaProperties properties;
+    private final ImageCaptchaApplication application;
 
-    public CaptchaService(CaptchaStore store, CaptchaProperties properties) {
-        this.store = store;
-        this.properties = properties;
+    public CaptchaService(ImageCaptchaApplication application) {
+        this.application = application;
     }
 
     /**
-     * 生成验证码。
+     * 生成默认（滑块）验证码。
      *
-     * @return 验证码结果（含标识与 Base64 图片）
+     * @return 验证码数据（含 id 与图片，供前端渲染）
      */
-    public CaptchaResult generate() {
-        SpecCaptcha captcha = new SpecCaptcha(properties.getWidth(), properties.getHeight(),
-            properties.getLength());
-        captcha.setCharType(Captcha.TYPE_DEFAULT);
-        String code = captcha.text().toLowerCase();
-        String id = UUID.randomUUID().toString().replace("-", "");
-        store.save(id, code, Duration.ofSeconds(properties.getExpireSeconds()));
-        return new CaptchaResult(id, captcha.toBase64());
+    public ApiResponse<?> generate() {
+        return application.generateCaptcha(CaptchaTypeConstant.SLIDER);
     }
 
     /**
-     * 校验验证码（不区分大小写，一次性）。
+     * 生成指定类型的验证码。
      *
-     * @param id   验证码标识
-     * @param code 用户输入
-     * @return 是否校验通过
+     * @param type 验证码类型（见 {@link CaptchaTypeConstant}）
+     * @return 验证码数据
      */
-    public boolean verify(String id, String code) {
-        if (id == null || code == null || code.isBlank()) {
-            return false;
-        }
-        String expected = store.takeAndRemove(id);
-        return expected != null && expected.equalsIgnoreCase(code.trim());
+    public ApiResponse<?> generate(String type) {
+        return application.generateCaptcha(type);
+    }
+
+    /**
+     * 校验用户行为轨迹（一次性）。
+     *
+     * @param id    生成时返回的验证码 id
+     * @param track 前端采集的行为轨迹
+     * @return 校验结果
+     */
+    public boolean verify(String id, ImageCaptchaTrack track) {
+        ApiResponse<?> response = application.matching(id, track);
+        return response != null && response.isSuccess();
+    }
+
+    /**
+     * 获取底层 tianai 应用，用于高级定制场景。
+     *
+     * @return {@link ImageCaptchaApplication}
+     */
+    public ImageCaptchaApplication getApplication() {
+        return application;
     }
 }

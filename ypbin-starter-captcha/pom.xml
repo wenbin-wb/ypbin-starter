@@ -14,7 +14,7 @@
     <artifactId>ypbin-starter-captcha</artifactId>
 
     <name>${project.artifactId}</name>
-    <description>验证码：基于 easy-captcha 的图形验证码生成与校验，可插拔存储</description>
+    <description>验证码：基于 tianai-captcha 的行为验证码（滑块/旋转/点选/拼接）生成与校验</description>
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
@@ -26,13 +26,10 @@
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
 
+        <!-- tianai-captcha starter 自带核心 Bean 与缓存（本地/Redis 自动切换） -->
         <dependency>
-            <groupId>com.github.whvcse</groupId>
-            <artifactId>easy-captcha</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-autoconfigure</artifactId>
+            <groupId>cloud.tianai.captcha</groupId>
+            <artifactId>tianai-captcha-springboot-starter</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

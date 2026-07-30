@@ -174,6 +174,16 @@ ypbin-starter/                        聚合 POM
 - ✅ 国密 SM2/SM4（ypbin-starter-tools crypto，BouncyCastle：Sm4Utils 对称 + Sm2Utils 非对称+密钥对生成）
 - 全量 19 模块 BUILD SUCCESS，30 单测全绿（新增 SM2/SM4 往返 3 个）。
 
+### 里程碑 M9 — 依赖升级 + 验证码升级
+- ✅ 依赖升到稳定最新：Spring Boot 3.5.16、sa-token 1.45.0、mybatis-plus 3.5.17、
+  hutool 5.8.47、bouncycastle 1.85、springdoc 2.8.17
+- ✅ 验证码换成行为验证码 tianai-captcha 1.5.5（滑块/旋转/点选/拼接 + 轨迹校验），
+  替换只支持图形的 easy-captcha；captcha 模块改为薄封装 tianai 的 ImageCaptchaApplication
+- 决策：不升 Spring Boot 4.x（大版本迁移，sa-token/mp 兼容性未验证，风险高）——用户拍板留 3.5 最新补丁
+- 踩坑修复：mybatis-plus 3.5.17 破坏性重构，IService/ServiceImpl 从 extension.service 包
+  迁到 spring.service 包（新 artifact mybatis-plus-spring），改 crud 模块两处 import 修复
+- 全量 19 模块 BUILD SUCCESS，30 单测全绿
+
 依赖策略：允许联网从中央仓库下载（FastExcel / easy-captcha / BouncyCastle 等）。
 仍不做：短信多厂商、分布式事务、灰度、代码生成（依赖重或属微服务/独立工程）。
 
