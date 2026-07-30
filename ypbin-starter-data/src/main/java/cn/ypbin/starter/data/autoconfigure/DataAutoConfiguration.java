@@ -17,6 +17,9 @@ package cn.ypbin.starter.data.autoconfigure;
 
 import cn.ypbin.starter.data.core.AuditorProvider;
 import cn.ypbin.starter.data.core.InnerInterceptorProvider;
+import cn.ypbin.starter.data.crypto.AesFieldEncryptor;
+import cn.ypbin.starter.data.crypto.FieldEncryptor;
+import cn.ypbin.starter.data.crypto.FieldEncryptorHolder;
 import cn.ypbin.starter.data.handler.DefaultMetaObjectHandler;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
@@ -26,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -110,5 +114,42 @@ public class DataAutoConfiguration {
     @ConditionalOnMissingBean
     public MetaObjectHandler metaObjectHandler(AuditorProvider auditorProvider) {
         return new DefaultMetaObjectHandler(auditorProvider);
+    }
+
+    /**
+     * 默认字段加密器：仅当配置了 {@code ypbin.data.encrypt.key} 时装配。
+     *
+     * <p>装配后注入 {@link FieldEncryptorHolder}，供由 MyBatis 实例化的 EncryptTypeHandler 取用。
+     * 业务方也可自行提供 {@link FieldEncryptor} Bean 覆盖（如接入国密/KMS）。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.data.encrypt", name = "key")
+    public FieldEncryptor fieldEncryptor(DataProperties properties) {
+        String key = properties.getEncrypt().getKey();
+        FieldEncryptor encryptor = new AesFieldEncryptor(key);
+        FieldEncryptorHolder.setEncryptor(encryptor);
+        log.debug("[ypbin-starter] field encryptor initialized.");
+        return encryptor;
+    }
+
+    /**
+     * 兼容业务方自定义的 {@link FieldEncryptor} Bean：无论何种来源，都注入静态持有器。
+     */
+    @Bean
+    public FieldEncryptorRegistrar fieldEncryptorRegistrar(ObjectProvider<FieldEncryptor> encryptorProvider) {
+        return new FieldEncryptorRegistrar(encryptorProvider);
+    }
+
+    /**
+     * 加密器注册器：把容器中的 FieldEncryptor（无论默认还是自定义）注入静态持有器。
+     */
+    static class FieldEncryptorRegistrar {
+        FieldEncryptorRegistrar(ObjectProvider<FieldEncryptor> encryptorProvider) {
+            FieldEncryptor encryptor = encryptorProvider.getIfAvailable();
+            if (encryptor != null) {
+                FieldEncryptorHolder.setEncryptor(encryptor);
+            }
+        }
     }
 }

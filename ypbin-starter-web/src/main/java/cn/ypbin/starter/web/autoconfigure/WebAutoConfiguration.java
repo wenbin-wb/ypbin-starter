@@ -16,6 +16,8 @@
 package cn.ypbin.starter.web.autoconfigure;
 
 import cn.ypbin.starter.web.handler.GlobalExceptionHandler;
+import cn.ypbin.starter.web.xss.XssFilter;
+import jakarta.servlet.DispatcherType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -23,7 +25,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
@@ -39,7 +43,7 @@ import org.springframework.web.filter.CorsFilter;
  */
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@EnableConfigurationProperties(CorsProperties.class)
+@EnableConfigurationProperties({CorsProperties.class, XssProperties.class})
 public class WebAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(WebAutoConfiguration.class);
@@ -73,5 +77,25 @@ public class WebAutoConfiguration {
         source.registerCorsConfiguration("/**", config);
         log.debug("[ypbin-starter] CORS filter enabled.");
         return new CorsFilter(source);
+    }
+
+    /**
+     * XSS 过滤器，仅在 {@code ypbin.web.xss.enabled=true} 时装配。
+     *
+     * <p>用 {@link FilterRegistrationBean} 注册以便控制顺序（较高优先级，尽早清洗），
+     * 仅作用于普通请求，不拦截异步分发。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.web.xss", name = "enabled", havingValue = "true")
+    public FilterRegistrationBean<XssFilter> xssFilterRegistration(XssProperties properties) {
+        FilterRegistrationBean<XssFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new XssFilter(properties.getExcludes()));
+        registration.addUrlPatterns("/*");
+        registration.setDispatcherTypes(DispatcherType.REQUEST);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 100);
+        registration.setName("ypbinXssFilter");
+        log.debug("[ypbin-starter] XSS filter enabled.");
+        return registration;
     }
 }

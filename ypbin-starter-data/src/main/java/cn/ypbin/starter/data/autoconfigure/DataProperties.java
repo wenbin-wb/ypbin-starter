@@ -17,6 +17,7 @@ package cn.ypbin.starter.data.autoconfigure;
 
 import com.baomidou.mybatisplus.annotation.DbType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 /**
  * 数据模块配置项。
@@ -38,6 +39,10 @@ public class DataProperties {
 
     /** 溢出总页数后是否进行处理（跳回首页） */
     private boolean overflow = false;
+
+    /** 字段加密配置 */
+    @NestedConfigurationProperty
+    private Encrypt encrypt = new Encrypt();
 
     public boolean isEnabled() {
         return enabled;
@@ -69,5 +74,30 @@ public class DataProperties {
 
     public void setOverflow(boolean overflow) {
         this.overflow = overflow;
+    }
+
+    public Encrypt getEncrypt() {
+        return encrypt;
+    }
+
+    public void setEncrypt(Encrypt encrypt) {
+        this.encrypt = encrypt;
+    }
+
+    /**
+     * 字段加密配置。
+     */
+    public static class Encrypt {
+
+        /** AES 密钥，长度需为 16/24/32 字节。配置后才装配默认字段加密器 */
+        private String key;
+
+        public String getKey() {
+            return key;
+        }
+
+        public void setKey(String key) {
+            this.key = key;
+        }
     }
 }

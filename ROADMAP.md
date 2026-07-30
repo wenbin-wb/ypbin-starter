@@ -152,6 +152,22 @@ ypbin-starter/                        聚合 POM
   gpg 本地未缓存，仅发布时需要，不影响日常构建）
 - ✅ .gitignore
 
+### 里程碑 M7 — 安全与数据能力增强（对比参考项目补齐缺口）✅ 全部完成
+批次一（Web 安全）：
+- ✅ XSS 过滤（web：XssFilter + XssHttpServletRequestWrapper + XssCleaner；可配开关与排除路径；默认关闭）
+- ✅ 幂等 @Idempotent（tools：注解 + AOP + IdempotentStore；内存/Redis-Lua 两实现；支持 SpEL 键）
+
+批次二（数据安全）：
+- ✅ 数据脱敏 @Sensitive（json：字段注解 + ContextualSerializer；PHONE/ID_CARD/BANK_CARD/EMAIL/CHINESE_NAME/CUSTOM 等）
+- ✅ 雪花 ID 生成器（data：IdGenerator，复用 MyBatis-Plus IdWorker）
+
+批次三（可选增强）：
+- ✅ 字段加密（data：@TableField typeHandler=EncryptTypeHandler；FieldEncryptor 扩展点 + AES-GCM 默认实现；配 ypbin.data.encrypt.key 启用）
+- ✅ 树形结构工具 TreeUtils（core：TreeNode 契约 + O(n) 列表转树 + 过滤）
+
+抽取共享：SpelKeyResolver（tools，限流/幂等共用 SpEL 键解析）。
+明确不做：Excel、验证码、国密 SM、分布式事务、灰度、代码生成（属微服务层或独立大工程，违背粗粒度定位）。
+
 ## 6. 防侵权基线
 
 - 不复制任一参考项目的源码；类/方法自行设计命名与实现。

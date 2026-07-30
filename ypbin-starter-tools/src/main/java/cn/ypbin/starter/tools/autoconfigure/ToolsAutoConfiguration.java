@@ -15,6 +15,10 @@
  */
 package cn.ypbin.starter.tools.autoconfigure;
 
+import cn.ypbin.starter.tools.idempotent.IdempotentAspect;
+import cn.ypbin.starter.tools.idempotent.IdempotentStore;
+import cn.ypbin.starter.tools.idempotent.InMemoryIdempotentStore;
+import cn.ypbin.starter.tools.idempotent.RedisIdempotentStore;
 import cn.ypbin.starter.tools.limiter.InMemoryRateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RateLimitAspect;
 import cn.ypbin.starter.tools.limiter.RateLimiterStore;
@@ -69,5 +73,32 @@ public class ToolsAutoConfiguration {
     @ConditionalOnProperty(prefix = "ypbin.tools.rate-limit", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RateLimitAspect rateLimitAspect(RateLimiterStore store) {
         return new RateLimitAspect(store);
+    }
+
+    /**
+     * Redis 分布式幂等存储：存在 Redis 时优先装配（声明在内存兜底之前，顺序保证可靠）。
+     */
+    @Bean
+    @ConditionalOnClass(StringRedisTemplate.class)
+    @ConditionalOnMissingBean(IdempotentStore.class)
+    @ConditionalOnProperty(prefix = "ypbin.tools.idempotent", name = "distributed", havingValue = "true", matchIfMissing = true)
+    public IdempotentStore redisIdempotentStore(StringRedisTemplate redisTemplate) {
+        return new RedisIdempotentStore(redisTemplate);
+    }
+
+    /**
+     * 内存幂等存储：兜底，仅当容器中不存在任何 {@link IdempotentStore} 时装配。
+     */
+    @Bean
+    @ConditionalOnMissingBean(IdempotentStore.class)
+    public IdempotentStore inMemoryIdempotentStore() {
+        return new InMemoryIdempotentStore();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.tools.idempotent", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public IdempotentAspect idempotentAspect(IdempotentStore store) {
+        return new IdempotentAspect(store);
     }
 }
