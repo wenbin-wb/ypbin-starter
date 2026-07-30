@@ -139,10 +139,21 @@ ypbin-starter/                        聚合 POM
 
 **M4 扩展层全部完成，16 模块 BUILD SUCCESS。**
 
-### 里程碑 M5 — 微服务层（按需）
-- ⬜ `ypbin-starter-cloud-launch`（+ LauncherService SPI）
-- ⬜ `ypbin-starter-cloud-core`（Feign/熔断/请求头透传）
-- ⬜ `ypbin-starter-cloud-gateway`
+### 里程碑 M5 — 微服务层（Nacos，已启动）
+版本锁定（硬绑定，不可追最新）：
+- Spring Boot 3.5.16 → Spring Cloud **2025.0.3** → spring-cloud-alibaba **2025.0.0.0**（Nacos）
+- 注意：Spring Cloud 2025.1.x / alibaba 2025.1.0.0 是给 Boot 4.x 的，不能用。
+
+模块：
+- ✅ `ypbin-starter-cloud-core`（OpenFeign 请求头透传 FeignHeaderInterceptor + resilience4j 熔断依赖；
+  白名单透传 Authorization/traceId/租户/用户等，无 Web 上下文安全跳过）
+- ✅ `ypbin-starter-cloud-nacos`（Nacos 注册发现 + 配置中心 + 负载均衡三件套聚合，版本锁定）
+- ✅ `ypbin-starter-cloud-gateway`（Spring Cloud Gateway/WebFlux；RequestIdGlobalFilter
+  最高优先级生成/透传 X-Request-Id，贯穿调用链）
+
+验证边界（诚实声明）：本机无 Nacos server，M5 已验证**编译通过 + 与 23 个 servlet 模块共存无冲突**；
+服务注册、Feign 调通、网关路由等端到端行为需在有 Nacos 的环境自测。
+全量 26 模块 BUILD SUCCESS，69 测试全绿。
 
 ### 里程碑 M6 — 工程化
 - ✅ spotless + license 头统一（内联 Apache-2.0 头 + import 顺序 + 去多余空白 + 去未用 import；

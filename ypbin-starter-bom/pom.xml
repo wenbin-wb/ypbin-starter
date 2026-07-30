@@ -123,6 +123,21 @@
                 <artifactId>ypbin-starter-sign</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-core</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-nacos</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-gateway</artifactId>
+                <version>${revision}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

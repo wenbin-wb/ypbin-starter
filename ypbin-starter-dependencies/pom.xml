@@ -21,6 +21,9 @@
 
         <!-- 平台版本 -->
         <spring-boot.version>3.5.16</spring-boot.version>
+        <!-- 微服务层：与 Boot 3.5.x 硬绑定，勿升 2025.1.x（那是 Boot 4.x 的） -->
+        <spring-cloud.version>2025.0.3</spring-cloud.version>
+        <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
 
         <!-- 三方库版本 -->
         <sa-token.version>1.45.0</sa-token.version>
@@ -58,6 +61,23 @@
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
                 <version>${aws-sdk-v2.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Spring Cloud BOM（微服务层，锁定 Boot 3.5.x 对应版本） -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Cloud Alibaba BOM（Nacos 等） -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -246,6 +266,21 @@
             <dependency>
                 <groupId>cn.ypbin.starter</groupId>
                 <artifactId>ypbin-starter-sign</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-core</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-nacos</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-gateway</artifactId>
                 <version>${revision}</version>
             </dependency>
         </dependencies>
