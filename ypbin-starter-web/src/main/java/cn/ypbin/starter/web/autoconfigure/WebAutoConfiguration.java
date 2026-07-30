@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2024-present ypbin-starter authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package cn.ypbin.starter.web.autoconfigure;
+
+import cn.ypbin.starter.web.handler.GlobalExceptionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
+
+/**
+ * Web 层自动配置。
+ *
+ * <p>装配全局异常处理器与可选的 CORS 过滤器。仅在 Servlet Web 环境生效，
+ * 所有 Bean 均以 {@link ConditionalOnMissingBean} 声明，允许业务方覆盖。</p>
+ *
+ * @author wenbin
+ * @since 2026-07-30
+ */
+@AutoConfiguration
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@EnableConfigurationProperties(CorsProperties.class)
+public class WebAutoConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(WebAutoConfiguration.class);
+
+    /**
+     * 全局异常处理器。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public GlobalExceptionHandler globalExceptionHandler() {
+        log.debug("[ypbin-starter] global exception handler registered.");
+        return new GlobalExceptionHandler();
+    }
+
+    /**
+     * CORS 过滤器，仅在 {@code ypbin.web.cors.enabled=true} 时装配。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.web.cors", name = "enabled", havingValue = "true")
+    public CorsFilter corsFilter(CorsProperties properties) {
+        CorsConfiguration config = new CorsConfiguration();
+        properties.getAllowedOriginPatterns().forEach(config::addAllowedOriginPattern);
+        properties.getAllowedMethods().forEach(config::addAllowedMethod);
+        properties.getAllowedHeaders().forEach(config::addAllowedHeader);
+        properties.getExposedHeaders().forEach(config::addExposedHeader);
+        config.setAllowCredentials(properties.isAllowCredentials());
+        config.setMaxAge(properties.getMaxAge());
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        log.debug("[ypbin-starter] CORS filter enabled.");
+        return new CorsFilter(source);
+    }
+}

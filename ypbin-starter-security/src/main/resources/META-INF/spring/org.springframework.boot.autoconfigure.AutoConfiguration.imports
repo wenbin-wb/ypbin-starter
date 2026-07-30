@@ -1,0 +1,2 @@
+cn.ypbin.starter.security.autoconfigure.SecurityAutoConfiguration
+cn.ypbin.starter.security.autoconfigure.SecurityAuditorAutoConfiguration

@@ -1,0 +1,368 @@
+# ypbin-starter
+
+一套基于 Spring Boot 3.5 的开箱即用基础能力 starter 集合。参考业界成熟脚手架的架构思想，
+按「约定优于配置、按需引入、可覆盖可扩展」的原则重构，面向企业级生产环境。
+
+## 特性
+
+- **分层架构**：基础层（core/json/web/data/cache/security 等）单体与微服务共用，扩展层（crud/tenant/datapermission）按需引入。
+- **约定优于配置**：统一 `ypbin.*` 配置前缀，默认自动装配，零配置即可用。
+- **可覆盖可扩展**：能力 Bean 全部 `@ConditionalOnMissingBean` 可覆盖，`@ConditionalOnProperty` 可开关；模块间通过扩展点接口解耦。
+- **企业级细节**：多租户跨租户逃逸、异步上下文透传、分布式限流、数据权限门控、全局异常统一、审计字段自动填充。
+- **版本治理**：`${revision}` + flatten 统一版本，对外提供 BOM 一键导入。
+
+## 技术栈
+
+| 项 | 版本 |
+|---|---|
+| JDK | 17 |
+| Spring Boot | 3.5.5 |
+| 认证 | Sa-Token |
+| ORM | MyBatis-Plus 3.5.16 |
+| 缓存 | Redis（Spring Data Redis） |
+| 对象存储 | AWS SDK v2（S3 兼容） |
+| API 文档 | SpringDoc OpenAPI |
+
+## 快速开始
+
+### 1. 引入 BOM 统一版本
+
+在你的项目 `pom.xml` 的 `dependencyManagement` 中导入：
+
+```xml
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-bom</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+### 2. 按需引入模块（无需再写版本号）
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-data</artifactId>
+    </dependency>
+</dependencies>
+```
+
+引入即自动装配，无需额外注解。
+
+## 模块总览
+
+| 模块 | artifactId | 职责 | 配置前缀 |
+|---|---|---|---|
+| 核心 | `ypbin-starter-core` | 统一响应 R、异常体系、通用枚举、SpringUtils、上下文透传 | — |
+| JSON | `ypbin-starter-json` | Jackson 统一序列化（时间格式、大数字转字符串） | `ypbin.json` |
+| Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON | `ypbin.web` |
+| 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、审计字段自动填充、拦截器编排 | `ypbin.data` |
+| 缓存 | `ypbin-starter-cache` | Redis 缓存（CacheService 策略接口） | `ypbin.cache` |
+| 安全 | `ypbin-starter-security` | Sa-Token 封装（登录、权限数据源扩展点） | `ypbin.security` |
+| API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
+| 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
+| 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP（异步、可插拔持久化） | `ypbin.log` |
+| 工具 | `ypbin-starter-tools` | 分布式限流 `@RateLimit`、AES 加解密 | `ypbin.tools` |
+| 多租户 | `ypbin-starter-extension-tenant` | 行级租户隔离、`@TenantIgnore` 跨租户逃逸 | `ypbin.tenant` |
+| CRUD | `ypbin-starter-extension-crud` | 通用控制器/服务基类，防 Over-Posting | — |
+| 数据权限 | `ypbin-starter-extension-datapermission` | 行级数据范围过滤、`@DataPermission` 门控 | `ypbin.data-permission` |
+
+详细用法见 [各模块使用文档](#各模块使用文档)。
+
+## 各模块使用文档
+
+### core — 核心
+
+所有模块的底座，通常由其它模块传递引入，无需单独声明。提供：
+
+- `R<T>`：统一响应体。`R.ok(data)` / `R.fail(code, msg)`。
+- `BaseException` / `BusinessException` / `GlobalErrorCode`：异常体系，业务异常抛 `BusinessException`。
+- `BaseEnum<V>`：通用枚举契约（value + description）。
+- `SpringUtils`：静态获取 Bean / 发布事件 / 读配置。
+- `ContextPropagator` + `ContextAwareTaskDecorator`：异步上下文透传（见下）。
+
+**异步上下文透传**：把主线程的租户、用户、MDC 等上下文带入 `@Async` 子线程。将 core 提供的
+`TaskDecorator` 设置到你的线程池即可：
+
+```java
+@Bean
+public ThreadPoolTaskExecutor taskExecutor(TaskDecorator contextAwareTaskDecorator) {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setTaskDecorator(contextAwareTaskDecorator);
+    executor.initialize();
+    return executor;
+}
+```
+
+各模块（如 tenant）自行注册 `ContextPropagator` Bean，无需你手动列举要透传的内容。
+
+### web — Web 层
+
+引入即生效，无需注解：
+
+- 全局异常处理：业务/校验/系统异常统一转 `R`，**所有异常返回 HTTP 200**，由 `R.code` 区分。
+- 404 统一 JSON：访问不存在的接口返回 `R.fail(404, "接口不存在")`，而非默认 HTML 错误页（默认已开启 `throw-exception-if-no-handler-found`）。
+- CORS：默认关闭，按需开启：
+
+```yaml
+ypbin:
+  web:
+    cors:
+      enabled: true
+      allowed-origin-patterns: ["https://*.example.com"]
+```
+
+### data — 数据访问
+
+MyBatis-Plus 增强，引入即生效：
+
+- 分页拦截器（默认单页上限 500 条，可配 `ypbin.data.max-limit`）。
+- 实体继承 `BaseEntity` 即获得 `createUser/createTime/updateUser/updateTime` 审计字段，INSERT/UPDATE 自动填充。
+- 操作人来源：实现 `AuditorProvider` 扩展点（引入 security 模块后自动对接登录用户）。
+- 拦截器编排：多租户、数据权限等通过 `InnerInterceptorProvider` 按 order 贡献内部拦截器，顺序可控（租户/数据权限先于分页）。
+
+```java
+public class Article extends BaseEntity {
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
+    private String title;
+}
+```
+
+### json — 序列化
+
+统一 Jackson 配置，引入即生效：
+
+- `LocalDateTime/LocalDate/LocalTime` 统一格式（默认 `yyyy-MM-dd HH:mm:ss` 等）。
+- Long/BigInteger/BigDecimal 序列化为字符串，规避前端 JS 大数精度丢失。
+- 反序列化忽略未知字段。
+
+```yaml
+ypbin:
+  json:
+    date-time-format: yyyy-MM-dd HH:mm:ss
+    write-big-number-as-string: true   # 默认 true
+```
+
+### cache — 缓存
+
+基于 Redis 的 `CacheService` 统一缓存接口，值以 JSON 存储：
+
+```java
+@Autowired
+private CacheService cacheService;
+
+cacheService.set("user:1", user, Duration.ofMinutes(30));
+User user = cacheService.get("user:1", User.class);
+```
+
+需要多级缓存/本地缓存时，实现 `CacheService` 覆盖默认 Bean 即可。
+
+### security — 认证授权
+
+基于 Sa-Token 封装：
+
+- `LoginHelper`：`login(userId)` / `getUserId()` / `logout()`，统一以 `Long` 用户 ID 进出。
+- 权限数据源：实现 `PermissionProvider` 提供用户的权限码与角色码，框架自动适配为 Sa-Token 的 `StpInterface`，无需直接依赖 Sa-Token API。
+
+```java
+@Component
+public class MyPermissionProvider implements PermissionProvider {
+    @Override
+    public List<String> getPermissions(Object loginId, String loginType) {
+        return permissionService.listByUserId(Long.valueOf(loginId.toString()));
+    }
+}
+```
+
+引入本模块后会自动对接 data 的审计字段（用当前登录用户填充 createUser/updateUser）。
+
+### api-doc — API 文档
+
+SpringDoc OpenAPI 开箱即用，配置文档元信息：
+
+```yaml
+ypbin:
+  api-doc:
+    title: 订单服务 API
+    version: 1.0.0
+    contact:
+      name: wenbin
+      email: dev@example.com
+```
+
+启动后访问 `/swagger-ui.html`。
+
+### storage — 文件存储
+
+本地 + S3 兼容对象存储（阿里云 OSS / 腾讯云 COS / MinIO / 七牛等），支持多存储源共存、按 platform 路由：
+
+```yaml
+ypbin:
+  storage:
+    default-platform: local-disk
+    local:
+      - platform: local-disk
+        base-path: /data/files
+        domain: https://cdn.example.com
+    oss:
+      - platform: aliyun
+        endpoint: https://oss-cn-hangzhou.aliyuncs.com
+        bucket: my-bucket
+        access-key: ${OSS_AK}
+        secret-key: ${OSS_SK}
+```
+
+```java
+@Autowired
+private FileStorageService fileStorageService;
+
+FileInfo info = fileStorageService.upload(inputStream, "a.png")
+    .platform("aliyun")       // 不指定则用默认平台
+    .path("images/")
+    .execute();
+```
+
+扩展点：`StorageStrategy`（新增存储后端）、`FileProcessor`（上传前校验/改名/生成路径责任链）、`FileRecorder`（记录文件元数据）。S3 上传对未知大小的流会落临时文件规避 OOM，直链自动 URL 编码。
+
+### log — 操作日志
+
+`@Log` 注解 AOP 采集，**异步持久化**不阻塞业务：
+
+```java
+@Log(value = "创建订单", module = "订单", includes = Include.REQUEST_BODY)
+@PostMapping("/orders")
+public R<Void> create(@RequestBody OrderReq req) { ... }
+```
+
+- `Include` 控制采集粒度：请求头/体/参数、响应体、IP、浏览器、OS。默认只采集请求参数 + IP（不采集请求/响应体，防敏感信息与大报文落库）。
+- 请求体从 AOP 入参序列化（能拿到 `@RequestBody` 的 JSON），过滤文件流等不可序列化参数。
+- 持久化：实现 `LogDao` 落库（默认仅打印到日志）；操作人来源实现 `LogUserProvider`。
+- 写日志通过事件 + `@Async` 异步执行，DB 抖动不影响主接口。
+
+### tools — 常用工具
+
+**分布式限流** `@RateLimit`（有 Redis 时自动用 Redis+Lua 原子限流，否则内存限流）：
+
+```java
+@RateLimit(key = "#userId", window = 60, count = 5, message = "操作过于频繁")
+public void sendSms(Long userId) { ... }
+```
+
+- `key` 支持 SpEL，可按用户等业务维度限流；留空则用方法全限定名。
+- `byIp = true`（默认）时把客户端 IP 纳入限流键。
+- 分布式版基于 `StringRedisTemplate` + Lua 脚本，多节点共享窗口。
+
+**AES 加解密** `AesUtils`：AES-GCM 认证加密，随机 IV 前置：
+
+```java
+String cipher = AesUtils.encrypt("secret", key);   // key 长度 16/24/32
+String plain = AesUtils.decrypt(cipher, key);
+```
+
+### extension-crud — 通用 CRUD
+
+基类库，消除增删改查样板。为防 Over-Posting（前端恶意提交越权字段），控制器严格区分请求/响应/实体三类模型：
+
+```java
+// 服务层：继承 BaseServiceImpl，自动拥有 CRUD + 分页
+@Service
+public class ArticleService extends BaseServiceImpl<ArticleMapper, Article> { }
+
+// 控制器：泛型 <实体, 主键, 请求, 响应>，REQ/RESP 与实体默认 BeanUtils 转换
+@RestController
+@RequestMapping("/articles")
+public class ArticleController extends BaseController<Article, Long, ArticleReq, ArticleResp> {
+    private final ArticleService service;
+    @Override protected BaseService<Article> getBaseService() { return service; }
+}
+```
+
+`save/update` 收 `REQ`、查询返回 `RESP`，实体永不直接暴露。简单场景可将 REQ/RESP 直接指定为实体类型；需精细映射时覆盖 `toEntity` / `toResp`（接 MapStruct 等）。分页用 `PageQuery` / `PageResult`。
+
+### extension-tenant — 多租户
+
+MyBatis-Plus 行级租户隔离。默认关闭，需显式开启并提供租户来源：
+
+```yaml
+ypbin:
+  tenant:
+    enabled: true
+    column: tenant_id
+    ignore-tables: [sys_config, sys_dict]   # 这些表不隔离
+```
+
+```java
+@Component
+public class MyTenantProvider implements TenantProvider {
+    @Override
+    public Optional<Long> getCurrentTenantId() {
+        return LoginHelper.getUserIdSafely();  // 示例：从上下文取租户
+    }
+}
+```
+
+**跨租户逃逸**：超管全局查询、后台定时任务全表扫描时，用 `@TenantIgnore` 或 `TenantContext`：
+
+```java
+@TenantIgnore
+public List<Tenant> listAllTenants() { ... }
+
+// 或编程式
+TenantContext.runIgnore(() -> statisticsMapper.countAll());
+```
+
+忽略标记会随异步上下文透传到 `@Async` 子线程。
+
+### extension-datapermission — 数据权限
+
+行级数据范围过滤。**仅对 `@DataPermission` 标注的方法生效**，避免全局无差别拦截导致定时任务/登录校验等内部查询数据缺失。需提供数据范围规则：
+
+```yaml
+ypbin:
+  data-permission:
+    enabled: true
+```
+
+```java
+// 提供数据范围 SQL 片段（依赖业务，无默认实现）
+@Component
+public class MyDataScopeHandler implements DataScopeHandler {
+    @Override
+    public String getDataScopeSql(String mappedStatementId, String tableName) {
+        return "dept_id IN (" + currentUserDeptIds() + ")";
+    }
+}
+
+// 只有标注的方法才触发数据范围过滤
+@DataPermission
+public List<Order> listByScope(OrderQuery q) { ... }
+```
+
+## 构建与发布
+
+```bash
+# 编译并安装到本地仓库（verify 阶段自动执行代码风格校验）
+mvn clean install
+
+# 一键格式化代码（统一 license 头、import 顺序、去除多余空白）
+mvn com.diffplug.spotless:spotless-maven-plugin:apply -pl <功能模块列表>
+
+# 发布到远程仓库（生成 source/javadoc 附件并 GPG 签名，需本地配置 gpg 密钥）
+mvn clean deploy -Prelease
+```
+
+## 许可证
+
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
