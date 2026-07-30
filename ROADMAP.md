@@ -155,6 +155,18 @@ ypbin-starter/                        聚合 POM
 服务注册、Feign 调通、网关路由等端到端行为需在有 Nacos 的环境自测。
 全量 26 模块 BUILD SUCCESS，69 测试全绿。
 
+### 与 blade-tool 对照结论（23 模块逐一核实）
+blade 的 23 个模块中，**20 个 ypbin 已有对等或更强实现**（core/boot/secure/cloud/cache/redis/
+mybatis/tenant/datascope/oss/log/swagger/i18n/excel/social/api-crypto/loadbalancer/test/bom）。
+仅 3 个未做，均为重量级独立子系统，用户确认**有意不做**（非遗漏）：
+- blade-starter-transaction（Seata 分布式事务）——依赖重、需 Seata Server
+- blade-starter-develop（代码生成器）——独立大工程
+- blade-starter-report（报表）——依赖重、场景化强
+
+反向：ypbin 有 11 项 blade 没有的能力——限流 @RateLimit、幂等 @Idempotent、接口签名 @ApiSign、
+敏感词、数据脱敏 @Sensitive、行为验证码、密码编码器、WebSocket、MQTT、国密 SM2/SM4、异步上下文透传。
+结论：通用基础能力已全面覆盖并超越 blade。
+
 ### 里程碑 M6 — 工程化
 - ✅ spotless + license 头统一（内联 Apache-2.0 头 + import 顺序 + 去多余空白 + 去未用 import；
   verify 阶段 check 强制校验；apply 一键格式化。license 头用 content 内联避免跨模块路径问题）
