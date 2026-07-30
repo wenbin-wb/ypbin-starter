@@ -1,0 +1,20 @@
+# 默认：文本文件统一用 LF，避免跨平台行尾差异导致的 diff 噪音
+* text=auto eol=lf
+
+# 源码与配置显式声明为 LF
+*.java text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.properties text eol=lf
+*.md text eol=lf
+*.lua text eol=lf
+*.imports text eol=lf
+*.factories text eol=lf
+
+# 二进制文件不做行尾转换
+*.jar binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
