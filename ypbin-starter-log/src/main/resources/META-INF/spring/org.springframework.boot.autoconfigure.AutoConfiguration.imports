@@ -1,1 +1,2 @@
 cn.ypbin.starter.log.autoconfigure.LogAutoConfiguration
+cn.ypbin.starter.log.autoconfigure.AccessLogAutoConfiguration

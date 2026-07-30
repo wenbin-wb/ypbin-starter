@@ -113,6 +113,11 @@
                 <artifactId>ypbin-starter-api-crypto</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-social</artifactId>
+                <version>${revision}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

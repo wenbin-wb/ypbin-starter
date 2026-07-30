@@ -11,10 +11,10 @@
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
     </parent>
 
-    <artifactId>ypbin-starter-log</artifactId>
+    <artifactId>ypbin-starter-social</artifactId>
 
     <name>${project.artifactId}</name>
-    <description>操作日志：基于 @Log 注解的 AOP 采集，Include 控制粒度，LogDao 扩展持久化</description>
+    <description>第三方登录：基于 JustAuth 的 OAuth 登录（微信/QQ/GitHub 等），可插拔 state 缓存</description>
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
@@ -27,30 +27,12 @@
         </dependency>
 
         <dependency>
+            <groupId>me.zhyd.oauth</groupId>
+            <artifactId>JustAuth</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
-        <!-- 序列化请求/响应体为 JSON -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <!-- 采集请求信息需要 Servlet API，可选 -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <!-- 全量访问日志拦截器需要 MVC，可选 -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-webmvc</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <optional>true</optional>
+            <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

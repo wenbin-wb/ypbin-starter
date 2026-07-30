@@ -187,6 +187,20 @@ ypbin-starter/                        聚合 POM
 依赖策略：允许联网从中央仓库下载（FastExcel / easy-captcha / BouncyCastle 等）。
 仍不做：短信多厂商、分布式事务、灰度、代码生成（依赖重或属微服务/独立工程）。
 
+### 里程碑 M10 — 对齐参考项目剩余能力（用户逐项确认）
+新模块：
+- ✅ ypbin-starter-sensitive-words（Hutool DFA 敏感词，可插拔词库）
+- ✅ ypbin-starter-i18n（Spring MessageSource 国际化，静态 I18nUtil + 参数/头 Locale 解析）
+- ✅ ypbin-starter-api-crypto（@ApiEncrypt 接口加解密，RequestBody/ResponseBodyAdvice + 默认 AES）
+- ✅ ypbin-starter-social（JustAuth 第三方登录，AuthRequestProvider 扩展点按平台注册）
+并入现有模块：
+- ✅ security：PasswordEncoderUtil（BCrypt）
+- ✅ messaging：WebSocket（STOMP）+ MQTT（Paho 轻封装）
+- ✅ log：AccessLogInterceptor 全量访问日志（与 @Log 注解版互补）
+决策：验证码换 tianai-captcha（行为验证）；接口加解密用 Advice 而非 Filter（更地道）；
+MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度归微服务层 M5 不做。
+全量 24 模块 BUILD SUCCESS，61 测试全绿。
+
 ### 单元测试（M6 补充）
 - ✅ 引入 junit-jupiter + assertj（test scope）；27 个核心逻辑单测全绿
   （TreeUtils / SensitiveType / XssCleaner / AesFieldEncryptor / 限流并发 / 幂等并发）
