@@ -31,8 +31,17 @@ public class SecurityProperties {
     /** 是否启用安全模块，默认开启 */
     private boolean enabled = true;
 
+    /** 是否注册全局登录校验拦截器（SaInterceptor），默认开启 */
+    private boolean interceptor = true;
+
+    /** 拦截路径，默认拦截全部 */
+    private List<String> includes = new ArrayList<>(List.of("/**"));
+
     /** 放行路径（无需登录即可访问），支持 Ant 风格 */
     private List<String> excludes = new ArrayList<>();
+
+    /** 检测到 api-doc 时是否自动放行 Swagger/文档相关路径，默认开启 */
+    private boolean excludeApiDoc = true;
 
     public boolean isEnabled() {
         return enabled;
@@ -42,11 +51,35 @@ public class SecurityProperties {
         this.enabled = enabled;
     }
 
+    public boolean isInterceptor() {
+        return interceptor;
+    }
+
+    public void setInterceptor(boolean interceptor) {
+        this.interceptor = interceptor;
+    }
+
+    public List<String> getIncludes() {
+        return includes;
+    }
+
+    public void setIncludes(List<String> includes) {
+        this.includes = includes;
+    }
+
     public List<String> getExcludes() {
         return excludes;
     }
 
     public void setExcludes(List<String> excludes) {
         this.excludes = excludes;
+    }
+
+    public boolean isExcludeApiDoc() {
+        return excludeApiDoc;
+    }
+
+    public void setExcludeApiDoc(boolean excludeApiDoc) {
+        this.excludeApiDoc = excludeApiDoc;
     }
 }

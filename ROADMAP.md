@@ -232,11 +232,17 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
 
+### 全局登录拦截器（admin 建议：security 自动注册 SaInterceptor 消费 excludes）
+- ✅ security 新增 `SaTokenWebConfigurer`（WebMvcConfigurer 注册 SaInterceptor 做全局登录校验），消费 `ypbin.security.includes/excludes`；`SecurityProperties` 补 interceptor/includes/excludeApiDoc 开关。
+- ✅ 检测到 SpringDoc 时自动放行 Swagger/doc.html/v3/api-docs/webjars 等文档路径（Class.forName 探测，不硬依赖）。
+- ✅ `@ConditionalOnWebApplication(SERVLET)` + `@ConditionalOnClass(SaInterceptor)` + `@ConditionalOnMissingBean` 守卫，spring-webmvc optional；业务方自定义 WebMvcConfigurer 或 `interceptor=false` 可覆盖/停用。admin 的自建 SaTokenConfigurer 可删。
+- 核实：admin 建议的 TreeUtils「tools 里没有树形工具」是找错模块——core 早有 `tree/TreeUtils`（含 flatten/getDescendantIds/findNode），不重复做。
+
 ### 基类与当前用户增强（用户提问：BaseEntity 加 id/逻辑删除/租户，如何获取当前登录人）
-- ✅ BaseEntity 泛型化 `BaseEntity<ID>`：加主键 id（`@TableId(type=ASSIGN_ID)` 雪花默认，业务可全局配 id-type 改策略）+ 逻辑删除字段 `deleted`（`@TableLogic`，MyBatis-Plus 默认规则开箱生效）。零破坏（starter 内无实体继承）。
-- ✅ 租户实体基类 `TenantBaseEntity<ID> extends BaseEntity` 放 tenant 模块（不污染基础 BaseEntity）：多一个 `tenantId` 字段，隔离仍由行拦截器自动追加 SQL 条件。
-- ✅ security 新增 `UserContext` 当前用户门面：getUserId/getUsername/getTenantId/getAttribute，用户名/租户等业务属性登录时写入 Sa-Token 会话后任意层可读；LoginHelper 仍只管 ID。
-- 决策：逻辑删除字段直接进 BaseEntity（用户选择），不需要的表实体不继承或建表不加列；租户基类独立、分层干净。
+- ✅ BaseEntity（去泛型，id 固定 Long）：主键 id（`@TableId(type=ASSIGN_ID)` 雪花 + `@JsonSerialize(ToStringSerializer)` 序列化为字符串防精度丢失）+ 审计字段 + 逻辑删除 `isDeleted`（列 `is_deleted`，`@TableLogic` 默认规则开箱生效）。data 补 jackson-databind optional 依赖。
+- ✅ 租户实体基类 `TenantBaseEntity extends BaseEntity` 放 tenant 模块（不污染基础 BaseEntity）：多一个 `tenantId` 字段，隔离仍由行拦截器自动追加 SQL 条件。
+- ✅ security 新增 `UserContext` 当前用户门面 + `LoginUser` 值对象：登录时 `setLoginUser` 存 Sa-Token 会话，`getLoginUser/getUserId/getUsername/getTenantId/getAttribute` 任意层读取；LoginHelper 仍只管 ID。
+- 决策（用户定）：实体去泛型、id 锁定 Long（对齐 blade/continew，覆盖 99% 场景，最简洁）；逻辑删除列名 `is_deleted`；id 单独序列化为字符串；补完整 LoginUser 而非逐字段散取。
 
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。

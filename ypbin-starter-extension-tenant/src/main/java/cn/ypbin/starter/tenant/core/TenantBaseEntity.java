@@ -18,7 +18,6 @@ package cn.ypbin.starter.tenant.core;
 import cn.ypbin.starter.data.core.BaseEntity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import java.io.Serial;
-import java.io.Serializable;
 
 /**
  * 带租户字段的实体基类。
@@ -30,11 +29,10 @@ import java.io.Serializable;
  *
  * <p>不需要租户隔离的实体继承 {@link BaseEntity} 即可，避免基础实体被迫携带 tenant_id 列。</p>
  *
- * @param <ID> 主键类型
  * @author wenbin
  * @since 2026-07-31
  */
-public abstract class TenantBaseEntity<ID extends Serializable> extends BaseEntity<ID> {
+public abstract class TenantBaseEntity extends BaseEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;

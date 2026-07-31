@@ -15,8 +15,10 @@
  */
 package cn.ypbin.starter.security.autoconfigure;
 
+import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.stp.StpInterface;
 import cn.ypbin.starter.security.core.PermissionProvider;
+import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
 import cn.ypbin.starter.security.satoken.StpPermissionAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,8 +26,10 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * 安全模块自动配置。
@@ -63,5 +67,21 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean
     public StpInterface stpInterface(PermissionProvider permissionProvider) {
         return new StpPermissionAdapter(permissionProvider);
+    }
+
+    /**
+     * 全局登录校验拦截器配置。
+     *
+     * <p>仅在 Servlet Web 环境、类路径存在 {@link SaInterceptor} 与 {@link WebMvcConfigurer}、且
+     * {@code ypbin.security.interceptor=true}（默认）时装配。业务方提供自定义 {@link WebMvcConfigurer}
+     * 或关闭该开关即可覆盖/停用。</p>
+     */
+    @Bean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnClass({SaInterceptor.class, WebMvcConfigurer.class})
+    @ConditionalOnProperty(prefix = "ypbin.security", name = "interceptor", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnMissingBean(SaTokenWebConfigurer.class)
+    public SaTokenWebConfigurer saTokenWebConfigurer(SecurityProperties properties) {
+        return new SaTokenWebConfigurer(properties);
     }
 }

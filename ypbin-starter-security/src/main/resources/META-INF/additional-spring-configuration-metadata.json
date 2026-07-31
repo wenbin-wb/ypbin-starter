@@ -1,0 +1,22 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.security.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用安全模块。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.security.interceptor",
+      "type": "java.lang.Boolean",
+      "description": "是否注册全局登录校验拦截器（SaInterceptor）。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.security.exclude-api-doc",
+      "type": "java.lang.Boolean",
+      "description": "检测到 SpringDoc 时是否自动放行 Swagger/文档相关路径。",
+      "defaultValue": true
+    }
+  ]
+}

@@ -20,6 +20,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -27,28 +29,30 @@ import java.time.LocalDateTime;
 /**
  * 实体基类，携带主键、通用审计字段与逻辑删除标记。
  *
- * <p>主键 {@link #id} 默认用雪花算法（{@link IdType#ASSIGN_ID}），业务实体可在自己的字段上重写
- * {@code @TableId} 注解改用自增、UUID 等策略；主键类型由泛型 {@code <ID>} 指定（Long / String 等）。
- * 创建人/时间、更新人/时间由 {@link cn.ypbin.starter.data.handler.DefaultMetaObjectHandler} 自动填充。</p>
+ * <p>主键 {@link #id} 用雪花算法（{@link IdType#ASSIGN_ID}），并单独以 {@link ToStringSerializer}
+ * 序列化为字符串，防止前端 JS 大数精度丢失（即便未全局开启 Long 转字符串也安全）。需要自增/UUID 等
+ * 其它策略时，全局配置 {@code mybatis-plus.global-config.db-config.id-type} 即可。</p>
  *
- * <p>逻辑删除字段 {@link #deleted} 配合 MyBatis-Plus 的 {@code @TableLogic} 生效（默认 0 未删、1 已删），
- * 需在配置中开启逻辑删除全局规则。不希望逻辑删除的表，其对应实体可不继承本类或忽略该字段。</p>
+ * <p>创建人/时间、更新人/时间由 {@link cn.ypbin.starter.data.handler.DefaultMetaObjectHandler} 自动填充。
+ * 逻辑删除字段 {@link #isDeleted}（列 {@code is_deleted}）配合 {@code @TableLogic}，默认 0 未删、1 已删，
+ * 删除转为 UPDATE、查询自动过滤。不需要逻辑删除的表，其实体可不继承本类或建表不含该列。</p>
  *
- * @param <ID> 主键类型
  * @author wenbin
  * @since 2026-07-30
  */
-public abstract class BaseEntity<ID extends Serializable> implements Serializable {
+public abstract class BaseEntity implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    /** 主键，默认雪花算法生成；业务实体可重写 @TableId 改用其它策略 */
+    /** 主键，雪花算法生成，序列化为字符串防前端精度丢失 */
     @TableId(value = "id", type = IdType.ASSIGN_ID)
-    private ID id;
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long id;
 
     /** 创建人 */
     @TableField(value = "create_user", fill = FieldFill.INSERT)
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long createUser;
 
     /** 创建时间 */
@@ -57,22 +61,23 @@ public abstract class BaseEntity<ID extends Serializable> implements Serializabl
 
     /** 更新人 */
     @TableField(value = "update_user", fill = FieldFill.INSERT_UPDATE)
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long updateUser;
 
     /** 更新时间 */
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
-    /** 逻辑删除标记：0 未删除、1 已删除。需开启逻辑删除规则后生效 */
+    /** 逻辑删除标记：0 未删除、1 已删除 */
     @TableLogic
-    @TableField(value = "deleted")
-    private Integer deleted;
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
 
-    public ID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(ID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -108,11 +113,11 @@ public abstract class BaseEntity<ID extends Serializable> implements Serializabl
         this.updateTime = updateTime;
     }
 
-    public Integer getDeleted() {
-        return deleted;
+    public Integer getIsDeleted() {
+        return isDeleted;
     }
 
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
+    public void setIsDeleted(Integer isDeleted) {
+        this.isDeleted = isDeleted;
     }
 }

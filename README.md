@@ -94,7 +94,7 @@
 | Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON、XSS 过滤、可重复读请求 | `ypbin.web` |
 | 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、`BaseEntity`（主键/审计/逻辑删除）、拦截器编排、字段加密、雪花 ID | `ypbin.data` |
 | 缓存 | `ypbin-starter-cache` | Redis 缓存 + `getOrLoad` 防击穿/穿透/雪崩 + 多级缓存（L1 Caffeine + L2 Redis，跨实例失效广播） | `ypbin.cache` |
-| 安全 | `ypbin-starter-security` | Sa-Token 封装（登录、权限数据源扩展点）、密码编码器 | `ypbin.security` |
+| 安全 | `ypbin-starter-security` | Sa-Token 封装（全局登录拦截、当前用户门面、权限数据源扩展点）、密码编码器 | `ypbin.security` |
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
 | 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
 | 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP + 全量访问日志拦截器 | `ypbin.log` |
@@ -213,20 +213,18 @@ ypbin:
 MyBatis-Plus 增强，引入即生效：
 
 - 分页拦截器（默认单页上限 500 条，可配 `ypbin.data.max-limit`）。
-- 实体继承 `BaseEntity<ID>` 即获得主键 `id`、`createUser/createTime/updateUser/updateTime` 审计字段与逻辑删除字段 `deleted`。
-- 主键默认雪花算法（`@TableId(type = ASSIGN_ID)`），需要自增/UUID 时在子类的 `id` 字段上重写 `@TableId`；主键类型由泛型 `<ID>` 指定（`Long`/`String` 等）。
+- 实体继承 `BaseEntity` 即获得主键 `id`（Long）、`createUser/createTime/updateUser/updateTime` 审计字段与逻辑删除字段 `isDeleted`（列 `is_deleted`）。
+- 主键雪花算法（`@TableId(type = ASSIGN_ID)`），并单独序列化为字符串防前端精度丢失；要全局改自增/UUID，配 `mybatis-plus.global-config.db-config.id-type`。
 - 审计字段 INSERT/UPDATE 自动填充；操作人来源实现 `AuditorProvider` 扩展点（引入 security 后自动对接登录用户）。
-- 逻辑删除：`deleted` 字段带 `@TableLogic`，MyBatis-Plus 默认规则（0 未删/1 已删）开箱生效，删除转为 UPDATE、查询自动过滤；不需要逻辑删除的表对应实体不继承 `BaseEntity` 或建表不加该列即可。
+- 逻辑删除：`isDeleted` 带 `@TableLogic`，默认规则（0 未删/1 已删）开箱生效，删除转 UPDATE、查询自动过滤；不需要逻辑删除的表对应实体不继承 `BaseEntity` 或建表不加该列即可。
 - 拦截器编排：多租户、数据权限等通过 `InnerInterceptorProvider` 按 order 贡献内部拦截器，顺序可控（租户/数据权限先于分页）。
 
 ```java
-// 主键类型作为泛型参数，默认雪花 ID，无需再声明 id 字段
-public class Article extends BaseEntity<Long> {
+// 默认雪花 ID（Long），无需再声明 id 字段
+public class Article extends BaseEntity {
     private String title;
 }
 ```
-
-> 改主键策略：`id` 字段在基类，多数项目用默认雪花即可；要全局改用自增/UUID，配置 MyBatis-Plus 的 `mybatis-plus.global-config.db-config.id-type` 即可。个别表要特殊策略时，该实体不继承 `BaseEntity`、自行声明带 `@TableId` 的 id 字段。
 
 **雪花 ID** `IdGenerator`：主动获取分布式唯一 ID（提前生成主键、订单号等）：
 
@@ -346,23 +344,41 @@ Set<Object> top10 = RedisUtils.zReverseRange("rank", 0, 9);
 
 基于 Sa-Token 封装：
 
+- **全局登录拦截**：Servlet Web 环境下自动注册 `SaInterceptor` 做全局登录校验，无需自己写 `WebMvcConfigurer`。默认拦截 `/**`，放行 `ypbin.security.excludes`；检测到 api-doc 时自动放行 Swagger/`doc.html`/`v3/api-docs`/`webjars` 等文档路径。
+
+```yaml
+ypbin:
+  security:
+    interceptor: true            # 是否注册全局登录拦截器（默认开）
+    includes: ["/**"]            # 拦截路径
+    excludes: ["/login", "/captcha"]   # 放行路径（无需登录）
+    exclude-api-doc: true        # 有 SpringDoc 时自动放行文档路径（默认开）
+```
+
+拦截器只校验「已登录」；细粒度权限/角色用方法上的 `@SaCheckPermission` 等注解。业务方提供自定义 `WebMvcConfigurer` 或设 `interceptor: false` 即可覆盖/停用。
+
 - `LoginHelper`：`login(userId)` / `getUserId()` / `logout()`，统一以 `Long` 用户 ID 进出。
-- `UserContext`：当前登录用户门面，在任意层静态读取当前登录人，比 `LoginHelper` 更完整（用户名、租户、扩展属性）。
+- `UserContext` + `LoginUser`：当前登录用户门面，登录时 `setLoginUser` 存会话，任意层 `getLoginUser`/`getUserId`/`getUsername`/`getTenantId` 读取。
 - 权限数据源：实现 `PermissionProvider` 提供用户的权限码与角色码，框架自动适配为 Sa-Token 的 `StpInterface`，无需直接依赖 Sa-Token API。
 
 获取当前登录人信息：
 
 ```java
-Long userId = UserContext.getUserId();                 // 当前用户 ID
-Optional<Long> uid = UserContext.getUserIdSafely();    // 未登录不抛异常
-Optional<String> name = UserContext.getUsername();     // 用户名（登录时写入会话）
-Optional<Long> tenant = UserContext.getTenantId();     // 租户 ID
+// 登录成功后写入完整用户信息到会话
+LoginUser user = new LoginUser(userId, "tom");
+user.setNickname("汤姆");
+user.setTenantId(1001L);
+user.setDeptId(8L);
+user.setRoles(Set.of("admin"));
+UserContext.setLoginUser(user);
 
-// 登录成功后写入会话，之后任意层可读
-UserContext.setUsername("tom");
-UserContext.setTenantId(1001L);
-UserContext.setAttribute("deptId", 8L);                // 任意扩展属性
-Optional<Long> dept = UserContext.getAttribute("deptId", Long.class);
+// 之后任意层读取
+Long userId = UserContext.getUserId();                 // 当前用户 ID（来自 Sa-Token 登录态）
+Optional<LoginUser> current = UserContext.getLoginUser(); // 完整登录用户信息
+Optional<String> name = UserContext.getUsername();     // 用户名
+Optional<Long> tenant = UserContext.getTenantId();     // 租户 ID
+UserContext.setAttribute("postId", 66L);               // 业务自有字段另存
+Optional<Long> post = UserContext.getAttribute("postId", Long.class);
 ```
 
 ```java
@@ -587,10 +603,10 @@ TenantContext.runIgnore(() -> statisticsMapper.countAll());
 
 忽略标记会随异步上下文透传到 `@Async` 子线程。
 
-**租户实体基类** `TenantBaseEntity<ID>`：需要租户字段的实体继承它（而非 `BaseEntity`），即在主键/审计/逻辑删除之外多一个 `tenantId` 字段：
+**租户实体基类** `TenantBaseEntity`：需要租户字段的实体继承它（而非 `BaseEntity`），即在主键/审计/逻辑删除之外多一个 `tenantId` 字段：
 
 ```java
-public class Order extends TenantBaseEntity<Long> {
+public class Order extends TenantBaseEntity {
     private String orderNo;
 }
 ```

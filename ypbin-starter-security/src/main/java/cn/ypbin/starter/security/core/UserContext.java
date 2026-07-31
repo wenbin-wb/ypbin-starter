@@ -24,20 +24,17 @@ import java.util.Optional;
  * <p>在 {@link LoginHelper} 只提供用户 ID 的基础上，进一步提供用户名、租户、扩展属性等常用信息，
  * 供业务在任意层静态读取当前登录人，免去到处写 {@code StpUtil} 与手动取会话。</p>
  *
- * <p>用户名、租户 ID 等业务属性来自登录会话（Sa-Token Session）：登录成功后由业务方通过
- * {@link #setUsername}/{@link #setTenantId}/{@link #setAttribute} 写入，本类据此读取。starter 不假设
- * 具体用户模型，扩展字段用 {@link #getAttribute} 自取。</p>
+ * <p>登录用户信息来自登录会话（Sa-Token Session）：登录成功后由业务方通过 {@link #setLoginUser} 存入
+ * {@link LoginUser}，本类据此读取用户名、租户等；starter 不假设具体用户模型，业务自有字段用
+ * {@link #setAttribute}/{@link #getAttribute} 另存自取。</p>
  *
  * @author wenbin
  * @since 2026-07-31
  */
 public final class UserContext {
 
-    /** 会话中存用户名的键 */
-    public static final String KEY_USERNAME = "ypbin:username";
-
-    /** 会话中存租户 ID 的键 */
-    public static final String KEY_TENANT_ID = "ypbin:tenantId";
+    /** 会话中存登录用户信息的键 */
+    public static final String KEY_LOGIN_USER = "ypbin:loginUser";
 
     private UserContext() {
     }
@@ -70,39 +67,39 @@ public final class UserContext {
     }
 
     /**
-     * 当前登录用户名。登录时未写入则为空。
+     * 获取当前登录用户完整信息。登录时未写入则为空。
+     *
+     * @return {@link LoginUser} 的 Optional
+     */
+    public static Optional<LoginUser> getLoginUser() {
+        return getAttribute(KEY_LOGIN_USER, LoginUser.class);
+    }
+
+    /**
+     * 登录后写入完整登录用户信息到会话。
+     *
+     * @param loginUser 登录用户信息
+     */
+    public static void setLoginUser(LoginUser loginUser) {
+        setAttribute(KEY_LOGIN_USER, loginUser);
+    }
+
+    /**
+     * 当前登录用户名。未写入 {@link LoginUser} 则为空。
      *
      * @return 用户名的 Optional
      */
     public static Optional<String> getUsername() {
-        return getAttribute(KEY_USERNAME, String.class);
+        return getLoginUser().map(LoginUser::getUsername);
     }
 
     /**
-     * 登录后写入用户名到会话。
-     *
-     * @param username 用户名
-     */
-    public static void setUsername(String username) {
-        setAttribute(KEY_USERNAME, username);
-    }
-
-    /**
-     * 当前登录用户所属租户 ID。登录时未写入则为空。
+     * 当前登录用户所属租户 ID。未写入 {@link LoginUser} 则为空。
      *
      * @return 租户 ID 的 Optional
      */
     public static Optional<Long> getTenantId() {
-        return getAttribute(KEY_TENANT_ID, Object.class).map(v -> Long.valueOf(v.toString()));
-    }
-
-    /**
-     * 登录后写入租户 ID 到会话。
-     *
-     * @param tenantId 租户 ID
-     */
-    public static void setTenantId(Long tenantId) {
-        setAttribute(KEY_TENANT_ID, tenantId);
+        return getLoginUser().map(LoginUser::getTenantId);
     }
 
     /**
