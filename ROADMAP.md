@@ -1,8 +1,8 @@
 # ypbin-starter 建设方案与进度跟踪
 
-> 一套自研的 Spring Boot 基础能力 starter 集合。参考 `blade-tool`（微服务全家桶思路）
-> 与 `continew-starter`（单体 Web 能力集、模块化理念），**代码全部按最优实践重构**，
-> 非照抄。本文档是贯穿项目始终的方案 + 进度看板。
+> 一套自研的 Spring Boot 基础能力 starter 集合，借鉴业界常见的微服务全家桶思路
+> 与单体 Web 能力模块化理念，**代码全部按最优实践重构**。
+> 本文档是贯穿项目始终的方案 + 进度看板。
 
 ## 0. 当前状态总览
 
@@ -131,16 +131,16 @@ ypbin-starter/                        聚合 POM
 - ✅ **统一** GlobalExceptionHandler：所有异常统一返回 HTTP 200，由 R.code 区分（去掉 4xx/5xx ResponseEntity）。
 - ✅ **约定** 全部类补 `@author wenbin` + `@since 2026-07-30`（日期入 since，不用 @date/版本号），后续新增类同此约定。
 - 补依赖：cache 模块显式引入 jackson-databind（data-redis 中为 optional 不传递）。
-- 审核第 4 项（HTTP 状态码）非 Bug 属设计取舍；BladeView 为字段分级视图机制，可后续排入扩展层。
+- 审核第 4 项（HTTP 状态码）非 Bug 属设计取舍；字段分级视图机制可后续排入扩展层。
 
 ### 里程碑 M3 — 常用能力
 - ✅ `ypbin-starter-api-doc`（SpringDoc：OpenAPI 元信息可配置，标题/版本/联系人/license）
 - ✅ `ypbin-starter-storage`（本地 + S3 兼容对象存储；多源 List 配置 + platform 路由；
   统一 FileProcessor 责任链；registrar 贡献者模式；可选 FileRecorder/分片）
-  - 相比参考项目改进：砍掉 continew 的装饰器管理器/事件机制/ThreadLocal/胖 FileRecorder；
-    S3 单策略覆盖阿里云/腾讯/MinIO/七牛，不像 blade 每家一个 Template。
+  - 相比常见实现改进：砍掉装饰器管理器/事件机制/ThreadLocal/胖 FileRecorder；
+    S3 单策略覆盖阿里云/腾讯/MinIO/七牛，不按云厂商重复拆多个 Template。
 - ✅ `ypbin-starter-log`（操作日志：@Log 注解 AOP + Include 采集粒度 + LogDao 扩展持久化）
-  - 相比参考项目改进：不学 continew 拆 core/aop/interceptor 三个子模块（过度切分），
+  - 相比常见实现改进：不拆 core/aop/interceptor 三个子模块（过度切分），
     单模块 + 单 AOP 实现；LogUserProvider 扩展点与 security 解耦；默认不采集请求/响应体防敏感信息落库。
   - 代码审核修复（3 项，经确认属实）：
     1. 请求体采集：改从 AOP 入参序列化（getParameterMap 拿不到 @RequestBody JSON），过滤不可序列化特殊参数。
@@ -199,16 +199,14 @@ ypbin-starter/                        聚合 POM
 | M5.10 | NacosDiscoveryIT（Testcontainers 双模式）；**公网服务器真机验证注册发现 + 配置** |
 | M5.11 | FeignCrossServiceIT；**公网真机验证** 注册→发现→负载均衡→Feign 调通 + 头透传 + R 错误解码 |
 | M5.12 | SentinelFlowIT；真运行时验证限流被拒统一 R 响应（边界 1 收口） |
-| M5.13 | 新增 cloud-launch：Nacos ConfigData 导入与 import-check 启动默认值兜底，解决 Boot 3.x 下仅引入 Nacos Config 但未显式配置 `spring.config.import` 的启动失败风险 |
+| M5.13 | 新增并增强 cloud-launch：默认 profile、dev/test/prod 互斥校验、Nacos ConfigData 三层导入（公共/环境/应用环境）、import-check、Nacos 日志、Actuator info、Bean 覆盖开关等启动默认值兜底；采用标准 EnvironmentPostProcessor，不要求业务改用自定义启动类，且所有默认值均不覆盖业务显式配置 |
 
 **边界验证结论**：网关全链路、Nacos 注册发现/配置、Feign 跨服务全链路、Sentinel 限流响应均已脱离「未验证」——分别以本机真运行时 E2E 或公网服务器真机验证覆盖，4 个 IT/E2E（`GatewayE2ETest` / `NacosDiscoveryIT` / `FeignCrossServiceIT` / `SentinelFlowIT`）沉淀在仓库、`-Pit` 可复现、默认构建不受影响。唯一未自动化：Sentinel 规则从 Nacos datasource 热更新（属 Sentinel 自身能力、非本项目职责，Dashboard 已在公网就绪，按 `deploy/README.md` 3.7 手动验证）。
 
-### 与 blade-tool 对照结论（23 模块逐一核实）
-通用基础层多数能力已覆盖 blade-tool，但 Cloud 维度需单独看待：当前 `blade-tool` 本地源码可确认的强项是
-`blade-starter-loadbalancer` 灰度负载均衡、`blade-core-cloud` 的 Feign/Sentinel/Fallback/Header 透传、
-`blade-starter-swagger` 的单服务 OpenAPI 增强；未在本地 `blade-tool` 中确认独立 Gateway starter 源码。
+### 能力对照结论（23 模块逐一核实）
+通用基础层多数能力已覆盖常见微服务 starter 方案，但 Cloud 维度需单独看待：本项目已补齐灰度负载均衡、Feign/Sentinel/Fallback/Header 透传、单服务 OpenAPI 增强、独立 Gateway starter 与动态路由等能力。
 
-ypbin 已有 11 项 blade-tool 未覆盖或更轻量的能力——限流 @RateLimit、幂等 @Idempotent、接口签名 @ApiSign、
+ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂等 @Idempotent、接口签名 @ApiSign、
 敏感词、数据脱敏 @Sensitive、行为验证码、密码编码器、WebSocket、MQTT、国密 SM2/SM4、异步上下文透传。
 
 （原“仍建议补齐 Cloud 企业级治理”4 项——灰度 LB / Feign 容错 / API 文档增强 / Nacos 动态路由——均已在 M5.2~M5.5 完成，见上方 M5 能力表与补强历程。）
@@ -320,7 +318,7 @@ MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度�
 ## 6. 防侵权基线
 
 - 不复制任一参考项目的源码；类/方法自行设计命名与实现。
-- 不沿用 `Blade`/`ContiNew` 品牌前缀、不复用其包名。
+- 不沿用任何参考项目的品牌前缀、不复用其包名。
 - License 采用自选协议（默认 Apache-2.0，待用户确认）。
 - 借鉴的是「架构模式与通用做法」，非具体代码文本。
 

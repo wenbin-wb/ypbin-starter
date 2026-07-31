@@ -15,8 +15,12 @@
  */
 package cn.ypbin.starter.cloud.launch.autoconfigure;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
@@ -27,9 +31,9 @@ import org.springframework.util.StringUtils;
 /**
  * 微服务启动默认属性注入器。
  *
- * <p>Spring Cloud Alibaba Nacos Config 在 Boot 3.x 中依赖 ConfigData 导入。业务方只想先启用注册发现、
- * 暂不接配置中心时，容易因为未配置 {@code spring.config.import} 触发启动检查失败。本注入器以最低优先级追加
- * {@code optional:nacos:application.yml} 与 import-check 默认值：既不覆盖业务显式配置，又能让 cloud 工程开箱启动。</p>
+ * <p>采用 Spring Boot 标准 {@link EnvironmentPostProcessor}：业务仍可用普通
+ * {@code SpringApplication.run(...)}，不被迫继承自定义启动入口；所有默认值以最低优先级追加，不覆盖命令行、环境变量、
+ * application.yml 等显式配置。</p>
  *
  * @author wenbin
  * @since 2026-07-31
@@ -38,7 +42,15 @@ public class CloudLaunchEnvironmentPostProcessor implements EnvironmentPostProce
 
     private static final String PROPERTY_SOURCE_NAME = "ypbinCloudLaunchDefaults";
 
+    private static final List<String> PRESET_PROFILES = List.of("dev", "test", "prod");
+
     private static final String SPRING_CONFIG_IMPORT = "spring.config.import";
+
+    private static final String SPRING_APPLICATION_NAME = "spring.application.name";
+
+    private static final String SPRING_PROFILES_ACTIVE = "spring.profiles.active";
+
+    private static final String SPRING_PROFILES_DEFAULT = "spring.profiles.default";
 
     private static final String NACOS_IMPORT_CHECK = "spring.cloud.nacos.config.import-check.enabled";
 
@@ -47,30 +59,153 @@ public class CloudLaunchEnvironmentPostProcessor implements EnvironmentPostProce
         if (environment.getPropertySources().contains(PROPERTY_SOURCE_NAME)) {
             return;
         }
-        Boolean enabled = environment.getProperty(CloudLaunchProperties.PREFIX + ".enabled", Boolean.class, true);
-        Boolean nacosImportEnabled = environment.getProperty(
-            CloudLaunchProperties.PREFIX + ".nacos-config-import-enabled", Boolean.class, true);
-        if (!enabled || !nacosImportEnabled) {
+        if (!getBoolean(environment, "enabled", true)) {
             return;
         }
+        validatePresetProfiles(environment);
 
         Map<String, Object> defaults = new HashMap<>();
-        String configuredImport = environment.getProperty(SPRING_CONFIG_IMPORT);
-        if (!StringUtils.hasText(configuredImport)) {
-            String nacosImport = environment.getProperty(
-                CloudLaunchProperties.PREFIX + ".nacos-config-import", "optional:nacos:application.yml");
-            if (StringUtils.hasText(nacosImport)) {
-                defaults.put(SPRING_CONFIG_IMPORT, nacosImport.trim());
-            }
-        }
-        if (!environment.containsProperty(NACOS_IMPORT_CHECK)) {
-            Boolean importCheckEnabled = environment.getProperty(
-                CloudLaunchProperties.PREFIX + ".nacos-config-import-check-enabled", Boolean.class, false);
-            defaults.put(NACOS_IMPORT_CHECK, String.valueOf(importCheckEnabled));
-        }
+        addApplicationInfo(environment, defaults);
+        addDefaultProfile(environment, defaults);
+        addNacosConfigImport(environment, defaults);
+        addIfAbsent(environment, defaults, "nacos.logging.default.config.enabled",
+            String.valueOf(getBoolean(environment, "nacos-logging-default-config-enabled", false)));
+        addIfAbsent(environment, defaults, "management.info.process.enabled",
+            String.valueOf(getBoolean(environment, "management-info-process-enabled", true)));
+        addIfAbsent(environment, defaults, "spring.main.allow-bean-definition-overriding",
+            String.valueOf(getBoolean(environment, "bean-definition-overriding-enabled", false)));
+
         if (!defaults.isEmpty()) {
             environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
         }
+    }
+
+    private void validatePresetProfiles(ConfigurableEnvironment environment) {
+        if (!getBoolean(environment, "fail-on-multiple-preset-profiles", true)) {
+            return;
+        }
+        Set<String> activeProfiles = activeProfiles(environment);
+        List<String> matched = activeProfiles.stream()
+            .filter(PRESET_PROFILES::contains)
+            .toList();
+        if (matched.size() > 1) {
+            throw new IllegalStateException("只能同时激活 dev/test/prod 中的一个环境，当前为：" + matched);
+        }
+    }
+
+    private void addApplicationInfo(ConfigurableEnvironment environment, Map<String, Object> defaults) {
+        String applicationName = getString(environment, "application-name", null);
+        if (StringUtils.hasText(applicationName)) {
+            addIfAbsent(environment, defaults, SPRING_APPLICATION_NAME, applicationName.trim());
+            addIfAbsent(environment, defaults, "info.desc", applicationName.trim());
+        }
+        String description = getString(environment, "application-description", null);
+        if (StringUtils.hasText(description)) {
+            addIfAbsent(environment, defaults, "info.desc", description.trim());
+        }
+        String serviceVersion = getString(environment, "service-version", null);
+        if (StringUtils.hasText(serviceVersion)) {
+            addIfAbsent(environment, defaults, "info.version", serviceVersion.trim());
+        }
+    }
+
+    private void addDefaultProfile(ConfigurableEnvironment environment, Map<String, Object> defaults) {
+        if (!getBoolean(environment, "default-profile-enabled", true)) {
+            return;
+        }
+        if (activeProfiles(environment).isEmpty() && !environment.containsProperty(SPRING_PROFILES_DEFAULT)) {
+            String defaultProfile = getString(environment, "default-profile", "dev");
+            if (StringUtils.hasText(defaultProfile)) {
+                defaults.put(SPRING_PROFILES_DEFAULT, defaultProfile.trim());
+            }
+        }
+    }
+
+    private void addNacosConfigImport(ConfigurableEnvironment environment, Map<String, Object> defaults) {
+        if (!getBoolean(environment, "nacos-config-import-enabled", true)) {
+            return;
+        }
+        if (!StringUtils.hasText(environment.getProperty(SPRING_CONFIG_IMPORT))) {
+            String configuredImport = getString(environment, "nacos-config-import", null);
+            defaults.put(SPRING_CONFIG_IMPORT, StringUtils.hasText(configuredImport)
+                ? configuredImport.trim()
+                : buildNacosConfigImport(environment));
+        }
+        addIfAbsent(environment, defaults, NACOS_IMPORT_CHECK,
+            String.valueOf(getBoolean(environment, "nacos-config-import-check-enabled", false)));
+    }
+
+    private String buildNacosConfigImport(ConfigurableEnvironment environment) {
+        String prefix = getString(environment, "nacos-config-prefix", "application");
+        String extension = getString(environment, "nacos-config-file-extension", "yaml");
+        String appName = environment.getProperty(SPRING_APPLICATION_NAME);
+        if (!StringUtils.hasText(appName)) {
+            appName = getString(environment, "application-name", null);
+        }
+        if (!StringUtils.hasText(prefix)) {
+            prefix = "application";
+        }
+        if (!StringUtils.hasText(extension)) {
+            extension = "yaml";
+        }
+        String profile = currentProfile(environment);
+        List<String> imports = new ArrayList<>();
+        imports.add(dataId(prefix.trim(), extension.trim()));
+        if (StringUtils.hasText(profile) && getBoolean(environment, "include-profile-config", true)) {
+            imports.add(dataId(prefix.trim() + "-" + profile.trim(), extension.trim()));
+        }
+        if (StringUtils.hasText(appName) && StringUtils.hasText(profile)
+                && getBoolean(environment, "include-application-profile-config", true)) {
+            imports.add(dataId(appName.trim() + "-" + profile.trim(), extension.trim()));
+        }
+        return String.join(",", imports);
+    }
+
+    private String currentProfile(ConfigurableEnvironment environment) {
+        Set<String> activeProfiles = activeProfiles(environment);
+        if (!activeProfiles.isEmpty()) {
+            return activeProfiles.iterator().next();
+        }
+        return getBoolean(environment, "default-profile-enabled", true)
+            ? getString(environment, "default-profile", "dev")
+            : null;
+    }
+
+    private Set<String> activeProfiles(ConfigurableEnvironment environment) {
+        Set<String> profiles = new LinkedHashSet<>();
+        for (String profile : environment.getActiveProfiles()) {
+            if (StringUtils.hasText(profile)) {
+                profiles.add(profile.trim());
+            }
+        }
+        String configuredProfiles = environment.getProperty(SPRING_PROFILES_ACTIVE);
+        if (StringUtils.hasText(configuredProfiles)) {
+            String[] parts = configuredProfiles.split(",");
+            for (String part : parts) {
+                if (StringUtils.hasText(part)) {
+                    profiles.add(part.trim());
+                }
+            }
+        }
+        return profiles;
+    }
+
+    private String dataId(String name, String extension) {
+        return "optional:nacos:" + name + "." + extension;
+    }
+
+    private void addIfAbsent(ConfigurableEnvironment environment, Map<String, Object> defaults, String key, String value) {
+        if (!environment.containsProperty(key)) {
+            defaults.put(key, value);
+        }
+    }
+
+    private Boolean getBoolean(ConfigurableEnvironment environment, String key, boolean defaultValue) {
+        return environment.getProperty(CloudLaunchProperties.PREFIX + "." + key, Boolean.class, defaultValue);
+    }
+
+    private String getString(ConfigurableEnvironment environment, String key, String defaultValue) {
+        return environment.getProperty(CloudLaunchProperties.PREFIX + "." + key, defaultValue);
     }
 
     @Override

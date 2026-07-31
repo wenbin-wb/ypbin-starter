@@ -875,7 +875,7 @@ public interface UserClient {
 
 ### cloud-launch — 微服务启动增强
 
-统一处理 Spring Boot 3.x / Spring Cloud Alibaba 下 Nacos ConfigData 导入的启动默认值：
+统一处理 Spring Boot 3.x / Spring Cloud Alibaba 下的启动早期默认值：默认 profile、Nacos ConfigData 导入、Nacos 日志、Actuator info 与 Bean 覆盖开关。
 
 ```xml
 <dependency>
@@ -884,11 +884,21 @@ public interface UserClient {
 </dependency>
 ```
 
-默认注入低优先级配置，不覆盖业务方显式配置：
+默认注入低优先级配置，不覆盖业务方显式配置；无 active profile 时默认使用 `dev`，并按公共配置 + 环境配置 + 应用环境配置生成 Nacos 导入：
 
 ```properties
-spring.config.import=optional:nacos:application.yml
+spring.profiles.default=dev
+spring.config.import=optional:nacos:application.yaml,optional:nacos:application-dev.yaml
 spring.cloud.nacos.config.import-check.enabled=false
+nacos.logging.default.config.enabled=false
+management.info.process.enabled=true
+spring.main.allow-bean-definition-overriding=false
+```
+
+业务方配置了 `spring.application.name=order-service` 且 profile 为 `prod` 时，默认导入：
+
+```properties
+spring.config.import=optional:nacos:application.yaml,optional:nacos:application-prod.yaml,optional:nacos:order-service-prod.yaml
 ```
 
 业务方可覆盖或关闭：
@@ -898,12 +908,25 @@ ypbin:
   cloud:
     launch:
       enabled: true
+      default-profile-enabled: true
+      default-profile: dev
+      fail-on-multiple-preset-profiles: true
+      application-name: order-service       # 可选：为空则不注入 spring.application.name
+      application-description: 订单服务      # 可选：为空则不注入 info.desc
+      service-version: 1.0.0                # 可选：为空则不注入 info.version
       nacos-config-import-enabled: true
-      nacos-config-import: optional:nacos:application.yml
+      nacos-config-import:                  # 可选：显式指定后不再自动生成
+      nacos-config-prefix: application
+      nacos-config-file-extension: yaml
+      include-profile-config: true
+      include-application-profile-config: true
       nacos-config-import-check-enabled: false
+      nacos-logging-default-config-enabled: false
+      management-info-process-enabled: true
+      bean-definition-overriding-enabled: false
 ```
 
-定位：`cloud-nacos` 管注册发现/配置中心依赖聚合，`cloud-launch` 管启动早期默认参数，避免仅引入 Nacos Config 但暂未配置 `spring.config.import` 时启动失败。
+定位：`cloud-nacos` 管注册发现/配置中心依赖聚合，`cloud-launch` 管启动早期默认参数。它不要求业务改用自定义启动类，也不会用系统属性强行覆盖命令行、环境变量或 `application.yml`，比传统固定启动器更轻、更可控。
 
 ### cloud-loadbalancer — 版本灰度负载均衡
 
