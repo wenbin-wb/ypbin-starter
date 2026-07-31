@@ -28,9 +28,9 @@ import org.springframework.scheduling.TaskScheduler;
  */
 public final class AsyncHolder {
 
-    private static Executor executor;
+    private static volatile Executor executor;
 
-    private static TaskScheduler scheduler;
+    private static volatile TaskScheduler scheduler;
 
     private AsyncHolder() {
     }

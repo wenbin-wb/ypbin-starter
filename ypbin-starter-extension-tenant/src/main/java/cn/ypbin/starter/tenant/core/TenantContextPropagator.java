@@ -37,9 +37,4 @@ public class TenantContextPropagator implements ContextPropagator<Integer> {
     public void restore(Integer snapshot) {
         TenantContext.restore(snapshot);
     }
-
-    @Override
-    public void clear() {
-        TenantContext.clear();
-    }
 }

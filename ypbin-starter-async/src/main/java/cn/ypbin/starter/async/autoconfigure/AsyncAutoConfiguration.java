@@ -19,6 +19,8 @@ import cn.ypbin.starter.async.core.LoggingAsyncUncaughtExceptionHandler;
 import cn.ypbin.starter.async.util.AsyncHolder;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -46,6 +48,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @EnableConfigurationProperties(AsyncProperties.class)
 public class AsyncAutoConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(AsyncAutoConfiguration.class);
+
     /**
      * 统一业务线程池。
      */
@@ -65,6 +69,8 @@ public class AsyncAutoConfiguration {
         executor.setRejectedExecutionHandler(resolveRejectionHandler(properties.getRejectionPolicy()));
         if (properties.isVirtualThreads()) {
             executor.setVirtualThreads(true);
+            log.warn("[ypbin-starter] 已启用虚拟线程，线程池的 core-size/max-size/queue-capacity/"
+                + "keep-alive-seconds/rejection-policy 等池化参数将不生效。");
         }
         taskDecorator.ifAvailable(executor::setTaskDecorator);
         executor.initialize();
