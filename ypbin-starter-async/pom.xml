@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-dependencies</artifactId>
+        <version>${revision}</version>
+        <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ypbin-starter-async</artifactId>
+
+    <name>${project.artifactId}</name>
+    <description>异步执行与线程池治理：统一线程池、@Async 接管、异步异常处理、上下文透传、AsyncUtils 静态工具</description>
+
+    <properties>
+        <revision>1.0.0-SNAPSHOT</revision>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-core</artifactId>
+        </dependency>
+
+        <!-- 线程池/@Async/调度依赖 spring-context，纯 servlet 与 webflux 都可用 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

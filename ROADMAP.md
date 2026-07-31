@@ -6,8 +6,8 @@
 
 ## 0. 当前状态总览
 
-- **模块**：31 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块）
-- **构建**：全量 31 模块 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **模块**：32 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async）
+- **构建**：全量 32 模块 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 17 · Spring Boot 3.5.16 · Spring Cloud 2025.0.3 · spring-cloud-alibaba 2025.0.0.0
@@ -231,6 +231,13 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 根治流程隐患：spotless-check 执行阶段从 `verify` 前移到 `process-test-classes`，使日常 `mvn test`
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
+
+### 新增 async 异步模块（用户建议：补线程池/异步能力，并提供静态工具）
+- ✅ 新增 `ypbin-starter-async`：统一线程池 `ypbinTaskExecutor` + 调度器 `ypbinTaskScheduler`，可配核心/最大/队列/存活/拒绝策略/优雅停机/虚拟线程。
+- ✅ 接管 `@Async`：`AsyncAnnotationAutoConfiguration` 启用 `@EnableAsync`，默认执行器指向统一线程池；`@Async` void 异常统一记录（原会静默丢失）。
+- ✅ 复用 core 的 `TaskDecorator`：线程池自动挂载上下文透传装饰器，租户/用户/MDC 传播到异步线程。
+- ✅ 提供 `AsyncUtils` 静态门面：提交(run/supply)、编排(then/combine/withFallback)、批量并发(supplyAll/mapAll/runAll)、等待(allOf/anyOf/joinAll/join 超时)、调度(schedule/固定速率/固定延迟)，业务方无需注入执行器。
+- ✅ 已并入 `app-web`（进而 `app-cloud` 传递获得）；装配测试 3 + AsyncUtils 单测 10；全量 32 模块 clean test 绿。
 
 ### 工具类场景全面扩全（用户要求：工具类要充分挖掘组件能力、覆盖高频场景）
 起因：抽查发现 ExcelUtils 仅 3 个方法等，工具类普遍偏薄，业务方仍需自研对接底层组件。逐个扩全（保留分寸，不为凑数过度封装）：

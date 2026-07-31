@@ -54,5 +54,9 @@
             <groupId>cn.ypbin.starter</groupId>
             <artifactId>ypbin-starter-tools</artifactId>
         </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-async</artifactId>
+        </dependency>
     </dependencies>
 </project>

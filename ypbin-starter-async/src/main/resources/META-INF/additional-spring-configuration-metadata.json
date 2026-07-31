@@ -1,0 +1,88 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.async.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用异步能力。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.async.enable-annotation",
+      "type": "java.lang.Boolean",
+      "description": "是否接管 @Async（启用 @EnableAsync 并把默认执行器指向本模块线程池）。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.async.virtual-threads",
+      "type": "java.lang.Boolean",
+      "description": "是否优先使用虚拟线程（JDK 21+ 生效）。",
+      "defaultValue": false
+    },
+    {
+      "name": "ypbin.async.core-size",
+      "type": "java.lang.Integer",
+      "description": "核心线程数。",
+      "defaultValue": 8
+    },
+    {
+      "name": "ypbin.async.max-size",
+      "type": "java.lang.Integer",
+      "description": "最大线程数。",
+      "defaultValue": 32
+    },
+    {
+      "name": "ypbin.async.queue-capacity",
+      "type": "java.lang.Integer",
+      "description": "队列容量。",
+      "defaultValue": 1000
+    },
+    {
+      "name": "ypbin.async.keep-alive-seconds",
+      "type": "java.lang.Integer",
+      "description": "空闲线程存活秒数。",
+      "defaultValue": 60
+    },
+    {
+      "name": "ypbin.async.allow-core-thread-timeout",
+      "type": "java.lang.Boolean",
+      "description": "是否允许核心线程超时回收。",
+      "defaultValue": false
+    },
+    {
+      "name": "ypbin.async.thread-name-prefix",
+      "type": "java.lang.String",
+      "description": "线程名前缀。",
+      "defaultValue": "ypbin-async-"
+    },
+    {
+      "name": "ypbin.async.rejection-policy",
+      "type": "cn.ypbin.starter.async.autoconfigure.AsyncProperties$RejectionPolicy",
+      "description": "线程池拒绝策略：CALLER_RUNS/ABORT/DISCARD/DISCARD_OLDEST。",
+      "defaultValue": "caller-runs"
+    },
+    {
+      "name": "ypbin.async.await-termination",
+      "type": "java.lang.Boolean",
+      "description": "关闭时是否等待任务执行完。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.async.await-termination-seconds",
+      "type": "java.lang.Integer",
+      "description": "关闭时最长等待秒数。",
+      "defaultValue": 30
+    },
+    {
+      "name": "ypbin.async.scheduler-pool-size",
+      "type": "java.lang.Integer",
+      "description": "调度线程池大小。",
+      "defaultValue": 2
+    },
+    {
+      "name": "ypbin.async.scheduler-thread-name-prefix",
+      "type": "java.lang.String",
+      "description": "调度线程名前缀。",
+      "defaultValue": "ypbin-scheduler-"
+    }
+  ]
+}
