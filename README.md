@@ -768,6 +768,13 @@ pushService.broadcast("dashboard-refresh", dashboardData);           // 广播�
 boolean online = pushService.isOnline("123");                        // 是否在线
 ```
 
+非注入场景（异步任务、事件监听、工具方法）用静态门面 `PushUtils`（内部委托 `PushService`）：
+
+```java
+PushUtils.sendToUser("123", "unread-count", Map.of("count", 5));
+PushUtils.broadcast("dashboard-refresh", dashboardData);
+```
+
 **多实例说明**：SSE 连接与 `PushService` 默认基于单实例内存连接表；微服务多副本下，A 实例发起的推送到不了连在 B 实例的客户端。跨实例扇出需在上层配合 Redis Pub/Sub 或 MQTT 中转（业务方自定义 `PushService` 覆盖默认实现即可接入）。
 
 **MQTT（Paho）**：需引入 `org.eclipse.paho.client.mqttv3` 并开启：
