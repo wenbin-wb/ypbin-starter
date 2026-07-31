@@ -1,0 +1,28 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.sse.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用 SSE 实时推送。",
+      "defaultValue": false
+    },
+    {
+      "name": "ypbin.sse.register-endpoint",
+      "type": "java.lang.Boolean",
+      "description": "是否注册内置订阅端点（生产建议关闭并自建带鉴权的端点）。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.sse.path",
+      "type": "java.lang.String",
+      "description": "内置订阅端点路径。",
+      "defaultValue": "/ypbin/sse/subscribe"
+    },
+    {
+      "name": "ypbin.sse.timeout",
+      "type": "java.lang.Long",
+      "description": "SSE 连接超时（毫秒），到期后客户端自动重连。",
+      "defaultValue": 300000
+    }
+  ]
+}

@@ -36,6 +36,17 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- SSE 基于 spring-webmvc 的 SseEmitter，可选（仅 servlet web 应用需要） -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- MQTT（IoT 场景）：直接用 Paho 客户端，轻量，可选 -->
         <dependency>
             <groupId>org.eclipse.paho</groupId>

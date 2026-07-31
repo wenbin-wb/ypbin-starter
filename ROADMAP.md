@@ -232,6 +232,13 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
 
+### 新增 SSE + 统一推送门面（用户提问：长连接/实时推送，免前端长轮询）
+- ✅ messaging 补 SSE：`SseEmitterManager`（按用户多端连接注册表，完成/超时/异常自动摘除，防内存泄漏）+ 内置订阅端点 `SseSubscribeController`。
+- ✅ 统一推送门面 `PushService`（sendToUser/broadcast/isOnline/onlineCount）+ `DefaultPushService`，屏蔽 SSE/WebSocket 通道差异，覆盖「未读提醒/扫码登录状态/大屏刷新」三场景。
+- ✅ `SseAutoConfiguration`：`@ConditionalOnClass(SseEmitter)` + Servlet Web + `ypbin.sse.enabled`；spring-webmvc/servlet-api 均 optional，缺失不影响其它能力。
+- ✅ 配置元数据、README（含 EventSource 前端示例、多实例扇出说明）、SseEmitterManagerTest 4。
+- 明确边界：默认单实例内存连接表，多副本跨实例扇出需上层配 Redis Pub/Sub/MQTT，业务方覆盖 PushService 接入。
+
 ### 新增分布式锁（用户建议：定时任务防重 @Scheduled + 分布式锁）
 - ✅ 决策：不单建 job 模块，分布式锁作为通用能力放 tools（复用其 AOP/Redis optional/SpEL 基建），定时任务防重 = `@Scheduled` 叠加 `@DistributedLock`。
 - ✅ `LockService` 抽象 + `RedisLockService`（SET NX EX 加锁 + Lua 校验持有者释放，不误删他人锁）+ `InMemoryLockService`（单机兜底，过期可重抢、释放校验持有者）。

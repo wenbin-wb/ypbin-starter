@@ -102,7 +102,7 @@
 | 异步 | `ypbin-starter-async` | 统一线程池、`@Async` 接管、异步异常处理、上下文透传、`AsyncUtils` 静态工具 | `ypbin.async` |
 | Excel | `ypbin-starter-excel` | 基于 FastExcel 的注解驱动导入导出 | — |
 | 验证码 | `ypbin-starter-captcha` | 行为验证码（滑块/旋转/点选/拼接） | `ypbin.captcha` |
-| 消息 | `ypbin-starter-messaging` | 邮件、WebSocket（STOMP）、MQTT（Paho） | `ypbin.websocket` / `ypbin.mqtt` |
+| 消息 | `ypbin-starter-messaging` | 邮件、WebSocket（STOMP）、SSE + 统一推送门面 `PushService`、MQTT（Paho） | `ypbin.websocket` / `ypbin.sse` / `ypbin.mqtt` |
 | 敏感词 | `ypbin-starter-sensitive-words` | Hutool DFA 敏感词检测/替换，可插拔词库 | `ypbin.sensitive-words` |
 | 国际化 | `ypbin-starter-i18n` | Spring MessageSource 多语言，参数/头解析 Locale | `ypbin.i18n` |
 | 接口加解密 | `ypbin-starter-api-crypto` | `@ApiEncrypt` 请求解密/响应加密（Advice） | `ypbin.api-crypto` |
@@ -680,7 +680,7 @@ boolean ok = captchaService.verify(id, track);
 
 图片资源、二次校验等通过 tianai 自身的配置项调整。
 
-### messaging — 消息（邮件 / WebSocket / MQTT）
+### messaging — 消息（邮件 / WebSocket / SSE / MQTT）
 
 **邮件**：基于 Spring Mail，配置好 `spring.mail.*` 后自动装配 `MailService`：
 
@@ -712,6 +712,37 @@ ypbin:
 ```
 
 业务方注入 `SimpMessagingTemplate` 向客户端广播。**可靠性说明**：内置 SimpleBroker 为内存代理，服务重启消息丢失、不保证送达；生产需可靠投递时，自定义 `WebSocketMessageBrokerConfigurer` 接入 RabbitMQ/ActiveMQ 的 STOMP relay。
+
+**SSE（服务端单向推送）+ 统一推送门面**：适合「全局未读提醒」「扫码登录状态变更」「大屏数据刷新」等服务端主动推、免前端长轮询的场景。SSE 基于 HTTP，比 WebSocket 更轻、浏览器 `EventSource` 自动重连。开启：
+
+```yaml
+ypbin:
+  sse:
+    enabled: true
+    register-endpoint: true      # 内置订阅端点；生产建议关闭改用带鉴权的自建端点
+    path: /ypbin/sse/subscribe
+    timeout: 300000              # 连接超时(ms)，到期客户端自动重连
+```
+
+前端建立订阅（`userId` 生产应由登录态解析，勿信任前端传参）：
+
+```javascript
+const es = new EventSource('/ypbin/sse/subscribe?userId=123');
+es.addEventListener('unread-count', e => render(JSON.parse(e.data)));
+```
+
+后端用统一门面 `PushService` 推送，屏蔽底层通道：
+
+```java
+@Autowired
+private PushService pushService;
+
+pushService.sendToUser("123", "unread-count", Map.of("count", 5));   // 推指定用户
+pushService.broadcast("dashboard-refresh", dashboardData);           // 广播（大屏刷新）
+boolean online = pushService.isOnline("123");                        // 是否在线
+```
+
+**多实例说明**：SSE 连接与 `PushService` 默认基于单实例内存连接表；微服务多副本下，A 实例发起的推送到不了连在 B 实例的客户端。跨实例扇出需在上层配合 Redis Pub/Sub 或 MQTT 中转（业务方自定义 `PushService` 覆盖默认实现即可接入）。
 
 **MQTT（Paho）**：需引入 `org.eclipse.paho.client.mqttv3` 并开启：
 
