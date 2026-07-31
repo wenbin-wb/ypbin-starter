@@ -232,6 +232,12 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
 
+### 基类与当前用户增强（用户提问：BaseEntity 加 id/逻辑删除/租户，如何获取当前登录人）
+- ✅ BaseEntity 泛型化 `BaseEntity<ID>`：加主键 id（`@TableId(type=ASSIGN_ID)` 雪花默认，业务可全局配 id-type 改策略）+ 逻辑删除字段 `deleted`（`@TableLogic`，MyBatis-Plus 默认规则开箱生效）。零破坏（starter 内无实体继承）。
+- ✅ 租户实体基类 `TenantBaseEntity<ID> extends BaseEntity` 放 tenant 模块（不污染基础 BaseEntity）：多一个 `tenantId` 字段，隔离仍由行拦截器自动追加 SQL 条件。
+- ✅ security 新增 `UserContext` 当前用户门面：getUserId/getUsername/getTenantId/getAttribute，用户名/租户等业务属性登录时写入 Sa-Token 会话后任意层可读；LoginHelper 仍只管 ID。
+- 决策：逻辑删除字段直接进 BaseEntity（用户选择），不需要的表实体不继承或建表不加列；租户基类独立、分层干净。
+
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。
 - ✅ 多级缓存 `MultiLevelCacheService`：L1 Caffeine + L2 Redis，读回填 L1、写删失效 L1；Redis Pub/Sub 跨实例失效广播（带实例标识忽略自广播），覆盖默认 CacheService。
