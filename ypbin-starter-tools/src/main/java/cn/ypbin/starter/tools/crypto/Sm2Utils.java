@@ -22,6 +22,7 @@ import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Security;
+import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
@@ -111,6 +112,79 @@ public final class Sm2Utils {
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new IllegalStateException("SM2 解密失败", e);
+        }
+    }
+
+    // ------------------------------------------------------------------ 签名 / 验签（SM3withSM2）
+
+    /**
+     * 私钥签名（SM3withSM2），结果 Base64 编码。
+     *
+     * @param data             待签名数据
+     * @param privateKeyBase64 Base64 私钥
+     * @return Base64 签名值
+     */
+    public static String sign(String data, String privateKeyBase64) {
+        try {
+            Signature signature = Signature.getInstance("SM3withSM2", BouncyCastleProvider.PROVIDER_NAME);
+            signature.initSign(loadPrivateKey(privateKeyBase64));
+            signature.update(data.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(signature.sign());
+        } catch (Exception e) {
+            throw new IllegalStateException("SM2 签名失败", e);
+        }
+    }
+
+    /**
+     * 公钥验签（SM3withSM2）。
+     *
+     * @param data            原始数据
+     * @param signBase64      Base64 签名值
+     * @param publicKeyBase64 Base64 公钥
+     * @return 验签是否通过
+     */
+    public static boolean verify(String data, String signBase64, String publicKeyBase64) {
+        try {
+            Signature signature = Signature.getInstance("SM3withSM2", BouncyCastleProvider.PROVIDER_NAME);
+            signature.initVerify(loadPublicKey(publicKeyBase64));
+            signature.update(data.getBytes(StandardCharsets.UTF_8));
+            return signature.verify(Base64.getDecoder().decode(signBase64));
+        } catch (Exception e) {
+            throw new IllegalStateException("SM2 验签失败", e);
+        }
+    }
+
+    // ------------------------------------------------------------------ 密钥还原
+
+    /**
+     * 从 Base64 还原 SM2 公钥。
+     *
+     * @param publicKeyBase64 Base64 公钥
+     * @return 公钥对象
+     */
+    public static PublicKey loadPublicKey(String publicKeyBase64) {
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(publicKeyBase64);
+            return KeyFactory.getInstance(ALGORITHM, BouncyCastleProvider.PROVIDER_NAME)
+                .generatePublic(new X509EncodedKeySpec(keyBytes));
+        } catch (Exception e) {
+            throw new IllegalStateException("SM2 公钥还原失败", e);
+        }
+    }
+
+    /**
+     * 从 Base64 还原 SM2 私钥。
+     *
+     * @param privateKeyBase64 Base64 私钥
+     * @return 私钥对象
+     */
+    public static PrivateKey loadPrivateKey(String privateKeyBase64) {
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(privateKeyBase64);
+            return KeyFactory.getInstance(ALGORITHM, BouncyCastleProvider.PROVIDER_NAME)
+                .generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
+        } catch (Exception e) {
+            throw new IllegalStateException("SM2 私钥还原失败", e);
         }
     }
 

@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.web.repeatable-read.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用可重复读请求过滤器，把带 body 的请求包装为可重复读，供 XSS、签名、日志等下游复用。",
+      "defaultValue": false
+    }
+  ]
+}

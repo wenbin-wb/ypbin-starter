@@ -135,6 +135,21 @@
             </dependency>
             <dependency>
                 <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-loadbalancer</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-observability</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-cloud-sentinel</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
                 <artifactId>ypbin-starter-cloud-gateway</artifactId>
                 <version>${revision}</version>
             </dependency>

@@ -1,7 +1,7 @@
 # ypbin-starter
 
-一套基于 Spring Boot 3.5 的开箱即用基础能力 starter 集合。参考业界成熟脚手架的架构思想，
-按「约定优于配置、按需引入、可覆盖可扩展」的原则重构，面向企业级生产环境。
+一套基于 Spring Boot 3.5 的开箱即用基础能力 starter 集合，覆盖单体应用与微服务架构。
+参考业界成熟脚手架的架构思想，按「约定优于配置、按需引入、可覆盖可扩展」的原则重构，面向企业级生产环境。
 
 ## 特性
 
@@ -9,6 +9,7 @@
 - **约定优于配置**：统一 `ypbin.*` 配置前缀，默认自动装配，零配置即可用。
 - **可覆盖可扩展**：能力 Bean 全部 `@ConditionalOnMissingBean` 可覆盖，`@ConditionalOnProperty` 可开关；模块间通过扩展点接口解耦。
 - **企业级细节**：多租户跨租户逃逸、异步上下文透传、分布式限流与幂等、数据权限门控、全局异常统一、审计字段自动填充、XSS 防护、字段加密、数据脱敏。
+- **微服务就绪**：Feign 请求头透传与 R 错误解码、CircuitBreaker 默认开启、版本灰度负载均衡、Nacos 注册/配置/动态路由、Gateway 横切（CORS/异常/身份头清洗/鉴权/Swagger 聚合）。
 - **能力齐全**：Excel 导入导出、行为验证码、邮件、国密 SM2/SM4、雪花 ID、树形结构工具开箱即用。
 - **版本治理**：`${revision}` + flatten 统一版本，对外提供 BOM 一键导入。
 - **质量保障**：spotless 统一代码风格 + license 头，核心逻辑单元测试覆盖。
@@ -28,6 +29,10 @@
 | 验证码 | tianai-captcha 1.5.5（滑块/旋转/点选/拼接） |
 | 加解密 | AES-GCM / 国密 SM2·SM4（BouncyCastle 1.85） |
 | 邮件 | Spring Mail |
+| 微服务 | Spring Cloud 2025.0.3 + Gateway / OpenFeign / LoadBalancer |
+| 注册配置 | Nacos（spring-cloud-alibaba 2025.0.0.0） |
+| 熔断降级 | Resilience4j |
+| 网关 | Spring Cloud Gateway（WebFlux） |
 
 ## 快速开始
 
@@ -61,6 +66,20 @@
         <groupId>cn.ypbin.starter</groupId>
         <artifactId>ypbin-starter-data</artifactId>
     </dependency>
+
+    <!-- 微服务架构 -->
+    <dependency>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-cloud-gateway</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-cloud-nacos</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-cloud-core</artifactId>
+    </dependency>
 </dependencies>
 ```
 
@@ -74,7 +93,7 @@
 | JSON | `ypbin-starter-json` | Jackson 统一序列化（时间格式、大数字转字符串）、`@Sensitive` 脱敏 | `ypbin.json` |
 | Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON、XSS 过滤、可重复读请求 | `ypbin.web` |
 | 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、审计填充、拦截器编排、字段加密、雪花 ID | `ypbin.data` |
-| 缓存 | `ypbin-starter-cache` | Redis 缓存（CacheService 策略接口） | `ypbin.cache` |
+| 缓存 | `ypbin-starter-cache` | Redis 缓存（CacheService 策略接口 + CacheUtils 静态门面） | `ypbin.cache` |
 | 安全 | `ypbin-starter-security` | Sa-Token 封装（登录、权限数据源扩展点）、密码编码器 | `ypbin.security` |
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
 | 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
@@ -91,6 +110,12 @@
 | 多租户 | `ypbin-starter-extension-tenant` | 行级租户隔离、`@TenantIgnore` 跨租户逃逸 | `ypbin.tenant` |
 | CRUD | `ypbin-starter-extension-crud` | 通用控制器/服务基类，防 Over-Posting | — |
 | 数据权限 | `ypbin-starter-extension-datapermission` | 行级数据范围过滤、`@DataPermission` 门控 | `ypbin.data-permission` |
+| Feign | `ypbin-starter-cloud-core` | OpenFeign 请求头透传、错误解码、熔断兜底 | `ypbin.cloud.feign` |
+| Nacos | `ypbin-starter-cloud-nacos` | Nacos 注册发现 + 配置中心 + LoadBalancer 聚合 | — |
+| 负载均衡 | `ypbin-starter-cloud-loadbalancer` | 版本灰度路由、优先 IP、权重随机、Nacos metadata | `ypbin.cloud.loadbalancer` |
+| 可观测性 | `ypbin-starter-cloud-observability` | X-Request-Id 与 MDC 关联、Micrometer Tracing 门面（OTLP 可选） | `ypbin.observability` |
+| 流量防护 | `ypbin-starter-cloud-sentinel` | Sentinel Web/网关限流、被拒统一 R 响应、Nacos 规则热更新 | `ypbin.cloud.sentinel` |
+| 网关 | `ypbin-starter-cloud-gateway` | Spring Cloud Gateway 横切（CORS/异常/鉴权/文档聚合/动态路由） | `ypbin.gateway` |
 
 详细用法见 [各模块使用文档](#各模块使用文档)。
 
@@ -249,7 +274,28 @@ cacheService.set("user:1", user, Duration.ofMinutes(30));
 User user = cacheService.get("user:1", User.class);
 ```
 
+非 Spring 托管场景（静态方法、工具类）无法注入时，用静态门面 `CacheUtils`（内部委托 `CacheService`）：
+
+```java
+CacheUtils.set("user:1", user, Duration.ofMinutes(30));
+User user = CacheUtils.get("user:1", User.class);
+long pv = CacheUtils.increment("page:pv", 1);
+```
+
+> Spring 组件仍应优先直接注入 `CacheService`，语义更清晰、更易测试；`CacheUtils` 仅用于拿不到注入的场景。
+
 需要多级缓存/本地缓存时，实现 `CacheService` 覆盖默认 Bean 即可。
+
+需要 Redis 专属数据结构（hash/list/set/zset）时，用 `RedisUtils` 静态工具（直接封装 `RedisTemplate` 全能力）：
+
+```java
+RedisUtils.setIfAbsent("lock:order:1", "1", Duration.ofSeconds(10));  // 分布式锁
+RedisUtils.hSet("user:1", "name", "tom");                            // hash
+RedisUtils.zAdd("rank", "player1", 99.5);                            // zset 排行榜
+Set<Object> top10 = RedisUtils.zReverseRange("rank", 0, 9);
+```
+
+分工：与实现无关的通用缓存走 `CacheService`/`CacheUtils`；Redis 专属结构走 `RedisUtils`。
 
 ### security — 认证授权
 
@@ -377,21 +423,33 @@ public void create(OrderReq req) { ... }
 **AES 加解密** `AesUtils`：AES-GCM 认证加密，随机 IV 前置：
 
 ```java
-String cipher = AesUtils.encrypt("secret", key);   // key 长度 16/24/32
-String plain = AesUtils.decrypt(cipher, key);
+byte[] key = AesUtils.generateKey(256);            // 随机密钥（128/192/256）
+String cipher = AesUtils.encrypt("secret", key);   // 字符串 → Base64 密文
+String plain  = AesUtils.decrypt(cipher, key);
+
+byte[] ct = AesUtils.encryptBytes(data, key);      // 字节级加解密
+byte[] pt = AesUtils.decryptBytes(ct, key);
+
+String b64Key = AesUtils.generateKeyBase64(256);   // 密钥 Base64 存取
+byte[] derived = AesUtils.deriveKey("口令", AesUtils.generateSalt(16), 256);  // PBKDF2 口令派生
 ```
 
 **国密 SM4/SM2**（基于 BouncyCastle，合规场景）：
 
 ```java
-// SM4 对称（16 字节密钥）
-String c = Sm4Utils.encrypt("secret", "1234567890abcdef");
-String p = Sm4Utils.decrypt(c, "1234567890abcdef");
+// SM4 对称：ECB / CBC / GCM 三模式（推荐 GCM 认证加密）
+byte[] k = Sm4Utils.generateKey();                 // 随机 16 字节密钥
+String c = Sm4Utils.encrypt("secret", k);          // ECB + Base64（向后兼容）
+byte[] gcm = Sm4Utils.encryptGcm(data, k);         // GCM，IV 前置
+byte[] cbc = Sm4Utils.encryptCbc(data, k, Sm4Utils.generateIv(16));
+String hex = Sm4Utils.encryptHex("secret", k);     // Hex 形态
 
-// SM2 非对称
+// SM2 非对称：加解密 + 签名验签
 Sm2Utils.KeyPairBase64 kp = Sm2Utils.generateKeyPair();
 String cipher = Sm2Utils.encrypt("secret", kp.publicKey());
 String plain  = Sm2Utils.decrypt(cipher, kp.privateKey());
+String sign = Sm2Utils.sign("data", kp.privateKey());          // SM3withSM2 签名
+boolean ok  = Sm2Utils.verify("data", sign, kp.publicKey());   // 验签
 ```
 
 ### extension-crud — 通用 CRUD
@@ -485,11 +543,24 @@ public class UserExcel {
     private Integer age;
 }
 
-// 导入
+// 导入：同步全量 / 指定 sheet / 自定义表头行
 List<UserExcel> list = ExcelUtils.read(inputStream, UserExcel.class);
+List<UserExcel> s2 = ExcelUtils.read(inputStream, UserExcel.class, 1);          // 第 2 个 sheet
+List<UserExcel> h2 = ExcelUtils.read(inputStream, UserExcel.class, 0, 2);       // 表头占 2 行
+
+// 大文件分批流式读取，避免一次性载入内存
+ExcelUtils.readInBatch(inputStream, UserExcel.class, 1000, batch -> saveBatch(batch));
 
 // 导出到 HTTP 响应（浏览器下载，文件名自动 UTF-8 编码）
 ExcelUtils.export(response, "用户列表", UserExcel.class, list);
+
+// 仅导出/排除指定列（字段名）
+ExcelUtils.writeIncludeColumns(out, "用户", UserExcel.class, list, List.of("username"));
+
+// 多 sheet 导出
+ExcelUtils.exportMultiSheet(response, "报表", List.of(
+    ExcelUtils.SheetData.of("用户", UserExcel.class, users),
+    ExcelUtils.SheetData.of("订单", OrderExcel.class, orders)));
 ```
 
 ### captcha — 行为验证码
@@ -523,7 +594,12 @@ mailService.sendHtml("to@example.com", "标题", "<h1>HTML 正文</h1>");
 mailService.sendWithAttachments("to@example.com", "标题", "正文", false, new File("report.xlsx"));
 ```
 
-发件人默认取 `spring.mail.username`。
+发件人默认取 `spring.mail.username`。非注入场景（异步任务、工具方法）可用静态门面 `MailUtils`：
+
+```java
+MailUtils.sendText("to@example.com", "标题", "正文");
+MailUtils.sendHtml("to@example.com", "标题", "<h1>HTML</h1>");
+```
 
 **WebSocket（STOMP 实时推送）**：需引入 `spring-boot-starter-websocket` 并开启：
 
@@ -560,7 +636,18 @@ mqttPublisher.publish("device/1/cmd", payload);          // 默认 QoS
 mqttPublisher.publish("device/1/cmd", payload, 2, false); // 指定 QoS/retained
 ```
 
-订阅用 `mqttPublisher.getClient()` 拿到 Paho 客户端自行 subscribe。
+订阅用 `MqttSubscriber`，以「主题 → 回调」接收消息（回调参数为 topic 与 UTF-8 解码后的 payload）：
+
+```java
+@Autowired
+private MqttSubscriber mqttSubscriber;
+
+mqttSubscriber.subscribe("device/+/up", (topic, payload) -> handle(topic, payload));
+mqttSubscriber.subscribe("alarm/#", 2, (topic, payload) -> alarm(payload));  // 指定 QoS
+mqttSubscriber.unsubscribe("device/+/up");
+```
+
+断线自动重连后 Paho 会丢失原订阅，`MqttSubscriber` 已登记主题并在重连完成时自动恢复订阅，业务无需处理。
 
 ### sensitive-words — 敏感词过滤
 
@@ -581,6 +668,13 @@ boolean hit = service.contains(text);
 String clean = service.filter(text, '*');   // 命中词替换为等长 *
 List<String> hits = service.findAll(text);
 service.reload(newWords);                    // 词库热更新
+```
+
+非注入场景（校验工具、DTO 自校验）可用静态门面 `SensitiveWordUtils`：
+
+```java
+if (SensitiveWordUtils.contains(text)) { ... }
+String clean = SensitiveWordUtils.filter(text, '*');
 ```
 
 ### i18n — 国际化
@@ -678,6 +772,299 @@ private SocialService socialService;
 String url = socialService.authorizeUrl("github");        // 生成授权跳转地址
 AuthUser user = socialService.login("github", callback);  // 回调换取用户信息
 ```
+
+### cloud-core — 微服务 Feign 增强
+
+引入即自动装配，默认提供请求头透传与 R 响应错误解码。依赖 `spring-cloud-starter-openfeign`
+和 `spring-cloud-starter-circuitbreaker-resilience4j`。
+
+```xml
+<dependency>
+    <groupId>cn.ypbin.starter</groupId>
+    <artifactId>ypbin-starter-cloud-core</artifactId>
+</dependency>
+```
+
+**请求头透传**：Feign 调用时自动把上游请求头（默认 `Authorization` / `X-Request-Id` / `X-Trace-Id`）
+透传给下游。可通过配置扩展白名单：
+
+```yaml
+ypbin:
+  cloud:
+    feign:
+      propagate-headers:
+        - Authorization
+        - X-Request-Id
+        - X-Tenant-Id
+```
+
+**统一错误解码**：下游返回非 2xx 且响应体为 ypbin 统一 `R` 时，自动转为 `FeignRemoteException`
+（含下游业务码与提示），由全局异常处理器转换为 HTTP 200 + `R.code` 的错误响应。
+
+**CircuitBreaker 默认开启**：模块自动注入最低优先级默认值 `spring.cloud.openfeign.circuitbreaker.enabled=true`，
+使 Resilience4j 熔断实际参与 Feign 调用链。关闭方式：
+
+```yaml
+ypbin:
+  cloud:
+    feign:
+      circuitbreaker-enabled: false
+```
+
+**R 专用 Fallback 辅助**：对返回 `R<T>` 的 FeignClient，可继承 `RFeignFallbackFactory` 减少重复代码：
+
+```java
+@Component
+class UserClientFallbackFactory extends RFeignFallbackFactory<UserClient> {
+    @Override public UserClient create(Throwable cause) {
+        return id -> fail(cause, "用户服务暂不可用");
+    }
+}
+
+@FeignClient(name = "user-service", fallbackFactory = UserClientFallbackFactory.class)
+public interface UserClient {
+    R<UserDto> getById(Long id);
+}
+```
+
+完整配置项：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `ypbin.cloud.feign.enabled` | `true` | 总开关 |
+| `ypbin.cloud.feign.error-decoder-enabled` | `true` | R 错误解码 |
+| `ypbin.cloud.feign.circuitbreaker-enabled` | `true` | 默认开启 CircuitBreaker |
+| `ypbin.cloud.feign.propagate-headers` | `Authorization`, `X-Request-Id`, `X-Trace-Id` | 透传请求头白名单 |
+
+### cloud-nacos — Nacos 依赖聚合
+
+一键引入 Nacos 注册发现 + 配置中心 + LoadBalancer，版本锁定无需手动指定：
+
+```xml
+<dependency>
+    <groupId>cn.ypbin.starter</groupId>
+    <artifactId>ypbin-starter-cloud-nacos</artifactId>
+</dependency>
+```
+
+本模块为纯依赖聚合，Nacos 自动配置由 spring-cloud-alibaba 提供。业务方按常规配置
+`spring.cloud.nacos.discovery.server-addr` 和 `spring.cloud.nacos.config.server-addr` 即可。
+
+### cloud-loadbalancer — 版本灰度负载均衡
+
+提供请求头驱动的灰度流量路由，与 Spring Cloud LoadBalancer 无缝集成。引入即替换默认轮询策略为版本灰度策略：
+
+```xml
+<dependency>
+    <groupId>cn.ypbin.starter</groupId>
+    <artifactId>ypbin-starter-cloud-loadbalancer</artifactId>
+</dependency>
+```
+
+```yaml
+ypbin:
+  cloud:
+    loadbalancer:
+      enabled: true
+      version: gray             # 当前服务灰度版本（可选）
+      version-headers:          # 按顺序取第一个非空请求头作为请求灰度版本
+        - X-Version
+        - version
+      metadata-key: version     # 服务实例 metadata 中版本字段名
+      weight-metadata-key: weight
+      default-weight: 1
+      fallback-to-stable: true  # 灰度实例匹配不到时是否回退正式实例
+      prior-ip-patterns:
+        - 10.20.0.*
+```
+
+**路由规则**：
+- 请求头有灰度版本 → 只选匹配 metadata 的实例，无匹配时按 `fallback-to-stable` 决定是否回退正式实例。
+- 请求头无灰度版本 → 默认只选无版本标记的正式实例。
+- 配置 `version` → 自动以低优先级写入 Nacos discovery metadata，无需手动维护。
+
+### cloud-gateway — 网关通用横切能力
+
+在 Spring Cloud Gateway（WebFlux）基础上提供开箱即用的横切能力，不预设路由规则：
+
+```xml
+<dependency>
+    <groupId>cn.ypbin.starter</groupId>
+    <artifactId>ypbin-starter-cloud-gateway</artifactId>
+</dependency>
+```
+
+**核心能力**（默认开启）：
+
+- **请求 ID 透传**：入口生成/复用 `X-Request-Id`，写入响应头，与 cloud-core 配合贯穿调用链。
+- **身份头清洗**：默认移除客户端传入的 `X-User-Id` / `X-Tenant-Id` / `X-Dept-Id` / `X-Roles`，防身份伪造。
+- **全局异常 JSON 响应**：Gateway 异常统一转为 `R` JSON（HTTP 200），与 Servlet 全局异常保持风格一致。
+- **WebFlux CORS**：与 Servlet CorsFilter 独立，`ypbin.gateway.cors` 前缀单独配置。
+
+可选能力（按需开启）：
+
+**统一认证**：
+
+```yaml
+ypbin:
+  gateway:
+    auth:
+      enabled: true
+      exclude-paths:
+        - /actuator/**
+        - /swagger-ui/**
+```
+
+```java
+@Component
+public class JwtAuthProvider implements GatewayAuthProvider {
+    @Override public Mono<GatewayAuthResult> authenticate(ServerWebExchange exchange) {
+        // 校验 token，成功则返回可信身份头
+        return Mono.just(GatewayAuthResult.success(Map.of("X-User-Id", userId)));
+    }
+}
+```
+
+**Swagger 文档聚合**：自动从 Gateway 路由表解析 `lb://service-name` 生成 Swagger UI 下拉列表：
+
+```yaml
+ypbin:
+  gateway:
+    swagger:
+      enabled: true
+```
+
+网关需同时引入 `springdoc-openapi-starter-webflux-ui`，前端访问 `/swagger-ui.html` 即可切换下游微服务文档。
+
+**Nacos 动态路由**：从 Nacos 配置中心加载 JSON 路由定义，变更实时刷新：
+
+```yaml
+ypbin:
+  gateway:
+    route:
+      nacos:
+        enabled: true
+        data-id: gateway-routes.json
+        group: DEFAULT_GROUP
+```
+
+Nacos 配置示例：
+
+```json
+[
+  {
+    "id": "user-service",
+    "uri": "lb://user-service",
+    "predicates": [{"name": "Path", "args": {"pattern": "/user/**"}}],
+    "order": 0
+  }
+]
+```
+
+JSON 解析失败保留当前路由，Nacos 不可达保留默认路由。
+
+### cloud-observability — 可观测性
+
+打通日志与链路：入口读取（网关签发的）`X-Request-Id` 写入 SLF4J MDC，使同一请求的所有日志携带同一
+requestId，便于跨服务聚合。核心能力零重依赖，引入即生效：
+
+```xml
+<dependency>
+    <groupId>cn.ypbin.starter</groupId>
+    <artifactId>ypbin-starter-cloud-observability</artifactId>
+</dependency>
+```
+
+日志 pattern 引用 MDC 键即可输出：
+
+```yaml
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{requestId:-}]"
+```
+
+配置项：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `ypbin.observability.enabled` | `true` | 总开关 |
+| `ypbin.observability.request-id-header` | `X-Request-Id` | 请求 ID 头名，与网关保持一致 |
+| `ypbin.observability.mdc-key` | `requestId` | 写入 MDC 的键名 |
+
+**完整分布式链路追踪（可选）**：本模块默认只做 requestId ↔ MDC 关联。若需要 span 上报到
+Zipkin / Tempo / SkyWalking，额外引入 Micrometer Tracing 桥接与 exporter，不绑定具体后端：
+
+```xml
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-tracing-bridge-otel</artifactId>
+</dependency>
+<dependency>
+    <groupId>io.opentelemetry</groupId>
+    <artifactId>opentelemetry-exporter-otlp</artifactId>
+</dependency>
+```
+
+```yaml
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+```
+
+微服务链路的本地端到端自测见 [`deploy/README.md`](deploy/README.md)。
+
+### cloud-sentinel — 流量防护
+
+在 cloud-core 的 Resilience4j（调用方 Feign 熔断）之外，提供**被调方保护**：Web 接口限流、网关限流、
+热点参数限流，配合可视化 Dashboard 与 Nacos 规则热更新。两者定位互补、可共存：
+
+```xml
+<dependency>
+    <groupId>cn.ypbin.starter</groupId>
+    <artifactId>ypbin-starter-cloud-sentinel</artifactId>
+</dependency>
+```
+
+引入即生效的能力：Sentinel Web 过滤器、`@SentinelResource` 切面、Dashboard 传输、Nacos 规则数据源
+由 spring-cloud-starter-alibaba-sentinel 自动装配；本模块额外提供**被限流/降级时的统一 `R` 响应**
+（`code=429`，遵循项目 HTTP 200 约定），替换 Sentinel 默认纯文本。
+
+```yaml
+spring:
+  cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8858      # 连接 Sentinel 控制台（需单独部署）
+      datasource:
+        flow:
+          nacos:
+            server-addr: localhost:8848
+            data-id: ${spring.application.name}-flow-rules
+            group-id: SENTINEL_GROUP
+            rule-type: flow
+
+ypbin:
+  cloud:
+    sentinel:
+      block-message: 请求过于频繁，请稍后重试   # 被限流提示，可自定义
+```
+
+配置项：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `ypbin.cloud.sentinel.enabled` | `true` | 是否启用统一 R 限流响应 |
+| `ypbin.cloud.sentinel.block-message` | 请求过于频繁，请稍后重试 | 被限流时的提示信息 |
+
+**网关限流（可选）**：网关应用额外引入 `sentinel-spring-cloud-gateway-v6x-adapter`（本模块已声明为
+optional 依赖），即可对路由维度限流，规则同样从 Nacos 热加载。
+
+> Sentinel Dashboard 是独立进程，需单独部署（`deploy/docker-compose.yml` 已内置一个用于本地自测）。
+> Resilience4j 与 Sentinel 是「调用方容错」与「被调方保护」的分工，无需二选一。
 
 ## 构建与发布
 

@@ -16,20 +16,24 @@
 package cn.ypbin.starter.cloud.autoconfigure;
 
 import cn.ypbin.starter.cloud.feign.FeignHeaderInterceptor;
+import cn.ypbin.starter.cloud.feign.RResponseErrorDecoder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.RequestInterceptor;
+import feign.codec.ErrorDecoder;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
 /**
  * 微服务 Feign 增强自动配置。
  *
- * <p>仅在引入 OpenFeign 且 {@code ypbin.cloud.feign.enabled=true}（默认）时生效。装配请求头透传
- * 拦截器，把上游认证/链路/租户头带给下游服务。业务方可提供自定义 {@link RequestInterceptor}
- * 覆盖或叠加。</p>
+ * <p>仅在引入 OpenFeign 且 {@code ypbin.cloud.feign.enabled=true}（默认）时生效。装配统一错误解码器；
+ * 在 Servlet Web 应用中额外装配请求头透传拦截器。业务方可提供自定义同类型 Bean 覆盖默认实现。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -41,8 +45,23 @@ import org.springframework.context.annotation.Bean;
 public class CloudFeignAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(FeignHeaderInterceptor.class)
-    public FeignHeaderInterceptor feignHeaderInterceptor(FeignProperties properties) {
-        return new FeignHeaderInterceptor(properties.getPropagateHeaders());
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.cloud.feign", name = "error-decoder-enabled", havingValue = "true", matchIfMissing = true)
+    public ErrorDecoder rResponseErrorDecoder(ObjectMapper objectMapper) {
+        return new RResponseErrorDecoder(objectMapper);
+    }
+
+    /**
+     * Servlet 请求上下文请求头透传配置。
+     */
+    @ConditionalOnClass(HttpServletRequest.class)
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    static class ServletFeignHeaderConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(FeignHeaderInterceptor.class)
+        public FeignHeaderInterceptor feignHeaderInterceptor(FeignProperties properties) {
+            return new FeignHeaderInterceptor(properties.getPropagateHeaders());
+        }
     }
 }

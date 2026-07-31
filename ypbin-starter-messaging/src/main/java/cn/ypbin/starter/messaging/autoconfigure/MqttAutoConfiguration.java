@@ -17,7 +17,9 @@ package cn.ypbin.starter.messaging.autoconfigure;
 
 import cn.ypbin.starter.messaging.mqtt.MqttProperties;
 import cn.ypbin.starter.messaging.mqtt.MqttPublisher;
+import cn.ypbin.starter.messaging.mqtt.MqttSubscriber;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -83,6 +85,37 @@ public class MqttAutoConfiguration {
     @ConditionalOnMissingBean
     public MqttPublisher mqttPublisher(IMqttClient client, MqttProperties properties) {
         return new MqttPublisher(client, properties.getDefaultQos());
+    }
+
+    // 断线自动重连后 Paho 会丢失原订阅，这里在 connectComplete(reconnect=true) 时恢复所有订阅。
+    @Bean
+    @ConditionalOnMissingBean
+    public MqttSubscriber mqttSubscriber(IMqttClient client, MqttProperties properties) {
+        MqttSubscriber subscriber = new MqttSubscriber(client, properties.getDefaultQos());
+        client.setCallback(new MqttCallbackExtended() {
+            @Override
+            public void connectComplete(boolean reconnect, String serverUri) {
+                if (reconnect) {
+                    subscriber.resubscribeAll();
+                }
+            }
+
+            @Override
+            public void connectionLost(Throwable cause) {
+                // 交由 Paho 自动重连；恢复订阅在 connectComplete 中处理
+            }
+
+            @Override
+            public void messageArrived(String topic, org.eclipse.paho.client.mqttv3.MqttMessage message) {
+                // 具体主题回调由 subscribe(...) 时注册的 IMqttMessageListener 处理，此处不用兜底
+            }
+
+            @Override
+            public void deliveryComplete(org.eclipse.paho.client.mqttv3.IMqttDeliveryToken token) {
+                // 发布确认，无需处理
+            }
+        });
+        return subscriber;
     }
 
     /**

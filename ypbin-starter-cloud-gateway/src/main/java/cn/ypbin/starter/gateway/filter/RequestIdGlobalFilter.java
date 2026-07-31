@@ -35,20 +35,24 @@ import reactor.core.publisher.Mono;
  */
 public class RequestIdGlobalFilter implements GlobalFilter, Ordered {
 
-    private static final String REQUEST_ID = "X-Request-Id";
+    private final String requestIdHeader;
+
+    public RequestIdGlobalFilter(String requestIdHeader) {
+        this.requestIdHeader = requestIdHeader;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        String requestId = exchange.getRequest().getHeaders().getFirst(REQUEST_ID);
+        String requestId = exchange.getRequest().getHeaders().getFirst(requestIdHeader);
         if (requestId == null || requestId.isBlank()) {
             requestId = UUID.randomUUID().toString().replace("-", "");
         }
         String finalId = requestId;
         // 改写请求头带上 requestId，并回写到响应头方便客户端排查
         ServerHttpRequest mutated = exchange.getRequest().mutate()
-            .header(REQUEST_ID, finalId)
+            .header(requestIdHeader, finalId)
             .build();
-        exchange.getResponse().getHeaders().set(REQUEST_ID, finalId);
+        exchange.getResponse().getHeaders().set(requestIdHeader, finalId);
         return chain.filter(exchange.mutate().request(mutated).build());
     }
 

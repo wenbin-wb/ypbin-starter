@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.cache.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用缓存自动配置（定制 RedisTemplate 与 CacheService）。",
+      "defaultValue": true
+    }
+  ]
+}

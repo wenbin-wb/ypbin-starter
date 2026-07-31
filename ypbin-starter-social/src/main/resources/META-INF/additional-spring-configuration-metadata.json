@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.social.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用第三方登录（JustAuth）自动配置。",
+      "defaultValue": true
+    }
+  ]
+}

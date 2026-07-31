@@ -53,6 +53,11 @@ class TreeUtilsTest {
         public void setChildren(List<Node> children) {
             this.children = children;
         }
+
+        @Override
+        public List<Node> getChildren() {
+            return children;
+        }
     }
 
     @Test
@@ -103,5 +108,43 @@ class TreeUtilsTest {
     void build_emptyOrNull_shouldReturnEmpty() {
         List<Node> empty = new ArrayList<>();
         assertThat(TreeUtils.build(empty)).isEmpty();
+    }
+
+    @Test
+    void flatten_shouldReturnAllNodesInPreorder() {
+        List<Node> flat = new ArrayList<>();
+        flat.add(new Node(1L, null));
+        flat.add(new Node(2L, 1L));
+        flat.add(new Node(3L, 1L));
+        flat.add(new Node(4L, 2L));
+
+        List<Node> all = TreeUtils.flatten(TreeUtils.build(flat));
+
+        assertThat(all).extracting(n -> n.id).containsExactly(1L, 2L, 4L, 3L);
+    }
+
+    @Test
+    void getDescendantIds_shouldCollectAllDescendants() {
+        List<Node> flat = new ArrayList<>();
+        flat.add(new Node(1L, null));
+        flat.add(new Node(2L, 1L));
+        flat.add(new Node(3L, 1L));
+        flat.add(new Node(4L, 2L));
+
+        List<Node> roots = TreeUtils.build(flat);
+
+        assertThat(TreeUtils.getDescendantIds(roots.get(0))).containsExactlyInAnyOrder(2L, 3L, 4L);
+    }
+
+    @Test
+    void findNode_shouldLocateByIdOrReturnNull() {
+        List<Node> flat = new ArrayList<>();
+        flat.add(new Node(1L, null));
+        flat.add(new Node(2L, 1L));
+
+        List<Node> roots = TreeUtils.build(flat);
+
+        assertThat(TreeUtils.findNode(roots, 2L)).isNotNull();
+        assertThat(TreeUtils.findNode(roots, 999L)).isNull();
     }
 }

@@ -15,7 +15,9 @@
  */
 package cn.ypbin.starter.core.tree;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -90,6 +92,75 @@ public final class TreeUtils {
         }
         List<T> matched = nodes.stream().filter(predicate).collect(Collectors.toList());
         return build(matched);
+    }
+
+    /**
+     * 把树（含 children）展平为一维列表（深度优先，先序）。
+     *
+     * @param roots 根节点列表
+     * @param <T>   节点类型
+     * @param <ID>  标识类型
+     * @return 展平后的全部节点
+     */
+    public static <T extends TreeNode<T, ID>, ID> List<T> flatten(List<T> roots) {
+        List<T> result = new ArrayList<>();
+        if (roots == null || roots.isEmpty()) {
+            return result;
+        }
+        Deque<T> stack = new ArrayDeque<>();
+        // 逆序入栈保证先序输出
+        for (int i = roots.size() - 1; i >= 0; i--) {
+            stack.push(roots.get(i));
+        }
+        while (!stack.isEmpty()) {
+            T node = stack.pop();
+            result.add(node);
+            List<T> children = node.getChildren();
+            if (children != null) {
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    stack.push(children.get(i));
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 收集指定节点的全部子孙 ID（不含自身）。常用于删除子树、数据权限下钻等。
+     *
+     * @param node 起始节点（其 children 需已填充）
+     * @param <T>  节点类型
+     * @param <ID> 标识类型
+     * @return 全部子孙 ID
+     */
+    public static <T extends TreeNode<T, ID>, ID> List<ID> getDescendantIds(T node) {
+        List<ID> ids = new ArrayList<>();
+        if (node == null || node.getChildren() == null) {
+            return ids;
+        }
+        for (T child : node.getChildren()) {
+            ids.add(child.getId());
+            ids.addAll(getDescendantIds(child));
+        }
+        return ids;
+    }
+
+    /**
+     * 在树中按 ID 查找节点（深度优先）。
+     *
+     * @param roots 根节点列表
+     * @param id    目标 ID
+     * @param <T>   节点类型
+     * @param <ID>  标识类型
+     * @return 匹配节点，未找到为 {@code null}
+     */
+    public static <T extends TreeNode<T, ID>, ID> T findNode(List<T> roots, ID id) {
+        for (T node : flatten(roots)) {
+            if (Objects.equals(node.getId(), id)) {
+                return node;
+            }
+        }
+        return null;
     }
 
     private static <T extends TreeNode<T, ID>, ID> boolean isRoot(T node, ID rootParentId, List<T> nodes) {

@@ -1,0 +1,28 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.tools.rate-limit.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用限流切面 @RateLimit。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.tools.rate-limit.distributed",
+      "type": "java.lang.Boolean",
+      "description": "限流存储是否优先使用 Redis 分布式实现（存在 StringRedisTemplate 时生效），否则使用内存兜底。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.tools.idempotent.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用幂等切面 @Idempotent。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.tools.idempotent.distributed",
+      "type": "java.lang.Boolean",
+      "description": "幂等存储是否优先使用 Redis 分布式实现（存在 StringRedisTemplate 时生效），否则使用内存兜底。",
+      "defaultValue": true
+    }
+  ]
+}

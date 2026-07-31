@@ -4,6 +4,15 @@
 > 与 `continew-starter`（单体 Web 能力集、模块化理念），**代码全部按最优实践重构**，
 > 非照抄。本文档是贯穿项目始终的方案 + 进度看板。
 
+## 0. 当前状态总览
+
+- **模块**：29 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 依赖/BOM 2 + 其余能力模块）
+- **构建**：全量 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **里程碑**：M0~M10 全部完成；M5.1~M5.12 Cloud 补强完成；M6 工程化收尾完成
+- **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
+- **技术基线**：JDK 17 · Spring Boot 3.5.16 · Spring Cloud 2025.0.3 · spring-cloud-alibaba 2025.0.0.0
+- **后续可选**：CI 接入 `-Pit`、v1.0.0 发布、示例工程
+
 ## 1. 定位与设计原则
 
 - **分层**：L1 基础层（单体/微服务共用，**不依赖 Spring Cloud**）+ L2 扩展层 + L3 微服务层。
@@ -61,10 +70,12 @@ ypbin-starter/                        聚合 POM
 │   └── ypbin-starter-extension-datapermission  数据权限
 │
 └── L3 微服务层（仅微服务工程引）
-    ├── ypbin-starter-cloud-launch    启动器 + SPI 扩展点（LauncherService）
-    ├── ypbin-starter-cloud-core      Feign 增强/请求头透传/熔断
+    ├── ypbin-starter-cloud-core      Feign 增强/请求头透传/熔断依赖
+    ├── ypbin-starter-cloud-nacos     Nacos 注册发现/配置中心/LoadBalancer 依赖聚合
     └── ypbin-starter-cloud-gateway   网关通用能力
 ```
+
+> 历史规划中的 `ypbin-starter-cloud-launch` 暂未落地；如后续需要统一启动参数/Nacos 配置导入，另开里程碑评估。
 
 ## 5. 进度看板
 
@@ -144,28 +155,47 @@ ypbin-starter/                        聚合 POM
 - Spring Boot 3.5.16 → Spring Cloud **2025.0.3** → spring-cloud-alibaba **2025.0.0.0**（Nacos）
 - 注意：Spring Cloud 2025.1.x / alibaba 2025.1.0.0 是给 Boot 4.x 的，不能用。
 
-模块：
-- ✅ `ypbin-starter-cloud-core`（OpenFeign 请求头透传 FeignHeaderInterceptor + resilience4j 熔断依赖；
-  白名单透传 Authorization/traceId/租户/用户等，无 Web 上下文安全跳过）
-- ✅ `ypbin-starter-cloud-nacos`（Nacos 注册发现 + 配置中心 + 负载均衡三件套聚合，版本锁定）
-- ✅ `ypbin-starter-cloud-gateway`（Spring Cloud Gateway/WebFlux；RequestIdGlobalFilter
-  最高优先级生成/透传 X-Request-Id，贯穿调用链）
+#### M5 最终模块与能力（6 个 cloud 模块）
 
-验证边界（诚实声明）：本机无 Nacos server，M5 已验证**编译通过 + 与 23 个 servlet 模块共存无冲突**；
-服务注册、Feign 调通、网关路由等端到端行为需在有 Nacos 的环境自测。
-全量 26 模块 BUILD SUCCESS，69 测试全绿。
+| 模块 | 能力 | 真机验证 |
+|---|---|---|
+| `cloud-core` | OpenFeign 头透传（白名单/大小写不敏感/Servlet 条件）+ `RResponseErrorDecoder`（下游 R 错误转 `FeignRemoteException`）+ Resilience4j 熔断默认开启 + `RFeignFallbackFactory` | ✅ FeignCrossServiceIT |
+| `cloud-nacos` | 注册发现 + 配置中心 + LoadBalancer 依赖聚合 | ✅ NacosDiscoveryIT |
+| `cloud-loadbalancer` | 版本灰度路由（请求头 + metadata 匹配、优先 IP、权重随机、可配置回退、Nacos metadata 自动写入） | 装配测试 |
+| `cloud-gateway` | CORS / 全局异常统一 R / RequestId / 身份头清洗 / 可选鉴权 / Swagger 聚合 / Nacos 动态路由 | ✅ GatewayE2ETest |
+| `cloud-observability` | X-Request-Id ↔ MDC 关联（核心零重依赖）+ Micrometer Tracing 门面（OTLP 可选） | 单元测试 |
+| `cloud-sentinel` | Sentinel 限流（被调方保护，与 Resilience4j 双轨）+ 被拒统一 R 响应（429）+ Nacos 规则数据源 | ✅ SentinelFlowIT |
+
+设计要点：`cloud-core` 的 Resilience4j 管「调用方容错」，`cloud-sentinel` 管「被调方限流保护」，互补不替换；身份头默认不透传，由可信网关清洗签发。
+
+#### M5.1~M5.12 补强历程（要点留档）
+
+| 批次 | 内容 |
+|---|---|
+| M5.1 | Feign 头大小写去重、Servlet 条件收紧、默认不透传身份头；Gateway CORS/异常/身份头清洗/可选鉴权 |
+| M5.2 | 新增 cloud-loadbalancer 版本灰度 |
+| M5.3 | Feign `RResponseErrorDecoder` + CircuitBreaker 默认开启 + `RFeignFallbackFactory` |
+| M5.4 | API 文档增强（安全头/GroupedOpenApi/@ApiOrder/prod 关闭）+ Gateway Swagger 聚合 |
+| M5.5 | Gateway Nacos 动态路由 + 热刷新 + 错误保护 |
+| M5.6 | Gateway 测试补齐 13 个；修复 `HttpStatus.resolve()` 返回 null 兼容问题；README 补 Cloud 文档 |
+| M5.7 | 自动配置装配测试（13 个）+ 配置元数据提示 + 新增 cloud-observability + deploy 自测环境 |
+| M5.8 | 新增 cloud-sentinel + 统一 R 限流响应；核实 sentinel 1.8.9 webmvc_v6x 变体 |
+| M5.9 | GatewayE2ETest 真运行时 E2E；**挖出并修复真 bug**：Gateway 4.3.0 路由前缀改为 `spring.cloud.gateway.server.webflux.routes` |
+| M5.10 | NacosDiscoveryIT（Testcontainers 双模式）；**公网服务器真机验证注册发现 + 配置** |
+| M5.11 | FeignCrossServiceIT；**公网真机验证** 注册→发现→负载均衡→Feign 调通 + 头透传 + R 错误解码 |
+| M5.12 | SentinelFlowIT；真运行时验证限流被拒统一 R 响应（边界 1 收口） |
+
+**边界验证结论**：网关全链路、Nacos 注册发现/配置、Feign 跨服务全链路、Sentinel 限流响应均已脱离「未验证」——分别以本机真运行时 E2E 或公网服务器真机验证覆盖，4 个 IT/E2E（`GatewayE2ETest` / `NacosDiscoveryIT` / `FeignCrossServiceIT` / `SentinelFlowIT`）沉淀在仓库、`-Pit` 可复现、默认构建不受影响。唯一未自动化：Sentinel 规则从 Nacos datasource 热更新（属 Sentinel 自身能力、非本项目职责，Dashboard 已在公网就绪，按 `deploy/README.md` 3.7 手动验证）。
 
 ### 与 blade-tool 对照结论（23 模块逐一核实）
-blade 的 23 个模块中，**20 个 ypbin 已有对等或更强实现**（core/boot/secure/cloud/cache/redis/
-mybatis/tenant/datascope/oss/log/swagger/i18n/excel/social/api-crypto/loadbalancer/test/bom）。
-仅 3 个未做，均为重量级独立子系统，用户确认**有意不做**（非遗漏）：
-- blade-starter-transaction（Seata 分布式事务）——依赖重、需 Seata Server
-- blade-starter-develop（代码生成器）——独立大工程
-- blade-starter-report（报表）——依赖重、场景化强
+通用基础层多数能力已覆盖 blade-tool，但 Cloud 维度需单独看待：当前 `blade-tool` 本地源码可确认的强项是
+`blade-starter-loadbalancer` 灰度负载均衡、`blade-core-cloud` 的 Feign/Sentinel/Fallback/Header 透传、
+`blade-starter-swagger` 的单服务 OpenAPI 增强；未在本地 `blade-tool` 中确认独立 Gateway starter 源码。
 
-反向：ypbin 有 11 项 blade 没有的能力——限流 @RateLimit、幂等 @Idempotent、接口签名 @ApiSign、
+ypbin 已有 11 项 blade-tool 未覆盖或更轻量的能力——限流 @RateLimit、幂等 @Idempotent、接口签名 @ApiSign、
 敏感词、数据脱敏 @Sensitive、行为验证码、密码编码器、WebSocket、MQTT、国密 SM2/SM4、异步上下文透传。
-结论：通用基础能力已全面覆盖并超越 blade。
+
+（原“仍建议补齐 Cloud 企业级治理”4 项——灰度 LB / Feign 容错 / API 文档增强 / Nacos 动态路由——均已在 M5.2~M5.5 完成，见上方 M5 能力表与补强历程。）
 
 ### 里程碑 M6 — 工程化
 - ✅ spotless + license 头统一（内联 Apache-2.0 头 + import 顺序 + 去多余空白 + 去未用 import；
@@ -174,6 +204,47 @@ mybatis/tenant/datascope/oss/log/swagger/i18n/excel/social/api-crypto/loadbalanc
 - ✅ 发布配置（release profile：source/javadoc/gpg，默认不激活，`mvn deploy -Prelease` 触发；
   gpg 本地未缓存，仅发布时需要，不影响日常构建）
 - ✅ .gitignore
+
+### M6 收尾补记（M5.x 大量新增模块后的工程化回归）
+- ⚠️ 发现尾巴：M6 之后新增的模块/类（api-doc 增强、observability、sentinel、loadbalancer、gateway 等）从未跑过 spotless，
+  且 spotless-check 绑在 verify 阶段、日常 `mvn test` 触发不到，导致 api-doc 有 1 处格式违规长期未暴露。
+- ✅ 全量 `spotless:apply` 修复所有新代码格式；`mvn -DskipTests verify` 确认 29 模块 spotless-check 零违规。
+- ✅ 回归 `clean test`：格式化仅调整排版、不改逻辑，全模块测试全绿。
+- 备注：README「13 个模块」表述已随 M5.x 扩展为 29 模块（含 6 个 cloud 模块），模块总览与使用文档均已同步更新。
+- ✅ 根治流程隐患：spotless-check 执行阶段从 `verify` 前移到 `process-test-classes`，使日常 `mvn test`
+  即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
+  各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
+
+### 工具类场景全面扩全（用户要求：工具类要充分挖掘组件能力、覆盖高频场景）
+起因：抽查发现 ExcelUtils 仅 3 个方法等，工具类普遍偏薄，业务方仍需自研对接底层组件。逐个扩全（保留分寸，不为凑数过度封装）：
+- ✅ ExcelUtils：3 → 11 方法 + SheetData。读（同步/指定 sheet/表头行/大文件分批流式）、写（单/指定/多 sheet、含/排除列）、导出（单/多 sheet）。
+- ✅ AesUtils：4 → 13 方法。字节级加解密、Base64 字符串加解密、随机密钥生成/Base64 编解码、PBKDF2 口令派生、随机盐。
+- ✅ Sm4Utils：ECB/CBC/GCM 三模式 + Hex 编解码 + 密钥/IV 生成（原仅 ECB）。
+- ✅ Sm2Utils：追加 SM3withSM2 签名/验签、公私钥 Base64 还原（原仅加解密+密钥对生成）。
+- ✅ RequestUtils：2 → 11 方法。request/response/IP/UA/单头/全部头/单参/全部参/method/URI/isAjax。
+- ✅ TreeUtils：追加 flatten/getDescendantIds/findNode（并给 TreeNode 接口补 getChildren——原能 set 不能 get 是设计缺口）。
+- ✅ 新增 RedisUtils：Redis 全能力静态工具（key/string/hash/list/set/zset 约 40 方法），与「与实现无关」的 CacheService/CacheUtils 分工——通用走 CacheService，Redis 专属走 RedisUtils。
+- 判断「已够用不硬扩」：I18nUtil（message 翻译已覆盖）、PasswordEncoderUtil（BCrypt 编码/校验/取器三法完整）、CacheUtils/CacheService（通用契约保持极简）。
+- ✅ 新增单测：AesUtils 5 / Sm4Utils 4 / Sm2Utils 3 / TreeUtils +3；全量 29 模块 clean test 绿。
+
+### Service/Provider 静态门面排查（用户要求：检查是否需为 Service/Provider 补静态工具）
+逐一核实 20 个 Service/Provider/Helper/基类，按「框架实现、业务调用 + 依赖简单 + 非注入场景高频」筛选，不为对称性凑数：
+- ✅ 新增 `SensitiveWordUtils`（委托 SensitiveWordService）：敏感词校验常在校验工具/DTO 自校验里静态调用。
+- ✅ 新增 `MailUtils`（委托 MailService）：发邮件常在异步任务/工具方法里触发。
+- ❌ 不加：9 个 Provider（ApiCrypto/Auditor/InnerInterceptor/GatewayAuth/LogUser/Permission/SensitiveWord/AuthRequest/Tenant）是给业务方实现的 SPI 扩展点，静态工具无意义。
+- ❌ 不加：CaptchaService/SocialService（仅接口层用、必依赖请求上下文）、FileStorageService（多平台路由依赖复杂，静态门面会掩盖「选哪个平台」语义）、BaseService/BaseServiceImpl（继承基类）、RedisCacheService（已有 RedisUtils）。
+- 已有：CacheService → CacheUtils（早前完成）。
+
+### README 工具用法同步
+- ✅ 将扩全/新增的工具用法补进 README：cache（RedisUtils 结构操作示例）、tools（AesUtils 密钥派生/字节级、SM4 三模式、SM2 签名验签）、excel（多 sheet/分批流式/列筛选）、messaging（MailUtils 静态门面）、sensitive-words（SensitiveWordUtils 静态门面）。
+- ✅ 代码块闭合校验通过（142 处成对）。
+
+### MQTT 订阅补全 + 单测（用户发现 MQTT 只有发布无接收）
+- ⚠️ 发现缺口：messaging 模块 MQTT 原仅 `MqttPublisher`（发布），订阅甩给业务方自行拿 IMqttClient subscribe，违背「省去对接成本」初衷。
+- ✅ 新增 `MqttSubscriber`：主题→回调订阅（含通配符）、指定 QoS、取消订阅；内部登记订阅，断线重连后经 `MqttCallbackExtended.connectComplete(reconnect)` 自动恢复（Paho 重连丢订阅是常见踩坑，透明处理）。
+- ✅ MqttAutoConfiguration 装配 `MqttSubscriber` 并挂载重连回调。
+- ✅ messaging 模块补 `spring-boot-starter-test`（原无测试）：MqttPublisherTest 4 + MqttSubscriberTest 4，mock IMqttClient 验证发布参数/订阅注册/重订阅/异常包装。
+- ✅ README 补 MqttSubscriber 用法；全量 29 模块 clean test 绿。
 
 ### 里程碑 M7 — 安全与数据能力增强（对比参考项目补齐缺口）✅ 全部完成
 批次一（Web 安全）：
@@ -221,7 +292,7 @@ mybatis/tenant/datascope/oss/log/swagger/i18n/excel/social/api-crypto/loadbalanc
 - ✅ messaging：WebSocket（STOMP）+ MQTT（Paho 轻封装）
 - ✅ log：AccessLogInterceptor 全量访问日志（与 @Log 注解版互补）
 决策：验证码换 tianai-captcha（行为验证）；接口加解密用 Advice 而非 Filter（更地道）；
-MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度归微服务层 M5 不做。
+MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度已重新归入 Cloud 后续增强，不在 M10 范围内。
 全量 24 模块 BUILD SUCCESS，61 测试全绿。
 
 ### 单元测试（M6 补充）
@@ -240,6 +311,7 @@ MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度�
 
 - ✅ groupId / 根包：`cn.ypbin.starter`
 - ✅ 开源协议：Apache-2.0
-- ✅ 本轮范围：一路做到 **M2**（M0 地基 + M1 Web + M2 数据/认证/缓存）
-- ⏳ 微服务层 L3：暂缓（M5，按需）
-- ⏳ 构建验证：命令行无 java/mvn，编译验证走 IDEA（或后续提供 JDK/Maven 路径）
+- ✅ 范围已扩展到 M10 全部完成 + M5.1~M5.12 Cloud 全面补强 + M6 工程化收尾（spotless 前移根治）
+- ✅ 微服务层 L3：Cloud 企业级治理（Gateway 横切 + 灰度负载均衡 + Feign 容错 + API 文档增强/聚合 + Nacos 动态路由 + 可观测性 + Sentinel 流量防护）已全部完成并真机验证
+- ✅ 构建验证：IntelliJ 内置 JBR + Maven3；全量 29 模块 `clean test` 绿；`-Pit` 集成测试连公网服务器/Testcontainers 真机验证
+- ⏳ 后续可选：CI 接入 `-Pit`（GitHub Actions + Testcontainers）；v1.0.0 正式发布；示例工程

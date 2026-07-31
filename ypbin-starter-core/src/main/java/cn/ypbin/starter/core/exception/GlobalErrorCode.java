@@ -43,6 +43,9 @@ public enum GlobalErrorCode implements ErrorCode {
     /** 业务校验失败 */
     BUSINESS_ERROR(409, "业务处理失败"),
 
+    /** 请求过于频繁（被限流/熔断拒绝） */
+    TOO_MANY_REQUESTS(429, "请求过于频繁，请稍后重试"),
+
     /** 系统内部错误 */
     INTERNAL_ERROR(500, "系统内部错误，请稍后重试");
 

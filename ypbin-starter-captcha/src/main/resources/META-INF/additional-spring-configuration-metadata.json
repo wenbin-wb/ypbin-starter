@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "ypbin.captcha.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用验证码（行为验证码）自动配置。",
+      "defaultValue": true
+    }
+  ]
+}

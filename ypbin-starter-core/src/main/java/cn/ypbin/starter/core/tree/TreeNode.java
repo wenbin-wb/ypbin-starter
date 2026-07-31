@@ -50,4 +50,14 @@ public interface TreeNode<T, ID> {
      * @param children 子节点
      */
     void setChildren(List<T> children);
+
+    /**
+     * 获取子节点列表。
+     *
+     * <p>由 {@link TreeUtils#build} 填充后，供 {@link TreeUtils#flatten}、
+     * {@link TreeUtils#getDescendantIds}、{@link TreeUtils#findNode} 等遍历使用。</p>
+     *
+     * @return 子节点列表，未填充时可能为 {@code null} 或空列表
+     */
+    List<T> getChildren();
 }

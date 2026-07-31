@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.apidoc.autoconfigure;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
@@ -30,6 +32,9 @@ public class ApiDocProperties {
     /** 是否启用 API 文档，默认开启 */
     private boolean enabled = true;
 
+    /** 生产环境是否关闭 SpringDoc 端点，默认关闭 */
+    private boolean disableInProd = true;
+
     /** 文档标题 */
     private String title = "API 文档";
 
@@ -38,6 +43,30 @@ public class ApiDocProperties {
 
     /** 文档版本 */
     private String version = "1.0.0";
+
+    /** 默认分组名称 */
+    private String groupName = "default";
+
+    /** 是否创建默认 GroupedOpenApi */
+    private boolean defaultGroupEnabled = true;
+
+    /** 是否启用 @ApiOrder 排序 */
+    private boolean orderEnabled = true;
+
+    /** 扫描路径 */
+    private List<String> pathsToMatch = new ArrayList<>(List.of("/**"));
+
+    /** 排除路径 */
+    private List<String> pathsToExclude = new ArrayList<>(List.of("/error", "/actuator/**"));
+
+    /** 扫描包 */
+    private List<String> packagesToScan = new ArrayList<>();
+
+    /** 排除包 */
+    private List<String> packagesToExclude = new ArrayList<>();
+
+    /** 全局安全请求头 */
+    private List<String> securityHeaders = new ArrayList<>(List.of("Authorization", "X-Request-Id", "X-Tenant-Id", "X-Version"));
 
     /** 联系人信息 */
     @NestedConfigurationProperty
@@ -53,6 +82,14 @@ public class ApiDocProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isDisableInProd() {
+        return disableInProd;
+    }
+
+    public void setDisableInProd(boolean disableInProd) {
+        this.disableInProd = disableInProd;
     }
 
     public String getTitle() {
@@ -77,6 +114,70 @@ public class ApiDocProperties {
 
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    public String getGroupName() {
+        return groupName;
+    }
+
+    public void setGroupName(String groupName) {
+        this.groupName = groupName;
+    }
+
+    public boolean isDefaultGroupEnabled() {
+        return defaultGroupEnabled;
+    }
+
+    public void setDefaultGroupEnabled(boolean defaultGroupEnabled) {
+        this.defaultGroupEnabled = defaultGroupEnabled;
+    }
+
+    public boolean isOrderEnabled() {
+        return orderEnabled;
+    }
+
+    public void setOrderEnabled(boolean orderEnabled) {
+        this.orderEnabled = orderEnabled;
+    }
+
+    public List<String> getPathsToMatch() {
+        return pathsToMatch;
+    }
+
+    public void setPathsToMatch(List<String> pathsToMatch) {
+        this.pathsToMatch = pathsToMatch;
+    }
+
+    public List<String> getPathsToExclude() {
+        return pathsToExclude;
+    }
+
+    public void setPathsToExclude(List<String> pathsToExclude) {
+        this.pathsToExclude = pathsToExclude;
+    }
+
+    public List<String> getPackagesToScan() {
+        return packagesToScan;
+    }
+
+    public void setPackagesToScan(List<String> packagesToScan) {
+        this.packagesToScan = packagesToScan;
+    }
+
+    public List<String> getPackagesToExclude() {
+        return packagesToExclude;
+    }
+
+    public void setPackagesToExclude(List<String> packagesToExclude) {
+        this.packagesToExclude = packagesToExclude;
+    }
+
+    public List<String> getSecurityHeaders() {
+        return securityHeaders;
+    }
+
+    public void setSecurityHeaders(List<String> securityHeaders) {
+        this.securityHeaders = securityHeaders;
     }
 
     public Contact getContact() {
