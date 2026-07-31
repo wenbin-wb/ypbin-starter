@@ -5,6 +5,36 @@
       "type": "java.lang.Boolean",
       "description": "是否启用缓存自动配置（定制 RedisTemplate 与 CacheService）。",
       "defaultValue": true
+    },
+    {
+      "name": "ypbin.cache.multi-level.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用多级缓存（L1 Caffeine 本地 + L2 Redis），需类路径存在 Caffeine。",
+      "defaultValue": false
+    },
+    {
+      "name": "ypbin.cache.multi-level.local-max-size",
+      "type": "java.lang.Long",
+      "description": "L1 本地缓存最大条目数。",
+      "defaultValue": 10000
+    },
+    {
+      "name": "ypbin.cache.multi-level.local-expire-seconds",
+      "type": "java.lang.Long",
+      "description": "L1 本地缓存写后过期秒数（应小于 L2 TTL，作为最终一致兜底）。",
+      "defaultValue": 300
+    },
+    {
+      "name": "ypbin.cache.multi-level.invalidation-broadcast",
+      "type": "java.lang.Boolean",
+      "description": "是否开启跨实例失效广播（多副本部署需开启）。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.cache.multi-level.invalidation-channel",
+      "type": "java.lang.String",
+      "description": "失效广播 Redis Pub/Sub 频道名。",
+      "defaultValue": "ypbin:cache:invalidation"
     }
   ]
 }

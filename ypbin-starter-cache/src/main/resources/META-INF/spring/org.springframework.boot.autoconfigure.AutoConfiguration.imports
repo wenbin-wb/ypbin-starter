@@ -1,1 +1,2 @@
 cn.ypbin.starter.cache.autoconfigure.CacheAutoConfiguration
+cn.ypbin.starter.cache.autoconfigure.MultiLevelCacheAutoConfiguration

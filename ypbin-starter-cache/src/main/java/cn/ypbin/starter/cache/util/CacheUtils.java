@@ -19,6 +19,7 @@ import cn.ypbin.starter.cache.core.CacheService;
 import cn.ypbin.starter.core.util.SpringUtils;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.function.Supplier;
 
 /**
  * 缓存静态工具。
@@ -138,5 +139,19 @@ public final class CacheUtils {
      */
     public static long increment(String key, long delta) {
         return cacheService().increment(key, delta);
+    }
+
+    /**
+     * 读取缓存，未命中则回源加载并回填（内置防击穿/穿透/雪崩，见 {@link CacheService#getOrLoad}）。
+     *
+     * @param key    键
+     * @param type   期望类型
+     * @param loader 回源加载函数
+     * @param ttl    过期时长
+     * @param <T>    泛型
+     * @return 缓存值或回源结果
+     */
+    public static <T> T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
+        return cacheService().getOrLoad(key, type, loader, ttl);
     }
 }

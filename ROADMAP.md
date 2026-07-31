@@ -232,6 +232,13 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
 
+### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
+- ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。
+- ✅ 多级缓存 `MultiLevelCacheService`：L1 Caffeine + L2 Redis，读回填 L1、写删失效 L1；Redis Pub/Sub 跨实例失效广播（带实例标识忽略自广播），覆盖默认 CacheService。
+- ✅ `@ConditionalOnClass(Caffeine)` + `ypbin.cache.multi-level.enabled` 守卫，caffeine optional；单体可关广播、微服务多副本开广播。
+- ✅ CacheUtils 补 getOrLoad 静态门面；配置元数据、README（三重保护 + 多级缓存用法与一致性边界）、MultiLevelCacheServiceTest 4。
+- 明确边界：多级缓存适合读多写少、可容忍秒级不一致；强一致数据不开。分层保持 cache 不依赖 tools（防击穿用自身 Redis SETNX）。
+
 ### 新增 SSE + 统一推送门面（用户提问：长连接/实时推送，免前端长轮询）
 - ✅ messaging 补 SSE：`SseEmitterManager`（按用户多端连接注册表，完成/超时/异常自动摘除，防内存泄漏）+ 内置订阅端点 `SseSubscribeController`。
 - ✅ 统一推送门面 `PushService`（sendToUser/broadcast/isOnline/onlineCount）+ `DefaultPushService`，屏蔽 SSE/WebSocket 通道差异，覆盖「未读提醒/扫码登录状态/大屏刷新」三场景。

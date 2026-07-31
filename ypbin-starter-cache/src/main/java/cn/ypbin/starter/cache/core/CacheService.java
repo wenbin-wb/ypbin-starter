@@ -17,6 +17,7 @@ package cn.ypbin.starter.cache.core;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.function.Supplier;
 
 /**
  * 缓存能力契约。
@@ -97,4 +98,20 @@ public interface CacheService {
      * @return 自增后的值
      */
     long increment(String key, long delta);
+
+    /**
+     * 读取缓存，未命中则回源加载并回填（缓存旁路模式）。
+     *
+     * <p>实现应内置三重保护：防击穿（回源时加锁/单飞，避免热点 key 过期瞬间大量请求打穿到数据源）、
+     * 防穿透（回源结果为 {@code null} 时缓存空值标记短时，避免不存在的 key 反复打到数据源）、
+     * 防雪崩（TTL 叠加随机扰动，避免大量 key 同一时刻集中过期）。</p>
+     *
+     * @param key    键
+     * @param type   期望类型
+     * @param loader 回源加载函数（缓存未命中时调用；返回 {@code null} 表示数据源无此数据）
+     * @param ttl    缓存过期时长
+     * @param <T>    泛型
+     * @return 缓存值或回源结果，数据源也无数据时返回 {@code null}
+     */
+    <T> T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl);
 }
