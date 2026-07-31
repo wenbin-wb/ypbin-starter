@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.cloud.launch.autoconfigure;
+package cn.ypbin.starter.nacos.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,14 +24,14 @@ import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
 /**
- * {@link CloudLaunchEnvironmentPostProcessor} 单元测试。
+ * {@link NacosEnvironmentPostProcessor} 单元测试。
  *
  * @author wenbin
  * @since 2026-07-31
  */
-class CloudLaunchEnvironmentPostProcessorTest {
+class NacosEnvironmentPostProcessorTest {
 
-    private final CloudLaunchEnvironmentPostProcessor processor = new CloudLaunchEnvironmentPostProcessor();
+    private final NacosEnvironmentPostProcessor processor = new NacosEnvironmentPostProcessor();
 
     @Test
     void shouldAddNacosImportDefaults() {
@@ -52,9 +52,9 @@ class CloudLaunchEnvironmentPostProcessorTest {
     void shouldAddApplicationInfoWhenConfigured() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", java.util.Map.of(
-            "ypbin.cloud.launch.application-name", "order-service",
-            "ypbin.cloud.launch.application-description", "Order Service",
-            "ypbin.cloud.launch.service-version", "1.2.3"
+            "ypbin.cloud.nacos.application-name", "order-service",
+            "ypbin.cloud.nacos.application-description", "Order Service",
+            "ypbin.cloud.nacos.service-version", "1.2.3"
         )));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
@@ -70,7 +70,7 @@ class CloudLaunchEnvironmentPostProcessorTest {
         environment.setActiveProfiles("test");
         environment.getPropertySources().addFirst(new MapPropertySource("test", java.util.Map.of(
             "spring.application.name", "order-service",
-            "ypbin.cloud.launch.nacos-config-prefix", "ypbin"
+            "ypbin.cloud.nacos.config-prefix", "ypbin"
         )));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
@@ -84,7 +84,7 @@ class CloudLaunchEnvironmentPostProcessorTest {
         StandardEnvironment environment = new StandardEnvironment();
         environment.setActiveProfiles("prod");
         environment.getPropertySources().addFirst(new MapPropertySource("test", java.util.Map.of(
-            "ypbin.cloud.launch.application-name", "order-service"
+            "ypbin.cloud.nacos.application-name", "order-service"
         )));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
@@ -112,7 +112,7 @@ class CloudLaunchEnvironmentPostProcessorTest {
     void shouldRespectExplicitNacosConfigImport() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", java.util.Map.of(
-            "ypbin.cloud.launch.nacos-config-import", "optional:nacos:base.yml,optional:nacos:biz.yml"
+            "ypbin.cloud.nacos.config-import", "optional:nacos:base.yml,optional:nacos:biz.yml"
         )));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
@@ -125,7 +125,7 @@ class CloudLaunchEnvironmentPostProcessorTest {
     void shouldBackOffWhenDisabled() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", java.util.Map.of(
-            "ypbin.cloud.launch.enabled", "false"
+            "ypbin.cloud.nacos.enabled", "false"
         )));
 
         processor.postProcessEnvironment(environment, new SpringApplication());

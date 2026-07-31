@@ -47,7 +47,6 @@
         <module>ypbin-starter-sign</module>
         <module>ypbin-starter-cloud-core</module>
         <module>ypbin-starter-cloud-nacos</module>
-        <module>ypbin-starter-cloud-launch</module>
         <module>ypbin-starter-cloud-loadbalancer</module>
         <module>ypbin-starter-cloud-observability</module>
         <module>ypbin-starter-cloud-sentinel</module>

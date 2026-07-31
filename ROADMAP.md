@@ -6,8 +6,8 @@
 
 ## 0. 当前状态总览
 
-- **模块**：30 个（L1 基础 10 + L2 扩展 3 + L3 微服务 7 + 依赖/BOM 2 + 其余能力模块）
-- **构建**：全量 30 模块 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **模块**：29 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 依赖/BOM 2 + 其余能力模块）
+- **构建**：全量 29 模块 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 17 · Spring Boot 3.5.16 · Spring Cloud 2025.0.3 · spring-cloud-alibaba 2025.0.0.0
@@ -81,15 +81,14 @@ ypbin-starter/                        聚合 POM
 │
 └── L3 微服务层（仅微服务工程引）
     ├── ypbin-starter-cloud-core          Feign 增强/请求头透传/R 错误解码/熔断兜底
-    ├── ypbin-starter-cloud-nacos         Nacos 注册发现/配置中心/LoadBalancer 依赖聚合
-    ├── ypbin-starter-cloud-launch        Nacos ConfigData 导入与启动参数兜底
+    ├── ypbin-starter-cloud-nacos         Nacos 注册发现/配置中心/LoadBalancer 依赖聚合/ConfigData 启动兜底
     ├── ypbin-starter-cloud-loadbalancer  版本灰度负载均衡
     ├── ypbin-starter-cloud-observability RequestId↔MDC + Tracing 门面
     ├── ypbin-starter-cloud-sentinel      Sentinel Web/Gateway 限流统一 R 响应
     └── ypbin-starter-cloud-gateway       网关 CORS/异常/鉴权/文档聚合/动态路由
 ```
 
-> `ypbin-starter-cloud-launch` 已落地为启动早期默认参数模块：统一兜底 Nacos ConfigData 导入，不覆盖业务显式配置。
+> Nacos ConfigData 导入与启动兜底已归并到 `ypbin-starter-cloud-nacos`，测试与被测能力保持同模块。
 
 ## 5. 进度看板
 
@@ -169,13 +168,12 @@ ypbin-starter/                        聚合 POM
 - Spring Boot 3.5.16 → Spring Cloud **2025.0.3** → spring-cloud-alibaba **2025.0.0.0**（Nacos）
 - 注意：Spring Cloud 2025.1.x / alibaba 2025.1.0.0 是给 Boot 4.x 的，不能用。
 
-#### M5 最终模块与能力（7 个 cloud 模块）
+#### M5 最终模块与能力（6 个 cloud 模块）
 
 | 模块 | 能力 | 真机验证 |
 |---|---|---|
 | `cloud-core` | OpenFeign 头透传（白名单/大小写不敏感/Servlet 条件）+ `RResponseErrorDecoder`（下游 R 错误转 `FeignRemoteException`）+ Resilience4j 熔断默认开启 + `RFeignFallbackFactory` | ✅ FeignCrossServiceIT |
-| `cloud-nacos` | 注册发现 + 配置中心 + LoadBalancer 依赖聚合 | ✅ NacosDiscoveryIT |
-| `cloud-launch` | Nacos ConfigData 导入与启动参数兜底（低优先级默认值，不覆盖业务配置） | 单元测试 |
+| `cloud-nacos` | 注册发现 + 配置中心 + LoadBalancer 依赖聚合 + Nacos ConfigData 启动兜底 | ✅ NacosDiscoveryIT + 单元测试 |
 | `cloud-loadbalancer` | 版本灰度路由（请求头 + metadata 匹配、优先 IP、权重随机、可配置回退、Nacos metadata 自动写入） | 装配测试 |
 | `cloud-gateway` | CORS / 全局异常统一 R / RequestId / 身份头清洗 / 可选鉴权 / Swagger 聚合 / Nacos 动态路由 | ✅ GatewayE2ETest |
 | `cloud-observability` | X-Request-Id ↔ MDC 关联（核心零重依赖）+ Micrometer Tracing 门面（OTLP 可选） | 单元测试 |
@@ -199,7 +197,7 @@ ypbin-starter/                        聚合 POM
 | M5.10 | NacosDiscoveryIT（Testcontainers 双模式）；**公网服务器真机验证注册发现 + 配置** |
 | M5.11 | FeignCrossServiceIT；**公网真机验证** 注册→发现→负载均衡→Feign 调通 + 头透传 + R 错误解码 |
 | M5.12 | SentinelFlowIT；真运行时验证限流被拒统一 R 响应（边界 1 收口） |
-| M5.13 | 新增并增强 cloud-launch：默认 profile、dev/test/prod 互斥校验、Nacos ConfigData 三层导入（公共/环境/应用环境）、import-check、Nacos 日志、Actuator info、Bean 覆盖开关等启动默认值兜底；采用标准 EnvironmentPostProcessor，不要求业务改用自定义启动类，且所有默认值均不覆盖业务显式配置 |
+| M5.13 | 将 Nacos 启动兜底归并到 cloud-nacos：默认 profile、dev/test/prod 互斥校验、Nacos ConfigData 三层导入（公共/环境/应用环境）、import-check、Nacos 日志、Actuator info、Bean 覆盖开关等默认值兜底；采用标准 EnvironmentPostProcessor，不要求业务改用自定义启动类，且所有默认值均不覆盖业务显式配置 |
 
 **边界验证结论**：网关全链路、Nacos 注册发现/配置、Feign 跨服务全链路、Sentinel 限流响应均已脱离「未验证」——分别以本机真运行时 E2E 或公网服务器真机验证覆盖，4 个 IT/E2E（`GatewayE2ETest` / `NacosDiscoveryIT` / `FeignCrossServiceIT` / `SentinelFlowIT`）沉淀在仓库、`-Pit` 可复现、默认构建不受影响。唯一未自动化：Sentinel 规则从 Nacos datasource 热更新（属 Sentinel 自身能力、非本项目职责，Dashboard 已在公网就绪，按 `deploy/README.md` 3.7 手动验证）。
 
@@ -222,9 +220,9 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 ### M6 收尾补记（M5.x 大量新增模块后的工程化回归）
 - ⚠️ 发现尾巴：M6 之后新增的模块/类（api-doc 增强、observability、sentinel、loadbalancer、gateway 等）从未跑过 spotless，
   且 spotless-check 绑在 verify 阶段、日常 `mvn test` 触发不到，导致 api-doc 有 1 处格式违规长期未暴露。
-- ✅ 全量 `spotless:apply` 修复所有新代码格式；`mvn -DskipTests verify` 确认 spotless-check 零违规；本轮新增 cloud-launch 后 30 模块 `mvn clean test` 再次确认 spotless-check 零违规。
+- ✅ 全量 `spotless:apply` 修复所有新代码格式；`mvn -DskipTests verify` 确认 spotless-check 零违规；Nacos 启动兜底归并后 29 模块 `mvn clean test` 再次确认 spotless-check 零违规。
 - ✅ 回归 `clean test`：格式化仅调整排版、不改逻辑，全模块测试全绿。
-- 备注：README「13 个模块」表述已随 M5.x/M5.13 扩展为 30 模块（含 7 个 cloud 模块），模块总览与使用文档均已同步更新。
+- 备注：README「13 个模块」表述已随 M5.x/M5.13 扩展并最终收敛为 29 模块（含 6 个 cloud 模块），模块总览与使用文档均已同步更新。
 - ✅ 根治流程隐患：spotless-check 执行阶段从 `verify` 前移到 `process-test-classes`，使日常 `mvn test`
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
@@ -239,7 +237,7 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ TreeUtils：追加 flatten/getDescendantIds/findNode（并给 TreeNode 接口补 getChildren——原能 set 不能 get 是设计缺口）。
 - ✅ 新增 RedisUtils：Redis 全能力静态工具（key/string/hash/list/set/zset 约 40 方法），与「与实现无关」的 CacheService/CacheUtils 分工——通用走 CacheService，Redis 专属走 RedisUtils。
 - 判断「已够用不硬扩」：I18nUtil（message 翻译已覆盖）、PasswordEncoderUtil（BCrypt 编码/校验/取器三法完整）、CacheUtils/CacheService（通用契约保持极简）。
-- ✅ 新增单测：AesUtils 5 / Sm4Utils 4 / Sm2Utils 3 / TreeUtils +3；当时全量 29 模块 clean test 绿，后续新增 cloud-launch 后全量 30 模块 clean test 绿。
+- ✅ 新增单测：AesUtils 5 / Sm4Utils 4 / Sm2Utils 3 / TreeUtils +3；当时全量 29 模块 clean test 绿。
 
 ### Service/Provider 静态门面排查（用户要求：检查是否需为 Service/Provider 补静态工具）
 逐一核实 20 个 Service/Provider/Helper/基类，按「框架实现、业务调用 + 依赖简单 + 非注入场景高频」筛选，不为对称性凑数：
@@ -259,7 +257,7 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ MqttAutoConfiguration 装配 `MqttSubscriber` 并挂载重连回调。
 - ✅ 补齐真正的业务消费入口：新增 `MqttMessageHandler` + `MqttMessageHandlerRegistrar`，业务方声明 Spring Bean 即可自动订阅并进入 `handle(topic, payload)` 回调；`MqttSubscriberTest` 已补实际消息到达分发断言。
 - ✅ messaging 模块补 `spring-boot-starter-test`（原无测试）：MqttPublisherTest / MqttSubscriberTest / MqttMessageHandlerRegistrarTest，mock IMqttClient 验证发布参数、订阅注册、消息分发、重订阅、异常包装。
-- ✅ README 补 MQTT 消费回调用法；本轮全量 30 模块 clean test 绿。
+- ✅ README 补 MQTT 消费回调用法；Nacos 启动兜底归并后全量 29 模块 clean test 绿。
 
 ### 里程碑 M7 — 安全与数据能力增强（对比参考项目补齐缺口）✅ 全部完成
 批次一（Web 安全）：
@@ -328,5 +326,5 @@ MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度�
 - ✅ 开源协议：Apache-2.0
 - ✅ 范围已扩展到 M10 全部完成 + M5.1~M5.13 Cloud 全面补强 + M6 工程化收尾（spotless 前移根治）
 - ✅ 微服务层 L3：Cloud 企业级治理（Gateway 横切 + 启动增强 + 灰度负载均衡 + Feign 容错 + API 文档增强/聚合 + Nacos 动态路由 + 可观测性 + Sentinel 流量防护）已完成；其中 Gateway/Nacos/Feign/Sentinel 已真机验证
-- ✅ 构建验证：IntelliJ 内置 JBR + Maven3；全量 30 模块 `clean test` 绿；`-Pit` 集成测试连公网服务器/Testcontainers 真机验证
+- ✅ 构建验证：IntelliJ 内置 JBR + Maven3；全量 29 模块 `clean test` 绿；`-Pit` 集成测试连公网服务器/Testcontainers 真机验证
 - ⏳ 后续可选：CI 接入 `-Pit`（GitHub Actions + Testcontainers）；v1.0.0 正式发布；示例工程

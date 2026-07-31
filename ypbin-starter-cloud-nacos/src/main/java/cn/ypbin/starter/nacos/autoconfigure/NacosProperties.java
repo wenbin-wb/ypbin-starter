@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.cloud.launch.autoconfigure;
+package cn.ypbin.starter.nacos.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 微服务启动增强配置项。
+ * Nacos 启动增强配置项。
  *
  * @author wenbin
  * @since 2026-07-31
  */
-@ConfigurationProperties(prefix = CloudLaunchProperties.PREFIX)
-public class CloudLaunchProperties {
+@ConfigurationProperties(prefix = NacosProperties.PREFIX)
+public class NacosProperties {
 
-    public static final String PREFIX = "ypbin.cloud.launch";
+    public static final String PREFIX = "ypbin.cloud.nacos";
 
-    /** 是否启用启动增强，默认开启 */
+    /** 是否启用 Nacos 启动增强，默认开启 */
     private boolean enabled = true;
 
     /** 无 active profile 时是否注入默认 profile */
@@ -50,16 +50,16 @@ public class CloudLaunchProperties {
     private String serviceVersion;
 
     /** 是否注入 Nacos ConfigData 导入默认值，默认开启 */
-    private boolean nacosConfigImportEnabled = true;
+    private boolean configImportEnabled = true;
 
     /** Nacos ConfigData 导入地址；为空时按 prefix/profile/applicationName 自动生成 */
-    private String nacosConfigImport;
+    private String configImport;
 
     /** Nacos 公共配置前缀 */
-    private String nacosConfigPrefix = "application";
+    private String configPrefix = "application";
 
     /** Nacos 配置文件后缀 */
-    private String nacosConfigFileExtension = "yaml";
+    private String configFileExtension = "yaml";
 
     /** 是否加载 profile 级配置，如 application-dev.yaml */
     private boolean includeProfileConfig = true;
@@ -68,10 +68,10 @@ public class CloudLaunchProperties {
     private boolean includeApplicationProfileConfig = true;
 
     /** Nacos config import 检查开关；默认关闭检查，避免仅引入配置中心但未显式配置 import 时启动失败 */
-    private boolean nacosConfigImportCheckEnabled = false;
+    private boolean configImportCheckEnabled = false;
 
     /** 是否启用 Nacos 默认日志配置；默认关闭，避免 Nacos 覆盖应用日志体系 */
-    private boolean nacosLoggingDefaultConfigEnabled = false;
+    private boolean loggingDefaultConfigEnabled = false;
 
     /** 是否开启 Actuator process info */
     private boolean managementInfoProcessEnabled = true;
@@ -135,36 +135,36 @@ public class CloudLaunchProperties {
         this.serviceVersion = serviceVersion;
     }
 
-    public boolean isNacosConfigImportEnabled() {
-        return nacosConfigImportEnabled;
+    public boolean isConfigImportEnabled() {
+        return configImportEnabled;
     }
 
-    public void setNacosConfigImportEnabled(boolean nacosConfigImportEnabled) {
-        this.nacosConfigImportEnabled = nacosConfigImportEnabled;
+    public void setConfigImportEnabled(boolean configImportEnabled) {
+        this.configImportEnabled = configImportEnabled;
     }
 
-    public String getNacosConfigImport() {
-        return nacosConfigImport;
+    public String getConfigImport() {
+        return configImport;
     }
 
-    public void setNacosConfigImport(String nacosConfigImport) {
-        this.nacosConfigImport = nacosConfigImport;
+    public void setConfigImport(String configImport) {
+        this.configImport = configImport;
     }
 
-    public String getNacosConfigPrefix() {
-        return nacosConfigPrefix;
+    public String getConfigPrefix() {
+        return configPrefix;
     }
 
-    public void setNacosConfigPrefix(String nacosConfigPrefix) {
-        this.nacosConfigPrefix = nacosConfigPrefix;
+    public void setConfigPrefix(String configPrefix) {
+        this.configPrefix = configPrefix;
     }
 
-    public String getNacosConfigFileExtension() {
-        return nacosConfigFileExtension;
+    public String getConfigFileExtension() {
+        return configFileExtension;
     }
 
-    public void setNacosConfigFileExtension(String nacosConfigFileExtension) {
-        this.nacosConfigFileExtension = nacosConfigFileExtension;
+    public void setConfigFileExtension(String configFileExtension) {
+        this.configFileExtension = configFileExtension;
     }
 
     public boolean isIncludeProfileConfig() {
@@ -183,20 +183,20 @@ public class CloudLaunchProperties {
         this.includeApplicationProfileConfig = includeApplicationProfileConfig;
     }
 
-    public boolean isNacosConfigImportCheckEnabled() {
-        return nacosConfigImportCheckEnabled;
+    public boolean isConfigImportCheckEnabled() {
+        return configImportCheckEnabled;
     }
 
-    public void setNacosConfigImportCheckEnabled(boolean nacosConfigImportCheckEnabled) {
-        this.nacosConfigImportCheckEnabled = nacosConfigImportCheckEnabled;
+    public void setConfigImportCheckEnabled(boolean configImportCheckEnabled) {
+        this.configImportCheckEnabled = configImportCheckEnabled;
     }
 
-    public boolean isNacosLoggingDefaultConfigEnabled() {
-        return nacosLoggingDefaultConfigEnabled;
+    public boolean isLoggingDefaultConfigEnabled() {
+        return loggingDefaultConfigEnabled;
     }
 
-    public void setNacosLoggingDefaultConfigEnabled(boolean nacosLoggingDefaultConfigEnabled) {
-        this.nacosLoggingDefaultConfigEnabled = nacosLoggingDefaultConfigEnabled;
+    public void setLoggingDefaultConfigEnabled(boolean loggingDefaultConfigEnabled) {
+        this.loggingDefaultConfigEnabled = loggingDefaultConfigEnabled;
     }
 
     public boolean isManagementInfoProcessEnabled() {

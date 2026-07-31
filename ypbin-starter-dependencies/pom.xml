@@ -285,11 +285,6 @@
             </dependency>
             <dependency>
                 <groupId>cn.ypbin.starter</groupId>
-                <artifactId>ypbin-starter-cloud-launch</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>cn.ypbin.starter</groupId>
                 <artifactId>ypbin-starter-cloud-loadbalancer</artifactId>
                 <version>${revision}</version>
             </dependency>

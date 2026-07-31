@@ -111,8 +111,7 @@
 | CRUD | `ypbin-starter-extension-crud` | 通用控制器/服务基类，防 Over-Posting | — |
 | 数据权限 | `ypbin-starter-extension-datapermission` | 行级数据范围过滤、`@DataPermission` 门控 | `ypbin.data-permission` |
 | Feign | `ypbin-starter-cloud-core` | OpenFeign 请求头透传、错误解码、熔断兜底 | `ypbin.cloud.feign` |
-| Nacos | `ypbin-starter-cloud-nacos` | Nacos 注册发现 + 配置中心 + LoadBalancer 聚合 | — |
-| 启动增强 | `ypbin-starter-cloud-launch` | Nacos ConfigData 默认导入、启动参数兜底 | `ypbin.cloud.launch` |
+| Nacos | `ypbin-starter-cloud-nacos` | Nacos 注册发现 + 配置中心 + LoadBalancer 聚合 + ConfigData 启动兜底 | `ypbin.cloud.nacos` |
 | 负载均衡 | `ypbin-starter-cloud-loadbalancer` | 版本灰度路由、优先 IP、权重随机、Nacos metadata | `ypbin.cloud.loadbalancer` |
 | 可观测性 | `ypbin-starter-cloud-observability` | X-Request-Id 与 MDC 关联、Micrometer Tracing 门面（OTLP 可选） | `ypbin.observability` |
 | 流量防护 | `ypbin-starter-cloud-sentinel` | Sentinel Web/网关限流、被拒统一 R 响应、Nacos 规则热更新 | `ypbin.cloud.sentinel` |
@@ -870,19 +869,10 @@ public interface UserClient {
 </dependency>
 ```
 
-本模块为纯依赖聚合，Nacos 自动配置由 spring-cloud-alibaba 提供。业务方按常规配置
+本模块整合 Nacos 注册发现、配置中心、LoadBalancer 依赖，并提供 Nacos ConfigData 启动兜底。Nacos 自动配置由 spring-cloud-alibaba 提供，业务方按常规配置
 `spring.cloud.nacos.discovery.server-addr` 和 `spring.cloud.nacos.config.server-addr` 即可。
 
-### cloud-launch — 微服务启动增强
-
-统一处理 Spring Boot 3.x / Spring Cloud Alibaba 下的启动早期默认值：默认 profile、Nacos ConfigData 导入、Nacos 日志、Actuator info 与 Bean 覆盖开关。
-
-```xml
-<dependency>
-    <groupId>cn.ypbin.starter</groupId>
-    <artifactId>ypbin-starter-cloud-launch</artifactId>
-</dependency>
-```
+同时，模块会处理 Spring Boot 3.x / Spring Cloud Alibaba 下的 Nacos 启动早期默认值：默认 profile、Nacos ConfigData 导入、Nacos 日志、Actuator info 与 Bean 覆盖开关。
 
 默认注入低优先级配置，不覆盖业务方显式配置；无 active profile 时默认使用 `dev`，并按公共配置 + 环境配置 + 应用环境配置生成 Nacos 导入：
 
@@ -906,7 +896,7 @@ spring.config.import=optional:nacos:application.yaml,optional:nacos:application-
 ```yaml
 ypbin:
   cloud:
-    launch:
+    nacos:
       enabled: true
       default-profile-enabled: true
       default-profile: dev
@@ -914,19 +904,19 @@ ypbin:
       application-name: order-service       # 可选：为空则不注入 spring.application.name
       application-description: 订单服务      # 可选：为空则不注入 info.desc
       service-version: 1.0.0                # 可选：为空则不注入 info.version
-      nacos-config-import-enabled: true
-      nacos-config-import:                  # 可选：显式指定后不再自动生成
-      nacos-config-prefix: application
-      nacos-config-file-extension: yaml
+      config-import-enabled: true
+      config-import:                        # 可选：显式指定后不再自动生成
+      config-prefix: application
+      config-file-extension: yaml
       include-profile-config: true
       include-application-profile-config: true
-      nacos-config-import-check-enabled: false
-      nacos-logging-default-config-enabled: false
+      config-import-check-enabled: false
+      logging-default-config-enabled: false
       management-info-process-enabled: true
       bean-definition-overriding-enabled: false
 ```
 
-定位：`cloud-nacos` 管注册发现/配置中心依赖聚合，`cloud-launch` 管启动早期默认参数。它不要求业务改用自定义启动类，也不会用系统属性强行覆盖命令行、环境变量或 `application.yml`，比传统固定启动器更轻、更可控。
+定位：Nacos 相关默认值、Nacos ConfigData 导入和 Nacos 集成测试都归属于 `cloud-nacos`，不再单独拆启动模块，避免模块边界发散。
 
 ### cloud-loadbalancer — 版本灰度负载均衡
 

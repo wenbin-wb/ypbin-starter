@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.cloud.launch.autoconfigure;
+package cn.ypbin.starter.nacos.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -22,27 +22,27 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 /**
- * {@link CloudLaunchAutoConfiguration} 自动配置装配测试。
+ * {@link NacosAutoConfiguration} 自动配置装配测试。
  *
  * @author wenbin
  * @since 2026-07-31
  */
-class CloudLaunchAutoConfigurationTest {
+class NacosAutoConfigurationTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(CloudLaunchAutoConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(NacosAutoConfiguration.class));
 
     @Test
     void shouldBindPropertiesByDefault() {
         runner.run(context -> {
-            assertThat(context).hasSingleBean(CloudLaunchProperties.class);
-            assertThat(context.getBean(CloudLaunchProperties.class).isEnabled()).isTrue();
+            assertThat(context).hasSingleBean(NacosProperties.class);
+            assertThat(context.getBean(NacosProperties.class).isEnabled()).isTrue();
         });
     }
 
     @Test
     void shouldBackOffWhenDisabled() {
-        runner.withPropertyValues("ypbin.cloud.launch.enabled=false")
-            .run(context -> assertThat(context).doesNotHaveBean(CloudLaunchProperties.class));
+        runner.withPropertyValues("ypbin.cloud.nacos.enabled=false")
+            .run(context -> assertThat(context).doesNotHaveBean(NacosProperties.class));
     }
 }

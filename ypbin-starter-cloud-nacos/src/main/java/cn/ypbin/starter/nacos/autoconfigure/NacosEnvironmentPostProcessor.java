@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.cloud.launch.autoconfigure;
+package cn.ypbin.starter.nacos.autoconfigure;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,18 +29,17 @@ import org.springframework.core.env.MapPropertySource;
 import org.springframework.util.StringUtils;
 
 /**
- * 微服务启动默认属性注入器。
+ * Nacos 启动默认属性注入器。
  *
- * <p>采用 Spring Boot 标准 {@link EnvironmentPostProcessor}：业务仍可用普通
- * {@code SpringApplication.run(...)}，不被迫继承自定义启动入口；所有默认值以最低优先级追加，不覆盖命令行、环境变量、
- * application.yml 等显式配置。</p>
+ * <p>采用 Spring Boot 标准 {@link EnvironmentPostProcessor}，在 ConfigData 加载前注入 Nacos 相关默认值。
+ * 所有默认值以最低优先级追加，不覆盖命令行、环境变量、application.yml 等显式配置。</p>
  *
  * @author wenbin
  * @since 2026-07-31
  */
-public class CloudLaunchEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
+public class NacosEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
 
-    private static final String PROPERTY_SOURCE_NAME = "ypbinCloudLaunchDefaults";
+    private static final String PROPERTY_SOURCE_NAME = "ypbinNacosDefaults";
 
     private static final List<String> PRESET_PROFILES = List.of("dev", "test", "prod");
 
@@ -69,7 +68,7 @@ public class CloudLaunchEnvironmentPostProcessor implements EnvironmentPostProce
         addDefaultProfile(environment, defaults);
         addNacosConfigImport(environment, defaults);
         addIfAbsent(environment, defaults, "nacos.logging.default.config.enabled",
-            String.valueOf(getBoolean(environment, "nacos-logging-default-config-enabled", false)));
+            String.valueOf(getBoolean(environment, "logging-default-config-enabled", false)));
         addIfAbsent(environment, defaults, "management.info.process.enabled",
             String.valueOf(getBoolean(environment, "management-info-process-enabled", true)));
         addIfAbsent(environment, defaults, "spring.main.allow-bean-definition-overriding",
@@ -122,22 +121,22 @@ public class CloudLaunchEnvironmentPostProcessor implements EnvironmentPostProce
     }
 
     private void addNacosConfigImport(ConfigurableEnvironment environment, Map<String, Object> defaults) {
-        if (!getBoolean(environment, "nacos-config-import-enabled", true)) {
+        if (!getBoolean(environment, "config-import-enabled", true)) {
             return;
         }
         if (!StringUtils.hasText(environment.getProperty(SPRING_CONFIG_IMPORT))) {
-            String configuredImport = getString(environment, "nacos-config-import", null);
+            String configuredImport = getString(environment, "config-import", null);
             defaults.put(SPRING_CONFIG_IMPORT, StringUtils.hasText(configuredImport)
                 ? configuredImport.trim()
                 : buildNacosConfigImport(environment));
         }
         addIfAbsent(environment, defaults, NACOS_IMPORT_CHECK,
-            String.valueOf(getBoolean(environment, "nacos-config-import-check-enabled", false)));
+            String.valueOf(getBoolean(environment, "config-import-check-enabled", false)));
     }
 
     private String buildNacosConfigImport(ConfigurableEnvironment environment) {
-        String prefix = getString(environment, "nacos-config-prefix", "application");
-        String extension = getString(environment, "nacos-config-file-extension", "yaml");
+        String prefix = getString(environment, "config-prefix", "application");
+        String extension = getString(environment, "config-file-extension", "yaml");
         String appName = environment.getProperty(SPRING_APPLICATION_NAME);
         if (!StringUtils.hasText(appName)) {
             appName = getString(environment, "application-name", null);
@@ -201,11 +200,11 @@ public class CloudLaunchEnvironmentPostProcessor implements EnvironmentPostProce
     }
 
     private Boolean getBoolean(ConfigurableEnvironment environment, String key, boolean defaultValue) {
-        return environment.getProperty(CloudLaunchProperties.PREFIX + "." + key, Boolean.class, defaultValue);
+        return environment.getProperty(NacosProperties.PREFIX + "." + key, Boolean.class, defaultValue);
     }
 
     private String getString(ConfigurableEnvironment environment, String key, String defaultValue) {
-        return environment.getProperty(CloudLaunchProperties.PREFIX + "." + key, defaultValue);
+        return environment.getProperty(NacosProperties.PREFIX + "." + key, defaultValue);
     }
 
     @Override

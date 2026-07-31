@@ -1,99 +1,99 @@
 {
   "properties": [
     {
-      "name": "ypbin.cloud.launch.enabled",
+      "name": "ypbin.cloud.nacos.enabled",
       "type": "java.lang.Boolean",
-      "description": "是否启用微服务启动增强。",
+      "description": "是否启用 Nacos 启动增强。",
       "defaultValue": true
     },
     {
-      "name": "ypbin.cloud.launch.default-profile-enabled",
+      "name": "ypbin.cloud.nacos.default-profile-enabled",
       "type": "java.lang.Boolean",
       "description": "无 active profile 时是否注入默认 profile。",
       "defaultValue": true
     },
     {
-      "name": "ypbin.cloud.launch.default-profile",
+      "name": "ypbin.cloud.nacos.default-profile",
       "type": "java.lang.String",
       "description": "默认 profile；仅在无 active profile 时以低优先级写入 spring.profiles.default。",
       "defaultValue": "dev"
     },
     {
-      "name": "ypbin.cloud.launch.fail-on-multiple-preset-profiles",
+      "name": "ypbin.cloud.nacos.fail-on-multiple-preset-profiles",
       "type": "java.lang.Boolean",
       "description": "是否禁止 dev/test/prod 同时激活。",
       "defaultValue": true
     },
     {
-      "name": "ypbin.cloud.launch.application-name",
+      "name": "ypbin.cloud.nacos.application-name",
       "type": "java.lang.String",
       "description": "应用名兜底值；为空时不注入 spring.application.name。"
     },
     {
-      "name": "ypbin.cloud.launch.application-description",
+      "name": "ypbin.cloud.nacos.application-description",
       "type": "java.lang.String",
       "description": "应用描述兜底值；为空时不注入 info.desc。"
     },
     {
-      "name": "ypbin.cloud.launch.service-version",
+      "name": "ypbin.cloud.nacos.service-version",
       "type": "java.lang.String",
       "description": "服务版本兜底值；为空时不注入 info.version。"
     },
     {
-      "name": "ypbin.cloud.launch.nacos-config-import-enabled",
+      "name": "ypbin.cloud.nacos.config-import-enabled",
       "type": "java.lang.Boolean",
       "description": "是否注入 Nacos ConfigData 导入默认值。",
       "defaultValue": true
     },
     {
-      "name": "ypbin.cloud.launch.nacos-config-import",
+      "name": "ypbin.cloud.nacos.config-import",
       "type": "java.lang.String",
       "description": "显式指定 Nacos ConfigData 导入地址；为空时按 prefix/profile/applicationName 自动生成。"
     },
     {
-      "name": "ypbin.cloud.launch.nacos-config-prefix",
+      "name": "ypbin.cloud.nacos.config-prefix",
       "type": "java.lang.String",
       "description": "Nacos 公共配置前缀。",
       "defaultValue": "application"
     },
     {
-      "name": "ypbin.cloud.launch.nacos-config-file-extension",
+      "name": "ypbin.cloud.nacos.config-file-extension",
       "type": "java.lang.String",
       "description": "Nacos 配置文件后缀。",
       "defaultValue": "yaml"
     },
     {
-      "name": "ypbin.cloud.launch.include-profile-config",
+      "name": "ypbin.cloud.nacos.include-profile-config",
       "type": "java.lang.Boolean",
       "description": "是否加载 profile 级配置，如 application-dev.yaml。",
       "defaultValue": true
     },
     {
-      "name": "ypbin.cloud.launch.include-application-profile-config",
+      "name": "ypbin.cloud.nacos.include-application-profile-config",
       "type": "java.lang.Boolean",
       "description": "是否加载应用 profile 级配置，如 order-service-dev.yaml。",
       "defaultValue": true
     },
     {
-      "name": "ypbin.cloud.launch.nacos-config-import-check-enabled",
+      "name": "ypbin.cloud.nacos.config-import-check-enabled",
       "type": "java.lang.Boolean",
       "description": "Nacos config import 检查开关。",
       "defaultValue": false
     },
     {
-      "name": "ypbin.cloud.launch.nacos-logging-default-config-enabled",
+      "name": "ypbin.cloud.nacos.logging-default-config-enabled",
       "type": "java.lang.Boolean",
       "description": "是否启用 Nacos 默认日志配置。",
       "defaultValue": false
     },
     {
-      "name": "ypbin.cloud.launch.management-info-process-enabled",
+      "name": "ypbin.cloud.nacos.management-info-process-enabled",
       "type": "java.lang.Boolean",
       "description": "是否开启 Actuator process info。",
       "defaultValue": true
     },
     {
-      "name": "ypbin.cloud.launch.bean-definition-overriding-enabled",
+      "name": "ypbin.cloud.nacos.bean-definition-overriding-enabled",
       "type": "java.lang.Boolean",
       "description": "是否允许 Bean 覆盖；默认不开启，避免掩盖重复 Bean 问题。",
       "defaultValue": false

@@ -51,6 +51,22 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- IT 类默认不编译/不执行，但放在 test scope 让 IDE 不爆红；-Pit 时再放开执行 -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.nacos</groupId>
+            <artifactId>nacos-client</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -87,23 +103,6 @@
         -->
         <profile>
             <id>it</id>
-            <dependencies>
-                <dependency>
-                    <groupId>org.testcontainers</groupId>
-                    <artifactId>testcontainers</artifactId>
-                    <scope>test</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.testcontainers</groupId>
-                    <artifactId>junit-jupiter</artifactId>
-                    <scope>test</scope>
-                </dependency>
-                <dependency>
-                    <groupId>com.alibaba.nacos</groupId>
-                    <artifactId>nacos-client</artifactId>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
             <build>
                 <plugins>
                     <!-- 覆盖默认排除：-Pit 时恢复 *IT.java 的编译 -->

@@ -13,23 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.cloud.launch.autoconfigure;
+package cn.ypbin.starter.nacos.autoconfigure;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /**
- * 微服务启动增强自动配置。
+ * Nacos 自动配置。
  *
- * <p>实际的启动早期属性注入由 {@link CloudLaunchEnvironmentPostProcessor} 完成；本自动配置用于暴露
- * {@link CloudLaunchProperties} 配置元数据，便于业务方获得 IDE 提示。</p>
+ * <p>注册发现与配置中心由 Spring Cloud Alibaba 自动装配，本类负责暴露 {@link NacosProperties}
+ * 配置元数据；启动早期默认值由 {@link NacosEnvironmentPostProcessor} 注入。</p>
  *
  * @author wenbin
  * @since 2026-07-31
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = CloudLaunchProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableConfigurationProperties(CloudLaunchProperties.class)
-public class CloudLaunchAutoConfiguration {
+@ConditionalOnProperty(prefix = NacosProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties(NacosProperties.class)
+public class NacosAutoConfiguration {
 }
