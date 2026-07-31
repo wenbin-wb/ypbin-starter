@@ -18,6 +18,7 @@ package cn.ypbin.starter.security.autoconfigure;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.stp.StpInterface;
 import cn.ypbin.starter.security.core.PermissionProvider;
+import cn.ypbin.starter.security.handler.SaTokenExceptionHandler;
 import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
 import cn.ypbin.starter.security.satoken.StpPermissionAdapter;
 import org.slf4j.Logger;
@@ -83,5 +84,18 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean(SaTokenWebConfigurer.class)
     public SaTokenWebConfigurer saTokenWebConfigurer(SecurityProperties properties) {
         return new SaTokenWebConfigurer(properties);
+    }
+
+    /**
+     * Sa-Token 认证/鉴权异常处理器。
+     *
+     * <p>把未登录/无权限/无角色等异常转为统一 R 响应（401/403），避免落入 web 兜底而返回 500。
+     * 仅 Servlet Web 环境装配，业务方提供自定义同类处理器可覆盖。</p>
+     */
+    @Bean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnMissingBean
+    public SaTokenExceptionHandler saTokenExceptionHandler() {
+        return new SaTokenExceptionHandler();
     }
 }

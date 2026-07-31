@@ -57,7 +57,10 @@ import org.springframework.web.bind.annotation.RequestBody;
  * }
  * }</pre>
  *
- * <p><b>业务过滤：</b>分页覆盖 {@link #buildQueryWrapper(PageQuery)} 返回查询条件即可按业务字段过滤。</p>
+ * <p><b>业务过滤：</b>查询参数类型由泛型 {@code Q} 指定（{@link PageQuery} 或其携带过滤字段的子类），
+ * 子类覆盖 {@link #buildQueryWrapper(PageQuery)} 返回查询条件即可按业务字段过滤。分页端点形参声明为 {@code Q}，
+ * Spring 经桥接方法绑定到具体子类型，故 {@code username}/{@code status} 等过滤字段能正确注入。
+ * 无需业务过滤时 {@code Q} 直接用 {@code PageQuery}。</p>
  *
  * <p><b>写操作扩展：</b>覆盖 {@link #beforeSave}/{@link #afterSave}/{@link #beforeUpdate}/{@link #afterUpdate}
  * 模板钩子插入密码加密、查重、事务内分配角色等业务逻辑；需要事务时在子类覆盖方法上加 {@code @Transactional}。</p>
@@ -66,10 +69,11 @@ import org.springframework.web.bind.annotation.RequestBody;
  * @param <ID>   主键类型
  * @param <REQ>  请求参数类型
  * @param <RESP> 响应视图类型
+ * @param <Q>    分页查询参数类型（{@link PageQuery} 或其子类）
  * @author wenbin
  * @since 2026-07-30
  */
-public abstract class BaseController<T, ID extends Serializable, REQ, RESP> {
+public abstract class BaseController<T, ID extends Serializable, REQ, RESP, Q extends PageQuery> {
 
     /** 泛型参数解析结果缓存，避免每次请求都反射解析 */
     private static final Map<Class<?>, Class<?>[]> TYPE_ARG_CACHE = new ConcurrentHashMap<>();
@@ -92,7 +96,7 @@ public abstract class BaseController<T, ID extends Serializable, REQ, RESP> {
     }
 
     @GetMapping("/page")
-    public R<PageResult<RESP>> page(PageQuery query) {
+    public R<PageResult<RESP>> page(Q query) {
         PageResult<T> source = getBaseService().page(query, buildQueryWrapper(query));
         PageResult<RESP> view = PageResult.of(
             source.getRecords().stream().map(this::toResp).toList(),
@@ -129,12 +133,13 @@ public abstract class BaseController<T, ID extends Serializable, REQ, RESP> {
     /**
      * 构建分页查询条件。默认返回 {@code null}（无业务过滤），子类覆盖以按业务字段过滤。
      *
-     * <p>例如：{@code return Wrappers.<User>lambdaQuery().like(has(q.getName()), User::getName, q.getName());}</p>
+     * <p>{@code query} 为泛型 {@code Q} 的实例，携带子类声明的过滤字段（如 {@code username}/{@code status}），
+     * 例：{@code return Wrappers.<User>lambdaQuery().like(has(q.getName()), User::getName, q.getName());}</p>
      *
-     * @param query 分页参数（可为其子类以携带过滤字段）
+     * @param query 分页查询参数（含业务过滤字段）
      * @return 查询条件，{@code null} 表示无条件
      */
-    protected Wrapper<T> buildQueryWrapper(PageQuery query) {
+    protected Wrapper<T> buildQueryWrapper(Q query) {
         return null;
     }
 

@@ -558,10 +558,11 @@ boolean ok  = Sm2Utils.verify("data", sign, kp.publicKey());   // 验签
 @Service
 public class ArticleService extends BaseServiceImpl<ArticleMapper, Article> { }
 
-// 控制器：泛型 <实体, 主键, 请求, 响应>，REQ/RESP 与实体默认 BeanUtils 转换
+// 控制器：泛型 <实体, 主键, 请求, 响应, 查询>，REQ/RESP 与实体默认 BeanUtils 转换
+// 无业务过滤时查询泛型直接用 PageQuery
 @RestController
 @RequestMapping("/articles")
-public class ArticleController extends BaseController<Article, Long, ArticleReq, ArticleResp> {
+public class ArticleController extends BaseController<Article, Long, ArticleReq, ArticleResp, PageQuery> {
     private final ArticleService service;
     @Override protected BaseService<Article> getBaseService() { return service; }
 }
@@ -579,14 +580,22 @@ public R<Void> save(@RequestBody ArticleReq req) {
 }
 ```
 
-**业务过滤分页**：覆盖 `buildQueryWrapper` 返回条件（`PageQuery` 可继承以携带过滤字段）：
+**业务过滤分页**：查询泛型 `Q` 指定为携带过滤字段的 `PageQuery` 子类，覆盖 `buildQueryWrapper`：
 
 ```java
-@Override
-protected Wrapper<Article> buildQueryWrapper(PageQuery query) {
-    ArticleQuery q = (ArticleQuery) query;
-    return Wrappers.<Article>lambdaQuery()
-        .like(StringUtils.hasText(q.getTitle()), Article::getTitle, q.getTitle());
+// 查询对象继承 PageQuery，加业务过滤字段
+public class ArticleQuery extends PageQuery {
+    private String title;
+    // getter/setter
+}
+
+// 控制器第 5 个泛型指定为 ArticleQuery，Spring 会把 ?title=x 绑定进来
+public class ArticleController extends BaseController<Article, Long, ArticleReq, ArticleResp, ArticleQuery> {
+    @Override
+    protected Wrapper<Article> buildQueryWrapper(ArticleQuery q) {
+        return Wrappers.<Article>lambdaQuery()
+            .like(StringUtils.hasText(q.getTitle()), Article::getTitle, q.getTitle());
+    }
 }
 ```
 
