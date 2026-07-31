@@ -20,8 +20,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -258,8 +261,13 @@ public final class AsyncUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("等待异步结果被中断", e);
-        } catch (Exception e) {
-            throw new IllegalStateException("等待异步结果失败或超时", e);
+        } catch (ExecutionException e) {
+            // 剥离出真正的业务异常，用 CompletionException 包装，与 CompletableFuture.join() 语义一致，
+            // 避免堆栈嵌套过深（IllegalStateException -> ExecutionException -> 真实异常）掩盖病因
+            Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+            throw new CompletionException(cause);
+        } catch (TimeoutException e) {
+            throw new IllegalStateException("等待异步结果超时", e);
         }
     }
 

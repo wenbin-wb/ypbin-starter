@@ -16,12 +16,14 @@
 package cn.ypbin.starter.async;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import cn.ypbin.starter.async.util.AsyncHolder;
 import cn.ypbin.starter.async.util.AsyncUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -109,6 +111,27 @@ class AsyncUtilsTest {
     void joinWithTimeoutShouldReturn() {
         Integer result = AsyncUtils.join(AsyncUtils.supply(() -> 99), Duration.ofSeconds(1));
         assertThat(result).isEqualTo(99);
+    }
+
+    @Test
+    void joinShouldUnwrapBusinessException() {
+        CompletableFuture<Integer> failed = new CompletableFuture<>();
+        failed.completeExceptionally(new IllegalArgumentException("bad arg"));
+
+        // 业务异常应剥离为 CompletionException(真实异常)，而非嵌套 ExecutionException
+        assertThatThrownBy(() -> AsyncUtils.join(failed, Duration.ofSeconds(1)))
+            .isInstanceOf(CompletionException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
+            .cause().hasMessage("bad arg");
+    }
+
+    @Test
+    void joinShouldThrowOnTimeout() {
+        CompletableFuture<Integer> never = new CompletableFuture<>();
+
+        assertThatThrownBy(() -> AsyncUtils.join(never, Duration.ofMillis(100)))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("超时");
     }
 
     @Test
