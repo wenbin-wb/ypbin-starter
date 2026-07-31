@@ -23,9 +23,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicReference;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 /**
@@ -45,6 +49,20 @@ class MqttSubscriberTest {
 
         verify(client).subscribe(eq("device/+/up"), eq(1), any(IMqttMessageListener.class));
         assertThat(subscriber.subscriptionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void subscribe_shouldDispatchArrivedMessageToHandler() throws Exception {
+        IMqttClient client = Mockito.mock(IMqttClient.class);
+        MqttSubscriber subscriber = new MqttSubscriber(client, 1);
+        AtomicReference<String> consumed = new AtomicReference<>();
+
+        subscriber.subscribe("device/+/up", (topic, payload) -> consumed.set(topic + "=" + payload));
+
+        ArgumentCaptor<IMqttMessageListener> captor = ArgumentCaptor.forClass(IMqttMessageListener.class);
+        verify(client).subscribe(eq("device/+/up"), eq(1), captor.capture());
+        captor.getValue().messageArrived("device/1/up", new MqttMessage("online".getBytes(StandardCharsets.UTF_8)));
+        assertThat(consumed.get()).isEqualTo("device/1/up=online");
     }
 
     @Test

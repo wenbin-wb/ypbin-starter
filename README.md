@@ -112,6 +112,7 @@
 | 数据权限 | `ypbin-starter-extension-datapermission` | 行级数据范围过滤、`@DataPermission` 门控 | `ypbin.data-permission` |
 | Feign | `ypbin-starter-cloud-core` | OpenFeign 请求头透传、错误解码、熔断兜底 | `ypbin.cloud.feign` |
 | Nacos | `ypbin-starter-cloud-nacos` | Nacos 注册发现 + 配置中心 + LoadBalancer 聚合 | — |
+| 启动增强 | `ypbin-starter-cloud-launch` | Nacos ConfigData 默认导入、启动参数兜底 | `ypbin.cloud.launch` |
 | 负载均衡 | `ypbin-starter-cloud-loadbalancer` | 版本灰度路由、优先 IP、权重随机、Nacos metadata | `ypbin.cloud.loadbalancer` |
 | 可观测性 | `ypbin-starter-cloud-observability` | X-Request-Id 与 MDC 关联、Micrometer Tracing 门面（OTLP 可选） | `ypbin.observability` |
 | 流量防护 | `ypbin-starter-cloud-sentinel` | Sentinel Web/网关限流、被拒统一 R 响应、Nacos 规则热更新 | `ypbin.cloud.sentinel` |
@@ -636,7 +637,29 @@ mqttPublisher.publish("device/1/cmd", payload);          // 默认 QoS
 mqttPublisher.publish("device/1/cmd", payload, 2, false); // 指定 QoS/retained
 ```
 
-订阅用 `MqttSubscriber`，以「主题 → 回调」接收消息（回调参数为 topic 与 UTF-8 解码后的 payload）：
+消费推荐实现 `MqttMessageHandler` Bean，容器启动后自动订阅并进入回调：
+
+```java
+@Component
+public class DeviceUpMessageHandler implements MqttMessageHandler {
+    @Override
+    public String topic() {
+        return "device/+/up";
+    }
+
+    @Override
+    public Integer qos() {
+        return 1;
+    }
+
+    @Override
+    public void handle(String topic, String payload) {
+        // 这里就是 MQTT 消费回调
+    }
+}
+```
+
+临时订阅也可直接使用 `MqttSubscriber`，以「主题 → 回调」接收消息（回调参数为 topic 与 UTF-8 解码后的 payload）：
 
 ```java
 @Autowired
@@ -647,7 +670,7 @@ mqttSubscriber.subscribe("alarm/#", 2, (topic, payload) -> alarm(payload));  // 
 mqttSubscriber.unsubscribe("device/+/up");
 ```
 
-断线自动重连后 Paho 会丢失原订阅，`MqttSubscriber` 已登记主题并在重连完成时自动恢复订阅，业务无需处理。
+断线自动重连后 Paho 会丢失原订阅，`MqttSubscriber` 会登记主题和消费回调，并在重连完成时自动恢复订阅，业务无需处理。
 
 ### sensitive-words — 敏感词过滤
 
@@ -849,6 +872,38 @@ public interface UserClient {
 
 本模块为纯依赖聚合，Nacos 自动配置由 spring-cloud-alibaba 提供。业务方按常规配置
 `spring.cloud.nacos.discovery.server-addr` 和 `spring.cloud.nacos.config.server-addr` 即可。
+
+### cloud-launch — 微服务启动增强
+
+统一处理 Spring Boot 3.x / Spring Cloud Alibaba 下 Nacos ConfigData 导入的启动默认值：
+
+```xml
+<dependency>
+    <groupId>cn.ypbin.starter</groupId>
+    <artifactId>ypbin-starter-cloud-launch</artifactId>
+</dependency>
+```
+
+默认注入低优先级配置，不覆盖业务方显式配置：
+
+```properties
+spring.config.import=optional:nacos:application.yml
+spring.cloud.nacos.config.import-check.enabled=false
+```
+
+业务方可覆盖或关闭：
+
+```yaml
+ypbin:
+  cloud:
+    launch:
+      enabled: true
+      nacos-config-import-enabled: true
+      nacos-config-import: optional:nacos:application.yml
+      nacos-config-import-check-enabled: false
+```
+
+定位：`cloud-nacos` 管注册发现/配置中心依赖聚合，`cloud-launch` 管启动早期默认参数，避免仅引入 Nacos Config 但暂未配置 `spring.config.import` 时启动失败。
 
 ### cloud-loadbalancer — 版本灰度负载均衡
 

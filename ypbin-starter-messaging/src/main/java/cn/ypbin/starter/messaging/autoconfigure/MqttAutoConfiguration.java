@@ -15,9 +15,12 @@
  */
 package cn.ypbin.starter.messaging.autoconfigure;
 
+import cn.ypbin.starter.messaging.mqtt.MqttMessageHandler;
+import cn.ypbin.starter.messaging.mqtt.MqttMessageHandlerRegistrar;
 import cn.ypbin.starter.messaging.mqtt.MqttProperties;
 import cn.ypbin.starter.messaging.mqtt.MqttPublisher;
 import cn.ypbin.starter.messaging.mqtt.MqttSubscriber;
+import java.util.List;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -116,6 +119,17 @@ public class MqttAutoConfiguration {
             }
         });
         return subscriber;
+    }
+
+    /**
+     * 自动注册业务方声明的 MQTT 消费回调 Bean。业务只需实现 {@link MqttMessageHandler}，无需再手动调用
+     * subscribe，即可在容器启动后完成订阅并进入消费回调。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public MqttMessageHandlerRegistrar mqttMessageHandlerRegistrar(MqttSubscriber subscriber,
+            List<MqttMessageHandler> handlers, MqttProperties properties) {
+        return new MqttMessageHandlerRegistrar(subscriber, handlers, properties.getDefaultQos());
     }
 
     /**

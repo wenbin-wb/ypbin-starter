@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+cn.ypbin.starter.cloud.launch.autoconfigure.CloudLaunchEnvironmentPostProcessor

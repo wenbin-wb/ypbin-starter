@@ -77,8 +77,7 @@ public class MqttSubscriber {
         try {
             subscriptions.put(topic, qos);
             handlers.put(topic, handler);
-            client.subscribe(topic, qos, (t, msg) ->
-                handler.accept(t, new String(msg.getPayload(), StandardCharsets.UTF_8)));
+            client.subscribe(topic, qos, (t, msg) -> dispatch(topic, handler, t, msg.getPayload()));
         } catch (MqttException e) {
             throw new IllegalStateException("MQTT 订阅失败，topic=" + topic, e);
         }
@@ -109,13 +108,21 @@ public class MqttSubscriber {
                 return;
             }
             try {
-                client.subscribe(topic, qos, (t, msg) ->
-                    handler.accept(t, new String(msg.getPayload(), StandardCharsets.UTF_8)));
+                client.subscribe(topic, qos, (t, msg) -> dispatch(topic, handler, t, msg.getPayload()));
                 log.debug("[ypbin-starter] MQTT 重连后恢复订阅：topic={}, qos={}", topic, qos);
             } catch (MqttException e) {
                 log.warn("[ypbin-starter] MQTT 重连后恢复订阅失败：topic={}", topic, e);
             }
         });
+    }
+
+    private void dispatch(String subscribedTopic, BiConsumer<String, String> handler, String actualTopic, byte[] payload) {
+        try {
+            handler.accept(actualTopic, new String(payload, StandardCharsets.UTF_8));
+        } catch (RuntimeException e) {
+            log.warn("[ypbin-starter] MQTT 消费回调执行失败：subscribedTopic={}, actualTopic={}", subscribedTopic, actualTopic, e);
+            throw e;
+        }
     }
 
     /**
