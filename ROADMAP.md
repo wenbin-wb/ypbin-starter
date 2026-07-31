@@ -232,6 +232,13 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
 
+### 新增分布式锁（用户建议：定时任务防重 @Scheduled + 分布式锁）
+- ✅ 决策：不单建 job 模块，分布式锁作为通用能力放 tools（复用其 AOP/Redis optional/SpEL 基建），定时任务防重 = `@Scheduled` 叠加 `@DistributedLock`。
+- ✅ `LockService` 抽象 + `RedisLockService`（SET NX EX 加锁 + Lua 校验持有者释放，不误删他人锁）+ `InMemoryLockService`（单机兜底，过期可重抢、释放校验持有者）。
+- ✅ `@DistributedLock` 注解 + 切面：SpEL 键、ttl 防死锁、waitTime/retryInterval 等待重试、SKIP/EXCEPTION 失败策略、唯一 owner + finally 释放。
+- ✅ Bean 级 `@ConditionalOnClass(StringRedisTemplate)` 守卫，缺 Redis 自动退内存锁；均可被业务方覆盖。
+- ✅ 测试：InMemoryLockServiceTest 5（含 unlock 不存在 key、持有者校验、过期重抢）+ DistributedLockAspectTest 3（真实 AOP 织入：授予执行释放/拒绝跳过/拒绝抛异常）。
+
 ### 新增 async 异步模块（用户建议：补线程池/异步能力，并提供静态工具）
 - ✅ 新增 `ypbin-starter-async`：统一线程池 `ypbinTaskExecutor` + 调度器 `ypbinTaskScheduler`，可配核心/最大/队列/存活/拒绝策略/优雅停机/虚拟线程。
 - ✅ 接管 `@Async`：`AsyncAnnotationAutoConfiguration` 启用 `@EnableAsync`，默认执行器指向统一线程池；`@Async` void 异常统一记录（原会静默丢失）。

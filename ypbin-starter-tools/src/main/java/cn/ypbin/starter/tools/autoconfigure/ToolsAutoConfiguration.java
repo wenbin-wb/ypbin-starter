@@ -23,6 +23,10 @@ import cn.ypbin.starter.tools.limiter.InMemoryRateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RateLimitAspect;
 import cn.ypbin.starter.tools.limiter.RateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RedisRateLimiterStore;
+import cn.ypbin.starter.tools.lock.DistributedLockAspect;
+import cn.ypbin.starter.tools.lock.InMemoryLockService;
+import cn.ypbin.starter.tools.lock.LockService;
+import cn.ypbin.starter.tools.lock.RedisLockService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -100,5 +104,31 @@ public class ToolsAutoConfiguration {
     @ConditionalOnProperty(prefix = "ypbin.tools.idempotent", name = "enabled", havingValue = "true", matchIfMissing = true)
     public IdempotentAspect idempotentAspect(IdempotentStore store) {
         return new IdempotentAspect(store);
+    }
+
+    /**
+     * Redis 分布式锁：存在 Redis 时优先装配（声明在内存兜底之前，顺序保证可靠）。
+     */
+    @Bean
+    @ConditionalOnClass(StringRedisTemplate.class)
+    @ConditionalOnMissingBean(LockService.class)
+    public LockService redisLockService(StringRedisTemplate redisTemplate) {
+        return new RedisLockService(redisTemplate);
+    }
+
+    /**
+     * 内存单机锁：兜底，仅当容器中不存在任何 {@link LockService} 时装配。
+     */
+    @Bean
+    @ConditionalOnMissingBean(LockService.class)
+    public LockService inMemoryLockService() {
+        return new InMemoryLockService();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.tools.lock", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public DistributedLockAspect distributedLockAspect(LockService lockService) {
+        return new DistributedLockAspect(lockService);
     }
 }

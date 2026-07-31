@@ -23,6 +23,12 @@
       "type": "java.lang.Boolean",
       "description": "幂等存储是否优先使用 Redis 分布式实现（存在 StringRedisTemplate 时生效），否则使用内存兜底。",
       "defaultValue": true
+    },
+    {
+      "name": "ypbin.tools.lock.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用分布式锁切面 @DistributedLock。存在 Redis 时用分布式锁，否则退化为单机内存锁。",
+      "defaultValue": true
     }
   ]
 }

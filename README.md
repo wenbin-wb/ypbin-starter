@@ -98,7 +98,7 @@
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
 | 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
 | 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP + 全量访问日志拦截器 | `ypbin.log` |
-| 工具 | `ypbin-starter-tools` | 分布式限流 `@RateLimit`、幂等 `@Idempotent`、AES/国密加解密 | `ypbin.tools` |
+| 工具 | `ypbin-starter-tools` | 分布式限流 `@RateLimit`、幂等 `@Idempotent`、分布式锁 `@DistributedLock`、AES/国密加解密 | `ypbin.tools` |
 | 异步 | `ypbin-starter-async` | 统一线程池、`@Async` 接管、异步异常处理、上下文透传、`AsyncUtils` 静态工具 | `ypbin.async` |
 | Excel | `ypbin-starter-excel` | 基于 FastExcel 的注解驱动导入导出 | — |
 | 验证码 | `ypbin-starter-captcha` | 行为验证码（滑块/旋转/点选/拼接） | `ypbin.captcha` |
@@ -435,6 +435,26 @@ public void create(OrderReq req) { ... }
 ```
 
 同一幂等键在 `interval` 秒内的重复调用被拒绝；`key` 支持 SpEL，留空则用「方法 + 参数指纹」。
+
+**分布式锁** `@DistributedLock`（有 Redis 时为跨节点分布式锁，否则单机内存锁）：
+
+```java
+@DistributedLock(key = "#orderId", ttl = 30)
+public void handle(Long orderId) { ... }   // 抢不到锁默认跳过，返回 null
+```
+
+- 加锁用 `SET key owner NX EX ttl`，释放用 Lua 校验持有者后删除，只释放自己的锁。
+- `ttl` 应大于方法最长执行时间，防止持有者宕机死锁。
+- `waitTime > 0` 时按 `retryInterval` 毫秒重试等待；`failStrategy` 可选 `SKIP`（默认，静默跳过）或 `EXCEPTION`（抛 `LockAcquireException`，业务码 429）。
+- 也可直接注入 `LockService` 手动 `tryLock/unlock`。
+
+**定时任务防重**（多实例只让一个节点执行）：`@Scheduled` 方法叠加 `@DistributedLock` 即可，抢不到锁的节点自动跳过。
+
+```java
+@Scheduled(cron = "0 0 2 * * ?")
+@DistributedLock(key = "job:daily-settle", ttl = 300)
+public void dailySettle() { ... }
+```
 
 **AES 加解密** `AesUtils`：AES-GCM 认证加密，随机 IV 前置：
 
