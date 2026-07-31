@@ -16,6 +16,8 @@
 package cn.ypbin.starter.tools.support;
 
 import java.lang.reflect.Method;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.expression.Expression;
@@ -36,6 +38,9 @@ public final class SpelKeyResolver {
 
     private static final ExpressionParser PARSER = new SpelExpressionParser();
     private static final ParameterNameDiscoverer NAME_DISCOVERER = new DefaultParameterNameDiscoverer();
+
+    /** 表达式 → 已解析 AST 缓存。key 来自注解上的有限表达式集，不会无限增长；Expression 线程安全 */
+    private static final Map<String, Expression> EXPRESSION_CACHE = new ConcurrentHashMap<>();
 
     private SpelKeyResolver() {
     }
@@ -62,7 +67,7 @@ public final class SpelKeyResolver {
                 context.setVariable(paramNames[i], args[i]);
             }
         }
-        Expression exp = PARSER.parseExpression(expression);
+        Expression exp = EXPRESSION_CACHE.computeIfAbsent(expression, PARSER::parseExpression);
         Object value = exp.getValue(context);
         return String.valueOf(value);
     }

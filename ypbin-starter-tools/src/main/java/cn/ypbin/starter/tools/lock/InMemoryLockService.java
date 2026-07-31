@@ -47,13 +47,27 @@ public class InMemoryLockService implements LockService {
         return result.owner().equals(owner) && result.expireAt() == expireAt;
     }
 
+    /**
+     * 当前持有的锁条目数（仅供测试/监控观察内存占用）。
+     *
+     * @return 条目数
+     */
+    int mapSize() {
+        return locks.size();
+    }
+
     @Override
     public boolean unlock(String key, String owner) {
         long now = System.currentTimeMillis();
         boolean[] released = {false};
         locks.computeIfPresent(key, (k, current) -> {
-            if (current.owner().equals(owner) && current.expireAt() > now) {
-                released[0] = true;
+            // 只要是自己加的锁，无论是否已过期都移除，避免动态 key 过期条目永久堆积导致内存泄漏
+            if (current.owner().equals(owner)) {
+                released[0] = current.expireAt() > now;
+                return null;
+            }
+            // 顺手清理：非本持有者但已过期的锁也回收
+            if (current.expireAt() <= now) {
                 return null;
             }
             return current;

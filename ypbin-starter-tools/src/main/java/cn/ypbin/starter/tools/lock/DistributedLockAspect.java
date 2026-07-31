@@ -77,13 +77,17 @@ public class DistributedLockAspect {
             return true;
         }
         long deadline = System.currentTimeMillis() + Duration.ofSeconds(lock.waitTime()).toMillis();
-        while (System.currentTimeMillis() < deadline) {
-            Thread.sleep(lock.retryInterval());
+        while (true) {
+            long remaining = deadline - System.currentTimeMillis();
+            if (remaining <= 0) {
+                return false;
+            }
+            // 不超额睡眠：剩余时间不足一个重试间隔时只睡剩余时间
+            Thread.sleep(Math.min(lock.retryInterval(), remaining));
             if (lockService.tryLock(key, owner, ttl)) {
                 return true;
             }
         }
-        return false;
     }
 
     private String buildKey(ProceedingJoinPoint point, DistributedLock lock) {

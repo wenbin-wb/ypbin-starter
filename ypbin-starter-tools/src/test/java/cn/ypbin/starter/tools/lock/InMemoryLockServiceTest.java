@@ -64,4 +64,13 @@ class InMemoryLockServiceTest {
         // 过期后他人可重新抢占
         assertThat(lock.tryLock("k", "owner-b", Duration.ofSeconds(10))).isTrue();
     }
+
+    @Test
+    void unlockExpiredLockByOwnerShouldEvictEntry() throws InterruptedException {
+        lock.tryLock("k", "owner-a", Duration.ofMillis(50));
+        Thread.sleep(80);
+        // 超时后持有者释放：返回 false（已过期），但仍应把条目移除，防止动态 key 内存泄漏
+        assertThat(lock.unlock("k", "owner-a")).isFalse();
+        assertThat(lock.mapSize()).isZero();
+    }
 }
