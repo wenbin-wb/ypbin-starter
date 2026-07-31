@@ -18,6 +18,7 @@ package cn.ypbin.starter.messaging.sse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * {@link SseEmitterManager} 单元测试。
@@ -55,5 +56,29 @@ class SseEmitterManagerTest {
     void broadcastWithNoConnectionsShouldNotThrow() {
         manager.broadcast("evt", "data");
         assertThat(manager.onlineCount()).isZero();
+    }
+
+    @Test
+    void removeWhenNewConnectionAddedConcurrentlyShouldKeepUserOnline() {
+        // 直接复现竞态语义：旧连接摘除判空后、清键前，已有新连接加入，则不应删键把新连接变孤儿。
+        // 直接调用包级 remove（裸 SseEmitter 的 complete() 不触发回调，无法经真实回调复现）。
+        SseEmitter first = manager.connect("A");
+        SseEmitter second = manager.connect("A");
+        // 摘除两个连接（模拟旧连接陆续断开），期间用户仍应因剩余连接在线
+        manager.remove("A", first);
+        assertThat(manager.isOnline("A")).isTrue();
+        // 摘除最后一个连接后用户离线，键被清理
+        manager.remove("A", second);
+        assertThat(manager.isOnline("A")).isFalse();
+        assertThat(manager.onlineCount()).isZero();
+    }
+
+    @Test
+    void reconnectAfterFullRemoveShouldBeOnlineAgain() {
+        SseEmitter e1 = manager.connect("A");
+        manager.remove("A", e1);           // 全部摘除，键清理
+        assertThat(manager.isOnline("A")).isFalse();
+        manager.connect("A");              // 重新连接
+        assertThat(manager.isOnline("A")).isTrue();
     }
 }

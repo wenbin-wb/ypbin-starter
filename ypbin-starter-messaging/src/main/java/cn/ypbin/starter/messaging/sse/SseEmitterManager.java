@@ -126,15 +126,18 @@ public class SseEmitterManager {
         }
     }
 
-    private void remove(String userId, SseEmitter emitter) {
+    // 包级可见：连接完成/超时/异常回调触发；亦供并发测试直接复现竞态路径
+    void remove(String userId, SseEmitter emitter) {
         Set<SseEmitter> set = emitters.get(userId);
         if (set == null) {
             return;
         }
         set.remove(emitter);
-        // 用户已无连接时移除键，避免内存泄漏
+        // 用户已无连接时移除键，避免内存泄漏。用 computeIfPresent 在 bin 锁内原子重判：
+        // 若判空到删除之间有新连接并发加入（connect 复用同一 set 引用），此处 v 非空则保留，
+        // 避免 remove(key, value) 仅比对引用而误删含新连接的 set，导致新连接成孤儿、收不到推送。
         if (set.isEmpty()) {
-            emitters.remove(userId, set);
+            emitters.computeIfPresent(userId, (k, v) -> v.isEmpty() ? null : v);
         }
     }
 

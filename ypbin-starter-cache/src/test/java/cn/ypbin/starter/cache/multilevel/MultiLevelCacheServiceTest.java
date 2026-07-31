@@ -166,4 +166,15 @@ class MultiLevelCacheServiceTest {
         cache.delete("k");                  // 失效 L1 + L2
         assertThat(cache.get("k", String.class)).isNull();
     }
+
+    @Test
+    void existsShouldTreatNullSentinelAsAbsent() {
+        FakeL2 l2 = new FakeL2();
+        MultiLevelCacheService cache = build(l2);
+
+        // 回源为 null：L1 缓存空值哨兵。get 返回 null，exists 也应返回 false（语义一致）
+        cache.getOrLoad("k", String.class, () -> null, Duration.ofMinutes(5));
+        assertThat(cache.get("k", String.class)).isNull();
+        assertThat(cache.exists("k")).isFalse();
+    }
 }

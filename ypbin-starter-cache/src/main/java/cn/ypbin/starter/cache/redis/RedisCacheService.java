@@ -87,7 +87,11 @@ public class RedisCacheService implements CacheService {
 
     @Override
     public boolean exists(String key) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+        if (!Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+            return false;
+        }
+        // 防穿透哨兵不算"存在有效业务数据"，与 get 返回 null 的语义保持一致
+        return !NULL_SENTINEL.equals(redisTemplate.opsForValue().get(key));
     }
 
     @Override

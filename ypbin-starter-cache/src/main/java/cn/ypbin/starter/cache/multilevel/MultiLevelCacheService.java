@@ -92,7 +92,12 @@ public class MultiLevelCacheService implements CacheService {
 
     @Override
     public boolean exists(String key) {
-        return l1.getIfPresent(key) != null || l2.exists(key);
+        Object local = l1.getIfPresent(key);
+        if (local != null) {
+            // 本地空值哨兵不算"存在有效业务数据"，与 get 返回 null 的语义保持一致
+            return local != NULL_SENTINEL;
+        }
+        return l2.exists(key);
     }
 
     @Override
