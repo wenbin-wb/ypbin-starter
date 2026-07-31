@@ -232,6 +232,13 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
   即触发格式校验（不再潜伏到 verify/发布才炸）；`mvn compile` 不受影响、不拖慢纯编译。已验证 test 阶段
   各模块先跑 spotless-check 再跑用例，全量 clean test 绿。
 
+### BaseController 支持带鉴权 admin 场景（admin 反馈：三个控制器全自写、BaseController 用不上）
+- ✅ 采纳 A+B+C。A 权限：端点方法保持 public 可覆盖，子类 @Override 加 @SaCheckPermission 后 super.xxx() 复用逻辑（不发明新机制、不绕开 Sa-Token 注解体系）。
+- ✅ B 分页过滤：新增 `buildQueryWrapper(PageQuery)` 钩子（默认 null 无条件），BaseService/Impl 加 `page(query, wrapper)` 重载。
+- ✅ C 写操作钩子：save/update/delete 各加 before/after 模板钩子（默认空实现），塞密码加密/查重/事务内分配角色等；需事务在子类覆盖端点上加 @Transactional。
+- 未选「父类统一 StpUtil.checkPermission 入口」方案：会绕开注解体系、与 admin 既有 @SaCheckPermission 风格割裂。
+- 文档写明定位：标准 CRUD + 可插拔鉴权/过滤/钩子用 BaseController；写逻辑极重且端点非标准的自写控制器。
+
 ### 全局登录拦截器（admin 建议：security 自动注册 SaInterceptor 消费 excludes）
 - ✅ security 新增 `SaTokenWebConfigurer`（WebMvcConfigurer 注册 SaInterceptor 做全局登录校验），消费 `ypbin.security.includes/excludes`；`SecurityProperties` 补 interceptor/includes/excludeApiDoc 开关。
 - ✅ 检测到 SpringDoc 时自动放行 Swagger/doc.html/v3/api-docs/webjars 等文档路径（Class.forName 探测，不硬依赖）。

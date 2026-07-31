@@ -19,6 +19,7 @@ import cn.ypbin.starter.core.model.R;
 import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.model.PageResult;
 import cn.ypbin.starter.crud.service.BaseService;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,21 @@ import org.springframework.web.bind.annotation.RequestBody;
  * 需要精细控制（字段改名、脱敏、MapStruct 等）时在子类覆盖 {@link #toEntity} / {@link #toResp}。</p>
  *
  * <p>若某实体无需区分模型，可将 REQ/RESP 直接指定为实体类型 T。</p>
+ *
+ * <p><b>操作级鉴权：</b>各端点方法为 {@code public} 可覆盖，子类只需 {@code @Override} 并挂上权限注解、
+ * 方法体调用 {@code super.xxx(...)} 即可在复用父类逻辑的同时获得细粒度鉴权：
+ * <pre>{@code
+ * @Override
+ * @SaCheckPermission("system:user:add")
+ * public R<Void> save(@RequestBody UserReq req) {
+ *     return super.save(req);
+ * }
+ * }</pre>
+ *
+ * <p><b>业务过滤：</b>分页覆盖 {@link #buildQueryWrapper(PageQuery)} 返回查询条件即可按业务字段过滤。</p>
+ *
+ * <p><b>写操作扩展：</b>覆盖 {@link #beforeSave}/{@link #afterSave}/{@link #beforeUpdate}/{@link #afterUpdate}
+ * 模板钩子插入密码加密、查重、事务内分配角色等业务逻辑；需要事务时在子类覆盖方法上加 {@code @Transactional}。</p>
  *
  * @param <T>    数据库实体类型
  * @param <ID>   主键类型
@@ -77,7 +93,7 @@ public abstract class BaseController<T, ID extends Serializable, REQ, RESP> {
 
     @GetMapping("/page")
     public R<PageResult<RESP>> page(PageQuery query) {
-        PageResult<T> source = getBaseService().page(query);
+        PageResult<T> source = getBaseService().page(query, buildQueryWrapper(query));
         PageResult<RESP> view = PageResult.of(
             source.getRecords().stream().map(this::toResp).toList(),
             source.getTotal(), source.getPage(), source.getSize());
@@ -86,20 +102,92 @@ public abstract class BaseController<T, ID extends Serializable, REQ, RESP> {
 
     @PostMapping
     public R<Void> save(@RequestBody REQ req) {
-        getBaseService().save(toEntity(req));
+        T entity = toEntity(req);
+        beforeSave(req, entity);
+        getBaseService().save(entity);
+        afterSave(req, entity);
         return R.ok();
     }
 
     @PutMapping
     public R<Void> update(@RequestBody REQ req) {
-        getBaseService().updateById(toEntity(req));
+        T entity = toEntity(req);
+        beforeUpdate(req, entity);
+        getBaseService().updateById(entity);
+        afterUpdate(req, entity);
         return R.ok();
     }
 
     @DeleteMapping("/{id}")
     public R<Void> delete(@PathVariable ID id) {
+        beforeDelete(id);
         getBaseService().removeById(id);
+        afterDelete(id);
         return R.ok();
+    }
+
+    /**
+     * 构建分页查询条件。默认返回 {@code null}（无业务过滤），子类覆盖以按业务字段过滤。
+     *
+     * <p>例如：{@code return Wrappers.<User>lambdaQuery().like(has(q.getName()), User::getName, q.getName());}</p>
+     *
+     * @param query 分页参数（可为其子类以携带过滤字段）
+     * @return 查询条件，{@code null} 表示无条件
+     */
+    protected Wrapper<T> buildQueryWrapper(PageQuery query) {
+        return null;
+    }
+
+    /**
+     * 保存前置钩子。默认空实现，子类覆盖以插入密码加密、字段查重等逻辑。
+     *
+     * @param req    请求参数
+     * @param entity 待保存实体（已由 {@link #toEntity} 转换）
+     */
+    protected void beforeSave(REQ req, T entity) {
+    }
+
+    /**
+     * 保存后置钩子。默认空实现，子类覆盖以分配角色/菜单等关联写入（可在覆盖方法加 {@code @Transactional}）。
+     *
+     * @param req    请求参数
+     * @param entity 已保存实体（此时主键已回填）
+     */
+    protected void afterSave(REQ req, T entity) {
+    }
+
+    /**
+     * 更新前置钩子。默认空实现，子类覆盖以处理密码留空不更新、查重等逻辑。
+     *
+     * @param req    请求参数
+     * @param entity 待更新实体
+     */
+    protected void beforeUpdate(REQ req, T entity) {
+    }
+
+    /**
+     * 更新后置钩子。默认空实现。
+     *
+     * @param req    请求参数
+     * @param entity 已更新实体
+     */
+    protected void afterUpdate(REQ req, T entity) {
+    }
+
+    /**
+     * 删除前置钩子。默认空实现，子类覆盖以做关联校验（如存在子节点不允许删）。
+     *
+     * @param id 主键
+     */
+    protected void beforeDelete(ID id) {
+    }
+
+    /**
+     * 删除后置钩子。默认空实现，子类覆盖以清理关联数据。
+     *
+     * @param id 主键
+     */
+    protected void afterDelete(ID id) {
     }
 
     /**

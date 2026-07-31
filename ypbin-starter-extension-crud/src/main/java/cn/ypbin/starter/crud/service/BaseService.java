@@ -17,6 +17,7 @@ package cn.ypbin.starter.crud.service;
 
 import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.model.PageResult;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.spring.service.IService;
 
 /**
@@ -33,10 +34,19 @@ import com.baomidou.mybatisplus.spring.service.IService;
 public interface BaseService<T> extends IService<T> {
 
     /**
-     * 分页查询。
+     * 分页查询（无业务过滤）。
      *
      * @param query 分页参数
      * @return 分页结果
      */
     PageResult<T> page(PageQuery query);
+
+    /**
+     * 分页查询（带业务过滤条件）。
+     *
+     * @param query   分页参数
+     * @param wrapper 查询条件，为 {@code null} 时等价于无条件分页
+     * @return 分页结果
+     */
+    PageResult<T> page(PageQuery query, Wrapper<T> wrapper);
 }

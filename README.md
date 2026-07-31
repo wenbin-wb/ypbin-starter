@@ -569,6 +569,41 @@ public class ArticleController extends BaseController<Article, Long, ArticleReq,
 
 `save/update` 收 `REQ`、查询返回 `RESP`，实体永不直接暴露。简单场景可将 REQ/RESP 直接指定为实体类型；需精细映射时覆盖 `toEntity` / `toResp`（接 MapStruct 等）。分页用 `PageQuery` / `PageResult`。
 
+**操作级鉴权**：端点方法可覆盖，`@Override` 挂上权限注解再 `super.xxx()` 复用父类逻辑：
+
+```java
+@Override
+@SaCheckPermission("system:article:add")
+public R<Void> save(@RequestBody ArticleReq req) {
+    return super.save(req);
+}
+```
+
+**业务过滤分页**：覆盖 `buildQueryWrapper` 返回条件（`PageQuery` 可继承以携带过滤字段）：
+
+```java
+@Override
+protected Wrapper<Article> buildQueryWrapper(PageQuery query) {
+    ArticleQuery q = (ArticleQuery) query;
+    return Wrappers.<Article>lambdaQuery()
+        .like(StringUtils.hasText(q.getTitle()), Article::getTitle, q.getTitle());
+}
+```
+
+**写操作扩展**：覆盖 `beforeSave/afterSave/beforeUpdate/afterUpdate/beforeDelete/afterDelete` 模板钩子插入密码加密、查重、事务内分配角色等；需事务在覆盖的端点方法上加 `@Transactional`：
+
+```java
+@Override
+protected void beforeSave(UserReq req, User entity) {
+    entity.setPassword(PasswordEncoderUtil.encode(req.getPassword()));  // 密码加密
+    if (service.exists(Wrappers.<User>lambdaQuery().eq(User::getUsername, req.getUsername()))) {
+        throw new BusinessException("用户名已存在");
+    }
+}
+```
+
+> 定位：`BaseController` 服务「标准 CRUD + 可插拔鉴权/过滤/钩子」的实体；若写操作逻辑极重、端点形态完全非标准，自写控制器更直接——两者按复杂度取舍。
+
 ### extension-tenant — 多租户
 
 MyBatis-Plus 行级租户隔离。默认关闭，需显式开启并提供租户来源：

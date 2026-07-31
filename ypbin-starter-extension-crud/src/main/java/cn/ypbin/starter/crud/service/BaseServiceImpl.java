@@ -17,6 +17,7 @@ package cn.ypbin.starter.crud.service;
 
 import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.model.PageResult;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.metadata.OrderItem;
@@ -49,6 +50,20 @@ public class BaseServiceImpl<M extends BaseMapper<T>, T>
 
     @Override
     public PageResult<T> page(PageQuery query) {
+        return page(query, null);
+    }
+
+    @Override
+    public PageResult<T> page(PageQuery query, Wrapper<T> wrapper) {
+        Page<T> page = buildPage(query);
+        IPage<T> result = super.page(page, wrapper);
+        return PageResult.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
+    }
+
+    /**
+     * 构建分页对象并安全应用排序。
+     */
+    private Page<T> buildPage(PageQuery query) {
         Page<T> page = new Page<>(query.getPage(), query.getSize());
         String sortField = query.getSortField();
         if (sortField != null && !sortField.isBlank()) {
@@ -57,7 +72,6 @@ public class BaseServiceImpl<M extends BaseMapper<T>, T>
             }
             page.addOrder(query.isAsc() ? OrderItem.asc(sortField) : OrderItem.desc(sortField));
         }
-        IPage<T> result = super.page(page);
-        return PageResult.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
+        return page;
     }
 }
