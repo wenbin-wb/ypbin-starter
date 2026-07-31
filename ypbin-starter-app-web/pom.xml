@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.ypbin.starter</groupId>
+        <artifactId>ypbin-starter-dependencies</artifactId>
+        <version>${revision}</version>
+        <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ypbin-starter-app-web</artifactId>
+
+    <name>${project.artifactId}</name>
+    <description>单体 Web 应用聚合 starter：一次引入常用 L1 基础能力</description>
+
+    <properties>
+        <revision>1.0.0-SNAPSHOT</revision>
+    </properties>
+
+    <!-- 纯聚合 starter：引入本模块即获得单体 Web 应用常用基础能力，仍可按需排除单个依赖 -->
+    <dependencies>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-json</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-data</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-api-doc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-log</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-tools</artifactId>
+        </dependency>
+    </dependencies>
+</project>

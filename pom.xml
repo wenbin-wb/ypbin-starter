@@ -51,6 +51,8 @@
         <module>ypbin-starter-cloud-observability</module>
         <module>ypbin-starter-cloud-sentinel</module>
         <module>ypbin-starter-cloud-gateway</module>
+        <module>ypbin-starter-app-web</module>
+        <module>ypbin-starter-app-cloud</module>
     </modules>
 
     <properties>

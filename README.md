@@ -116,8 +116,23 @@
 | 可观测性 | `ypbin-starter-cloud-observability` | X-Request-Id 与 MDC 关联、Micrometer Tracing 门面（OTLP 可选） | `ypbin.observability` |
 | 流量防护 | `ypbin-starter-cloud-sentinel` | Sentinel Web/网关限流、被拒统一 R 响应、Nacos 规则热更新 | `ypbin.cloud.sentinel` |
 | 网关 | `ypbin-starter-cloud-gateway` | Spring Cloud Gateway 横切（CORS/异常/鉴权/文档聚合/动态路由） | `ypbin.gateway` |
+| 单体聚合 | `ypbin-starter-app-web` | 一次引入单体 Web 常用基础能力（web/json/data/cache/security/api-doc/log/tools） | — |
+| 微服务聚合 | `ypbin-starter-app-cloud` | 在 app-web 基础上叠加微服务能力（cloud-core/nacos/loadbalancer/observability/sentinel） | — |
 
 详细用法见 [各模块使用文档](#各模块使用文档)。
+
+## 单体 vs 微服务
+
+两套后端共用 L1 基础层，对外契约一致（详见 [CONTRACT.md](CONTRACT.md)），前端可复用同一套调用逻辑。
+
+| | 单体应用 | 微服务应用 |
+|---|---|---|
+| 起步依赖 | `ypbin-starter-app-web` | 各业务服务引 `ypbin-starter-app-cloud` |
+| 网关 | 无 | 独立部署，引 `ypbin-starter-cloud-gateway` |
+| 鉴权 | 应用内 sa-token | 网关统一校验 + 内部身份头透传 |
+| 对前端 | 契约一致 | 契约一致 |
+
+聚合 starter 为纯依赖聚合，业务方仍可用 Maven `<exclusions>` 排除不需要的单个模块。网关不纳入 `app-cloud`，因为它是独立部署单元而非业务服务依赖。
 
 ## 各模块使用文档
 

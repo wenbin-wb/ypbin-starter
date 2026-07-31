@@ -6,8 +6,8 @@
 
 ## 0. 当前状态总览
 
-- **模块**：29 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 依赖/BOM 2 + 其余能力模块）
-- **构建**：全量 29 模块 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **模块**：31 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块）
+- **构建**：全量 31 模块 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 17 · Spring Boot 3.5.16 · Spring Cloud 2025.0.3 · spring-cloud-alibaba 2025.0.0.0
@@ -86,9 +86,14 @@ ypbin-starter/                        聚合 POM
     ├── ypbin-starter-cloud-observability RequestId↔MDC + Tracing 门面
     ├── ypbin-starter-cloud-sentinel      Sentinel Web/Gateway 限流统一 R 响应
     └── ypbin-starter-cloud-gateway       网关 CORS/异常/鉴权/文档聚合/动态路由
+
+应用聚合（纯依赖聚合，起步一键引入）
+├── ypbin-starter-app-web                单体 Web 常用能力聚合
+└── ypbin-starter-app-cloud              app-web + 微服务常用能力聚合
 ```
 
 > Nacos ConfigData 导入与启动兜底已归并到 `ypbin-starter-cloud-nacos`，测试与被测能力保持同模块。
+> 单体与微服务共用 L1、对外契约一致（见 `CONTRACT.md`），前端可复用同一套调用逻辑。
 
 ## 5. 进度看板
 

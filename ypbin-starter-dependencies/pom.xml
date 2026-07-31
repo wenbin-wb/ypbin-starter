@@ -303,6 +303,16 @@
                 <artifactId>ypbin-starter-cloud-gateway</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-app-web</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin.starter</groupId>
+                <artifactId>ypbin-starter-app-cloud</artifactId>
+                <version>${revision}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
