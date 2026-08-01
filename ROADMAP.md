@@ -307,6 +307,17 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - 边界：starter 给运行时+缓存+批量预热+扩展点；用户/部门等数据源由 admin 实现 RefTextProvider（一条 IN 查询）。
 - ✅ 零工作量增强（用户：业务工作量越少越好、学习成本越低越好）：`RefTextResponseAdvice`(ResponseBodyAdvice) 在响应序列化前自动预加载，业务零调用零注解即享列表零 N+1；`@RefTextIgnore` 方法/类级排除，`ypbin.json.ref-text.auto-resolve=false` 全局关。性能守门：RefTextResolver 加类级 `containsRefText` 布尔缓存，不含 @RefText 的响应瞬间跳过零遍历。自动装配用内嵌 @ConditionalOnClass(ResponseBodyAdvice)+ServletWeb 隔离，spring-webmvc optional，非 web 环境不受影响。RefTextTest 增至 9（类级判定/无关对象零遍历）。
 
+### CrudController 默认权限前缀（admin 反馈 footgun：继承端点漏 @Override 挂注解即越权）
+- ✅ 加 `permissionPrefix()` 钩子（默认 null=不校验，向后兼容），覆盖返回前缀（如 "system:user"）后六端点自动按 `前缀:list/add/edit/delete` 校验（get/list/page→list、save→add、update→edit、delete→delete）。
+- ✅ `checkPermission` 反射调 `StpUtil.checkPermission`（弱耦合，crud 不依赖 sa-token；无 sa-token 静默跳过），无权限异常向上抛交全局处理器转 403。可与 @Override+@SaCheckPermission 精细控制共存。CrudControllerPermissionTest 3。
+- 安全默认：受保护资源覆盖 permissionPrefix 一次搞定，杜绝逐端点挂注解漏挂越权。
+
+### 定时任务 ypbin-starter-job（用户：admin 要定时任务，决定在 starter 做而非 admin 自拼）
+- 调研结论：blade 无开源实现，continew 用 SnailJob（要独立部署 server 进程，重型）。选轻量自研：Spring TaskScheduler + 自维护 ScheduledFuture 注册表（不用 ScheduledTaskRegistrar，动态增删 API 太弱）+ 已有分布式锁防重。
+- ✅ 新增第 33 个模块 job（注册进根 pom/dependencies/bom，async 后、app-web 前）。核心：`JobHandler`+`@YpbinJob(name)` 执行体（按名路由）、`JobContext`、`JobDefinition`(id/name/executor/cron或fixedRate/args/timeout/concurrentGuard)、`JobManager`(register/unregister/triggerNow/改cron重建，TaskScheduler+ScheduledFuture 注册表)、`JobExecutionListener`(onStart/Success/Error/Skip 回调扩展点，admin 落 sys_job_log)、`JobProperties`。
+- ✅ 多实例防重：执行入口抢分布式锁（锁键带触发时间片 withNano(0)，避免长任务持锁挡下次触发；ttl=超时+5 或默认 3600），只有抢到的节点执行、其余回调 onSkip。`JobLockFactory` 反射桥接 tools 的 LockService（tools optional），无 tools 退化单机无锁。
+- ✅ 边界：starter 只做内存调度运行时+执行体路由+防重+回调，**不持久化**；sys_job/sys_job_log 表、CRUD、页面由 admin 实现，通过 JobManager 同步内存调度。JobManagerTest 5（固定间隔触发+回调/立即执行/防重跳过/执行器缺失 onError/重复注册替换）。
+
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。
 - ✅ 多级缓存 `MultiLevelCacheService`：L1 Caffeine + L2 Redis，读回填 L1、写删失效 L1；Redis Pub/Sub 跨实例失效广播（带实例标识忽略自广播），覆盖默认 CacheService。
