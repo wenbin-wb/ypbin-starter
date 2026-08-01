@@ -16,6 +16,7 @@
 package cn.ypbin.starter.sign.autoconfigure;
 
 import cn.ypbin.starter.sign.core.SignAlgorithm;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -127,27 +128,31 @@ public class SignProperties {
 
     /** 应用信息 */
     public static class AppInfo {
-        /** 应用 ID */
-        private String appId;
-        /** 应用密钥 */
-        private String appSecret;
+        /** Access Key（访问密钥，公开标识） */
+        private String accessKey;
+        /** Secret Key（私有密钥，参与签名，不下发） */
+        private String secretKey;
         /** 应用名称 */
         private String appName;
+        /** 失效时间，为空表示永不过期 */
+        private LocalDateTime expireTime;
+        /** 是否启用 */
+        private boolean enabled = true;
 
-        public String getAppId() {
-            return appId;
+        public String getAccessKey() {
+            return accessKey;
         }
 
-        public void setAppId(String appId) {
-            this.appId = appId;
+        public void setAccessKey(String accessKey) {
+            this.accessKey = accessKey;
         }
 
-        public String getAppSecret() {
-            return appSecret;
+        public String getSecretKey() {
+            return secretKey;
         }
 
-        public void setAppSecret(String appSecret) {
-            this.appSecret = appSecret;
+        public void setSecretKey(String secretKey) {
+            this.secretKey = secretKey;
         }
 
         public String getAppName() {
@@ -156,6 +161,31 @@ public class SignProperties {
 
         public void setAppName(String appName) {
             this.appName = appName;
+        }
+
+        public LocalDateTime getExpireTime() {
+            return expireTime;
+        }
+
+        public void setExpireTime(LocalDateTime expireTime) {
+            this.expireTime = expireTime;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /**
+         * 是否已过期。
+         *
+         * @return true 已过期
+         */
+        public boolean isExpired() {
+            return expireTime != null && LocalDateTime.now().isAfter(expireTime);
         }
     }
 }

@@ -29,8 +29,8 @@ import javax.crypto.spec.SecretKeySpec;
  *
  * <p>将参数按键字典序拼接为 {@code k1=v1&k2=v2...} 规范串，再按算法计算签名（结果大写十六进制）：
  * <ul>
- *     <li>{@link SignAlgorithm#MD5}：规范串末尾追加 {@code &appSecret=xxx} 后做 MD5；</li>
- *     <li>{@link SignAlgorithm#HMAC_SHA256}：以 appSecret 为密钥对规范串做 HMAC-SHA256。</li>
+ *     <li>{@link SignAlgorithm#MD5}：规范串末尾追加 {@code &secretKey=xxx} 后做 MD5；</li>
+ *     <li>{@link SignAlgorithm#HMAC_SHA256}：以 secretKey 为密钥对规范串做 HMAC-SHA256。</li>
  * </ul>
  * 空值参数不参与签名，保证与客户端一致。</p>
  *
@@ -46,15 +46,15 @@ public final class SignGenerator {
      * 生成签名。
      *
      * @param params    参与签名的参数（不含 sign 本身）
-     * @param appSecret 应用密钥
+     * @param secretKey 应用私有密钥
      * @param algorithm 算法
      * @return 大写十六进制签名
      */
-    public static String generate(Map<String, String> params, String appSecret, SignAlgorithm algorithm) {
+    public static String generate(Map<String, String> params, String secretKey, SignAlgorithm algorithm) {
         String canonical = canonicalize(params);
         return switch (algorithm) {
-            case MD5 -> md5Hex(canonical + "&appSecret=" + appSecret).toUpperCase();
-            case HMAC_SHA256 -> hmacSha256Hex(canonical, appSecret).toUpperCase();
+            case MD5 -> md5Hex(canonical + "&secretKey=" + secretKey).toUpperCase();
+            case HMAC_SHA256 -> hmacSha256Hex(canonical, secretKey).toUpperCase();
         };
     }
 

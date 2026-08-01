@@ -24,7 +24,7 @@ import java.lang.annotation.Target;
 /**
  * 接口签名注解。
  *
- * <p>标注在方法或类上，要求该接口的请求必须携带并通过签名校验（appId + timestamp + nonce + sign）。
+ * <p>标注在方法或类上，要求该接口的请求必须携带并通过签名校验（accessKey + timestamp + nonce + sign）。
  * 用于对外提供给第三方对接的接口。与全局拦截模式（{@code ypbin.sign.mode=global}）二选一：
  * 注解模式下仅被标注的接口校验，更精准。</p>
  *

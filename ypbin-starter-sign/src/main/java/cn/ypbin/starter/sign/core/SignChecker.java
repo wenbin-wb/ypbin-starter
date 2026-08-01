@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 /**
  * 签名校验器。
  *
- * <p>校验流程：提取四件套（appId/timestamp/nonce/sign）→ 校验非空 → 查应用 → 校验时间戳超时 →
+ * <p>校验流程：提取四件套（accessKey/timestamp/nonce/sign）→ 校验非空 → 查应用（校验启用/未过期）→ 校验时间戳超时 →
  * 可选 nonce 防重放 → 收集参与签名的参数（Query + JSON Body，排除 sign 与配置的排除项）→
  * 服务端按应用密钥与算法重算签名 → 与客户端签名比对。请求体经 web 模块的可重复读包装，
  * 读取后不影响 Controller 再次读取。</p>
@@ -44,7 +44,7 @@ public class SignChecker {
 
     private static final Logger log = LoggerFactory.getLogger(SignChecker.class);
 
-    private static final String APP_ID = "appId";
+    private static final String ACCESS_KEY = "accessKey";
     private static final String TIMESTAMP = "timestamp";
     private static final String NONCE = "nonce";
     private static final String SIGN = "sign";
@@ -53,16 +53,14 @@ public class SignChecker {
     private final SignProperties properties;
     private final NonceStore nonceStore;
     private final ObjectMapper objectMapper;
-    private final Map<String, SignProperties.AppInfo> appIndex;
+    private final SignAppProvider appProvider;
 
-    public SignChecker(SignProperties properties, NonceStore nonceStore, ObjectMapper objectMapper) {
+    public SignChecker(SignProperties properties, NonceStore nonceStore, ObjectMapper objectMapper,
+        SignAppProvider appProvider) {
         this.properties = properties;
         this.nonceStore = nonceStore;
         this.objectMapper = objectMapper;
-        this.appIndex = new HashMap<>();
-        for (SignProperties.AppInfo app : properties.getApps()) {
-            appIndex.put(app.getAppId(), app);
-        }
+        this.appProvider = appProvider;
     }
 
     /**
@@ -72,18 +70,24 @@ public class SignChecker {
      * @return 校验结果
      */
     public SignResult check(HttpServletRequest request) {
-        String appId = request.getParameter(APP_ID);
+        String accessKey = request.getParameter(ACCESS_KEY);
         String timestamp = request.getParameter(TIMESTAMP);
         String nonce = request.getParameter(NONCE);
         String sign = request.getParameter(SIGN);
 
-        if (isBlank(appId) || isBlank(timestamp) || isBlank(nonce) || isBlank(sign)) {
+        if (isBlank(accessKey) || isBlank(timestamp) || isBlank(nonce) || isBlank(sign)) {
             return SignResult.fail("缺少签名参数");
         }
 
-        SignProperties.AppInfo app = appIndex.get(appId);
+        SignApp app = appProvider.findByAccessKey(accessKey).orElse(null);
         if (app == null) {
             return SignResult.fail("应用不存在");
+        }
+        if (!app.isEnabled()) {
+            return SignResult.fail("应用已禁用");
+        }
+        if (app.isExpired()) {
+            return SignResult.fail("应用已过期");
         }
 
         long now = System.currentTimeMillis() / 1000;
@@ -98,17 +102,17 @@ public class SignChecker {
         }
 
         if (properties.isReplayProtect()) {
-            String nonceKey = "ypbin:sign:nonce:" + appId + ":" + nonce;
+            String nonceKey = "ypbin:sign:nonce:" + accessKey + ":" + nonce;
             if (!nonceStore.tryUse(nonceKey, Duration.ofSeconds(properties.getTimeout() + 1))) {
                 return SignResult.fail("请求重复（nonce 已使用）");
             }
         }
 
         Map<String, String> params = collectParams(request);
-        String expected = SignGenerator.generate(params, app.getAppSecret(), properties.getAlgorithm());
+        String expected = SignGenerator.generate(params, app.getSecretKey(), properties.getAlgorithm());
         // 恒定时间比较，避免逐字符短路带来的时序侧信道；不记录明文签名，防泄漏
         if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8))) {
-            log.warn("[ypbin-starter] 签名验证失败 appId={}", appId);
+            log.warn("[ypbin-starter] 签名验证失败 accessKey={}", accessKey);
             return SignResult.fail("签名验证失败");
         }
         return SignResult.ok();

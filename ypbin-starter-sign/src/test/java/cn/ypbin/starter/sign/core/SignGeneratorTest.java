@@ -32,7 +32,7 @@ class SignGeneratorTest {
 
     private Map<String, String> params() {
         Map<String, String> p = new HashMap<>();
-        p.put("appId", "app-001");
+        p.put("accessKey", "ak-001");
         p.put("orderNo", "A100");
         p.put("amount", "99.5");
         p.put("timestamp", "1700000000");
@@ -53,7 +53,7 @@ class SignGeneratorTest {
         Map<String, String> ordered = new LinkedHashMap<>();
         ordered.put("nonce", "abc123");
         ordered.put("amount", "99.5");
-        ordered.put("appId", "app-001");
+        ordered.put("accessKey", "ak-001");
         ordered.put("timestamp", "1700000000");
         ordered.put("orderNo", "A100");
         assertThat(SignGenerator.generate(ordered, "secret", SignAlgorithm.HMAC_SHA256))
@@ -77,11 +77,11 @@ class SignGeneratorTest {
         // 客户端生成 -> 服务端同算法重算应一致（模拟验签）
         Map<String, String> biz = new HashMap<>();
         biz.put("orderNo", "A100");
-        Map<String, String> signed = SignClient.sign(biz, "app-001", "secret", SignAlgorithm.HMAC_SHA256);
+        Map<String, String> signed = SignClient.sign(biz, "ak-001", "secret", SignAlgorithm.HMAC_SHA256);
 
         String clientSign = signed.get("sign");
         assertThat(clientSign).isNotBlank();
-        assertThat(signed).containsKeys("appId", "timestamp", "nonce", "sign", "orderNo");
+        assertThat(signed).containsKeys("accessKey", "timestamp", "nonce", "sign", "orderNo");
 
         // 服务端：去掉 sign 后用同密钥同算法重算
         Map<String, String> toVerify = new HashMap<>(signed);

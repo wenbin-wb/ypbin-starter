@@ -14,7 +14,7 @@
     <artifactId>ypbin-starter-sign</artifactId>
 
     <name>${project.artifactId}</name>
-    <description>接口签名：appId+timestamp+nonce+sign 四件套校验，@ApiSign 注解 + 全局拦截，防重放</description>
+    <description>接口签名：accessKey+timestamp+nonce+sign 四件套校验，@ApiSign 注解 + 全局拦截，防重放，应用来源可扩展</description>
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
@@ -58,6 +58,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

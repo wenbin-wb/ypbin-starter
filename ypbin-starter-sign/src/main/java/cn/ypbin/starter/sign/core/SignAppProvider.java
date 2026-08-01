@@ -15,17 +15,24 @@
  */
 package cn.ypbin.starter.sign.core;
 
+import java.util.Optional;
+
 /**
- * 签名算法。
+ * 开放应用来源扩展点。
+ *
+ * <p>签名校验时通过本接口按 Access Key 查询应用。starter 默认提供配置文件版实现，
+ * 业务系统有应用管理表时实现本接口从数据库加载即可（配合密钥加密存储）。</p>
  *
  * @author wenbin
- * @since 2026-07-30
+ * @since 2026-08-01
  */
-public enum SignAlgorithm {
+public interface SignAppProvider {
 
-    /** MD5（拼接 secretKey 后摘要，兼容旧系统） */
-    MD5,
-
-    /** HMAC-SHA256（以 secretKey 为密钥，防长度扩展攻击，推荐） */
-    HMAC_SHA256
+    /**
+     * 按 Access Key 查询应用。
+     *
+     * @param accessKey 访问密钥
+     * @return 应用信息
+     */
+    Optional<SignApp> findByAccessKey(String accessKey);
 }

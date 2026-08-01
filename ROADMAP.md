@@ -269,6 +269,13 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 边界：starter 只做运行时抽象 + 配置文件默认实现，不内置 sys_client 表和页面；admin 有客户端管理表时实现 LoginClientProvider 从 DB 接管即可。
 - ✅ 操作日志跟进：LogRecord 增 clientId/clientType/authType，Include 增 CLIENT（入默认采集集），新增 `LogClientProvider` 扩展点（log 不依赖 security）；security 侧 `SecurityLogClientAutoConfiguration` 桥接从 UserContext 填充，模式对齐 SecurityAuditorAutoConfiguration。
 
+### 应用签名能力增强：AK/SK + 过期 + 应用来源扩展（用户提问：应用管理 Access Key/Secret Key/到期时间）
+- ✅ 厘清定位：这是「机器对机器的开放 API 签名」，非「人登录的客户端」；核心运行时 ypbin-starter-sign 早已有（SignChecker/SignClient/@ApiSign/nonce 防重放），只缺 AK/SK 命名、应用过期、DB 来源。
+- ✅ 对外契约变更（用户定）：`appId/appSecret` 全量改名 `accessKey/secretKey`——SignChecker/SignClient/SignGenerator（含 MD5 拼接串 `&secretKey=`）/SignProperties.AppInfo/@ApiSign 文档/测试同步；四件套变为 accessKey+timestamp+nonce+sign。
+- ✅ AppInfo/SignApp 增 `expireTime`（空=永不过期）+ `enabled`；SignChecker 校验应用禁用/过期。
+- ✅ 新增 `SignAppProvider` 扩展点 + `DefaultSignAppProvider`（读 ypbin.sign.apps 配置），SignChecker 改为经 provider 按 accessKey 取应用；admin 有 sys_app 表时实现 provider 从 DB 加载（密钥加密存）即可覆盖。
+- ✅ 边界：starter 只做签名运行时 + 配置默认实现，不内置 sys_app 表/页面/AK-SK 生成；生成/重置密钥、到期管理归 admin。SignCheckerTest 5（provider/禁用/过期/错误密钥/正常）。
+
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。
 - ✅ 多级缓存 `MultiLevelCacheService`：L1 Caffeine + L2 Redis，读回填 L1、写删失效 L1；Redis Pub/Sub 跨实例失效广播（带实例标识忽略自广播），覆盖默认 CacheService。

@@ -15,9 +15,11 @@
  */
 package cn.ypbin.starter.sign.autoconfigure;
 
+import cn.ypbin.starter.sign.core.DefaultSignAppProvider;
 import cn.ypbin.starter.sign.core.InMemoryNonceStore;
 import cn.ypbin.starter.sign.core.NonceStore;
 import cn.ypbin.starter.sign.core.RedisNonceStore;
+import cn.ypbin.starter.sign.core.SignAppProvider;
 import cn.ypbin.starter.sign.core.SignChecker;
 import cn.ypbin.starter.sign.interceptor.SignInterceptor;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -69,11 +71,20 @@ public class SignAutoConfiguration {
         return new InMemoryNonceStore();
     }
 
+    /**
+     * 默认开放应用来源：读取 ypbin.sign.apps 配置。业务方提供自定义实现即可从数据库接管。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public SignAppProvider signAppProvider(SignProperties properties) {
+        return new DefaultSignAppProvider(properties);
+    }
+
     @Bean
     @ConditionalOnMissingBean
     public SignChecker signChecker(SignProperties properties, NonceStore nonceStore,
-        ObjectProvider<ObjectMapper> objectMapper) {
-        return new SignChecker(properties, nonceStore, objectMapper.getIfAvailable(ObjectMapper::new));
+        ObjectProvider<ObjectMapper> objectMapper, SignAppProvider appProvider) {
+        return new SignChecker(properties, nonceStore, objectMapper.getIfAvailable(ObjectMapper::new), appProvider);
     }
 
     @Bean

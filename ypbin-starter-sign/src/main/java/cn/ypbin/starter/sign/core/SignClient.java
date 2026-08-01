@@ -22,14 +22,14 @@ import java.util.UUID;
 /**
  * 客户端签名工具。
  *
- * <p>供第三方对接方生成请求签名：填入业务参数与 appId/appSecret，自动补充 timestamp/nonce，
- * 计算 sign。生成的四件套（appId/timestamp/nonce/sign）随请求发送，服务端 {@link SignChecker} 校验。
+ * <p>供第三方对接方生成请求签名：填入业务参数与 accessKey/secretKey，自动补充 timestamp/nonce，
+ * 计算 sign。生成的四件套（accessKey/timestamp/nonce/sign）随请求发送，服务端 {@link SignChecker} 校验。
  * 算法需与服务端 {@code ypbin.sign.algorithm} 一致。</p>
  *
  * <pre>{@code
  * Map<String, String> bizParams = Map.of("orderNo", "A100", "amount", "99.5");
- * Map<String, String> signed = SignClient.sign(bizParams, "app-001", "secret-xxx", SignAlgorithm.HMAC_SHA256);
- * // signed 含 appId/timestamp/nonce/sign + 业务参数，随请求发送
+ * Map<String, String> signed = SignClient.sign(bizParams, "ak-001", "sk-xxx", SignAlgorithm.HMAC_SHA256);
+ * // signed 含 accessKey/timestamp/nonce/sign + 业务参数，随请求发送
  * }</pre>
  *
  * @author wenbin
@@ -44,22 +44,22 @@ public final class SignClient {
      * 生成带签名的完整参数集。
      *
      * @param bizParams 业务参数
-     * @param appId     应用 ID
-     * @param appSecret 应用密钥
+     * @param accessKey 访问密钥（公开标识）
+     * @param secretKey 私有密钥（参与签名）
      * @param algorithm 签名算法（与服务端一致）
-     * @return 含 appId/timestamp/nonce/sign 与业务参数的 Map
+     * @return 含 accessKey/timestamp/nonce/sign 与业务参数的 Map
      */
-    public static Map<String, String> sign(Map<String, String> bizParams, String appId, String appSecret,
+    public static Map<String, String> sign(Map<String, String> bizParams, String accessKey, String secretKey,
         SignAlgorithm algorithm) {
         Map<String, String> params = new HashMap<>();
         if (bizParams != null) {
             params.putAll(bizParams);
         }
-        params.put("appId", appId);
+        params.put("accessKey", accessKey);
         params.put("timestamp", String.valueOf(System.currentTimeMillis() / 1000));
         params.put("nonce", UUID.randomUUID().toString().replace("-", ""));
         // sign 本身不参与签名计算
-        String sign = SignGenerator.generate(params, appSecret, algorithm);
+        String sign = SignGenerator.generate(params, secretKey, algorithm);
         params.put("sign", sign);
         return params;
     }

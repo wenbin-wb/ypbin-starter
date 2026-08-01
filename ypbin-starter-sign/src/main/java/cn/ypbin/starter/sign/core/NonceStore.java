@@ -31,7 +31,7 @@ public interface NonceStore {
     /**
      * 尝试记录 nonce。
      *
-     * @param key    nonce 键（通常为 appId + nonce）
+     * @param key    nonce 键（通常为 accessKey + nonce）
      * @param expire 有效期（应不小于签名超时）
      * @return {@code true} 首次使用（放行）；{@code false} 已使用过（重放，拒绝）
      */
