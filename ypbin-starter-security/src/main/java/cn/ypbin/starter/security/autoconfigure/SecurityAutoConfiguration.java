@@ -17,6 +17,11 @@ package cn.ypbin.starter.security.autoconfigure;
 
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.stp.StpInterface;
+import cn.ypbin.starter.security.client.DefaultLoginClientProvider;
+import cn.ypbin.starter.security.client.DefaultLoginClientService;
+import cn.ypbin.starter.security.client.LoginClientHolder;
+import cn.ypbin.starter.security.client.LoginClientProvider;
+import cn.ypbin.starter.security.client.LoginClientService;
 import cn.ypbin.starter.security.core.PermissionProvider;
 import cn.ypbin.starter.security.handler.SaTokenExceptionHandler;
 import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
@@ -62,6 +67,33 @@ public class SecurityAutoConfiguration {
     }
 
     /**
+     * 默认客户端配置来源：读取 ypbin.security.clients。业务方提供自定义实现即可从数据库接管。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LoginClientProvider loginClientProvider(SecurityProperties properties) {
+        return new DefaultLoginClientProvider(properties);
+    }
+
+    /**
+     * 客户端登录运行时服务。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LoginClientService loginClientService(LoginClientProvider provider, SecurityProperties properties) {
+        return new DefaultLoginClientService(provider, properties);
+    }
+
+    /**
+     * 绑定客户端登录运行时服务，供 LoginHelper 静态方法使用。
+     */
+    @Bean
+    public LoginClientHolderInitializer loginClientHolderInitializer(LoginClientService service) {
+        LoginClientHolder.bind(service);
+        return new LoginClientHolderInitializer();
+    }
+
+    /**
      * Sa-Token 权限接口适配器。
      */
     @Bean
@@ -97,5 +129,11 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean
     public SaTokenExceptionHandler saTokenExceptionHandler() {
         return new SaTokenExceptionHandler();
+    }
+
+    /**
+     * 空标记 Bean，仅用于触发 {@link LoginClientHolder#bind(LoginClientService)}。
+     */
+    public static final class LoginClientHolderInitializer {
     }
 }

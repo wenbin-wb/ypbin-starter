@@ -257,6 +257,18 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ security 新增 `UserContext` 当前用户门面 + `LoginUser` 值对象：登录时 `setLoginUser` 存 Sa-Token 会话，`getLoginUser/getUserId/getUsername/getTenantId/getAttribute` 任意层读取；LoginHelper 仍只管 ID。
 - 决策（用户定）：实体去泛型、id 锁定 Long（对齐 blade/continew，覆盖 99% 场景，最简洁）；逻辑删除列名 `is_deleted`；id 单独序列化为字符串；补完整 LoginUser 而非逐字段散取。
 
+### 控制器基类分层 + 实体状态字段（用户：BaseController 太复杂、参考 blade/continew 取舍）
+- ✅ 控制器拆两层：`BaseController` 轻量辅助基类（request/header/param/ip/file、当前用户、ok/data/success/fail/status，不声明路由，对齐 BladeController 定位）；`CrudController` 承担标准 CRUD 路由（get/list/page/save/update/delete）。
+- ✅ BaseController 当前用户方法（userId/username/tenantId/isLogin）用反射弱耦合读取 security 的 UserContext，未引 security 或未登录返回空，不强依赖。extension-crud 补 servlet-api optional。
+- ✅ BaseEntity 增 `status` 业务状态字段（默认 1 正常、0 禁用），与 `isDeleted` 逻辑删除分离不混用。
+- 决策（用户定）：BaseController 做通用辅助而非重 CRUD 父类，大胆重构；标准且轻量用 CrudController，业务重/端点特殊继承 BaseController 自写。
+
+### 登录客户端管理运行时（用户提问：客户端管理、token 有效期、登录限制）
+- ✅ security 新增 client 包：`LoginClient`（clientId/secret/type/authTypes/timeout/activeTimeout/concurrent/share/maxLoginCount/replacedRange/overflowLogoutMode/enabled）+ `LoginClientProvider` 扩展点 + `DefaultLoginClientProvider`（读 ypbin.security.clients 配置）+ `DefaultLoginClientService`（校验存在/启用/密钥/authType，按客户端策略构建 SaLoginParameter 登录）+ `LoginClientHolder` 静态门面。
+- ✅ LoginHelper 增 `login(userId, LoginClientRequest/clientId/authType/deviceId)` 按客户端策略登录；LoginUser/UserContext 增 clientId/clientType/authType。
+- ✅ 边界：starter 只做运行时抽象 + 配置文件默认实现，不内置 sys_client 表和页面；admin 有客户端管理表时实现 LoginClientProvider 从 DB 接管即可。
+- ✅ 操作日志跟进：LogRecord 增 clientId/clientType/authType，Include 增 CLIENT（入默认采集集），新增 `LogClientProvider` 扩展点（log 不依赖 security）；security 侧 `SecurityLogClientAutoConfiguration` 桥接从 UserContext 填充，模式对齐 SecurityAuditorAutoConfiguration。
+
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。
 - ✅ 多级缓存 `MultiLevelCacheService`：L1 Caffeine + L2 Redis，读回填 L1、写删失效 L1；Redis Pub/Sub 跨实例失效广播（带实例标识忽略自广播），覆盖默认 CacheService。

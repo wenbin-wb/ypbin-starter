@@ -16,6 +16,7 @@
 package cn.ypbin.starter.log.autoconfigure;
 
 import cn.ypbin.starter.log.aspect.LogAspect;
+import cn.ypbin.starter.log.core.LogClientProvider;
 import cn.ypbin.starter.log.core.LogUserProvider;
 import cn.ypbin.starter.log.dao.DefaultLogDao;
 import cn.ypbin.starter.log.dao.LogDao;
@@ -70,10 +71,17 @@ public class LogAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public LogCollector logCollector(LogUserProvider userProvider, ObjectProvider<ObjectMapper> objectMapperProvider) {
+    public LogClientProvider logClientProvider() {
+        return Optional::empty;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public LogCollector logCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
+        ObjectProvider<ObjectMapper> objectMapperProvider) {
         // 复用容器中的 ObjectMapper（继承 json 模块配置），无则退化为默认实例
         ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
-        return new LogCollector(userProvider, objectMapper);
+        return new LogCollector(userProvider, clientProvider, objectMapper);
     }
 
     @Bean

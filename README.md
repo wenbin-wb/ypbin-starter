@@ -359,7 +359,57 @@ ypbin:
 拦截器只校验「已登录」；细粒度权限/角色用方法上的 `@SaCheckPermission` 等注解。业务方提供自定义 `WebMvcConfigurer` 或设 `interceptor: false` 即可覆盖/停用。
 
 - `LoginHelper`：`login(userId)` / `getUserId()` / `logout()`，统一以 `Long` 用户 ID 进出。
-- `UserContext` + `LoginUser`：当前登录用户门面，登录时 `setLoginUser` 存会话，任意层 `getLoginUser`/`getUserId`/`getUsername`/`getTenantId` 读取。
+- `UserContext` + `LoginUser`：当前登录用户门面，登录时 `setLoginUser` 存会话，任意层 `getLoginUser`/`getUserId`/`getUsername`/`getTenantId`/`getClientId`/`getClientType`/`getAuthType` 读取。
+- 登录客户端：`LoginClientProvider` 提供客户端配置，`LoginHelper.login(userId, LoginClientRequest)` 按客户端独立策略登录；starter 提供配置文件版默认实现，admin 有客户端管理表时实现 Provider 覆盖即可。
+
+**登录客户端策略**：适合后台、App、小程序、开放 API 等不同入口配置不同 token 有效期、活跃超时、多端并发和登录方式。starter 只提供运行时抽象，不内置 admin 表和页面。
+
+```yaml
+ypbin:
+  security:
+    client-enabled: true
+    default-client-id: web-admin
+    clients:
+      - client-id: web-admin
+        client-type: WEB
+        auth-types: [ACCOUNT, PHONE, EMAIL]
+        timeout: 86400              # Token 固定有效期(秒)，为空使用 sa-token 全局配置
+        active-timeout: 1800        # 活跃超时(秒)，为空使用 sa-token 全局配置
+        concurrent: true            # 是否允许同账号多端同时登录
+        share: false                # 多端登录是否共享同一个 token
+        max-login-count: -1         # 同账号最大登录数量，-1 不限制
+        replaced-range: ALL_DEVICE_TYPE
+        replaced-login-exit-mode: OLD_DEVICE
+        overflow-logout-mode: KICKOUT
+        enabled: true
+```
+
+登录流程示例：
+
+```java
+LoginClientRequest clientReq = new LoginClientRequest(req.getClientId(), req.getAuthType());
+clientReq.setClientSecret(req.getClientSecret());      // 浏览器端可不传；服务端/开放平台可启用
+clientReq.setDeviceId(req.getDeviceId());              // App/多设备场景可传
+LoginClient client = LoginHelper.login(userId, clientReq);
+
+LoginUser user = new LoginUser(userId, username);
+user.setClientId(client.getClientId());
+user.setClientType(client.getClientType());
+user.setAuthType(clientReq.getAuthType());
+UserContext.setLoginUser(user);
+```
+
+admin 接数据库客户端管理时，只需实现：
+
+```java
+@Component
+public class DbLoginClientProvider implements LoginClientProvider {
+    @Override
+    public Optional<LoginClient> findByClientId(String clientId) {
+        // 从 sys_client 查询并转换为 LoginClient
+    }
+}
+```
 
 **Token 续期**：Sa-Token 是「续期」机制，不是 OAuth2 的 access+refresh 双令牌——不换 token，延长现有 token 有效期。两层超时：
 
@@ -399,6 +449,7 @@ Long userId = UserContext.getUserId();                 // 当前用户 ID（来�
 Optional<LoginUser> current = UserContext.getLoginUser(); // 完整登录用户信息
 Optional<String> name = UserContext.getUsername();     // 用户名
 Optional<Long> tenant = UserContext.getTenantId();     // 租户 ID
+Optional<String> clientId = UserContext.getClientId(); // 客户端 ID
 UserContext.setAttribute("postId", 66L);               // 业务自有字段另存
 Optional<Long> post = UserContext.getAttribute("postId", Long.class);
 ```
@@ -480,9 +531,10 @@ FileInfo info = fileStorageService.upload(inputStream, "a.png")
 public R<Void> create(@RequestBody OrderReq req) { ... }
 ```
 
-- `Include` 控制采集粒度：请求头/体/参数、响应体、IP、浏览器、OS。默认只采集请求参数 + IP（不采集请求/响应体，防敏感信息与大报文落库）。
+- `Include` 控制采集粒度：请求头/体/参数、响应体、IP、浏览器、OS、登录客户端信息。默认采集请求参数 + IP + 客户端信息（不采集请求/响应体，防敏感信息与大报文落库）。
 - 请求体从 AOP 入参序列化（能拿到 `@RequestBody` 的 JSON），过滤文件流等不可序列化参数。
 - 持久化：实现 `LogDao` 落库（默认仅打印到日志）；操作人来源实现 `LogUserProvider`。
+- 登录客户端信息（`clientId/clientType/authType`）来源实现 `LogClientProvider`；引入 security 模块后自动对接登录会话，无需业务实现即可让操作日志记录“从哪个客户端、用什么方式登录”。
 - 写日志通过事件 + `@Async` 异步执行，DB 抖动不影响主接口。
 
 **全量访问日志**（与 `@Log` 互补，无需注解，记录所有请求的 URI/方法/状态/耗时/IP）：

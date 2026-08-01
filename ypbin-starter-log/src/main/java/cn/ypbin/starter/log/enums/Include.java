@@ -52,13 +52,16 @@ public enum Include {
     BROWSER,
 
     /** 操作系统 */
-    OS;
+    OS,
+
+    /** 登录客户端信息（客户端 ID、类型、认证方式） */
+    CLIENT;
 
     private static final Set<Include> DEFAULT_INCLUDES = Collections.unmodifiableSet(
-        EnumSet.of(REQUEST_PARAM, IP));
+        EnumSet.of(REQUEST_PARAM, IP, CLIENT));
 
     /**
-     * 默认采集集合：请求参数 + IP。
+     * 默认采集集合：请求参数 + IP + 登录客户端信息。
      *
      * <p>默认不采集请求/响应体，避免大报文与敏感信息意外落库，需要时显式开启。</p>
      *

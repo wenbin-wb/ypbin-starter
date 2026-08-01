@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.log.support;
 
+import cn.ypbin.starter.log.core.LogClientProvider;
 import cn.ypbin.starter.log.core.LogUserProvider;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.model.LogRecord;
@@ -30,6 +31,7 @@ import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,10 +54,16 @@ public class LogCollector {
     private static final Logger log = LoggerFactory.getLogger(LogCollector.class);
 
     private final LogUserProvider userProvider;
+    private final LogClientProvider clientProvider;
     private final ObjectMapper objectMapper;
 
     public LogCollector(LogUserProvider userProvider, ObjectMapper objectMapper) {
+        this(userProvider, Optional::empty, objectMapper);
+    }
+
+    public LogCollector(LogUserProvider userProvider, LogClientProvider clientProvider, ObjectMapper objectMapper) {
         this.userProvider = userProvider;
+        this.clientProvider = clientProvider;
         this.objectMapper = objectMapper;
     }
 
@@ -70,6 +78,14 @@ public class LogCollector {
      */
     public void collect(LogRecord record, Set<Include> includes, Object[] args, Object result, Throwable error) {
         userProvider.getCurrentUserId().ifPresent(record::setUserId);
+
+        if (includes.contains(Include.CLIENT)) {
+            clientProvider.getCurrentClient().ifPresent(client -> {
+                record.setClientId(client.clientId());
+                record.setClientType(client.clientType());
+                record.setAuthType(client.authType());
+            });
+        }
 
         HttpServletRequest request = currentRequest();
         if (request != null) {

@@ -15,8 +15,11 @@
  */
 package cn.ypbin.starter.security.autoconfigure;
 
+import cn.ypbin.starter.security.client.LoginClient;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -42,6 +45,24 @@ public class SecurityProperties {
 
     /** 检测到 api-doc 时是否自动放行 Swagger/文档相关路径，默认开启 */
     private boolean excludeApiDoc = true;
+
+    /** 是否启用客户端校验，默认开启 */
+    private boolean clientEnabled = true;
+
+    /** 默认客户端 ID，登录请求未传 clientId 时使用 */
+    private String defaultClientId = "web-admin";
+
+    /** 配置文件客户端列表；业务方提供 LoginClientProvider 后可由数据库接管 */
+    private List<LoginClient> clients = new ArrayList<>(List.of(defaultClient()));
+
+    private static LoginClient defaultClient() {
+        LoginClient client = new LoginClient();
+        client.setClientId("web-admin");
+        client.setClientType("WEB");
+        client.setAuthTypes(new LinkedHashSet<>(Set.of("ACCOUNT", "PHONE", "EMAIL", "SOCIAL")));
+        client.setEnabled(true);
+        return client;
+    }
 
     public boolean isEnabled() {
         return enabled;
@@ -81,5 +102,29 @@ public class SecurityProperties {
 
     public void setExcludeApiDoc(boolean excludeApiDoc) {
         this.excludeApiDoc = excludeApiDoc;
+    }
+
+    public boolean isClientEnabled() {
+        return clientEnabled;
+    }
+
+    public void setClientEnabled(boolean clientEnabled) {
+        this.clientEnabled = clientEnabled;
+    }
+
+    public String getDefaultClientId() {
+        return defaultClientId;
+    }
+
+    public void setDefaultClientId(String defaultClientId) {
+        this.defaultClientId = defaultClientId;
+    }
+
+    public List<LoginClient> getClients() {
+        return clients;
+    }
+
+    public void setClients(List<LoginClient> clients) {
+        this.clients = clients;
     }
 }

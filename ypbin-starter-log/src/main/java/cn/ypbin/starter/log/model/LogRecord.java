@@ -76,6 +76,15 @@ public class LogRecord implements Serializable {
     /** 操作系统 */
     private String os;
 
+    /** 客户端 ID */
+    private String clientId;
+
+    /** 客户端类型 */
+    private String clientType;
+
+    /** 认证方式 */
+    private String authType;
+
     /** 操作人 ID */
     private Long userId;
 
@@ -201,6 +210,30 @@ public class LogRecord implements Serializable {
 
     public void setOs(String os) {
         this.os = os;
+    }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
+    }
+
+    public String getClientType() {
+        return clientType;
+    }
+
+    public void setClientType(String clientType) {
+        this.clientType = clientType;
+    }
+
+    public String getAuthType() {
+        return authType;
+    }
+
+    public void setAuthType(String authType) {
+        this.authType = authType;
     }
 
     public Long getUserId() {

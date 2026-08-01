@@ -31,6 +31,12 @@
             <artifactId>ypbin-starter-data</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- 可选：引入后 security 提供的 LogClientProvider 实现可让操作日志记录登录客户端信息 -->
+        <dependency>
+            <groupId>cn.ypbin.starter</groupId>
+            <artifactId>ypbin-starter-log</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <dependency>
             <groupId>cn.dev33</groupId>
@@ -51,6 +57,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

@@ -53,6 +53,15 @@ public class LoginUser implements Serializable {
     /** 角色标识集合 */
     private Set<String> roles;
 
+    /** 客户端 ID */
+    private String clientId;
+
+    /** 客户端类型 */
+    private String clientType;
+
+    /** 认证方式 */
+    private String authType;
+
     public LoginUser() {
     }
 
@@ -107,5 +116,29 @@ public class LoginUser implements Serializable {
 
     public void setRoles(Set<String> roles) {
         this.roles = roles;
+    }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
+    }
+
+    public String getClientType() {
+        return clientType;
+    }
+
+    public void setClientType(String clientType) {
+        this.clientType = clientType;
+    }
+
+    public String getAuthType() {
+        return authType;
+    }
+
+    public void setAuthType(String authType) {
+        this.authType = authType;
     }
 }

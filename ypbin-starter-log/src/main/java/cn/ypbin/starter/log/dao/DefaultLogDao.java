@@ -33,13 +33,14 @@ public class DefaultLogDao implements LogDao {
 
     @Override
     public void add(LogRecord logRecord) {
-        log.info("[操作日志] module={}, desc={}, {} {}, status={}, ip={}, userId={}, took={}ms{}",
+        log.info("[操作日志] module={}, desc={}, {} {}, status={}, ip={}, client={}, userId={}, took={}ms{}",
             logRecord.getModule(),
             logRecord.getDescription(),
             logRecord.getRequestMethod(),
             logRecord.getRequestUri(),
             logRecord.getStatusCode(),
             logRecord.getIp(),
+            logRecord.getClientId(),
             logRecord.getUserId(),
             logRecord.getTimeTakenMillis(),
             logRecord.isSuccess() ? "" : ", error=" + logRecord.getErrorMsg());

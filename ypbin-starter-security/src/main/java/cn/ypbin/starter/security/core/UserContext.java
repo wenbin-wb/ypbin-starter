@@ -103,6 +103,33 @@ public final class UserContext {
     }
 
     /**
+     * 当前登录客户端 ID。未写入 {@link LoginUser} 则为空。
+     *
+     * @return 客户端 ID 的 Optional
+     */
+    public static Optional<String> getClientId() {
+        return getLoginUser().map(LoginUser::getClientId);
+    }
+
+    /**
+     * 当前登录客户端类型。未写入 {@link LoginUser} 则为空。
+     *
+     * @return 客户端类型的 Optional
+     */
+    public static Optional<String> getClientType() {
+        return getLoginUser().map(LoginUser::getClientType);
+    }
+
+    /**
+     * 当前登录认证方式。未写入 {@link LoginUser} 则为空。
+     *
+     * @return 认证方式的 Optional
+     */
+    public static Optional<String> getAuthType() {
+        return getLoginUser().map(LoginUser::getAuthType);
+    }
+
+    /**
      * 从当前会话读取扩展属性。
      *
      * @param key  属性键

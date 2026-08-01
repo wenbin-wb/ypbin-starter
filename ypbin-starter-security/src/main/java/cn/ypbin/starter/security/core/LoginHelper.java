@@ -17,6 +17,9 @@ package cn.ypbin.starter.security.core;
 
 import cn.dev33.satoken.stp.SaTokenInfo;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.ypbin.starter.security.client.LoginClient;
+import cn.ypbin.starter.security.client.LoginClientHolder;
+import cn.ypbin.starter.security.client.LoginClientRequest;
 import java.util.Optional;
 
 /**
@@ -50,6 +53,47 @@ public final class LoginHelper {
      */
     public static void login(Long userId, String device) {
         StpUtil.login(userId, device);
+    }
+
+    /**
+     * 按客户端策略执行登录。
+     *
+     * <p>方法会读取 {@link cn.ypbin.starter.security.client.LoginClientProvider} 提供的客户端配置，
+     * 按客户端独立的 token 有效期、活跃超时、多端并发、最大登录数等策略登录。</p>
+     *
+     * @param userId  用户 ID
+     * @param request 客户端登录请求
+     * @return 命中的客户端配置，业务可写入 {@link LoginUser}
+     */
+    public static LoginClient login(Long userId, LoginClientRequest request) {
+        return LoginClientHolder.getService().login(userId, request);
+    }
+
+    /**
+     * 按客户端策略执行登录。
+     *
+     * @param userId   用户 ID
+     * @param clientId 客户端 ID
+     * @param authType 认证方式
+     * @return 命中的客户端配置，业务可写入 {@link LoginUser}
+     */
+    public static LoginClient login(Long userId, String clientId, String authType) {
+        return login(userId, new LoginClientRequest(clientId, authType));
+    }
+
+    /**
+     * 按客户端策略执行登录并指定设备 ID。
+     *
+     * @param userId   用户 ID
+     * @param clientId 客户端 ID
+     * @param authType 认证方式
+     * @param deviceId 设备 ID
+     * @return 命中的客户端配置，业务可写入 {@link LoginUser}
+     */
+    public static LoginClient login(Long userId, String clientId, String authType, String deviceId) {
+        LoginClientRequest request = new LoginClientRequest(clientId, authType);
+        request.setDeviceId(deviceId);
+        return login(userId, request);
     }
 
     /**
