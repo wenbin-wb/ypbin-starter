@@ -18,7 +18,10 @@ package cn.ypbin.starter.storage.autoconfigure;
 import cn.ypbin.starter.storage.autoconfigure.StorageProperties.LocalConfig;
 import cn.ypbin.starter.storage.autoconfigure.StorageProperties.OssConfig;
 import cn.ypbin.starter.storage.core.FileStorageService;
+import cn.ypbin.starter.storage.engine.DefaultStorageConfigProvider;
+import cn.ypbin.starter.storage.engine.StorageConfigProvider;
 import cn.ypbin.starter.storage.engine.StorageRouter;
+import cn.ypbin.starter.storage.engine.StorageStrategyRebuilder;
 import cn.ypbin.starter.storage.engine.StorageStrategyRegistrar;
 import cn.ypbin.starter.storage.processor.DefaultFileNameProcessor;
 import cn.ypbin.starter.storage.processor.FileProcessor;
@@ -57,13 +60,22 @@ public class StorageAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(StorageAutoConfiguration.class);
 
     /**
-     * 本地存储策略贡献者。
+     * 默认存储源配置来源：读取 ypbin.storage.*。业务方提供自定义实现即可从数据库接管。
      */
     @Bean
-    public StorageStrategyRegistrar localStorageRegistrar(StorageProperties properties) {
+    @ConditionalOnMissingBean
+    public StorageConfigProvider storageConfigProvider(StorageProperties properties) {
+        return new DefaultStorageConfigProvider(properties);
+    }
+
+    /**
+     * 本地存储策略贡献者：从 {@link StorageConfigProvider} 取配置，支持后台动态源。
+     */
+    @Bean
+    public StorageStrategyRegistrar localStorageRegistrar(StorageConfigProvider configProvider) {
         return () -> {
             List<StorageStrategy> list = new ArrayList<>();
-            for (LocalConfig config : properties.getLocal()) {
+            for (LocalConfig config : configProvider.getLocalConfigs()) {
                 if (config.isEnabled()) {
                     list.add(new LocalStorageStrategy(config));
                     log.debug("[ypbin-starter] local storage registered, platform={}.", config.getPlatform());
@@ -71,6 +83,16 @@ public class StorageAutoConfiguration {
             }
             return list;
         };
+    }
+
+    /**
+     * 存储源重建器：后台改配置后调用 rebuild() 即时生效。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public StorageStrategyRebuilder storageStrategyRebuilder(StorageRouter router,
+        List<StorageStrategyRegistrar> registrars, StorageConfigProvider configProvider) {
+        return new StorageStrategyRebuilder(router, registrars, configProvider);
     }
 
     /**
@@ -126,10 +148,10 @@ public class StorageAutoConfiguration {
     static class OssStorageConfiguration {
 
         @Bean
-        public StorageStrategyRegistrar ossStorageRegistrar(StorageProperties properties) {
+        public StorageStrategyRegistrar ossStorageRegistrar(StorageConfigProvider configProvider) {
             return () -> {
                 List<StorageStrategy> list = new ArrayList<>();
-                for (OssConfig config : properties.getOss()) {
+                for (OssConfig config : configProvider.getOssConfigs()) {
                     if (config.isEnabled()) {
                         list.add(new OssStorageStrategy(config));
                     }

@@ -55,6 +55,27 @@ public class StorageRouter {
     }
 
     /**
+     * 全量刷新存储源（用于后台改配置后重建）：以传入集合为准替换全部存储源，移除已不存在的源。
+     *
+     * @param newStrategies   新的存储策略集合
+     * @param defaultPlatform 新的默认平台，可空（空则保留原默认）
+     */
+    public synchronized void rebuild(List<StorageStrategy> newStrategies, String defaultPlatform) {
+        Map<String, StorageStrategy> next = new ConcurrentHashMap<>();
+        for (StorageStrategy strategy : newStrategies) {
+            next.put(strategy.platform(), strategy);
+        }
+        strategies.keySet().retainAll(next.keySet());
+        strategies.putAll(next);
+        if (defaultPlatform != null && !defaultPlatform.isBlank()) {
+            this.defaultPlatform = defaultPlatform;
+        } else if ((this.defaultPlatform == null || !strategies.containsKey(this.defaultPlatform))
+            && !newStrategies.isEmpty()) {
+            this.defaultPlatform = newStrategies.get(0).platform();
+        }
+    }
+
+    /**
      * 注销一个存储源。
      *
      * @param platform 平台标识

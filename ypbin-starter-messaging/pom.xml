@@ -30,6 +30,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        <!-- 短信聚合框架 sms4j：可选，引入并配置对应厂商依赖后启用 -->
+        <dependency>
+            <groupId>org.dromara.sms4j</groupId>
+            <artifactId>sms4j-spring-boot-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- WebSocket 实时推送，可选：不用时无需引入 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

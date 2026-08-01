@@ -36,6 +36,7 @@
         <bouncycastle.version>1.85</bouncycastle.version>
         <justauth.version>1.16.7</justauth.version>
         <paho-mqtt.version>1.2.5</paho-mqtt.version>
+        <sms4j.version>3.3.5</sms4j.version>
 
         <!-- 插件版本 -->
         <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
@@ -153,6 +154,13 @@
                 <groupId>org.eclipse.paho</groupId>
                 <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
                 <version>${paho-mqtt.version}</version>
+            </dependency>
+
+            <!-- 短信聚合框架 sms4j（阿里云/腾讯云等多厂商统一封装） -->
+            <dependency>
+                <groupId>org.dromara.sms4j</groupId>
+                <artifactId>sms4j-spring-boot-starter</artifactId>
+                <version>${sms4j.version}</version>
             </dependency>
 
             <!-- SpringDoc OpenAPI -->

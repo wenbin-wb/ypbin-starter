@@ -28,7 +28,7 @@
 | Excel | FastExcel 1.3.0 |
 | 验证码 | tianai-captcha 1.5.5（滑块/旋转/点选/拼接） |
 | 加解密 | AES-GCM / 国密 SM2·SM4（BouncyCastle 1.85） |
-| 邮件 | Spring Mail |
+| 邮件 | Spring Mail（配置可动态化） |
 | 微服务 | Spring Cloud 2025.0.3 + Gateway / OpenFeign / LoadBalancer |
 | 注册配置 | Nacos（spring-cloud-alibaba 2025.0.0.0） |
 | 熔断降级 | Resilience4j |
@@ -94,7 +94,7 @@
 | Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON、XSS 过滤、可重复读请求 | `ypbin.web` |
 | 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、`BaseEntity`（主键/审计/状态/逻辑删除）、拦截器编排、字段加密、雪花 ID | `ypbin.data` |
 | 缓存 | `ypbin-starter-cache` | Redis 缓存 + `getOrLoad` 防击穿/穿透/雪崩 + 多级缓存（L1 Caffeine + L2 Redis，跨实例失效广播） | `ypbin.cache` |
-| 安全 | `ypbin-starter-security` | Sa-Token 封装（全局登录拦截、当前用户门面、权限数据源扩展点）、密码编码器 | `ypbin.security` |
+| 安全 | `ypbin-starter-security` | Sa-Token 封装（全局登录拦截、当前用户门面、权限数据源扩展点）、登录客户端策略、密码编码器与密码策略（复杂度/错误锁定） | `ypbin.security` |
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
 | 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
 | 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP + 全量访问日志拦截器 | `ypbin.log` |
@@ -102,7 +102,7 @@
 | 异步 | `ypbin-starter-async` | 统一线程池、`@Async` 接管、异步异常处理、上下文透传、`AsyncUtils` 静态工具 | `ypbin.async` |
 | Excel | `ypbin-starter-excel` | 基于 FastExcel 的注解驱动导入导出 | — |
 | 验证码 | `ypbin-starter-captcha` | 行为验证码（滑块/旋转/点选/拼接） | `ypbin.captcha` |
-| 消息 | `ypbin-starter-messaging` | 邮件、WebSocket（STOMP）、SSE + 统一推送门面 `PushService`、MQTT（Paho） | `ypbin.websocket` / `ypbin.sse` / `ypbin.mqtt` |
+| 消息 | `ypbin-starter-messaging` | 邮件（SMTP 配置可动态化/后台配置）、WebSocket（STOMP）、SSE + 统一推送门面 `PushService`、MQTT（Paho） | `ypbin.mail` / `ypbin.websocket` / `ypbin.sse` / `ypbin.mqtt` |
 | 敏感词 | `ypbin-starter-sensitive-words` | Hutool DFA 敏感词检测/替换，可插拔词库 | `ypbin.sensitive-words` |
 | 国际化 | `ypbin-starter-i18n` | Spring MessageSource 多语言，参数/头解析 Locale | `ypbin.i18n` |
 | 接口加解密 | `ypbin-starter-api-crypto` | `@ApiEncrypt` 请求解密/响应加密（Advice） | `ypbin.api-crypto` |
@@ -279,6 +279,27 @@ private String custom;     // 保留前 2 后 2
 ```
 
 内置类型：`CHINESE_NAME` / `PHONE` / `ID_CARD` / `EMAIL` / `BANK_CARD` / `ADDRESS` / `ALL` / `CUSTOM`。
+
+**数据字典翻译** `@DictText`：实体存字典值（code），序列化时**保留原字段原值不变**、并**额外输出**一个展示文本字段（遵循全链路字段同名，不改名只增派生字段）。字典表与 CRUD 归 admin，实现 `DictProvider` 把数据源接进来，starter 负责缓存与翻译：
+
+```java
+@DictText("sys_user_status")
+private String status;      // 输出 "status":"1","statusText":"正常"
+
+@DictText(value = "gender", suffix = "Label")
+private String gender;      // 输出 "gender":"1","genderLabel":"男"
+```
+
+```java
+// admin 侧实现字典数据源（从 sys_dict_item 读）
+@Component
+public class DbDictProvider implements DictProvider {
+    @Override
+    public List<DictItem> getItems(String dictType) { /* 查字典表 */ }
+}
+```
+
+`DictCache` 带缓存（字典维护后调 `DictUtils.refresh()` 即时生效）；`DictUtils.translate(type, value)` / `getItems(type)` 供任意层静态调用；未接入 `DictProvider` 时翻译安全退化为原值。
 
 ### cache — 缓存
 
@@ -473,6 +494,88 @@ String hash = PasswordEncoderUtil.encode(rawPassword);
 boolean ok = PasswordEncoderUtil.matches(rawPassword, hash);
 ```
 
+**密码安全策略**：复杂度校验 + 错误锁定的运行时能力。starter 提供能力与扩展点，不内置策略配置表；策略来源可用配置文件，也可由业务系统实现 `PasswordPolicyProvider` 从配置中心/数据库读取，支持后台可视化调整。
+
+```yaml
+ypbin:
+  security:
+    password:
+      min-length: 8               # 最小长度
+      max-length: 32              # 最大长度
+      require-digit: true         # 必须含数字
+      require-letter: true        # 必须含字母
+      require-uppercase: false    # 必须含大写
+      require-symbol: false       # 必须含特殊字符
+      require-lowercase: false    # 必须含小写
+      allow-contain-username: false  # 是否允许含用户名（含反序）
+      error-lock-count: 5         # 登录错误锁定阈值，0=不锁定
+      lock-minutes: 15            # 账号锁定时长(分钟)
+      expiration-days: 0          # 密码有效期(天)，0=永不过期
+      expiration-warning-days: 0  # 到期提醒天数，0=不提醒
+      history-count: 0            # 历史密码不可重复次数，0=不校验
+```
+
+> 策略每次实时读取：配置文件方式改 yml 需重启生效；若 admin 实现 `PasswordPolicyProvider` 从数据库读，则后台改配置即时生效，无需重启。
+
+复杂度校验用 `PasswordValidator`（改密/注册时）：
+
+```java
+PasswordCheckResult result = passwordValidator.check(rawPassword, username);
+if (!result.passed()) {
+    throw new BusinessException(result.message());
+}
+```
+
+错误锁定用 `PasswordAttemptLimiter`（登录流程）。账号标识大小写归一，计数默认按 `账号:IP` 维度：
+
+```java
+limiter.checkLocked(username, ip);        // 登录前：已锁定抛 AccountLockedException
+if (!PasswordEncoderUtil.matches(raw, hash)) {
+    limiter.recordFailure(username, ip);  // 密码错误：计数 +1，本次即达阈值则直接抛锁定
+    throw new BusinessException("用户名或密码错误");
+}
+limiter.reset(username, ip);              // 登录成功：清除计数
+```
+
+后台/前端可查锁定状态与解锁：
+
+```java
+LockStatus status = limiter.getLockStatus(username, ip); // 是否锁定/失败次数/剩余次数/剩余解锁秒数
+limiter.unlock(username);                                // 管理员解锁：清除该账号全部维度（无需知道被哪些 IP 锁）
+```
+
+计数默认存 Redis（有 Redis 时自动用，多节点共享）、否则内存，锁定时长即计数键 TTL、到期自动解锁。
+
+密码有效期用 `PasswordExpiration`（纯计算，"强制改密"的登录拦截编排由业务侧结合用户表的最后改密时间实现）：
+
+```java
+boolean expired = passwordExpiration.isExpired(user.getPwdResetTime());   // 是否已过期
+boolean warn = passwordExpiration.shouldWarn(user.getPwdResetTime());     // 是否进入到期提醒窗口
+long days = passwordExpiration.remainingDays(user.getPwdResetTime());     // 距过期剩余天数
+```
+
+历史密码不重复（`historyCount`）由 starter 提供策略值，历史密码表与比对由 admin 侧实现。
+
+**在线用户**：基于 Sa-Token 会话枚举在线登录记录，支持查询与强制下线。表与页面归 admin，starter 提供运行时 `OnlineUserService`：
+
+```java
+@Autowired
+private OnlineUserService onlineUserService;
+
+List<OnlineUser> all = onlineUserService.list();          // 全部在线（一个 token 一条）
+List<OnlineUser> hit = onlineUserService.list("张三");     // 按用户名/昵称过滤
+onlineUserService.kickoutByToken(token);                  // 踢某个登录设备
+onlineUserService.kickoutByUserId(userId);                // 踢某用户全部设备
+```
+
+用户名/昵称/租户/客户端等展示字段来自登录时写入会话的 `LoginUser`；IP/浏览器/操作系统/登录时间为可选，登录成功时用 `OnlineUserHelper.record(ip, browser, os)` 记录即可在列表展示：
+
+```java
+LoginHelper.login(userId, clientReq);
+UserContext.setLoginUser(loginUser);
+OnlineUserHelper.record(ip, browser, os);   // 可选：记录终端信息供在线列表展示
+```
+
 ### api-doc — API 文档
 
 SpringDoc OpenAPI 开箱即用，配置文档元信息：
@@ -520,6 +623,20 @@ FileInfo info = fileStorageService.upload(inputStream, "a.png")
 ```
 
 扩展点：`StorageStrategy`（新增存储后端）、`FileProcessor`（上传前校验/改名/生成路径责任链）、`FileRecorder`（记录文件元数据）。S3 上传对未知大小的流会落临时文件规避 OOM，直链自动 URL 编码。
+
+**后台动态配置**：存储源默认读 `ypbin.storage.*`，也可由业务方实现 `StorageConfigProvider` 从数据库读取，后台改完调 `StorageStrategyRebuilder.rebuild()` 即时生效（`StorageRouter` 原子刷新，新增/修改/删除的源立即路由，无需重启）：
+
+```java
+@Component
+public class DbStorageConfigProvider implements StorageConfigProvider {
+    @Override public List<LocalConfig> getLocalConfigs() { /* 查存储配置表 */ }
+    @Override public List<OssConfig> getOssConfigs() { /* 查存储配置表 */ }
+    @Override public String getDefaultPlatform() { /* 默认平台 */ }
+}
+
+// 后台保存存储配置后：
+storageStrategyRebuilder.rebuild();   // 即时生效
+```
 
 ### log — 操作日志
 
@@ -887,7 +1004,20 @@ boolean ok = captchaService.verify(id, track);
 
 ### messaging — 消息（邮件 / WebSocket / SSE / MQTT）
 
-**邮件**：基于 Spring Mail，配置好 `spring.mail.*` 后自动装配 `MailService`：
+**邮件**：SMTP 配置默认读 `ypbin.mail.*`，也可由业务方实现 `MailConfigProvider` 从数据库读取，支持后台可视化配置、改完不重启即时生效（`MailService` 按配置指纹缓存底层 sender，配置变化自动重建）：
+
+```yaml
+ypbin:
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: your@qq.com
+    password: your-auth-code      # 授权码/密码
+    from: noreply@qq.com          # 发件人，为空取 username
+    from-name: 系统通知            # 发件人显示名（可选）
+    ssl-enabled: true
+    starttls-enabled: false
+```
 
 ```java
 @Autowired
@@ -896,14 +1026,60 @@ private MailService mailService;
 mailService.sendText("to@example.com", "标题", "正文");
 mailService.sendHtml("to@example.com", "标题", "<h1>HTML 正文</h1>");
 mailService.sendWithAttachments("to@example.com", "标题", "正文", false, new File("report.xlsx"));
+mailService.sendTest("to@example.com");   // 后台"保存配置前先测一封"，失败抛异常带原因
+boolean ready = mailService.isConfigured();
 ```
 
-发件人默认取 `spring.mail.username`。非注入场景（异步任务、工具方法）可用静态门面 `MailUtils`：
+发件人默认取 `from`（为空取 `username`）。非注入场景（异步任务、工具方法）可用静态门面 `MailUtils`：
 
 ```java
 MailUtils.sendText("to@example.com", "标题", "正文");
 MailUtils.sendHtml("to@example.com", "标题", "<h1>HTML</h1>");
 ```
+
+**后台动态配置**：admin 把 SMTP 配置存表、做页面时，实现 `MailConfigProvider` 从数据库读即可覆盖默认配置文件来源，改完下次发送即时生效：
+
+```java
+@Component
+public class DbMailConfigProvider implements MailConfigProvider {
+    @Override
+    public MailConfig getConfig() {
+        // 从配置表读 SMTP 参数，组装为 MailConfig
+    }
+}
+```
+
+**短信**：基于短信聚合框架 sms4j，一套接口统一阿里云/腾讯云/华为云等多厂商。需引入 sms4j 依赖与对应厂商依赖并配置：
+
+```xml
+<dependency>
+    <groupId>org.dromara.sms4j</groupId>
+    <artifactId>sms4j-spring-boot-starter</artifactId>
+</dependency>
+```
+
+```yaml
+# sms4j 原生配置（厂商密钥/模板），配置文件方式
+sms:
+  blends:
+    ali:                      # configId
+      supplier: alibaba
+      access-key-id: xxx
+      access-key-secret: xxx
+      signature: 签名
+      template-id: SMS_xxx
+```
+
+```java
+@Autowired
+private SmsService smsService;
+
+smsService.send("13800138000", "1234");                               // 单变量
+smsService.sendByTemplate("13800138000", "SMS_xxx", Map.of("code", "1234"));
+smsService.sendByConfig("ali", "138...", "SMS_xxx", Map.of("code", "1234")); // 指定厂商
+```
+
+非注入场景用静态门面 `SmsUtils.send(...)`。**后台动态配置**：厂商密钥要做成后台可配置时，实现 sms4j 的 `SmsReadConfig` 从数据库读取（sms4j 原生扩展点），改完即时生效，无需重启——starter 不再包一层，避免配置翻译。
 
 **WebSocket（STOMP 实时推送）**：需引入 `spring-boot-starter-websocket` 并开启：
 

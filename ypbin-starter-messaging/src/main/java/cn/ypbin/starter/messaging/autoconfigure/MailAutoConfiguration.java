@@ -15,34 +15,56 @@
  */
 package cn.ypbin.starter.messaging.autoconfigure;
 
+import cn.ypbin.starter.messaging.mail.DefaultMailConfigProvider;
+import cn.ypbin.starter.messaging.mail.MailConfig;
+import cn.ypbin.starter.messaging.mail.MailConfigProvider;
 import cn.ypbin.starter.messaging.mail.MailService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.mail.javamail.JavaMailSender;
 
 /**
  * 邮件自动配置。
  *
- * <p>仅当存在 {@link JavaMailSender}（即业务方配置了 spring.mail.*）时装配 {@link MailService}。
- * 发件人默认取 {@code spring.mail.username}，可被业务方自定义 Bean 覆盖。</p>
+ * <p>SMTP 配置默认绑定 {@code ypbin.mail.*}（配置文件版 {@link MailConfigProvider}），
+ * 业务方提供自定义 {@link MailConfigProvider}（如从数据库读）即可覆盖，实现后台动态配置、不重启生效。
+ * {@link MailService} 按配置指纹缓存并按需重建底层 sender。</p>
+ *
+ * <p>仅需类路径存在 {@link JavaMailSender}（引入 spring-boot-starter-mail 即满足），不再要求业务方
+ * 预先配置 {@code spring.mail.*} 生成 sender Bean。</p>
  *
  * @author wenbin
  * @since 2026-07-30
  */
-@AutoConfiguration(after = MailSenderAutoConfiguration.class)
+@AutoConfiguration
 @ConditionalOnClass(JavaMailSender.class)
-@ConditionalOnBean(JavaMailSender.class)
 public class MailAutoConfiguration {
+
+    /**
+     * 邮件配置，绑定 {@code ypbin.mail.*}。
+     */
+    @Bean
+    @ConfigurationProperties(prefix = "ypbin.mail")
+    @ConditionalOnMissingBean
+    public MailConfig mailConfig() {
+        return new MailConfig();
+    }
+
+    /**
+     * 默认配置文件版邮件配置来源。业务方提供自定义实现即可从数据库接管。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public MailConfigProvider mailConfigProvider(MailConfig mailConfig) {
+        return new DefaultMailConfigProvider(mailConfig);
+    }
 
     @Bean
     @ConditionalOnMissingBean
-    public MailService mailService(JavaMailSender mailSender,
-        @Value("${spring.mail.username:}") String defaultFrom) {
-        return new MailService(mailSender, defaultFrom);
+    public MailService mailService(MailConfigProvider mailConfigProvider) {
+        return new MailService(mailConfigProvider);
     }
 }

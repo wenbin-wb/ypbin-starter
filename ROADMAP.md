@@ -276,6 +276,29 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 新增 `SignAppProvider` 扩展点 + `DefaultSignAppProvider`（读 ypbin.sign.apps 配置），SignChecker 改为经 provider 按 accessKey 取应用；admin 有 sys_app 表时实现 provider 从 DB 加载（密钥加密存）即可覆盖。
 - ✅ 边界：starter 只做签名运行时 + 配置默认实现，不内置 sys_app 表/页面/AK-SK 生成；生成/重置密钥、到期管理归 admin。SignCheckerTest 5（provider/禁用/过期/错误密钥/正常）。
 
+### 密码安全策略：复杂度校验 + 错误锁定（用户提问：密码错误锁定阈值/锁定时长/密码有效期）
+- ✅ 厘清分工：continew 把密码策略全放 admin（绑 sys_option 表），我们比它多下沉一层——能力+扩展点进 starter，配置项管理和登录编排留 admin。
+- ✅ security 新增 password.policy 包：`PasswordPolicy`（minLength/maxLength/requireDigit/Letter/Uppercase/Lowercase/Symbol/allowContainUsername/errorLockCount/lockMinutes/expirationDays/expirationWarningDays/historyCount）+ `PasswordPolicyProvider` 扩展点 + `DefaultPasswordPolicyProvider`（读 ypbin.security.password）+ `PasswordValidator` 复杂度校验器 + `PasswordCheckResult`。
+- ✅ security 新增 password.lock 包：`PasswordAttemptLimiter`（按 账号:IP 维度计数，达阈值抛 AccountLockedException）+ `PasswordAttemptStore` 扩展点，Redis（Lua 原子 INCR + 首次 EXPIRE）/ 内存两实现，锁定时长即计数键 TTL、到期自动解锁，参照 sign 的 NonceStore 双实现模式。
+- ✅ SecurityProperties 复用 PasswordPolicy 作为 password 配置块；SecurityAutoConfiguration 装配 policyProvider/validator/expiration/attemptStore/attemptLimiter（均 ConditionalOnMissingBean，Redis 存在时用 Redis store）。security pom 补 spring-boot-starter-data-redis optional。
+- ✅ 复盘补强 6 点（用户追问实时生效/解锁/遗漏）：①`unlock(identifier)` 按账号解锁全部维度（store 加 resetByPrefix，Redis 用 SCAN 非 KEYS）②`getLockStatus`/`isLocked` 锁定状态查询（LockStatus 记录）③账号标识小写归一，防大小写绕过 ④`recordFailure` 用递增返回值判定、达阈值本次即抛，消除读写分离竞态 ⑤新增 `PasswordExpiration` 密码有效期判定工具（isExpired/shouldWarn/remainingDays）⑥`PasswordValidator` 大小写要求已覆盖时不再冗余报"必须含字母"。策略每次实时读取，provider 走 DB 时后台改配置即时生效。
+- ✅ 边界：starter 只做复杂度校验 + 错误锁定运行时 + 有效期判定 + 策略值；配置项落表/后台可改、密码有效期强制改密登录拦截编排、历史密码表归 admin。测试：PasswordValidatorTest 8 + PasswordAttemptLimiterTest 9 + PasswordExpirationTest 7，security 模块共 30 绿。
+
+### 邮件配置动态化：从写死配置文件改为可后台配置（用户提问：邮件能不能像 continew 那样前端可配置）
+- ✅ 厘清现状：原 MailAutoConfiguration 依赖 Spring 启动时按 spring.mail.* 构建的固定 JavaMailSender，改配置必须重启，前端改不了。
+- ✅ messaging 新增 mail 配置能力：`MailConfig` 值对象（host/port/username/password/from/fromName/protocol/ssl/starttls/encoding/timeout + isConfigured/resolveFrom/fingerprint）+ `MailConfigProvider` 扩展点 + `DefaultMailConfigProvider`（绑 ypbin.mail.*）。
+- ✅ MailService 改造：不再固定持有 sender，改为按 MailConfigProvider 动态构建 JavaMailSenderImpl，按配置指纹缓存、配置变化重建（缓存+刷新，非每次重建）；发件人取当前配置；新增 sendTest(to) 测试发送 + isConfigured()。
+- ✅ MailAutoConfiguration 改为 @ConditionalOnClass(JavaMailSender)（引 starter-mail 即满足），装配 MailConfig(绑 ypbin.mail)/MailConfigProvider/MailService，均 ConditionalOnMissingBean。
+- ✅ 边界（用户定 key 前缀 ypbin.mail、缓存+刷新、内置 test）：starter 给能力+扩展点+配置文件默认实现；SMTP 配置存表、后台页面、改完即时生效由 admin 实现 MailConfigProvider 从 DB 读接管。MailServiceTest 5，messaging 模块共 22 绿。
+
+### 能力盘点后补齐四项（用户：全项目盘点缺什么，补短信/存储动态化/数据字典/在线用户）
+- 盘点结论：ypbin 32 模块横比 continew-starter(22) 更全（多 cloud 全家桶/sign/social/sensitive-words/api-crypto）；缺的多为 admin 业务层。选定 starter 该补的 4 项通用运行时。
+- ✅ 在线用户（security.online）：`OnlineUser` + `OnlineUserService`（基于 Sa-Token searchTokenValue 枚举，截 key 前缀取真实 token、过滤冻结、list/关键字过滤/按 userId/按 token 强制下线）+ `DefaultOnlineUserService` + `OnlineUserHelper`（登录时记录 IP/浏览器/OS 到 Token-Session 供列表展示）。表/页面归 admin。
+- ✅ 存储动态化（storage.engine）：新增 `StorageConfigProvider` 扩展点 + `DefaultStorageConfigProvider`（读 ypbin.storage.*）+ `StorageStrategyRebuilder.rebuild()`；`StorageRouter` 加 `rebuild()` 原子全量刷新（retainAll+putAll，默认平台失效兜底）；两个 registrar 改从 provider 取配置。admin 存表实现 provider 后调 rebuild 即时增删源。StorageRouterTest 4。
+- ✅ 数据字典（json.dict，放 json 与 @Sensitive 同款 ContextualSerializer 模式）：`DictItem`/`DictProvider` 扩展点/`DictCache`(本地缓存可刷新)/`@DictText`+`DictTextSerializer`(保留原字段原值、额外输出 xxxText 派生字段，严守 no-field-mapping)/`DictUtils` 静态门面。DictCache 仅当业务方提供 DictProvider 时装配。DictTextTest 4。
+- ✅ 短信（messaging.sms）：选定用 sms4j 聚合框架（一库统一阿里云/腾讯云等十几家）。`SmsService`(send/sendByTemplate/sendByConfig/sendBatch/isConfigured) + `DefaultSmsService`(委托 SmsFactory.getSmsBlend) + `SmsUtils` 静态门面 + `SmsAutoConfiguration`(@ConditionalOnClass SmsFactory)。dependencies 纳管 sms4j 3.3.5，messaging 加 sms4j optional 依赖。关键决策：动态配置直接用 sms4j 原生 SmsReadConfig 钩子（admin 实现从 DB 读），不再包平行 provider，避免配置翻译。messaging 模块共 22 绿。
+- 分层一致：四项均 starter 给运行时+扩展点+默认实现，表/页面/DB 配置源归 admin。同时清理 .m2 中 45 个 continew 风格残留细分模块坐标。
+
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。
 - ✅ 多级缓存 `MultiLevelCacheService`：L1 Caffeine + L2 Redis，读回填 L1、写删失效 L1；Redis Pub/Sub 跨实例失效广播（带实例标识忽略自广播），覆盖默认 CacheService。

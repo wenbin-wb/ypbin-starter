@@ -15,6 +15,9 @@
  */
 package cn.ypbin.starter.json.autoconfigure;
 
+import cn.ypbin.starter.json.dict.DictCache;
+import cn.ypbin.starter.json.dict.DictProvider;
+import cn.ypbin.starter.json.dict.DictUtils;
 import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,7 +39,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -96,5 +101,22 @@ public class JacksonAutoConfiguration {
                 builder.serializerByType(BigDecimal.class, ToStringSerializer.instance);
             }
         };
+    }
+
+    /**
+     * 字典缓存：仅当业务方提供 {@link DictProvider}（如从字典表读）时装配，并绑定到 {@link DictUtils}
+     * 供 {@code @DictText} 序列化器与静态调用使用。未接入字典时不装配，翻译安全退化为原值。
+     *
+     * @param dictProvider 字典数据来源
+     * @return 字典缓存
+     */
+    @Bean
+    @ConditionalOnBean(DictProvider.class)
+    @ConditionalOnMissingBean
+    public DictCache dictCache(DictProvider dictProvider) {
+        DictCache dictCache = new DictCache(dictProvider);
+        DictUtils.bind(dictCache);
+        log.debug("[ypbin-starter] dict cache initialized.");
+        return dictCache;
     }
 }
