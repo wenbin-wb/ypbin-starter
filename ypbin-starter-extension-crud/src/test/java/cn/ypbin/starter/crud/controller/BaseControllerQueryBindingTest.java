@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 验证 {@link BaseController} 泛型查询参数 {@code Q} 能被 Spring 绑定到具体子类型的字段。
+ * 验证 {@link CrudController} 泛型查询参数 {@code Q} 能被 Spring 绑定到具体子类型的字段。
  *
  * <p>核心断言：请求携带 {@code username=tom&status=1}，控制器 {@code buildQueryWrapper} 收到的
  * {@code DemoQuery} 应能取到这两个字段值——证明泛型 Q 经桥接方法正确参与了参数绑定，
@@ -72,10 +72,10 @@ class BaseControllerQueryBindingTest {
         }
     }
 
-    /** 继承 BaseController，Q 指定为具体的 DemoQuery */
+    /** 继承 CrudController，Q 指定为具体的 DemoQuery */
     @RestController
     @RequestMapping("/demos")
-    static class DemoController extends BaseController<Demo, Long, Demo, Demo, DemoQuery> {
+    static class DemoController extends CrudController<Demo, Long, Demo, Demo, DemoQuery> {
         private final BaseService<Demo> service;
 
         DemoController(BaseService<Demo> service) {
@@ -104,7 +104,7 @@ class BaseControllerQueryBindingTest {
 
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new DemoController(service)).build();
 
-        mockMvc.perform(get("/demos/page")
+        mockMvc.perform(get("/demos")
                 .param("page", "2").param("pageSize", "20")
                 .param("username", "tom").param("status", "1"))
             .andExpect(status().isOk());

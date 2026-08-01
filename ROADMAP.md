@@ -157,7 +157,8 @@ ypbin-starter/                        聚合 POM
 **M3 全部完成，13 模块 BUILD SUCCESS。**
 
 ### 里程碑 M4 — 扩展层
-- ✅ `ypbin-starter-extension-crud`（BaseController/BaseService/BaseServiceImpl + PageQuery/PageResult）
+- ✅ `ypbin-starter-extension-crud`（BaseController/CrudController/BaseService/BaseServiceImpl + PageQuery/PageResult）
+  - BaseController 只做轻量辅助；标准 CRUD 路由由 CrudController 承担，避免一个基类过重。
   - BaseService 继承 MyBatis-Plus IService 只加 page()，避免重复声明导致泛型擦除签名冲突。
 - ✅ `ypbin-starter-extension-tenant`（MyBatis-Plus 行级隔离；TenantProvider 扩展点与其他模块解耦）
   - 架构改进：data 模块引入 `InnerInterceptorProvider` 扩展点，各模块按 order 贡献内部拦截器，

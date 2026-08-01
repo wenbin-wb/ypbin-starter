@@ -27,7 +27,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 实体基类，携带主键、通用审计字段与逻辑删除标记。
+ * 实体基类，携带主键、通用审计字段、业务状态与逻辑删除标记。
  *
  * <p>主键 {@link #id} 用雪花算法（{@link IdType#ASSIGN_ID}），并单独以 {@link ToStringSerializer}
  * 序列化为字符串，防止前端 JS 大数精度丢失（即便未全局开启 Long 转字符串也安全）。需要自增/UUID 等
@@ -67,6 +67,10 @@ public abstract class BaseEntity implements Serializable {
     /** 更新时间 */
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
+
+    /** 业务状态：1 正常、0 禁用 */
+    @TableField(value = "status")
+    private Integer status = 1;
 
     /** 逻辑删除标记：0 未删除、1 已删除 */
     @TableLogic
@@ -111,6 +115,14 @@ public abstract class BaseEntity implements Serializable {
 
     public void setUpdateTime(LocalDateTime updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
     }
 
     public Integer getIsDeleted() {

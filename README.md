@@ -92,7 +92,7 @@
 | 核心 | `ypbin-starter-core` | 统一响应 R、异常体系、通用枚举、SpringUtils、上下文透传、树形工具 | — |
 | JSON | `ypbin-starter-json` | Jackson 统一序列化（时间格式、大数字转字符串）、`@Sensitive` 脱敏 | `ypbin.json` |
 | Web | `ypbin-starter-web` | 全局异常处理、CORS、404 统一 JSON、XSS 过滤、可重复读请求 | `ypbin.web` |
-| 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、`BaseEntity`（主键/审计/逻辑删除）、拦截器编排、字段加密、雪花 ID | `ypbin.data` |
+| 数据 | `ypbin-starter-data` | MyBatis-Plus 增强、`BaseEntity`（主键/审计/状态/逻辑删除）、拦截器编排、字段加密、雪花 ID | `ypbin.data` |
 | 缓存 | `ypbin-starter-cache` | Redis 缓存 + `getOrLoad` 防击穿/穿透/雪崩 + 多级缓存（L1 Caffeine + L2 Redis，跨实例失效广播） | `ypbin.cache` |
 | 安全 | `ypbin-starter-security` | Sa-Token 封装（全局登录拦截、当前用户门面、权限数据源扩展点）、密码编码器 | `ypbin.security` |
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
@@ -213,9 +213,10 @@ ypbin:
 MyBatis-Plus 增强，引入即生效：
 
 - 分页拦截器（默认单页上限 500 条，可配 `ypbin.data.max-limit`）。
-- 实体继承 `BaseEntity` 即获得主键 `id`（Long）、`createUser/createTime/updateUser/updateTime` 审计字段与逻辑删除字段 `isDeleted`（列 `is_deleted`）。
+- 实体继承 `BaseEntity` 即获得主键 `id`（Long）、`createUser/createTime/updateUser/updateTime` 审计字段、业务状态字段 `status`（默认 1 正常）与逻辑删除字段 `isDeleted`（列 `is_deleted`）。
 - 主键雪花算法（`@TableId(type = ASSIGN_ID)`），并单独序列化为字符串防前端精度丢失；要全局改自增/UUID，配 `mybatis-plus.global-config.db-config.id-type`。
 - 审计字段 INSERT/UPDATE 自动填充；操作人来源实现 `AuditorProvider` 扩展点（引入 security 后自动对接登录用户）。
+- 业务状态：`status` 只表达启停等业务状态，默认 1 正常、0 禁用；逻辑删除仍由 `isDeleted` 表达，两者不要混用。
 - 逻辑删除：`isDeleted` 带 `@TableLogic`，默认规则（0 未删/1 已删）开箱生效，删除转 UPDATE、查询自动过滤；不需要逻辑删除的表对应实体不继承 `BaseEntity` 或建表不加该列即可。
 - 拦截器编排：多租户、数据权限等通过 `InnerInterceptorProvider` 按 order 贡献内部拦截器，顺序可控（租户/数据权限先于分页）。
 
@@ -572,26 +573,42 @@ boolean ok  = Sm2Utils.verify("data", sign, kp.publicKey());   // 验签
 
 ### extension-crud — 通用 CRUD
 
-基类库，消除增删改查样板。为防 Over-Posting（前端恶意提交越权字段），控制器严格区分请求/响应/实体三类模型：
+基类库，消除增删改查样板。控制器拆成两层，避免一个基类同时承担「通用辅助」和「标准 CRUD 路由」导致不灵活：
+
+- `BaseController`：轻量辅助基类，封装 `request()`、`path()`、`method()`、`header()`、`param()`、`ip()`、`file()/files()`、`isLogin()`、`userId()`、`username()`、`tenantId()`、`ok()/data()/success()/fail()/status()`，不声明任何路由。复杂业务、非标准端点直接继承它。
+- `CrudController`：标准 CRUD 抽象控制器，声明 `GET /{id}`、`GET /list`、`GET /` 分页、`POST /`、`PUT /{id}`、`DELETE /{id}`。适合接口形态稳定、业务逻辑较轻的实体。
 
 ```java
 // 服务层：继承 BaseServiceImpl，自动拥有 CRUD + 分页
 @Service
 public class ArticleService extends BaseServiceImpl<ArticleMapper, Article> { }
 
-// 控制器：泛型 <实体, 主键, 请求, 响应, 查询>，REQ/RESP 与实体默认 BeanUtils 转换
-// 无业务过滤时查询泛型直接用 PageQuery
+// 标准 CRUD 控制器：泛型 <实体, 主键, 请求, 响应, 查询>
+// REQ/RESP 与实体默认 BeanUtils 同名字段转换；无业务过滤时查询泛型直接用 PageQuery
 @RestController
 @RequestMapping("/articles")
-public class ArticleController extends BaseController<Article, Long, ArticleReq, ArticleResp, PageQuery> {
+public class ArticleController extends CrudController<Article, Long, ArticleReq, ArticleResp, PageQuery> {
     private final ArticleService service;
     @Override protected BaseService<Article> getBaseService() { return service; }
 }
 ```
 
-`save/update` 收 `REQ`、查询返回 `RESP`，实体永不直接暴露。简单场景可将 REQ/RESP 直接指定为实体类型；需精细映射时覆盖 `toEntity` / `toResp`（接 MapStruct 等）。分页用 `PageQuery` / `PageResult`。
+`save/update` 收 `REQ`、查询返回 `RESP`，实体永不直接暴露。简单场景可将 REQ/RESP 直接指定为实体类型；需精细控制时覆盖 `toEntity` / `toResp`（接 MapStruct 等）。分页用 `PageQuery` / `PageResult`，请求参数为 `page/pageSize`，响应数据为 `items/total/page/pageSize/pages`。
 
-**操作级鉴权**：端点方法可覆盖，`@Override` 挂上权限注解再 `super.xxx()` 复用父类逻辑：
+**复杂控制器**：直接继承 `BaseController`，手写端点，保留统一响应辅助：
+
+```java
+@RestController
+@RequestMapping("/articles")
+public class ArticleController extends BaseController {
+    @GetMapping("/{id}/publish-info")
+    public R<ArticlePublishInfo> publishInfo(@PathVariable Long id) {
+        return ok(articleService.getPublishInfo(id));
+    }
+}
+```
+
+**操作级鉴权**：`CrudController` 端点方法可覆盖，`@Override` 挂上权限注解再 `super.xxx()` 复用父类逻辑：
 
 ```java
 @Override
@@ -611,7 +628,7 @@ public class ArticleQuery extends PageQuery {
 }
 
 // 控制器第 5 个泛型指定为 ArticleQuery，Spring 会把 ?title=x 绑定进来
-public class ArticleController extends BaseController<Article, Long, ArticleReq, ArticleResp, ArticleQuery> {
+public class ArticleController extends CrudController<Article, Long, ArticleReq, ArticleResp, ArticleQuery> {
     @Override
     protected Wrapper<Article> buildQueryWrapper(ArticleQuery q) {
         return Wrappers.<Article>lambdaQuery()
@@ -632,7 +649,7 @@ protected void beforeSave(UserReq req, User entity) {
 }
 ```
 
-> 定位：`BaseController` 服务「标准 CRUD + 可插拔鉴权/过滤/钩子」的实体；若写操作逻辑极重、端点形态完全非标准，自写控制器更直接——两者按复杂度取舍。
+> 定位：标准且轻量的资源用 `CrudController`；业务规则多、端点形态特殊、鉴权编排复杂的资源继承 `BaseController` 自写。
 
 ### extension-tenant — 多租户
 
