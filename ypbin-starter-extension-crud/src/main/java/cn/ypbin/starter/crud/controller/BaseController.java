@@ -99,8 +99,8 @@ public abstract class BaseController<T, ID extends Serializable, REQ, RESP, Q ex
     public R<PageResult<RESP>> page(Q query) {
         PageResult<T> source = getBaseService().page(query, buildQueryWrapper(query));
         PageResult<RESP> view = PageResult.of(
-            source.getRecords().stream().map(this::toResp).toList(),
-            source.getTotal(), source.getPage(), source.getSize());
+            source.getItems().stream().map(this::toResp).toList(),
+            source.getTotal(), source.getPage(), source.getPageSize());
         return R.ok(view);
     }
 

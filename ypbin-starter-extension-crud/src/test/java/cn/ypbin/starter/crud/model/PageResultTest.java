@@ -53,15 +53,15 @@ class PageResultTest {
     @Test
     void of_preservesFields() {
         PageResult<String> r = PageResult.of(List.of("a", "b"), 2, 1, 10);
-        assertThat(r.getRecords()).containsExactly("a", "b");
+        assertThat(r.getItems()).containsExactly("a", "b");
         assertThat(r.getTotal()).isEqualTo(2);
         assertThat(r.getPage()).isEqualTo(1);
-        assertThat(r.getSize()).isEqualTo(10);
+        assertThat(r.getPageSize()).isEqualTo(10);
     }
 
     @Test
-    void nullRecords_becomesEmptyList() {
+    void nullItems_becomesEmptyList() {
         PageResult<String> r = new PageResult<>(null, 0, 1, 10);
-        assertThat(r.getRecords()).isNotNull().isEmpty();
+        assertThat(r.getItems()).isNotNull().isEmpty();
     }
 }

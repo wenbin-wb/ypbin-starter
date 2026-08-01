@@ -33,7 +33,7 @@ public class PageResult<T> implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /** 当前页数据 */
-    private List<T> records;
+    private List<T> items;
 
     /** 总记录数 */
     private long total;
@@ -42,31 +42,31 @@ public class PageResult<T> implements Serializable {
     private long page;
 
     /** 每页条数 */
-    private long size;
+    private long pageSize;
 
     public PageResult() {
-        this.records = Collections.emptyList();
+        this.items = Collections.emptyList();
     }
 
-    public PageResult(List<T> records, long total, long page, long size) {
-        this.records = (records != null) ? records : Collections.emptyList();
+    public PageResult(List<T> items, long total, long page, long pageSize) {
+        this.items = (items != null) ? items : Collections.emptyList();
         this.total = total;
         this.page = page;
-        this.size = size;
+        this.pageSize = pageSize;
     }
 
     /**
      * 构造分页结果。
      *
-     * @param records 当前页数据
-     * @param total   总数
-     * @param page    页码
-     * @param size    每页条数
-     * @param <T>     记录类型
+     * @param items    当前页数据
+     * @param total    总数
+     * @param page     页码
+     * @param pageSize 每页条数
+     * @param <T>      记录类型
      * @return 分页结果
      */
-    public static <T> PageResult<T> of(List<T> records, long total, long page, long size) {
-        return new PageResult<>(records, total, page, size);
+    public static <T> PageResult<T> of(List<T> items, long total, long page, long pageSize) {
+        return new PageResult<>(items, total, page, pageSize);
     }
 
     /**
@@ -75,15 +75,15 @@ public class PageResult<T> implements Serializable {
      * @return 总页数
      */
     public long getPages() {
-        return (size <= 0) ? 0 : (total + size - 1) / size;
+        return (pageSize <= 0) ? 0 : (total + pageSize - 1) / pageSize;
     }
 
-    public List<T> getRecords() {
-        return records;
+    public List<T> getItems() {
+        return items;
     }
 
-    public void setRecords(List<T> records) {
-        this.records = records;
+    public void setItems(List<T> items) {
+        this.items = items;
     }
 
     public long getTotal() {
@@ -102,11 +102,11 @@ public class PageResult<T> implements Serializable {
         this.page = page;
     }
 
-    public long getSize() {
-        return size;
+    public long getPageSize() {
+        return pageSize;
     }
 
-    public void setSize(long size) {
-        this.size = size;
+    public void setPageSize(long pageSize) {
+        this.pageSize = pageSize;
     }
 }

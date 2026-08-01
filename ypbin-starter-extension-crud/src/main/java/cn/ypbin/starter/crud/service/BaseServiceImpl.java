@@ -64,7 +64,7 @@ public class BaseServiceImpl<M extends BaseMapper<T>, T>
      * 构建分页对象并安全应用排序。
      */
     private Page<T> buildPage(PageQuery query) {
-        Page<T> page = new Page<>(query.getPage(), query.getSize());
+        Page<T> page = new Page<>(query.getPage(), query.getPageSize());
         String sortField = query.getSortField();
         if (sortField != null && !sortField.isBlank()) {
             if (!SAFE_COLUMN.matcher(sortField).matches()) {

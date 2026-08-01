@@ -69,7 +69,7 @@
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `page` | long | 1 | 页码，从 1 开始 |
-| `size` | long | 10 | 每页条数 |
+| `pageSize` | long | 10 | 每页条数 |
 | `sortField` | string | — | 排序字段（可选） |
 | `asc` | boolean | true | 是否升序 |
 
@@ -80,16 +80,16 @@
   "code": 200,
   "success": true,
   "data": {
-    "records": [],
+    "items": [],
     "total": 100,
     "page": 1,
-    "size": 10,
+    "pageSize": 10,
     "pages": 10
   }
 }
 ```
 
-`pages` 为总页数，由 `total` 与 `size` 推导。
+`pages` 为总页数，由 `total` 与 `pageSize` 推导。
 
 ## 5. 序列化约定
 
@@ -126,7 +126,7 @@
 1. 只认 `R` 结构，判 `success` / `code`。
 2. 业务失败展示 `message`，`401` 跳登录，`403` 提示无权限，`429` 提示稍后重试。
 3. id 类字段按字符串处理。
-4. 分页用 `page/size`，读 `records/total/pages`。
+4. 分页用 `page/pageSize`，读 `items/total/pages`。
 5. 只带 token，不要自己造 `X-User-Id` 等内部头。
 
 只要单体和微服务两套后端都以本规范为准，前端代码可原样复用，无需按后端架构分叉。

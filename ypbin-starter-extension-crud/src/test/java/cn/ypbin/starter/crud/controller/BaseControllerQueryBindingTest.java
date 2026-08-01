@@ -105,7 +105,7 @@ class BaseControllerQueryBindingTest {
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new DemoController(service)).build();
 
         mockMvc.perform(get("/demos/page")
-                .param("page", "2").param("size", "20")
+                .param("page", "2").param("pageSize", "20")
                 .param("username", "tom").param("status", "1"))
             .andExpect(status().isOk());
 
@@ -117,6 +117,6 @@ class BaseControllerQueryBindingTest {
         assertThat(q.getStatus()).isEqualTo(1);
         // 基类分页字段同样正确
         assertThat(q.getPage()).isEqualTo(2);
-        assertThat(q.getSize()).isEqualTo(20);
+        assertThat(q.getPageSize()).isEqualTo(20);
     }
 }

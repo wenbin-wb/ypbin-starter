@@ -35,7 +35,7 @@ public class PageQuery implements Serializable {
     private long page = 1L;
 
     /** 每页条数 */
-    private long size = 10L;
+    private long pageSize = 10L;
 
     /** 排序字段 */
     private String sortField;
@@ -51,12 +51,12 @@ public class PageQuery implements Serializable {
         this.page = page;
     }
 
-    public long getSize() {
-        return size;
+    public long getPageSize() {
+        return pageSize;
     }
 
-    public void setSize(long size) {
-        this.size = size;
+    public void setPageSize(long pageSize) {
+        this.pageSize = pageSize;
     }
 
     public String getSortField() {
