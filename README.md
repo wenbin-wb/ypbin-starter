@@ -122,6 +122,23 @@
 
 详细用法见 [各模块使用文档](#各模块使用文档)。
 
+## 业务系统如何对接
+
+业务系统（如后台管理）只做业务功能，系统级能力用本 starter 已有的、或实现其**扩展点接口**（Provider）即可，不必重造。核心扩展点：
+
+| 扩展点 | 模块 | 是否必须 | 作用 |
+|---|---|---|---|
+| `PermissionProvider` | security | 必须 | 提供用户权限码/角色码，接通 Sa-Token 注解鉴权 |
+| `TenantProvider` | extension-tenant | 启用多租户时必须 | 提供当前租户 ID |
+| `DataScopeHandler` | extension-datapermission | 启用数据权限时必须 | 提供数据范围 SQL |
+| `DictProvider` | json | 可选 | 字典数据源，配 `@DictText` 自动翻译 |
+| `RefTextProvider` | json | 可选 | 引用翻译数据源（ID→名称），配 `@RefText` |
+| `LoginClientProvider` / `PasswordPolicyProvider` | security | 可选 | 登录客户端 / 密码策略从数据库动态配置 |
+| `MailConfigProvider` / `StorageConfigProvider` / `SignAppProvider` | messaging/storage/sign | 可选 | 邮件/存储/开放应用配置后台动态化 |
+| `SensitiveWordProvider` / `AuthRequestProvider` / `GatewayAuthProvider` | sensitive-words/social/gateway | 可选 | 词库 / OAuth 平台 / 网关鉴权 |
+
+除「必须」项外均有默认实现（多为读配置文件），想接数据库/后台配置时才覆盖。所有能力 Bean 均 `@ConditionalOnMissingBean`，定义同类型 Bean 即覆盖。
+
 ## 单体 vs 微服务
 
 两套后端共用 L1 基础层，对外契约一致（详见 [CONTRACT.md](CONTRACT.md)），前端可复用同一套调用逻辑。
@@ -620,14 +637,37 @@ SpringDoc OpenAPI 开箱即用，配置文档元信息：
 ```yaml
 ypbin:
   api-doc:
+    enabled: true
+    disable-in-prod: true        # 生产环境关闭文档端点（默认 true，重要安全默认值）
     title: 订单服务 API
+    description: 订单中心接口文档
     version: 1.0.0
+    group-name: default
+    default-group-enabled: true  # 是否创建默认分组
+    order-enabled: true          # 是否启用 @ApiOrder 排序
+    paths-to-match: ["/**"]      # 纳入文档的路径
+    paths-to-exclude: ["/error", "/actuator/**"]
+    packages-to-scan: []         # 限定扫描包（空=全部）
+    packages-to-exclude: []
+    security-headers: ["Authorization", "X-Request-Id", "X-Tenant-Id", "X-Version"]  # 全局请求头
     contact:
       name: wenbin
       email: dev@example.com
+      url: https://example.com
+    license:
+      name: Apache-2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
 ```
 
-启动后访问 `/swagger-ui.html`。
+启动后访问 `/swagger-ui.html`。**生产安全**：`disable-in-prod` 默认 `true`，在 `prod` profile 下自动关闭 SpringDoc 端点，避免接口文档对外暴露。
+
+**接口排序** `@ApiOrder`：控制 Controller / 方法在文档中的展示顺序（数值小的靠前），需 `order-enabled: true`：
+
+```java
+@ApiOrder(1)
+@RestController
+public class UserController { ... }
+```
 
 ### storage — 文件存储
 
@@ -814,11 +854,24 @@ public class ArticleController extends BaseController {
 }
 ```
 
-**操作级鉴权**：`CrudController` 端点方法可覆盖，`@Override` 挂上权限注解再 `super.xxx()` 复用父类逻辑：
+**操作级鉴权（推荐：一次声明全端点覆盖）**：覆盖 `permissionPrefix()` 返回权限前缀，六个端点自动按 `前缀:动作` 校验，杜绝「逐个端点挂注解漏挂导致越权」：
+
+```java
+public class ArticleController extends CrudController<Article, Long, ArticleReq, ArticleResp, PageQuery> {
+    @Override
+    protected String permissionPrefix() {
+        return "system:article";   // get/list/page→:list，save→:add，update→:edit，delete→:delete
+    }
+}
+```
+
+> 安全默认：`permissionPrefix()` 默认返回 `null`（不校验，仅受全局登录拦截）；受保护资源务必覆盖它。依赖 Sa-Token，未引入时自动跳过。
+
+**精细控制**：需要某端点单独权限码/逻辑时，仍可 `@Override` 端点挂 `@SaCheckPermission` 再 `super.xxx()`，与前缀机制共存：
 
 ```java
 @Override
-@SaCheckPermission("system:article:add")
+@SaCheckPermission("system:article:publish")
 public R<Void> save(@RequestBody ArticleReq req) {
     return super.save(req);
 }

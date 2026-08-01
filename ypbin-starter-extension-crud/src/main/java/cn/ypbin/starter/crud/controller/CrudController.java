@@ -21,6 +21,7 @@ import cn.ypbin.starter.crud.model.PageResult;
 import cn.ypbin.starter.crud.service.BaseService;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,6 +55,10 @@ import org.springframework.web.bind.annotation.RequestBody;
  * <p>查询参数类型由泛型 {@code Q} 指定（{@link PageQuery} 或其携带过滤字段的子类），
  * 覆盖 {@link #buildQueryWrapper(PageQuery)} 返回查询条件即可按业务字段过滤。</p>
  *
+ * <p><b>权限校验：</b>覆盖 {@link #permissionPrefix()} 返回权限前缀（如 {@code "system:user"}），六个端点即
+ * 自动按 {@code 前缀:list/add/edit/delete} 校验权限——一次声明、全端点覆盖，避免逐个端点挂注解时漏挂越权。
+ * 默认不校验（仅受全局登录拦截）；也可继续用 {@code @Override} + {@code @SaCheckPermission} 精细控制。</p>
+ *
  * @param <T>    数据库实体类型
  * @param <ID>   主键类型
  * @param <REQ>  请求参数类型
@@ -68,6 +73,15 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
     /** 泛型参数解析结果缓存，避免每次请求都反射解析 */
     private static final Map<Class<?>, Class<?>[]> TYPE_ARG_CACHE = new ConcurrentHashMap<>();
 
+    /** Sa-Token 权限校验入口，反射调用以避免 crud 模块强依赖 security/sa-token */
+    private static final String STP_UTIL_CLASS = "cn.dev33.satoken.stp.StpUtil";
+
+    /** 权限动作：查询详情/列表/分页归为 list（读），写操作各自区分 */
+    private static final String ACTION_LIST = "list";
+    private static final String ACTION_ADD = "add";
+    private static final String ACTION_EDIT = "edit";
+    private static final String ACTION_DELETE = "delete";
+
     /**
      * 提供业务服务实例。
      *
@@ -77,16 +91,19 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
 
     @GetMapping("/{id}")
     public R<RESP> get(@PathVariable ID id) {
+        checkPermission(ACTION_LIST);
         return ok(toResp(getBaseService().getById(id)));
     }
 
     @GetMapping("/list")
     public R<List<RESP>> list() {
+        checkPermission(ACTION_LIST);
         return ok(getBaseService().list().stream().map(this::toResp).toList());
     }
 
     @GetMapping
     public R<PageResult<RESP>> page(Q query) {
+        checkPermission(ACTION_LIST);
         PageResult<T> source = getBaseService().page(query, buildQueryWrapper(query));
         PageResult<RESP> view = PageResult.of(
             source.getItems().stream().map(this::toResp).toList(),
@@ -96,6 +113,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
 
     @PostMapping
     public R<Void> save(@RequestBody REQ req) {
+        checkPermission(ACTION_ADD);
         T entity = toEntity(req);
         beforeSave(req, entity);
         getBaseService().save(entity);
@@ -105,6 +123,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
 
     @PutMapping("/{id}")
     public R<Void> update(@PathVariable ID id, @RequestBody REQ req) {
+        checkPermission(ACTION_EDIT);
         T entity = toEntity(req);
         beforeUpdate(id, req, entity);
         getBaseService().updateById(entity);
@@ -114,10 +133,57 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
 
     @DeleteMapping("/{id}")
     public R<Void> delete(@PathVariable ID id) {
+        checkPermission(ACTION_DELETE);
         beforeDelete(id);
         getBaseService().removeById(id);
         afterDelete(id);
         return ok();
+    }
+
+    /**
+     * 权限码前缀。返回非空即为六个标准端点自动挂权限校验：
+     * {@code 前缀:list}（get/list/page）、{@code 前缀:add}（save）、{@code 前缀:edit}（update）、
+     * {@code 前缀:delete}（delete）。例如返回 {@code "system:user"} 则分页需 {@code system:user:list}。
+     *
+     * <p><b>安全默认值意图：</b>默认返回 {@code null}（不校验，仅受全局登录拦截约束），保持向后兼容与
+     * 「非受保护资源」场景可用；但对后台受保护资源，只需覆盖本方法返回前缀，即可让全部端点一次性获得
+     * 细粒度权限校验，避免逐个 {@code @Override} 端点挂 {@code @SaCheckPermission} 时漏挂导致的越权风险。</p>
+     *
+     * <p>仍可继续用「{@code @Override} 端点 + {@code @SaCheckPermission} + {@code super.xxx()}」做更精细控制，
+     * 两者可共存；本机制依赖 Sa-Token，未引入 security/sa-token 时自动跳过（不报错）。</p>
+     *
+     * @return 权限码前缀；{@code null} 或空表示不自动校验
+     */
+    protected String permissionPrefix() {
+        return null;
+    }
+
+    /**
+     * 按权限前缀 + 动作自动校验权限。前缀为空或 Sa-Token 不在类路径时静默跳过。
+     *
+     * @param action 动作（list/add/edit/delete）
+     */
+    protected void checkPermission(String action) {
+        String prefix = permissionPrefix();
+        if (prefix == null || prefix.isBlank()) {
+            return;
+        }
+        try {
+            Class<?> stpUtil = Class.forName(STP_UTIL_CLASS);
+            Method method = stpUtil.getMethod("checkPermission", String.class);
+            method.invoke(null, prefix + ":" + action);
+        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+            // 未引入 sa-token：不做权限校验（仅受全局登录拦截约束）
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            // Sa-Token 抛出的鉴权异常（无权限）需向上传播，交全局异常处理器转 403
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new IllegalStateException(cause);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**
