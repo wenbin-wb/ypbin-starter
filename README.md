@@ -359,6 +359,27 @@ ypbin:
 
 - `LoginHelper`：`login(userId)` / `getUserId()` / `logout()`，统一以 `Long` 用户 ID 进出。
 - `UserContext` + `LoginUser`：当前登录用户门面，登录时 `setLoginUser` 存会话，任意层 `getLoginUser`/`getUserId`/`getUsername`/`getTenantId` 读取。
+
+**Token 续期**：Sa-Token 是「续期」机制，不是 OAuth2 的 access+refresh 双令牌——不换 token，延长现有 token 有效期。两层超时：
+
+```yaml
+sa-token:
+  timeout: 2592000          # 固定有效期(秒)，30 天，到点必过期
+  active-timeout: 1800      # 活跃超时(秒)，30 分钟无操作则冻结
+  auto-renew: true          # 活跃用户自动续期（开启后通常无需手动续）
+```
+
+开了 `auto-renew` 后活跃用户的 token 自动续期，一般不用手动调。需要显式控制或查剩余时长时用 `LoginHelper`：
+
+```java
+long timeout = LoginHelper.getTokenTimeout();          // 剩余有效期(秒)，-1 永不过期
+long active = LoginHelper.getTokenActiveTimeout();     // 距被冻结剩余(秒)
+LoginHelper.renewTimeout(3600);                        // 手动重设有效期
+LoginHelper.updateLastActiveToNow();                   // 续活跃，避免被冻结
+SaTokenInfo info = LoginHelper.getTokenInfo();         // token 完整信息
+```
+
+> 需要开放平台级 access+refresh 双令牌，才引 `sa-token-oauth2`；后台管理系统用上面的续期即可，不必上 OAuth2。
 - 权限数据源：实现 `PermissionProvider` 提供用户的权限码与角色码，框架自动适配为 Sa-Token 的 `StpInterface`，无需直接依赖 Sa-Token API。
 
 获取当前登录人信息：

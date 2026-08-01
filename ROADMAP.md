@@ -239,6 +239,11 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - 未选「父类统一 StpUtil.checkPermission 入口」方案：会绕开注解体系、与 admin 既有 @SaCheckPermission 风格割裂。
 - 文档写明定位：标准 CRUD + 可插拔鉴权/过滤/钩子用 BaseController；写逻辑极重且端点非标准的自写控制器。
 
+### Token 续期（用户提问：Sa-Token 没有刷新 token 吗）
+- 厘清：Sa-Token 是「续期」机制（不换 token，延长有效期），非 OAuth2 双令牌；后台管理用续期即可，不引 sa-token-oauth2。
+- ✅ LoginHelper 补续期/超时方法：getTokenInfo/getTokenTimeout/getTokenActiveTimeout/renewTimeout/updateLastActiveToNow（薄封装 StpUtil，与现有风格一致）。
+- ✅ README 说明 timeout/active-timeout/auto-renew 配置与「续期 vs OAuth2 refresh」区别；活跃用户开 auto-renew 自动续，一般无需手动。
+
 ### 全局登录拦截器（admin 建议：security 自动注册 SaInterceptor 消费 excludes）
 - ✅ security 新增 `SaTokenWebConfigurer`（WebMvcConfigurer 注册 SaInterceptor 做全局登录校验），消费 `ypbin.security.includes/excludes`；`SecurityProperties` 补 interceptor/includes/excludeApiDoc 开关。
 - ✅ 检测到 SpringDoc 时自动放行 Swagger/doc.html/v3/api-docs/webjars 等文档路径（Class.forName 探测，不硬依赖）。
