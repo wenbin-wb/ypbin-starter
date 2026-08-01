@@ -16,6 +16,10 @@
 package cn.ypbin.starter.json.ref;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -91,14 +95,51 @@ public class RefTextResolver {
                 found = true;
                 break;
             }
-            Class<?> ft = field.getType();
-            if (!isLeafType(ft) && containsRefText(ft, seen, depth + 1)) {
+            // 沿泛型类型深入：List<OrderItem> / Map<K,OrderItem> / OrderItem[] 等，
+            // 需检查其元素类型而非 List/Map 本身，否则含嵌套集合的 DTO 会被误剪枝。
+            if (genericContainsRefText(field.getGenericType(), seen, depth)) {
                 found = true;
                 break;
             }
         }
         CONTAINS_CACHE.put(type, found);
         return found;
+    }
+
+    /**
+     * 沿泛型类型递归判断是否含 @RefText：拆解集合/Map/数组的元素类型（含通配符上界），
+     * 对每个具体 Class 深入 {@link #containsRefText}。
+     */
+    private boolean genericContainsRefText(Type genericType, Set<Class<?>> seen, int depth) {
+        if (genericType == null || depth > MAX_DEPTH) {
+            return false;
+        }
+        if (genericType instanceof Class<?> clazz) {
+            if (clazz.isArray()) {
+                return genericContainsRefText(clazz.getComponentType(), seen, depth + 1);
+            }
+            return !isLeafType(clazz) && containsRefText(clazz, seen, depth + 1);
+        }
+        if (genericType instanceof ParameterizedType pt) {
+            // 容器本身（List/Map 等）不深入，但其类型实参（元素类型）要逐个检查
+            for (Type arg : pt.getActualTypeArguments()) {
+                if (genericContainsRefText(arg, seen, depth + 1)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (genericType instanceof GenericArrayType gat) {
+            return genericContainsRefText(gat.getGenericComponentType(), seen, depth + 1);
+        }
+        if (genericType instanceof WildcardType wt) {
+            for (Type upper : wt.getUpperBounds()) {
+                if (genericContainsRefText(upper, seen, depth + 1)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

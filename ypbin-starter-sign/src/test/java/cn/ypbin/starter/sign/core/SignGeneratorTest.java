@@ -89,4 +89,30 @@ class SignGeneratorTest {
         String serverSign = SignGenerator.generate(toVerify, "secret", SignAlgorithm.HMAC_SHA256);
         assertThat(serverSign).isEqualTo(clientSign);
     }
+
+    @Test
+    void valueWithDelimitersDoesNotCollide() {
+        // 注入防护：把 "admin&user_id=123" 塞进单个 role 值，编码后不应等价于
+        // role=admin + user_id=123 两个独立参数，否则可伪造合法规范串提权
+        Map<String, String> injected = new HashMap<>();
+        injected.put("role", "admin&user_id=123");
+
+        Map<String, String> legit = new HashMap<>();
+        legit.put("role", "admin");
+        legit.put("user_id", "123");
+
+        assertThat(SignGenerator.generate(injected, "secret", SignAlgorithm.HMAC_SHA256))
+            .isNotEqualTo(SignGenerator.generate(legit, "secret", SignAlgorithm.HMAC_SHA256));
+    }
+
+    @Test
+    void encodedValueStillDeterministic() {
+        // 编码后同输入仍确定一致（验签可复现）
+        Map<String, String> p = new HashMap<>();
+        p.put("remark", "a&b=c 中文");
+        p.put("accessKey", "ak-001");
+        String s1 = SignGenerator.generate(p, "secret", SignAlgorithm.HMAC_SHA256);
+        String s2 = SignGenerator.generate(new HashMap<>(p), "secret", SignAlgorithm.HMAC_SHA256);
+        assertThat(s1).isEqualTo(s2);
+    }
 }

@@ -39,16 +39,23 @@ public class InMemoryPasswordAttemptStore implements PasswordAttemptStore {
     private final AtomicLong lastCleanup = new AtomicLong(System.currentTimeMillis());
 
     @Override
-    public long increment(String key, Duration expire) {
+    public long increment(String key, Duration window, int threshold, Duration lockDuration) {
         long now = System.currentTimeMillis();
         cleanupIfNeeded(now);
         Counter updated = counters.compute(key, (k, current) -> {
-            if (current == null || now >= current.expireAt()) {
-                // 首次失败或窗口已过期：从 1 计数，重新设置过期
-                return new Counter(1L, now + expire.toMillis());
+            long count = (current == null || now >= current.expireAt()) ? 1L : current.count() + 1;
+            long expireAt;
+            if (count >= threshold) {
+                // 达到锁定阈值：用满额锁定时长刷新过期，确保惩罚从此刻起足额生效
+                expireAt = now + lockDuration.toMillis();
+            } else if (current == null || now >= current.expireAt()) {
+                // 首次失败或窗口已过期：设观察窗口
+                expireAt = now + window.toMillis();
+            } else {
+                // 观察窗口内累加，保留原过期时间
+                expireAt = current.expireAt();
             }
-            // 窗口内累加，保留原过期时间（锁定窗口从首次失败起算）
-            return new Counter(current.count() + 1, current.expireAt());
+            return new Counter(count, expireAt);
         });
         return updated.count();
     }

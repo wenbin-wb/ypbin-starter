@@ -86,7 +86,9 @@ public class PasswordAttemptLimiter {
             return 0L;
         }
         String key = buildKey(identifier, scope);
-        long count = store.increment(key, Duration.ofMinutes(policy.getLockMinutes()));
+        Duration lockDuration = Duration.ofMinutes(policy.getLockMinutes());
+        // 观察窗口与锁定时长同取 lockMinutes：窗口内累计到阈值即锁定，达阈值时 store 会用满额时长刷新 TTL
+        long count = store.increment(key, lockDuration, policy.getErrorLockCount(), lockDuration);
         if (count >= policy.getErrorLockCount()) {
             throwLocked(key);
         }

@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.sign.core;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -71,10 +72,16 @@ public final class SignGenerator {
                 if (sb.length() > 0) {
                     sb.append('&');
                 }
-                sb.append(key).append('=').append(value);
+                // 对 key/value 做 percent-encode：value 里的 & = 等被转义，
+                // 杜绝把 "admin&user_id=123" 塞进单个参数值伪造出合法规范串的注入攻击
+                sb.append(encode(key)).append('=').append(encode(value));
             }
         }
         return sb.toString();
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private static String md5Hex(String text) {

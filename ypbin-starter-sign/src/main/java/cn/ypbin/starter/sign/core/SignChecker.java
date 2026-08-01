@@ -17,6 +17,7 @@ package cn.ypbin.starter.sign.core;
 
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -59,7 +60,10 @@ public class SignChecker {
         SignAppProvider appProvider) {
         this.properties = properties;
         this.nonceStore = nonceStore;
-        this.objectMapper = objectMapper;
+        // 专用副本并强制按 key 排序：嵌套对象拍平为字符串时输出确定、与配置无关，
+        // 避免共享 mapper 的 key 顺序波动导致验签时对时错
+        ObjectMapper base = (objectMapper != null) ? objectMapper : new ObjectMapper();
+        this.objectMapper = base.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
         this.appProvider = appProvider;
     }
 

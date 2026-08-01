@@ -30,13 +30,19 @@ import java.time.Duration;
 public interface PasswordAttemptStore {
 
     /**
-     * 递增失败计数并返回递增后的当前值。首次失败时按 {@code expire} 设置过期。
+     * 递增失败计数并返回递增后的当前值。
      *
-     * @param key    计数键
-     * @param expire 锁定窗口时长（首次失败时生效）
+     * <p>首次失败时按 {@code window}（观察窗口）设置过期；当计数达到 {@code threshold}（锁定阈值）时，
+     * 用 {@code lockDuration}（满额锁定时长）刷新过期时间——确保锁定从"触发锁定的那一刻"起足额生效，
+     * 而非被观察窗口的剩余 TTL 提前放行。</p>
+     *
+     * @param key          计数键
+     * @param window       观察窗口时长（首次失败时生效）
+     * @param threshold    锁定阈值
+     * @param lockDuration 满额锁定时长（达到阈值时刷新为此时长）
      * @return 递增后的失败次数
      */
-    long increment(String key, Duration expire);
+    long increment(String key, Duration window, int threshold, Duration lockDuration);
 
     /**
      * 获取当前失败计数。

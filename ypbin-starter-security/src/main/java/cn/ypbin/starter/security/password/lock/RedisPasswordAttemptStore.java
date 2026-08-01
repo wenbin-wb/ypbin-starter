@@ -49,10 +49,12 @@ public class RedisPasswordAttemptStore implements PasswordAttemptStore {
     }
 
     @Override
-    public long increment(String key, Duration expire) {
+    public long increment(String key, Duration window, int threshold, Duration lockDuration) {
         Long result = redisTemplate.execute(incrScript,
             Collections.singletonList(key),
-            String.valueOf(expire.toSeconds()));
+            String.valueOf(window.toSeconds()),
+            String.valueOf(threshold),
+            String.valueOf(lockDuration.toSeconds()));
         return result == null ? 0L : result;
     }
 

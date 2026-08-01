@@ -32,18 +32,18 @@ import java.io.IOException;
  * @author wenbin
  * @since 2026-08-01
  */
-public class DictTextSerializer extends JsonSerializer<String> implements ContextualSerializer {
+public class DictTextSerializer extends JsonSerializer<Object> implements ContextualSerializer {
 
     private String dictType;
     private String textFieldName;
 
     @Override
-    public void serialize(String value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        // 原字段原值照常输出，字段名不变
-        gen.writeString(value);
-        // 额外输出派生展示字段
-        if (textFieldName != null) {
-            gen.writeStringField(textFieldName, DictUtils.translate(dictType, value));
+    public void serialize(Object value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+        // 原字段原值照常输出，字段名与类型不变（Integer/Long/String 等交由默认序列化）
+        serializers.defaultSerializeValue(value, gen);
+        // 额外输出派生展示字段：字典值统一按字符串 code 翻译
+        if (textFieldName != null && value != null) {
+            gen.writeStringField(textFieldName, DictUtils.translate(dictType, String.valueOf(value)));
         }
     }
 
@@ -57,12 +57,14 @@ public class DictTextSerializer extends JsonSerializer<String> implements Contex
         if (annotation == null) {
             annotation = property.getContextAnnotation(DictText.class);
         }
-        if (annotation != null && String.class.equals(property.getType().getRawClass())) {
+        if (annotation != null) {
+            // 支持 String / Integer / Long 等承载字典值的字段类型
             DictTextSerializer serializer = new DictTextSerializer();
             serializer.dictType = annotation.value();
             serializer.textFieldName = property.getName() + annotation.suffix();
             return serializer;
         }
-        return prov.findValueSerializer(String.class, property);
+        // 非目标字段：回退到原始类型的默认序列化器，切勿写死 String.class（否则非 String 字段强转崩溃）
+        return prov.findValueSerializer(property.getType(), property);
     }
 }

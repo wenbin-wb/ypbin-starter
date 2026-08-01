@@ -181,4 +181,45 @@ class RefTextTest {
         // 无 @RefText，零回源
         assertThat(provider.queryCount.get()).isZero();
     }
+
+    /** 外层对象本身无 @RefText，但嵌套集合的元素有 —— 剪枝不能误杀 */
+    static class Order {
+        public List<OrderItem> items;
+
+        Order(List<OrderItem> items) {
+            this.items = items;
+        }
+    }
+
+    static class OrderItem {
+        @RefText("user")
+        public Long handler;
+
+        OrderItem(Long handler) {
+            this.handler = handler;
+        }
+    }
+
+    @Test
+    void containsRefTextDetectsNestedCollectionElement() {
+        // 关键回归：List<OrderItem> 的元素含 @RefText，Order 应被判定为含引用
+        assertThat(new RefTextResolver(manager).containsRefText(Order.class)).isTrue();
+    }
+
+    @Test
+    void preloadScansNestedCollectionAndBatchesOnce() throws Exception {
+        List<OrderItem> items = new ArrayList<>();
+        for (long i = 0; i < 50; i++) {
+            items.add(new OrderItem((i % 3) + 1));
+        }
+        Order order = new Order(items);
+
+        new RefTextResolver(manager).preload(order);
+        // 嵌套集合被正确扫描，50 项 3 个不同 handler 合并为一次批量查询（剪枝修复前这里会是 0，退化 N+1）
+        assertThat(provider.queryCount.get()).isEqualTo(1);
+
+        String json = mapper.writeValueAsString(order);
+        assertThat(provider.queryCount.get()).isEqualTo(1);
+        assertThat(json).contains("\"handlerName\":\"张三\"");
+    }
 }

@@ -88,4 +88,33 @@ class DictTextTest {
         assertThat(DictUtils.isReady()).isFalse();
         assertThat(DictUtils.translate("any", "1")).isEqualTo("1");
     }
+
+    /** 整型字典字段：不能因写死 String.class 而强转崩溃 */
+    static class IntDemo {
+        @DictText("sys_user_status")
+        public Integer status;
+
+        IntDemo(Integer status) {
+            this.status = status;
+        }
+    }
+
+    @Test
+    void shouldSupportIntegerDictField() throws Exception {
+        // 回归：Integer 字段过去会 ClassCastException 崩溃
+        String json = mapper.writeValueAsString(new IntDemo(1));
+        assertThat(json).contains("\"status\":1").contains("\"statusText\":\"正常\"");
+    }
+
+    /** 无 @DictText 的整型字段：降级不能强转成 String 序列化器 */
+    static class PlainInt {
+        public Integer age = 18;
+    }
+
+    @Test
+    void plainIntegerFieldNotBrokenByFallback() throws Exception {
+        // 回归：fallback 写死 String.class 会波及同类里的其它非 String 字段
+        String json = mapper.writeValueAsString(new PlainInt());
+        assertThat(json).contains("\"age\":18");
+    }
 }
