@@ -51,6 +51,9 @@ public class SignChecker {
     private static final String SIGN = "sign";
     private static final String JSON_TYPE = "application/json";
 
+    /** 允许的未来时钟偏移（秒）：容忍客户端与服务端的小幅时钟不同步，但不接受明显来自未来的时间戳 */
+    private static final long CLOCK_SKEW_SECONDS = 5L;
+
     private final SignProperties properties;
     private final NonceStore nonceStore;
     private final ObjectMapper objectMapper;
@@ -101,13 +104,20 @@ public class SignChecker {
         } catch (NumberFormatException e) {
             return SignResult.fail("时间戳格式错误");
         }
-        if (Math.abs(now - requestTime) > properties.getTimeout()) {
+        // 过去方向按 timeout 判过期；未来方向只容忍小幅时钟偏移（防"未来时间戳"扩大重放窗口）
+        long ahead = requestTime - now;
+        long behind = now - requestTime;
+        if (behind > properties.getTimeout() || ahead > CLOCK_SKEW_SECONDS) {
             return SignResult.fail("签名已过期");
         }
 
         if (properties.isReplayProtect()) {
             String nonceKey = "ypbin:sign:nonce:" + accessKey + ":" + nonce;
-            if (!nonceStore.tryUse(nonceKey, Duration.ofSeconds(properties.getTimeout() + 1))) {
+            // nonce 存活必须覆盖时间戳的整个有效期末尾（requestTime + timeout）。
+            // 固定 timeout+1 在时间戳偏未来时会早于时间戳失效前过期，留出重放真空期，
+            // 故按请求时间戳动态计算 TTL。abs 校验已保证该值落在 [1, 2*timeout+1]，不会为负。
+            long ttlSeconds = requestTime + properties.getTimeout() - now + 1;
+            if (!nonceStore.tryUse(nonceKey, Duration.ofSeconds(ttlSeconds))) {
                 return SignResult.fail("请求重复（nonce 已使用）");
             }
         }

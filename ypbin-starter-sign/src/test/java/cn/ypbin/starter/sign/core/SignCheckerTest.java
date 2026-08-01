@@ -103,4 +103,54 @@ class SignCheckerTest {
         assertThat(result.success()).isFalse();
         assertThat(result.message()).isEqualTo("签名验证失败");
     }
+
+    /** 开启防重放、带真实内存 nonce 存储的校验器 */
+    private SignChecker replayChecker(SignAppProvider provider) {
+        SignProperties properties = new SignProperties();
+        properties.setReplayProtect(true);
+        // 简单内存 nonce：首次 true，再次 false
+        java.util.Set<String> used = new java.util.HashSet<>();
+        NonceStore store = (key, ttl) -> used.add(key);
+        return new SignChecker(properties, store, new ObjectMapper(), provider);
+    }
+
+    /** 按指定时间戳（秒）重新签名的请求 */
+    private MockHttpServletRequest signedRequestAt(String accessKey, long timestampSeconds) {
+        java.util.Map<String, String> biz = new java.util.HashMap<>();
+        biz.put("orderNo", "A100");
+        biz.put("accessKey", accessKey);
+        biz.put("timestamp", String.valueOf(timestampSeconds));
+        biz.put("nonce", "fixed-nonce-123");
+        String sign = SignGenerator.generate(biz, SECRET, SignAlgorithm.HMAC_SHA256);
+        biz.put("sign", sign);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        biz.forEach(request::addParameter);
+        return request;
+    }
+
+    @Test
+    void shouldRejectFutureTimestamp() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        // 未来 50 秒（超过 5 秒时钟偏移容忍）：防"时间旅行"扩大重放窗口
+        long future = System.currentTimeMillis() / 1000 + 50;
+
+        SignResult result = checker.check(signedRequestAt("ak-001", future));
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.message()).isEqualTo("签名已过期");
+    }
+
+    @Test
+    void shouldRejectReplayedNonce() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = replayChecker(accessKey -> Optional.of(app));
+        long now = System.currentTimeMillis() / 1000;
+
+        // 同一 nonce 首次通过、二次被拒
+        assertThat(checker.check(signedRequestAt("ak-001", now)).success()).isTrue();
+        SignResult replay = checker.check(signedRequestAt("ak-001", now));
+        assertThat(replay.success()).isFalse();
+        assertThat(replay.message()).contains("重复");
+    }
 }
