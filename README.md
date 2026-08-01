@@ -323,15 +323,18 @@ public class UserRefTextProvider implements RefTextProvider {
 }
 ```
 
-**列表场景务必先预加载**，把整表翻译合并为每类型一次查询，序列化时全部命中缓存：
+**列表零 N+1 全自动**：无需任何手动调用——响应体序列化前由切面自动扫描对象图、按类型批量预加载，序列化时全命中缓存。业务只管正常返回：
 
 ```java
-List<OrderResp> list = orderService.list();
-refTextResolver.preload(list);   // 一次批量翻译（自动扫描对象图按类型分组），之后序列化零回源
-return R.ok(list);
+@GetMapping
+public R<List<OrderResp>> list() {
+    return R.ok(orderService.list());   // 什么都不用做，createUserName 自动翻译且零 N+1
+}
 ```
 
-缓存带 TTL 与容量上限（配 `ypbin.json.ref-text.ttl-seconds` / `max-size`），重复 ID 不重查、不存在的 ID 走空值哨兵防穿透；数据变更后调 `RefTextUtils.refresh(type)` 即时生效。未接入 `RefTextProvider` 时不输出名称字段、安全退化。
+个别接口想跳过自动预加载（如超大导出），方法/类加 `@RefTextIgnore`；全局关闭设 `ypbin.json.ref-text.auto-resolve=false`。也可手动 `refTextResolver.preload(list)`（非必需）。
+
+缓存带 TTL 与容量上限（配 `ypbin.json.ref-text.ttl-seconds` / `max-size`），重复 ID 不重查、不存在的 ID 走空值哨兵防穿透；不含 `@RefText` 的响应由类级缓存瞬间跳过、零遍历成本；数据变更后调 `RefTextUtils.refresh(type)` 即时生效。未接入 `RefTextProvider` 时不输出名称字段、安全退化。
 
 > 与 `@DictText` 的区别：`@DictText` 翻固定枚举（字典表），`@RefText` 翻动态实体引用（用户/部门等表）；两者同款"保留原字段 + 额外派生字段"，都不改字段名。
 

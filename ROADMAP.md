@@ -305,6 +305,7 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 效率核心：列表序列化前调 refTextResolver.preload(list)，把整表 N 行 M 类型压成最多 M 次批量查询，序列化时全命中缓存零回源。测试实证 100 行 3 个创建人仅查 1 次。
 - ✅ JacksonProperties 加 ref-text 配置(ttl-seconds 默认 300/max-size 默认 1万)；仅当业务方提供 RefTextProvider 时装配 RefTextManager+RefTextResolver 并 bind RefTextUtils，未接入安全退化不输出名称字段。RefTextTest 7（缓存命中/批量一次/100行零N+1/空值哨兵/刷新/退化）。
 - 边界：starter 给运行时+缓存+批量预热+扩展点；用户/部门等数据源由 admin 实现 RefTextProvider（一条 IN 查询）。
+- ✅ 零工作量增强（用户：业务工作量越少越好、学习成本越低越好）：`RefTextResponseAdvice`(ResponseBodyAdvice) 在响应序列化前自动预加载，业务零调用零注解即享列表零 N+1；`@RefTextIgnore` 方法/类级排除，`ypbin.json.ref-text.auto-resolve=false` 全局关。性能守门：RefTextResolver 加类级 `containsRefText` 布尔缓存，不含 @RefText 的响应瞬间跳过零遍历。自动装配用内嵌 @ConditionalOnClass(ResponseBodyAdvice)+ServletWeb 隔离，spring-webmvc optional，非 web 环境不受影响。RefTextTest 增至 9（类级判定/无关对象零遍历）。
 
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。

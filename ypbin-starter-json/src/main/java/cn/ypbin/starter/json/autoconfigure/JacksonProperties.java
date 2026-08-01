@@ -106,6 +106,17 @@ public class JacksonProperties {
         /** 缓存容量上限（条），超出触发清理，仍满则不再写入，默认 1 万 */
         private int maxSize = 10000;
 
+        /** 是否自动预加载（拦截响应体在序列化前批量翻译，业务无需手动 preload），默认开启 */
+        private boolean autoResolve = true;
+
+        public boolean isAutoResolve() {
+            return autoResolve;
+        }
+
+        public void setAutoResolve(boolean autoResolve) {
+            this.autoResolve = autoResolve;
+        }
+
         public long getTtlSeconds() {
             return ttlSeconds;
         }

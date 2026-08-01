@@ -54,10 +54,51 @@ public class RefTextResolver {
     private static final Map<Class<?>, Field[]> REF_FIELD_CACHE = new ConcurrentHashMap<>();
     private static final Field[] EMPTY = new Field[0];
 
+    /** 元素类 -> 是否（含嵌套地）存在 @RefText 字段，供自动拦截快速跳过无关响应 */
+    private static final Map<Class<?>, Boolean> CONTAINS_CACHE = new ConcurrentHashMap<>();
+
     private final RefTextManager manager;
 
     public RefTextResolver(RefTextManager manager) {
         this.manager = manager;
+    }
+
+    /**
+     * 判断某类是否（含嵌套地）存在 {@link RefText} 字段。结果按类缓存，用于自动预加载时快速跳过
+     * 不含引用字段的响应类型，避免无谓的对象图遍历。
+     *
+     * @param type 元素类型
+     * @return 是否存在 @RefText 字段
+     */
+    public boolean containsRefText(Class<?> type) {
+        if (type == null || isLeafType(type)) {
+            return false;
+        }
+        return containsRefText(type, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+    }
+
+    private boolean containsRefText(Class<?> type, Set<Class<?>> seen, int depth) {
+        if (type == null || isLeafType(type) || depth > MAX_DEPTH || !seen.add(type)) {
+            return false;
+        }
+        Boolean cached = CONTAINS_CACHE.get(type);
+        if (cached != null) {
+            return cached;
+        }
+        boolean found = false;
+        for (Field field : allFields(type)) {
+            if (field.getAnnotation(RefText.class) != null) {
+                found = true;
+                break;
+            }
+            Class<?> ft = field.getType();
+            if (!isLeafType(ft) && containsRefText(ft, seen, depth + 1)) {
+                found = true;
+                break;
+            }
+        }
+        CONTAINS_CACHE.put(type, found);
+        return found;
     }
 
     /**
@@ -101,6 +142,10 @@ public class RefTextResolver {
         Class<?> type = obj.getClass();
         // 跳过 JDK 内置类型（String/Number/时间/枚举等），它们不承载 @RefText
         if (isLeafType(type)) {
+            return;
+        }
+        // 剪枝：整个类（含嵌套）都不含 @RefText 时，直接跳过其对象图，保证对无关响应零遍历成本
+        if (!containsRefText(type)) {
             return;
         }
         if (!visited.add(obj)) {

@@ -160,4 +160,25 @@ class RefTextTest {
         assertThat(RefTextUtils.isReady()).isFalse();
         assertThat(RefTextUtils.translate("user", 1L)).isNull();
     }
+
+    /** 不含 @RefText 的类应被类级缓存判定为 false，供自动预加载零遍历跳过 */
+    static class PlainDto {
+        public String name;
+        public int age;
+    }
+
+    @Test
+    void containsRefTextDetection() {
+        RefTextResolver resolver = new RefTextResolver(manager);
+        assertThat(resolver.containsRefText(Row.class)).isTrue();
+        assertThat(resolver.containsRefText(PlainDto.class)).isFalse();
+        assertThat(resolver.containsRefText(String.class)).isFalse();
+    }
+
+    @Test
+    void preloadOnPlainObjectIsNoop() {
+        new RefTextResolver(manager).preload(new PlainDto());
+        // 无 @RefText，零回源
+        assertThat(provider.queryCount.get()).isZero();
+    }
 }
