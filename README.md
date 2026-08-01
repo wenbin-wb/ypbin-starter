@@ -301,6 +301,40 @@ public class DbDictProvider implements DictProvider {
 
 `DictCache` 带缓存（字典维护后调 `DictUtils.refresh()` 即时生效）；`DictUtils.translate(type, value)` / `getItems(type)` 供任意层静态调用；未接入 `DictProvider` 时翻译安全退化为原值。
 
+**引用翻译** `@RefText`：实体存引用 ID（如 createUser、deptId），序列化时**保留原字段原值**、并**额外输出**展示名称字段。适合"存 ID、展示中文名"场景。数据源（用户表、部门表）由 admin 实现 `RefTextProvider`，starter 负责缓存与批量：
+
+```java
+@RefText("user")
+private Long createUser;    // 输出 "createUser":"123","createUserName":"张三"
+
+@RefText(value = "dept", suffix = "Text")
+private Long deptId;        // 输出 "deptId":"8","deptIdText":"研发部"
+```
+
+**扩展点强制批量**，从根源规避 N+1——`RefTextProvider` 一次传一组 ID、一次返回映射：
+
+```java
+@Component
+public class UserRefTextProvider implements RefTextProvider {
+    @Override public String type() { return "user"; }
+    @Override public Map<Object, String> getNames(Collection<Object> ids) {
+        // 一条 SQL：SELECT id, nickname FROM sys_user WHERE id IN (...)
+    }
+}
+```
+
+**列表场景务必先预加载**，把整表翻译合并为每类型一次查询，序列化时全部命中缓存：
+
+```java
+List<OrderResp> list = orderService.list();
+refTextResolver.preload(list);   // 一次批量翻译（自动扫描对象图按类型分组），之后序列化零回源
+return R.ok(list);
+```
+
+缓存带 TTL 与容量上限（配 `ypbin.json.ref-text.ttl-seconds` / `max-size`），重复 ID 不重查、不存在的 ID 走空值哨兵防穿透；数据变更后调 `RefTextUtils.refresh(type)` 即时生效。未接入 `RefTextProvider` 时不输出名称字段、安全退化。
+
+> 与 `@DictText` 的区别：`@DictText` 翻固定枚举（字典表），`@RefText` 翻动态实体引用（用户/部门等表）；两者同款"保留原字段 + 额外派生字段"，都不改字段名。
+
 ### cache — 缓存
 
 基于 Redis 的 `CacheService` 统一缓存接口，值以 JSON 存储：

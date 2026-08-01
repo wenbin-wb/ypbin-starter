@@ -18,6 +18,11 @@ package cn.ypbin.starter.json.autoconfigure;
 import cn.ypbin.starter.json.dict.DictCache;
 import cn.ypbin.starter.json.dict.DictProvider;
 import cn.ypbin.starter.json.dict.DictUtils;
+import cn.ypbin.starter.json.ref.RefTextCache;
+import cn.ypbin.starter.json.ref.RefTextManager;
+import cn.ypbin.starter.json.ref.RefTextProvider;
+import cn.ypbin.starter.json.ref.RefTextResolver;
+import cn.ypbin.starter.json.ref.RefTextUtils;
 import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,10 +36,12 @@ import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalTimeSerializer;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -118,5 +125,40 @@ public class JacksonAutoConfiguration {
         DictUtils.bind(dictCache);
         log.debug("[ypbin-starter] dict cache initialized.");
         return dictCache;
+    }
+
+    /**
+     * 引用翻译管理器：仅当业务方提供 {@link RefTextProvider}（如用户表、部门表数据源）时装配，
+     * 内置带 TTL 与容量上限的缓存并绑定到 {@link RefTextUtils} 供 {@code @RefText} 序列化器使用。
+     * 未接入时不装配，翻译安全退化。
+     *
+     * @param providers 引用数据来源列表
+     * @param properties JSON 配置
+     * @return 引用翻译管理器
+     */
+    @Bean
+    @ConditionalOnBean(RefTextProvider.class)
+    @ConditionalOnMissingBean
+    public RefTextManager refTextManager(List<RefTextProvider> providers, JacksonProperties properties) {
+        JacksonProperties.RefText config = properties.getRefText();
+        RefTextCache cache = new RefTextCache(Duration.ofSeconds(config.getTtlSeconds()).toMillis(),
+            config.getMaxSize());
+        RefTextManager manager = new RefTextManager(providers, cache);
+        RefTextUtils.bind(manager);
+        log.debug("[ypbin-starter] ref-text manager initialized, providers={}.", providers.size());
+        return manager;
+    }
+
+    /**
+     * 引用翻译预加载解析器：列表/分页序列化前批量预热，消除逐行 N+1 回源。
+     *
+     * @param manager 引用翻译管理器
+     * @return 预加载解析器
+     */
+    @Bean
+    @ConditionalOnBean(RefTextManager.class)
+    @ConditionalOnMissingBean
+    public RefTextResolver refTextResolver(RefTextManager manager) {
+        return new RefTextResolver(manager);
     }
 }

@@ -44,6 +44,9 @@ public class JacksonProperties {
     /** 时间格式 */
     private String timeFormat = "HH:mm:ss";
 
+    /** 引用翻译（@RefText）配置 */
+    private RefText refText = new RefText();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -82,5 +85,41 @@ public class JacksonProperties {
 
     public void setTimeFormat(String timeFormat) {
         this.timeFormat = timeFormat;
+    }
+
+    public RefText getRefText() {
+        return refText;
+    }
+
+    public void setRefText(RefText refText) {
+        this.refText = refText;
+    }
+
+    /**
+     * 引用翻译缓存配置。
+     */
+    public static class RefText {
+
+        /** 翻译结果缓存有效期（秒），默认 5 分钟 */
+        private long ttlSeconds = 300L;
+
+        /** 缓存容量上限（条），超出触发清理，仍满则不再写入，默认 1 万 */
+        private int maxSize = 10000;
+
+        public long getTtlSeconds() {
+            return ttlSeconds;
+        }
+
+        public void setTtlSeconds(long ttlSeconds) {
+            this.ttlSeconds = ttlSeconds;
+        }
+
+        public int getMaxSize() {
+            return maxSize;
+        }
+
+        public void setMaxSize(int maxSize) {
+            this.maxSize = maxSize;
+        }
     }
 }

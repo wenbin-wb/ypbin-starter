@@ -299,6 +299,13 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 短信（messaging.sms）：选定用 sms4j 聚合框架（一库统一阿里云/腾讯云等十几家）。`SmsService`(send/sendByTemplate/sendByConfig/sendBatch/isConfigured) + `DefaultSmsService`(委托 SmsFactory.getSmsBlend) + `SmsUtils` 静态门面 + `SmsAutoConfiguration`(@ConditionalOnClass SmsFactory)。dependencies 纳管 sms4j 3.3.5，messaging 加 sms4j optional 依赖。关键决策：动态配置直接用 sms4j 原生 SmsReadConfig 钩子（admin 实现从 DB 读），不再包平行 provider，避免配置翻译。messaging 模块共 22 绿。
 - 分层一致：四项均 starter 给运行时+扩展点+默认实现，表/页面/DB 配置源归 admin。同时清理 .m2 中 45 个 continew 风格残留细分模块坐标。
 
+### 引用翻译 @RefText：存 ID 展示中文名（用户提问：创建人 id 展前端中文名，注意批量翻译效率/缓存）
+- 定位：对标 crane4j/easy-trans 的数据翻译，但不引重框架——复用已有 @DictText 同款机制泛化一层。@DictText 翻固定字典枚举、@RefText 翻动态实体引用（用户/部门表）。
+- ✅ json.ref 包：`@RefText`(value+suffix) + `RefTextProvider`(**强制批量**扩展点 getNames(ids)→Map，从根源避 N+1) + `RefTextCache`(TTL+容量上限+空值哨兵防穿透+惰性清理) + `RefTextManager`(translate 走缓存/preload 未命中按类型合并一次批量回源/refresh) + `RefTextUtils` 静态门面 + `RefTextSerializer`(保留原值+额外输出 xxxName，严守 no-field-mapping) + `RefTextResolver`(反射扫描列表/分页/嵌套对象图，按类型分组批量预热，IdentityHashMap 防环+限深+字段元数据按类缓存)。
+- ✅ 效率核心：列表序列化前调 refTextResolver.preload(list)，把整表 N 行 M 类型压成最多 M 次批量查询，序列化时全命中缓存零回源。测试实证 100 行 3 个创建人仅查 1 次。
+- ✅ JacksonProperties 加 ref-text 配置(ttl-seconds 默认 300/max-size 默认 1万)；仅当业务方提供 RefTextProvider 时装配 RefTextManager+RefTextResolver 并 bind RefTextUtils，未接入安全退化不输出名称字段。RefTextTest 7（缓存命中/批量一次/100行零N+1/空值哨兵/刷新/退化）。
+- 边界：starter 给运行时+缓存+批量预热+扩展点；用户/部门等数据源由 admin 实现 RefTextProvider（一条 IN 查询）。
+
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。
 - ✅ 多级缓存 `MultiLevelCacheService`：L1 Caffeine + L2 Redis，读回填 L1、写删失效 L1；Redis Pub/Sub 跨实例失效广播（带实例标识忽略自广播），覆盖默认 CacheService。
