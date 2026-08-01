@@ -47,6 +47,12 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
+        <!-- 密码错误锁定的分布式计数存储：有 Redis 用 Redis，否则内存。可选依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- 全局登录拦截器基于 spring-webmvc（SaInterceptor + WebMvcConfigurer），可选，仅 servlet web 应用需要 -->
         <dependency>
             <groupId>org.springframework</groupId>

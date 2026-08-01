@@ -16,6 +16,7 @@
 package cn.ypbin.starter.security.autoconfigure;
 
 import cn.ypbin.starter.security.client.LoginClient;
+import cn.ypbin.starter.security.password.policy.PasswordPolicy;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,6 +55,9 @@ public class SecurityProperties {
 
     /** 配置文件客户端列表；业务方提供 LoginClientProvider 后可由数据库接管 */
     private List<LoginClient> clients = new ArrayList<>(List.of(defaultClient()));
+
+    /** 密码安全策略；业务方提供 PasswordPolicyProvider 后可由配置中心/数据库接管 */
+    private PasswordPolicy password = new PasswordPolicy();
 
     private static LoginClient defaultClient() {
         LoginClient client = new LoginClient();
@@ -126,5 +130,13 @@ public class SecurityProperties {
 
     public void setClients(List<LoginClient> clients) {
         this.clients = clients;
+    }
+
+    public PasswordPolicy getPassword() {
+        return password;
+    }
+
+    public void setPassword(PasswordPolicy password) {
+        this.password = password;
     }
 }

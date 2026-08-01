@@ -24,10 +24,21 @@ import cn.ypbin.starter.security.client.LoginClientProvider;
 import cn.ypbin.starter.security.client.LoginClientService;
 import cn.ypbin.starter.security.core.PermissionProvider;
 import cn.ypbin.starter.security.handler.SaTokenExceptionHandler;
+import cn.ypbin.starter.security.online.DefaultOnlineUserService;
+import cn.ypbin.starter.security.online.OnlineUserService;
+import cn.ypbin.starter.security.password.lock.InMemoryPasswordAttemptStore;
+import cn.ypbin.starter.security.password.lock.PasswordAttemptLimiter;
+import cn.ypbin.starter.security.password.lock.PasswordAttemptStore;
+import cn.ypbin.starter.security.password.lock.RedisPasswordAttemptStore;
+import cn.ypbin.starter.security.password.policy.DefaultPasswordPolicyProvider;
+import cn.ypbin.starter.security.password.policy.PasswordExpiration;
+import cn.ypbin.starter.security.password.policy.PasswordPolicyProvider;
+import cn.ypbin.starter.security.password.policy.PasswordValidator;
 import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
 import cn.ypbin.starter.security.satoken.StpPermissionAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -35,6 +46,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -91,6 +103,62 @@ public class SecurityAutoConfiguration {
     public LoginClientHolderInitializer loginClientHolderInitializer(LoginClientService service) {
         LoginClientHolder.bind(service);
         return new LoginClientHolderInitializer();
+    }
+
+    /**
+     * 默认密码策略来源：读取 ypbin.security.password。业务方做成后台可配置时提供自定义实现覆盖。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PasswordPolicyProvider passwordPolicyProvider(SecurityProperties properties) {
+        return new DefaultPasswordPolicyProvider(properties);
+    }
+
+    /**
+     * 密码复杂度校验器。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PasswordValidator passwordValidator(PasswordPolicyProvider policyProvider) {
+        return new PasswordValidator(policyProvider);
+    }
+
+    /**
+     * 密码有效期判定工具。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PasswordExpiration passwordExpiration(PasswordPolicyProvider policyProvider) {
+        return new PasswordExpiration(policyProvider);
+    }
+
+    /**
+     * 密码错误计数存储：存在 Redis 时用 Redis（多节点共享），否则用内存。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PasswordAttemptStore passwordAttemptStore(ObjectProvider<StringRedisTemplate> redisTemplate) {
+        StringRedisTemplate template = redisTemplate.getIfAvailable();
+        return template != null ? new RedisPasswordAttemptStore(template) : new InMemoryPasswordAttemptStore();
+    }
+
+    /**
+     * 密码错误锁定限制器。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PasswordAttemptLimiter passwordAttemptLimiter(PasswordAttemptStore store,
+        PasswordPolicyProvider policyProvider) {
+        return new PasswordAttemptLimiter(store, policyProvider);
+    }
+
+    /**
+     * 在线用户服务：基于 Sa-Token 会话枚举在线用户、强制下线。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public OnlineUserService onlineUserService() {
+        return new DefaultOnlineUserService();
     }
 
     /**
