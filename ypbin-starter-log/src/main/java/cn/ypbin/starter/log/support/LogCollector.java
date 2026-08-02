@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.log.support;
 
+import cn.ypbin.starter.log.core.IpLocationResolver;
 import cn.ypbin.starter.log.core.LogClientProvider;
 import cn.ypbin.starter.log.core.LogUserProvider;
 import cn.ypbin.starter.log.enums.Include;
@@ -55,15 +56,22 @@ public class LogCollector {
 
     private final LogUserProvider userProvider;
     private final LogClientProvider clientProvider;
+    private final IpLocationResolver ipLocationResolver;
     private final ObjectMapper objectMapper;
 
     public LogCollector(LogUserProvider userProvider, ObjectMapper objectMapper) {
-        this(userProvider, Optional::empty, objectMapper);
+        this(userProvider, Optional::empty, ip -> null, objectMapper);
     }
 
     public LogCollector(LogUserProvider userProvider, LogClientProvider clientProvider, ObjectMapper objectMapper) {
+        this(userProvider, clientProvider, ip -> null, objectMapper);
+    }
+
+    public LogCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
+        IpLocationResolver ipLocationResolver, ObjectMapper objectMapper) {
         this.userProvider = userProvider;
         this.clientProvider = clientProvider;
+        this.ipLocationResolver = ipLocationResolver;
         this.objectMapper = objectMapper;
     }
 
@@ -92,7 +100,14 @@ public class LogCollector {
             record.setRequestMethod(request.getMethod());
             record.setRequestUri(request.getRequestURI());
             if (includes.contains(Include.IP)) {
-                record.setIp(resolveIp(request));
+                String ip = resolveIp(request);
+                record.setIp(ip);
+                // 归属地：接入 IpLocationResolver 时填充，未接入返回 null（字段留空）
+                try {
+                    record.setLocation(ipLocationResolver.resolve(ip));
+                } catch (Exception e) {
+                    log.debug("[ypbin-starter] IP 归属地解析失败: {}", e.getMessage());
+                }
             }
             if (includes.contains(Include.REQUEST_PARAM)) {
                 record.setRequestParam(resolveParams(request));

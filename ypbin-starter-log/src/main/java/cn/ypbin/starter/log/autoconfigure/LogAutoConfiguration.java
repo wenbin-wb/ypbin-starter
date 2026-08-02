@@ -16,6 +16,7 @@
 package cn.ypbin.starter.log.autoconfigure;
 
 import cn.ypbin.starter.log.aspect.LogAspect;
+import cn.ypbin.starter.log.core.IpLocationResolver;
 import cn.ypbin.starter.log.core.LogClientProvider;
 import cn.ypbin.starter.log.core.LogUserProvider;
 import cn.ypbin.starter.log.dao.DefaultLogDao;
@@ -75,13 +76,22 @@ public class LogAutoConfiguration {
         return Optional::empty;
     }
 
+    /**
+     * 默认 IP 归属地解析器：返回 null（不解析）。业务方接 ip2region 等实现自定义 Bean 覆盖即可。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public IpLocationResolver ipLocationResolver() {
+        return ip -> null;
+    }
+
     @Bean
     @ConditionalOnMissingBean
     public LogCollector logCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
-        ObjectProvider<ObjectMapper> objectMapperProvider) {
+        IpLocationResolver ipLocationResolver, ObjectProvider<ObjectMapper> objectMapperProvider) {
         // 复用容器中的 ObjectMapper（继承 json 模块配置），无则退化为默认实例
         ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
-        return new LogCollector(userProvider, clientProvider, objectMapper);
+        return new LogCollector(userProvider, clientProvider, ipLocationResolver, objectMapper);
     }
 
     @Bean
