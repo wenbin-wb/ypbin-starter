@@ -6,8 +6,8 @@
 
 ## 0. 当前状态总览
 
-- **模块**：32 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async）
-- **构建**：全量 32 模块 `clean test` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **模块**：33 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async、job）
+- **构建**：全量 33 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 17 · Spring Boot 3.5.16 · Spring Cloud 2025.0.3 · spring-cloud-alibaba 2025.0.0.0
@@ -317,6 +317,19 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 新增第 33 个模块 job（注册进根 pom/dependencies/bom，async 后、app-web 前）。核心：`JobHandler`+`@YpbinJob(name)` 执行体（按名路由）、`JobContext`、`JobDefinition`(id/name/executor/cron或fixedRate/args/timeout/concurrentGuard)、`JobManager`(register/unregister/triggerNow/改cron重建，TaskScheduler+ScheduledFuture 注册表)、`JobExecutionListener`(onStart/Success/Error/Skip 回调扩展点，admin 落 sys_job_log)、`JobProperties`。
 - ✅ 多实例防重：执行入口抢分布式锁（锁键带触发时间片 withNano(0)，避免长任务持锁挡下次触发；ttl=超时+5 或默认 3600），只有抢到的节点执行、其余回调 onSkip。`JobLockFactory` 反射桥接 tools 的 LockService（tools optional），无 tools 退化单机无锁。
 - ✅ 边界：starter 只做内存调度运行时+执行体路由+防重+回调，**不持久化**；sys_job/sys_job_log 表、CRUD、页面由 admin 实现，通过 JobManager 同步内存调度。JobManagerTest 5（固定间隔触发+回调/立即执行/防重跳过/执行器缺失 onError/重复注册替换）。
+
+### Gemini/admin 反馈的 bug 修复批次（外部审查 + admin 实跑发现，逐条核验后修）
+- ✅ RefTextResolver 剪枝误杀嵌套集合：`containsRefText` 用 field.getType() 拿到 List/Map 判叶子、不深入泛型元素，导致含嵌套列表的 DTO 被误剪枝、preload 收集不到 → N+1 复活。修：新增 genericContainsRefText 沿 getGenericType() 拆 List/Map/数组/通配符元素类型递归。RefTextTest 补嵌套集合回归。
+- ✅ DictTextSerializer 整型字段崩溃：非 String（Integer/Long）字典字段走 fallback 写死 String.class → ClassCastException 500。修：改 JsonSerializer<Object>+defaultSerializeValue，fallback 回退 property.getType()。
+- ✅ 密码锁定时长缩水：计数 key TTL 只首次失败设一次，晚到的达阈值失败触发锁定后 key 很快过期 → 实际锁定远短。修：lua+内存实现达阈值时用满额锁定时长刷新 TTL，increment 签名加 threshold/lockDuration。
+- ✅ 签名参数注入：SignGenerator.canonicalize 不 URL 编码，value 里的 &/= 可伪造规范串。修：key/value 均 URLEncoder.encode。
+- ✅ 签名嵌套对象验签波动：SignChecker 用共享 mapper 序列化嵌套对象、key 序不定。修：内部专用 mapper 副本开 ORDER_MAP_ENTRIES_BY_KEYS。
+- ✅ 签名重放真空期：Math.abs 允许未来时间戳 + nonce 固定 TTL → 未来时间戳下 nonce 早于时间戳失效前过期，留重放窗口。修：nonce TTL 按 requestTime 动态算（覆盖到时间戳有效期末尾）+ 拒绝超 5s 时钟偏移的未来时间戳。SignCheckerTest 补未来时间戳/重放回归。
+- ✅ 无上下文线程安全取用户抛异常：getUserIdSafely/isLogin/UserContext.getAttribute 裸调 StpUtil，异步/定时任务线程抛 SaTokenContextException → AuditorProvider 异步审计填充崩。修：三处 try-catch SaTokenException 降级返回空/false。SafeAccessNoContextTest 3。
+- ✅ 操作日志 userId 恒空：SecurityLogClientAutoConfiguration 漏桥接 LogUserProvider。修：补 securityLogUserProvider（LoginHelper::getUserIdSafely，与 AuditorProvider 同源）。
+- ✅ 操作日志 location 恒空：LogCollector 无 IP→归属地实现。修：加 IpLocationResolver 扩展点（默认返 null 不绑 IP 库重依赖，业务接 ip2region 实现），采集时填充、解析异常不中断。
+- ✅ 操作日志 browser/os 相同：直接塞原始 UA。修：hutool UserAgentUtil.parse 分别提取浏览器名+版本 / OS 名；log pom 显式声明 hutool-all 依赖。
+- ✅ 桥接与默认实现注册竞态：security 桥接 LogUserProvider/LogClientProvider 用裸 @ConditionalOnMissingBean、与 log 默认空实现跨配置类竞态，实测 log 默认先注册使桥接被跳过 → userId/clientType 恒空。修：SecurityLogClientAutoConfiguration 加 @AutoConfigureBefore(LogAutoConfiguration)；SecurityAuditorAutoConfiguration 同步从 @Primary 改 @AutoConfigureBefore(DataAutoConfiguration)+@ConditionalOnMissingBean 统一模式（既修竞态又保 admin 可覆盖）。原则：跨自动配置类用 @ConditionalOnMissingBean 覆盖默认 Bean 必须配加载顺序注解。
 
 ### 缓存增强：getOrLoad 三重保护 + 多级缓存（用户提问：多级缓存/防击穿架构）
 - ✅ `CacheService.getOrLoad(key,type,loader,ttl)`：缓存旁路回源回填，内置防击穿（Redis 短锁单飞 + double-check + 等待超时兜底）、防穿透（空值哨兵短 TTL）、防雪崩（TTL 0~10% 随机扰动）。

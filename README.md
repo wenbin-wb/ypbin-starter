@@ -137,6 +137,8 @@
 | `LoginClientProvider` / `PasswordPolicyProvider` | security | 可选 | 登录客户端 / 密码策略从数据库动态配置 |
 | `MailConfigProvider` / `StorageConfigProvider` / `SignAppProvider` | messaging/storage/sign | 可选 | 邮件/存储/开放应用配置后台动态化 |
 | `SensitiveWordProvider` / `AuthRequestProvider` / `GatewayAuthProvider` | sensitive-words/social/gateway | 可选 | 词库 / OAuth 平台 / 网关鉴权 |
+| `JobHandler`(+`@YpbinJob`) / `JobExecutionListener` | job | 可选 | 定时任务执行体 / 执行日志落库 |
+| `IpLocationResolver` | log | 可选 | 操作日志 IP 归属地解析（接 ip2region 等） |
 
 除「必须」项外均有默认实现（多为读配置文件），想接数据库/后台配置时才覆盖。所有能力 Bean 均 `@ConditionalOnMissingBean`，定义同类型 Bean 即覆盖。
 
@@ -728,9 +730,20 @@ public R<Void> create(@RequestBody OrderReq req) { ... }
 
 - `Include` 控制采集粒度：请求头/体/参数、响应体、IP、浏览器、OS、登录客户端信息。默认采集请求参数 + IP + 客户端信息（不采集请求/响应体，防敏感信息与大报文落库）。
 - 请求体从 AOP 入参序列化（能拿到 `@RequestBody` 的 JSON），过滤文件流等不可序列化参数。
+- 浏览器/操作系统由 User-Agent 解析分别提取（如 `Chrome 120` / `Windows 10`），非原始 UA 整串。
 - 持久化：实现 `LogDao` 落库（默认仅打印到日志）；操作人来源实现 `LogUserProvider`。
-- 登录客户端信息（`clientId/clientType/authType`）来源实现 `LogClientProvider`；引入 security 模块后自动对接登录会话，无需业务实现即可让操作日志记录“从哪个客户端、用什么方式登录”。
-- 写日志通过事件 + `@Async` 异步执行，DB 抖动不影响主接口。
+- 操作人（`userId`）与登录客户端信息（`clientId/clientType/authType`）：**引入 security 模块后自动对接登录会话**（security 桥接 `LogUserProvider`/`LogClientProvider` 并前置于 log 默认空实现注册），无需业务实现即可记录“谁、从哪个客户端、用什么方式”操作。
+- IP 归属地（`location`）：默认不解析（字段留空）。需要时实现 `IpLocationResolver` 扩展点（接 ip2region 等 IP 库），采集时自动填充：
+
+```java
+@Component
+public class Ip2regionLocationResolver implements IpLocationResolver {
+    @Override
+    public String resolve(String ip) { /* 查 IP 库返回“广东省深圳市” */ }
+}
+```
+
+- 写日志通过事件 + `@Async` 异步执行，DB 抖动不影响主接口（异步线程无 Sa-Token 上下文时，操作人取值安全降级不报错）。
 
 **全量访问日志**（与 `@Log` 互补，无需注解，记录所有请求的 URI/方法/状态/耗时/IP）：
 
