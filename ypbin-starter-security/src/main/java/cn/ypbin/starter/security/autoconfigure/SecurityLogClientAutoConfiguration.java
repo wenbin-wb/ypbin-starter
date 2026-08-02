@@ -16,6 +16,8 @@
 package cn.ypbin.starter.security.autoconfigure;
 
 import cn.ypbin.starter.log.core.LogClientProvider;
+import cn.ypbin.starter.log.core.LogUserProvider;
+import cn.ypbin.starter.security.core.LoginHelper;
 import cn.ypbin.starter.security.core.UserContext;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -26,8 +28,12 @@ import org.springframework.context.annotation.Bean;
 /**
  * 安全 - 操作日志客户端桥接自动配置。
  *
- * <p>仅当 log 模块（{@link LogClientProvider}）存在于 classpath 时生效，
- * 用当前登录会话中的客户端信息填充操作日志的客户端字段，让审计能记录“从哪个客户端、用什么方式登录”。</p>
+ * <p>仅当 log 模块存在于 classpath 时生效，把当前登录信息桥接给操作日志：
+ * <ul>
+ *     <li>{@link LogUserProvider} —— 操作人 userId（来自 Sa-Token 登录态），让日志能记录“谁做的”；</li>
+ *     <li>{@link LogClientProvider} —— 客户端信息，让日志能记录“从哪个客户端、用什么方式登录”。</li>
+ * </ul>
+ * 两者均 {@code @ConditionalOnMissingBean}，业务方可覆盖。</p>
  *
  * @author wenbin
  * @since 2026-08-01
@@ -36,6 +42,18 @@ import org.springframework.context.annotation.Bean;
 @ConditionalOnClass(LogClientProvider.class)
 @ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SecurityLogClientAutoConfiguration {
+
+    /**
+     * 基于 Sa-Token 登录态的操作人提供者：用当前登录用户 ID 填充操作日志的 userId。
+     *
+     * <p>用 {@link LoginHelper#getUserIdSafely()} 取值（不依赖业务方是否写入 LoginUser，且无上下文线程安全），
+     * 与 data 模块 AuditorProvider 的取值方式一致。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LogUserProvider securityLogUserProvider() {
+        return LoginHelper::getUserIdSafely;
+    }
 
     /**
      * 基于登录会话的日志客户端提供者。
