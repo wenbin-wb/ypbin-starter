@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.security.core;
 
+import cn.dev33.satoken.exception.SaTokenException;
 import cn.dev33.satoken.stp.StpUtil;
 import java.util.Optional;
 
@@ -139,11 +140,17 @@ public final class UserContext {
      */
     @SuppressWarnings("unchecked")
     public static <T> Optional<T> getAttribute(String key, Class<T> type) {
-        if (!StpUtil.isLogin()) {
+        try {
+            if (!StpUtil.isLogin()) {
+                return Optional.empty();
+            }
+            Object value = StpUtil.getSession().get(key);
+            return value == null ? Optional.empty() : Optional.of((T) value);
+        } catch (SaTokenException e) {
+            // 无 Sa-Token 上下文（异步线程、定时任务等）：安全返回空，
+            // 使 getLoginUser/getUsername/getTenantId 等在无上下文线程中不抛异常。
             return Optional.empty();
         }
-        Object value = StpUtil.getSession().get(key);
-        return value == null ? Optional.empty() : Optional.of((T) value);
     }
 
     /**

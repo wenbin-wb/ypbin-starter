@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.security.core;
 
+import cn.dev33.satoken.exception.SaTokenException;
 import cn.dev33.satoken.stp.SaTokenInfo;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.ypbin.starter.security.client.LoginClient;
@@ -118,7 +119,12 @@ public final class LoginHelper {
      * @return 登录状态
      */
     public static boolean isLogin() {
-        return StpUtil.isLogin();
+        try {
+            return StpUtil.isLogin();
+        } catch (SaTokenException e) {
+            // 无 Sa-Token 上下文（异步线程、定时任务等）：视为未登录，不抛异常
+            return false;
+        }
     }
 
     /**
@@ -136,11 +142,17 @@ public final class LoginHelper {
      * @return 用户 ID 的 Optional
      */
     public static Optional<Long> getUserIdSafely() {
-        Object loginId = StpUtil.getLoginIdDefaultNull();
-        if (loginId == null) {
+        try {
+            Object loginId = StpUtil.getLoginIdDefaultNull();
+            if (loginId == null) {
+                return Optional.empty();
+            }
+            return Optional.of(Long.valueOf(loginId.toString()));
+        } catch (SaTokenException e) {
+            // 无 Sa-Token 上下文（异步线程、定时任务等）：视为无当前登录人，不抛异常。
+            // 关键场景：审计填充 AuditorProvider 走本方法，异步落库时须安全跳过而非崩溃。
             return Optional.empty();
         }
-        return Optional.of(Long.valueOf(loginId.toString()));
     }
 
     /**
