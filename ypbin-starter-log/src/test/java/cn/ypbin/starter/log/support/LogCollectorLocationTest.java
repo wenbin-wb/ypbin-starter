@@ -89,4 +89,32 @@ class LogCollectorLocationTest {
         assertThat(record.getIp()).isEqualTo("1.2.3.4");
         assertThat(record.getLocation()).isNull();
     }
+
+    @Test
+    void shouldParseBrowserAndOsSeparately() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        LogCollector collector = new LogCollector(Optional::empty, Optional::empty, ip -> null, new ObjectMapper());
+        LogRecord record = new LogRecord();
+        collector.collect(record, EnumSet.of(Include.BROWSER, Include.OS), null, null, null);
+
+        // browser 解析出浏览器名（含 Chrome），os 解析出系统名（Windows），两者不再是同一串原始 UA
+        assertThat(record.getBrowser()).contains("Chrome");
+        assertThat(record.getOs()).contains("Windows");
+        assertThat(record.getBrowser()).isNotEqualTo(record.getOs());
+    }
+
+    @Test
+    void blankUserAgentLeavesBrowserOsNull() {
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+        LogCollector collector = new LogCollector(Optional::empty, Optional::empty, ip -> null, new ObjectMapper());
+        LogRecord record = new LogRecord();
+        collector.collect(record, EnumSet.of(Include.BROWSER, Include.OS), null, null, null);
+
+        assertThat(record.getBrowser()).isNull();
+        assertThat(record.getOs()).isNull();
+    }
 }
