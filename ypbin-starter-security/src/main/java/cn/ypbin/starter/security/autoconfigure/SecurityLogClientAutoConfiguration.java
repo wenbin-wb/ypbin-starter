@@ -15,11 +15,13 @@
  */
 package cn.ypbin.starter.security.autoconfigure;
 
+import cn.ypbin.starter.log.autoconfigure.LogAutoConfiguration;
 import cn.ypbin.starter.log.core.LogClientProvider;
 import cn.ypbin.starter.log.core.LogUserProvider;
 import cn.ypbin.starter.security.core.LoginHelper;
 import cn.ypbin.starter.security.core.UserContext;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -39,6 +41,7 @@ import org.springframework.context.annotation.Bean;
  * @since 2026-08-01
  */
 @AutoConfiguration
+@AutoConfigureBefore(LogAutoConfiguration.class)
 @ConditionalOnClass(LogClientProvider.class)
 @ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SecurityLogClientAutoConfiguration {
