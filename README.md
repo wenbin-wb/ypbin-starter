@@ -1,7 +1,29 @@
+<div align="center">
+
 # ypbin-starter
 
-一套基于 Spring Boot 3.5 的开箱即用基础能力 starter 集合，覆盖单体应用与微服务架构。
-参考业界成熟脚手架的架构思想，按「约定优于配置、按需引入、可覆盖可扩展」的原则重构，面向企业级生产环境。
+**一套基于 Spring Boot 3.5 的开箱即用企业级基础能力 starter 集合**
+
+覆盖单体应用与微服务架构 · 约定优于配置 · 按需引入 · 可覆盖可扩展
+
+[![Maven Central](https://img.shields.io/maven-central/v/cn.ypbin/ypbin-starter-bom?label=Maven%20Central&color=blue)](https://central.sonatype.com/artifact/cn.ypbin/ypbin-starter-bom)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-brightgreen.svg)](https://spring.io/projects/spring-boot)
+
+[快速开始](#快速开始) · [模块总览](#模块总览) · [业务系统如何对接](#业务系统如何对接) · [各模块使用文档](#各模块使用文档)
+
+</div>
+
+---
+
+## 简介
+
+`ypbin-starter` 把企业级后端反复要写的基础能力（统一响应、鉴权、缓存、多租户、数据权限、日志审计、微服务治理……）沉淀成一组可独立引入的 Spring Boot Starter。业务系统只做业务，系统级能力交给 starter：默认自动装配、零配置即用，需要定制时通过扩展点接口覆盖，无侵入。
+
+- **单体、微服务通吃**：基础层两者共用，对外契约一致，同一套调用逻辑复用。
+- **发布至 Maven Central**：坐标 `cn.ypbin`，通过 BOM 一键管理全部模块版本。
+- **生产就绪**：安全默认（生产关文档、身份头清洗、密码策略）、性能细节（多级缓存、零 N+1 翻译、异步日志）均已内建。
 
 ## 特性
 
@@ -44,9 +66,9 @@
 <dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-bom</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>1.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -59,25 +81,25 @@
 ```xml
 <dependencies>
     <dependency>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-web</artifactId>
     </dependency>
     <dependency>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-data</artifactId>
     </dependency>
 
     <!-- 微服务架构 -->
     <dependency>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-cloud-gateway</artifactId>
     </dependency>
     <dependency>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-cloud-nacos</artifactId>
     </dependency>
     <dependency>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-cloud-core</artifactId>
     </dependency>
 </dependencies>
@@ -1493,7 +1515,7 @@ AuthUser user = socialService.login("github", callback);  // 回调换取用户�
 
 ```xml
 <dependency>
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter-cloud-core</artifactId>
 </dependency>
 ```
@@ -1555,7 +1577,7 @@ public interface UserClient {
 
 ```xml
 <dependency>
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter-cloud-nacos</artifactId>
 </dependency>
 ```
@@ -1615,7 +1637,7 @@ ypbin:
 
 ```xml
 <dependency>
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter-cloud-loadbalancer</artifactId>
 </dependency>
 ```
@@ -1648,7 +1670,7 @@ ypbin:
 
 ```xml
 <dependency>
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter-cloud-gateway</artifactId>
 </dependency>
 ```
@@ -1729,7 +1751,7 @@ requestId，便于跨服务聚合。核心能力零重依赖，引入即生效�
 
 ```xml
 <dependency>
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter-cloud-observability</artifactId>
 </dependency>
 ```
@@ -1783,7 +1805,7 @@ management:
 
 ```xml
 <dependency>
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter-cloud-sentinel</artifactId>
 </dependency>
 ```
@@ -1825,19 +1847,31 @@ optional 依赖），即可对路由维度限流，规则同样从 Nacos 热加�
 > Sentinel Dashboard 是独立进程，需单独部署（`deploy/docker-compose.yml` 已内置一个用于本地自测）。
 > Resilience4j 与 Sentinel 是「调用方容错」与「被调方保护」的分工，无需二选一。
 
-## 构建与发布
+## 版本与兼容性
+
+| ypbin-starter | Spring Boot | Spring Cloud | JDK |
+|---|---|---|---|
+| 1.0.x | 3.5.x | 2025.0.x | 17+ |
+
+遵循[语义化版本](https://semver.org/lang/zh-CN/)。版本变更详见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 参与开发
 
 ```bash
 # 编译并安装到本地仓库（verify 阶段自动执行代码风格校验）
 mvn clean install
 
 # 一键格式化代码（统一 license 头、import 顺序、去除多余空白）
-mvn com.diffplug.spotless:spotless-maven-plugin:apply -pl <功能模块列表>
+mvn com.diffplug.spotless:spotless-maven-plugin:apply
 
-# 发布到远程仓库（生成 source/javadoc 附件并 GPG 签名，需本地配置 gpg 密钥）
+# 发布到 Maven Central（生成 source/javadoc 附件并 GPG 签名，需本地配置 gpg 密钥）
 mvn clean deploy -Prelease
 ```
 
+发布到 Maven Central 的完整流程与版本迭代规范见 [RELEASING.md](RELEASING.md)。
+
 ## 许可证
 
-[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+基于 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) 开源，可自由用于商业项目。
+
+Copyright © 2024-present wenbin
