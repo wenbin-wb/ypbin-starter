@@ -35,6 +35,12 @@ public class SseProperties {
     /** 内置订阅端点路径 */
     private String path = "/ypbin/sse/subscribe";
 
+    /** 一次性订阅票据签发端点路径（Header 令牌鉴权场景：先换票再用 ticket 订阅） */
+    private String ticketPath = "/ypbin/sse/ticket";
+
+    /** 一次性订阅票据有效期（秒），换票后应尽快用于订阅 */
+    private long ticketTtlSeconds = 30L;
+
     /** 连接超时（毫秒），0 表示不超时（不建议）；到期后客户端自动重连 */
     private long timeout = 300_000L;
 
@@ -60,6 +66,22 @@ public class SseProperties {
 
     public void setPath(String path) {
         this.path = path;
+    }
+
+    public String getTicketPath() {
+        return ticketPath;
+    }
+
+    public void setTicketPath(String ticketPath) {
+        this.ticketPath = ticketPath;
+    }
+
+    public long getTicketTtlSeconds() {
+        return ticketTtlSeconds;
+    }
+
+    public void setTicketTtlSeconds(long ticketTtlSeconds) {
+        this.ticketTtlSeconds = ticketTtlSeconds;
     }
 
     public long getTimeout() {

@@ -1108,8 +1108,10 @@ ypbin:
 ypbin:
   sse:
     enabled: true
-    register-endpoint: true      # 是否注册内置订阅端点（还需存在鉴权来源，见下）
+    register-endpoint: true      # 是否注册内置订阅端点与换票端点（还需存在鉴权来源，见下）
     path: /ypbin/sse/subscribe
+    ticket-path: /ypbin/sse/ticket   # 一次性票据签发端点（Header 令牌鉴权场景用）
+    ticket-ttl-seconds: 30           # 票据有效期(秒)，换票后应尽快订阅
     timeout: 300000              # 连接超时(ms)，到期客户端自动重连
 ```
 
@@ -1136,7 +1138,25 @@ public class MySseUserIdResolver implements SseUserIdResolver {
 }
 ```
 
-**Token 走 header 的场景**：`EventSource` 不能设自定义头，若登录态靠 `Authorization` 头而非 Cookie，则关闭内置端点（`register-endpoint: false`），自建端点：先用带 token 的普通请求换一个短时一次性 ticket，再 `new EventSource('/your/sse?ticket=xxx')`，端点内校验 ticket 得到 userId 后调 `SseEmitterManager.connect(userId)`。
+**Token 走 header 的场景（内置一次性票据）**：`EventSource` 不能设自定义头，若登录态靠 `Authorization` 头而非 Cookie，直接用内置的「先换票再订阅」流程——无需自建端点：
+
+1. 前端先用**带令牌的普通请求**（能带 Authorization 头）换票：
+
+```javascript
+// 携带你正常的鉴权头（如 Authorization），换取一次性票据
+const { data } = await axios.post('/ypbin/sse/ticket');   // 返回 { ticket, expiresIn }
+```
+
+2. 再用票据订阅（`EventSource` 不带头也没关系，票据本身即已鉴权的凭证）：
+
+```javascript
+const es = new EventSource(`/ypbin/sse/subscribe?ticket=${data.ticket}`);
+es.addEventListener('unread-count', e => render(JSON.parse(e.data)));
+```
+
+票据**短时有效（默认 30 秒）、一次性消费**（订阅时即失效，杜绝重放），绑定的用户在换票时已由登录态确定。存储有 Redis 用 Redis（多节点共享、Lua 原子消费）、否则内存。订阅端点按 `ticket` 是否存在自动切换：带 `ticket` 走票据校验，不带则走登录态（Cookie 场景）——同一端点两种鉴权方式共存，无需业务方选择。
+
+> 换票端点 `/ypbin/sse/ticket` 需处于你的登录鉴权拦截范围内（它靠 `SseUserIdResolver` 解析当前登录用户来签发票据）。若引入 security 模块并启用全局拦截，默认即受保护。
 
 后端用统一门面 `PushService` 推送，屏蔽底层通道：
 
