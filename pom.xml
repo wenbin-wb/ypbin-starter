@@ -130,6 +130,18 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Central Portal 发布插件：根聚合 pom 无 parent 继承不到，需独立声明 -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.8.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>false</autoPublish>
+                    <waitUntil>uploaded</waitUntil>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

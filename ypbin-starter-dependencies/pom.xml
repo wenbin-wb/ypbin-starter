@@ -442,6 +442,23 @@
                     </execution>
                 </executions>
             </plugin>
+            <!--
+             | Sonatype Central Portal 发布插件（2024 后新流程）。放在父 pom 主 build（非 profile）+ extensions=true，
+             | 才能接管整个 reactor 的 deploy 并禁用默认 maven-deploy-plugin（否则无 distributionManagement 会报错）。
+             | 未 -Prelease 时无签名附件，但插件仅在 deploy 阶段联网上传，日常 install 不受影响。
+             | autoPublish=false：上传后停在 Central Portal「待发布」态，人工核对再手动发布，避免误发不可撤回。
+            -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>${central-publishing-maven-plugin.version}</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>false</autoPublish>
+                    <waitUntil>uploaded</waitUntil>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
@@ -501,24 +518,6 @@
                                 </goals>
                             </execution>
                         </executions>
-                    </plugin>
-                    <!--
-                     | Sonatype Central Portal 发布插件（2024 后新流程，替代旧 nexus-staging）。
-                     | publishingServerId 对应 settings.xml 里的 <server><id>，放 Central 生成的 user token。
-                     | autoPublish=true：校验通过后自动发布；设 false 则需登录 Portal 手动确认发布。
-                    -->
-                    <plugin>
-                        <groupId>org.sonatype.central</groupId>
-                        <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>${central-publishing-maven-plugin.version}</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <publishingServerId>central</publishingServerId>
-                            <!-- 首次发布用 false：上传后停在 Central Portal「待发布」态，人工核对无误再手动点发布，避免误发不可撤回。
-                                 稳定后可改回 true 走全自动发布。 -->
-                            <autoPublish>false</autoPublish>
-                            <waitUntil>uploaded</waitUntil>
-                        </configuration>
                     </plugin>
                 </plugins>
             </build>
