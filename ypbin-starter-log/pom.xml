@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-dependencies</artifactId>
         <version>${revision}</version>
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
@@ -22,7 +22,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
         <!-- User-Agent 解析（浏览器/操作系统），显式声明不依赖 core 传递 -->

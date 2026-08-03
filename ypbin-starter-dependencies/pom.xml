@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter-dependencies</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
@@ -44,6 +44,7 @@
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>
+        <central-publishing-maven-plugin.version>0.8.0</central-publishing-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -177,157 +178,157 @@
 
             <!-- 本项目各模块（供 bom 与模块间相互依赖引用） -->
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-core</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-json</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-web</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-data</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cache</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-security</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-api-doc</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-storage</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-log</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-tools</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-extension-tenant</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-extension-crud</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-extension-datapermission</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-excel</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-captcha</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-messaging</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-sensitive-words</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-i18n</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-api-crypto</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-social</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-sign</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cloud-core</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cloud-nacos</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cloud-loadbalancer</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cloud-observability</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cloud-sentinel</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cloud-gateway</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-async</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-job</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-app-web</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
-                <groupId>cn.ypbin.starter</groupId>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-app-cloud</artifactId>
                 <version>${revision}</version>
             </dependency>
@@ -500,6 +501,22 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                    <!--
+                     | Sonatype Central Portal 发布插件（2024 后新流程，替代旧 nexus-staging）。
+                     | publishingServerId 对应 settings.xml 里的 <server><id>，放 Central 生成的 user token。
+                     | autoPublish=true：校验通过后自动发布；设 false 则需登录 Portal 手动确认发布。
+                    -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central-publishing-maven-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-dependencies</artifactId>
         <version>${revision}</version>
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
@@ -22,12 +22,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
         <!-- 引入 json 模块以复用统一 Jackson 配置（传递依赖，业务方也可单独排除） -->
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-json</artifactId>
         </dependency>
 

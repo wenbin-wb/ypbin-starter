@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-dependencies</artifactId>
         <version>${revision}</version>
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
@@ -23,39 +23,39 @@
     <!-- 纯聚合 starter：引入本模块即获得单体 Web 应用常用基础能力，仍可按需排除单个依赖 -->
     <dependencies>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-json</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-data</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-cache</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-security</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-api-doc</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-log</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-tools</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-async</artifactId>
         </dependency>
     </dependencies>

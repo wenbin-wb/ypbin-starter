@@ -4,14 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>cn.ypbin.starter</groupId>
+    <groupId>cn.ypbin</groupId>
     <artifactId>ypbin-starter</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
     <description>ypbin-starter —— 一套基于 Spring Boot 的开箱即用基础能力 starter 集合</description>
-    <url>https://github.com/ypbin/ypbin-starter</url>
+    <url>https://github.com/wenbin-wb/ypbin-starter</url>
 
     <licenses>
         <license>
@@ -20,6 +20,30 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+
+    <!-- 发布中央仓库必需元数据：请按实际仓库/作者信息核对修改 -->
+    <organization>
+        <name>ypbin</name>
+        <url>https://github.com/wenbin-wb</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <id>wenbin</id>
+            <name>wenbin</name>
+            <url>https://github.com/wenbin-wb</url>
+            <roles>
+                <role>author</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/wenbin-wb/ypbin-starter.git</connection>
+        <developerConnection>scm:git:https://github.com/wenbin-wb/ypbin-starter.git</developerConnection>
+        <url>https://github.com/wenbin-wb/ypbin-starter</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <modules>
         <module>ypbin-starter-dependencies</module>

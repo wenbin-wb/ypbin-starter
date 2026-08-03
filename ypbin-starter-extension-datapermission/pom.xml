@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-dependencies</artifactId>
         <version>${revision}</version>
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
@@ -22,11 +22,11 @@
 
     <dependencies>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-data</artifactId>
         </dependency>
         <!-- @DataPermission 注解门控切面需要 AOP -->

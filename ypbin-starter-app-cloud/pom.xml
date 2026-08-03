@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>cn.ypbin.starter</groupId>
+        <groupId>cn.ypbin</groupId>
         <artifactId>ypbin-starter-dependencies</artifactId>
         <version>${revision}</version>
         <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
@@ -23,27 +23,27 @@
     <!-- 纯聚合 starter：在 app-web 基础上叠加微服务常用能力（Nacos/Feign/负载均衡/可观测性/限流） -->
     <dependencies>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-app-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-cloud-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-cloud-nacos</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-cloud-loadbalancer</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-cloud-observability</artifactId>
         </dependency>
         <dependency>
-            <groupId>cn.ypbin.starter</groupId>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-cloud-sentinel</artifactId>
         </dependency>
     </dependencies>
