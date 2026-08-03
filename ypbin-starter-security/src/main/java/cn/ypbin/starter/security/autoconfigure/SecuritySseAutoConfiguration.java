@@ -15,9 +15,11 @@
  */
 package cn.ypbin.starter.security.autoconfigure;
 
+import cn.ypbin.starter.messaging.autoconfigure.SseAutoConfiguration;
 import cn.ypbin.starter.messaging.sse.SseUserIdResolver;
 import cn.ypbin.starter.security.core.LoginHelper;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,10 +34,15 @@ import org.springframework.context.annotation.Bean;
  * <p>用 {@link LoginHelper#getUserIdSafely()} 取值（无上下文线程安全），与操作日志、审计填充的取值方式一致。
  * {@code @ConditionalOnMissingBean}，业务方可覆盖。</p>
  *
+ * <p>{@code @AutoConfigureBefore(SseAutoConfiguration.class)}：messaging 的订阅/换票端点以
+ * {@code @ConditionalOnBean(SseUserIdResolver)} 为条件，而 {@code @ConditionalOnBean} 对注册顺序敏感——
+ * 必须让本配置先注册 resolver，messaging 评估条件时才能发现它，否则端点不生成（No mapping）。</p>
+ *
  * @author wenbin
  * @since 2026-08-03
  */
 @AutoConfiguration
+@AutoConfigureBefore(SseAutoConfiguration.class)
 @ConditionalOnClass(SseUserIdResolver.class)
 @ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SecuritySseAutoConfiguration {
