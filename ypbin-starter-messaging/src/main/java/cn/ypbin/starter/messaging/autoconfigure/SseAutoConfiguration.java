@@ -20,7 +20,9 @@ import cn.ypbin.starter.messaging.push.PushService;
 import cn.ypbin.starter.messaging.sse.SseEmitterManager;
 import cn.ypbin.starter.messaging.sse.SseProperties;
 import cn.ypbin.starter.messaging.sse.SseSubscribeController;
+import cn.ypbin.starter.messaging.sse.SseUserIdResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -57,10 +59,16 @@ public class SseAutoConfiguration {
         return new DefaultPushService(sseEmitterManager);
     }
 
+    /**
+     * 内置订阅端点。仅当容器内存在 {@link SseUserIdResolver}（如引入 security 模块）时注册——没有鉴权来源
+     * 就不暴露端点，避免无鉴权订阅。用户标识由端点从登录态解析，不接收前端传参。
+     */
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnBean(SseUserIdResolver.class)
     @ConditionalOnProperty(prefix = "ypbin.sse", name = "register-endpoint", havingValue = "true", matchIfMissing = true)
-    public SseSubscribeController sseSubscribeController(SseEmitterManager sseEmitterManager) {
-        return new SseSubscribeController(sseEmitterManager);
+    public SseSubscribeController sseSubscribeController(
+        SseEmitterManager sseEmitterManager, SseUserIdResolver sseUserIdResolver) {
+        return new SseSubscribeController(sseEmitterManager, sseUserIdResolver);
     }
 }

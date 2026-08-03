@@ -37,6 +37,12 @@
             <artifactId>ypbin-starter-log</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- 可选：引入后 security 提供的 SseUserIdResolver 实现，让内置 SSE 订阅端点从登录态解析用户 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-messaging</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <dependency>
             <groupId>cn.dev33</groupId>

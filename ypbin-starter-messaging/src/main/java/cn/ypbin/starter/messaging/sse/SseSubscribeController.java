@@ -15,17 +15,21 @@
  */
 package cn.ypbin.starter.messaging.sse;
 
+import cn.ypbin.starter.core.exception.BusinessException;
+import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * 内置 SSE 订阅端点。
  *
- * <p>前端用 {@code new EventSource('/ypbin/sse/subscribe?userId=xxx')} 建立长连接。生产环境应结合安全
- * 模块从登录态解析 userId，而非信任前端传参——业务方可关闭本内置端点（{@code ypbin.sse.register-endpoint=false}），
- * 自行编写带鉴权的订阅端点并调用 {@link SseEmitterManager#connect}。</p>
+ * <p>前端用 {@code new EventSource('/ypbin/sse/subscribe')} 建立长连接，<strong>无需也不能传 userId</strong>：
+ * 订阅用户由服务端登录态解析（{@link SseUserIdResolver}），未登录直接拒绝。这样前端连接参数无需被信任，
+ * 从根源杜绝「凭 URL 上的 userId 订阅他人推送」的越权。</p>
+ *
+ * <p>该端点仅在存在 {@link SseUserIdResolver} Bean（如引入 security 模块）时注册。业务方可关闭内置端点
+ * （{@code ypbin.sse.register-endpoint=false}），自行编写带鉴权的订阅端点并调用 {@link SseEmitterManager#connect}。</p>
  *
  * @author wenbin
  * @since 2026-07-31
@@ -35,18 +39,24 @@ public class SseSubscribeController {
 
     private final SseEmitterManager manager;
 
-    public SseSubscribeController(SseEmitterManager manager) {
+    private final SseUserIdResolver userIdResolver;
+
+    public SseSubscribeController(SseEmitterManager manager, SseUserIdResolver userIdResolver) {
         this.manager = manager;
+        this.userIdResolver = userIdResolver;
     }
 
     /**
      * 建立 SSE 订阅。路径由配置项决定，通过 {@code produces} 声明为事件流。
      *
-     * @param userId 用户标识
+     * <p>用户标识取自服务端登录态，不接收任何前端传参；未登录抛 {@link GlobalErrorCode#UNAUTHORIZED}。</p>
+     *
      * @return SseEmitter
      */
     @GetMapping(value = "${ypbin.sse.path:/ypbin/sse/subscribe}", produces = "text/event-stream")
-    public SseEmitter subscribe(@RequestParam("userId") String userId) {
+    public SseEmitter subscribe() {
+        String userId = userIdResolver.resolve()
+            .orElseThrow(() -> new BusinessException(GlobalErrorCode.UNAUTHORIZED));
         return manager.connect(userId);
     }
 }

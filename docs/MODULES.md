@@ -1108,17 +1108,35 @@ ypbin:
 ypbin:
   sse:
     enabled: true
-    register-endpoint: true      # 内置订阅端点；生产建议关闭改用带鉴权的自建端点
+    register-endpoint: true      # 是否注册内置订阅端点（还需存在鉴权来源，见下）
     path: /ypbin/sse/subscribe
     timeout: 300000              # 连接超时(ms)，到期客户端自动重连
 ```
 
-前端建立订阅（`userId` 生产应由登录态解析，勿信任前端传参）：
+**订阅端点的安全模型**：内置端点**不接收前端传入的 userId**，而是由服务端从登录态解析当前用户来建立连接——前端连接参数无需被信任，从根源杜绝「凭 URL 上的 userId 订阅他人推送」的越权。
+
+因此内置端点仅在存在 `SseUserIdResolver` Bean 时才注册：**引入 security 模块即自动桥接**一个基于登录会话的实现（用当前登录用户 ID 订阅）；未引入 security（或无该 Bean）时内置端点不注册，需自行提供实现或自建带鉴权的端点。
+
+前端建立订阅——不传 userId，鉴权走登录态（Cookie/Session 会随 `EventSource` 自动携带；`EventSource` 原生不能带 `Authorization` 头，若鉴权依赖 header，见下方自建端点）：
 
 ```javascript
-const es = new EventSource('/ypbin/sse/subscribe?userId=123');
+const es = new EventSource('/ypbin/sse/subscribe');
 es.addEventListener('unread-count', e => render(JSON.parse(e.data)));
 ```
+
+自定义订阅用户来源（覆盖默认桥接，或在未引入 security 时提供）：
+
+```java
+@Component
+public class MySseUserIdResolver implements SseUserIdResolver {
+    @Override
+    public Optional<String> resolve() {
+        return LoginHelper.getUserIdSafely().map(String::valueOf);  // 从服务端登录态取，切勿读请求参数
+    }
+}
+```
+
+**Token 走 header 的场景**：`EventSource` 不能设自定义头，若登录态靠 `Authorization` 头而非 Cookie，则关闭内置端点（`register-endpoint: false`），自建端点：先用带 token 的普通请求换一个短时一次性 ticket，再 `new EventSource('/your/sse?ticket=xxx')`，端点内校验 ticket 得到 userId 后调 `SseEmitterManager.connect(userId)`。
 
 后端用统一门面 `PushService` 推送，屏蔽底层通道：
 
