@@ -17,7 +17,7 @@
     <description>定时任务：基于 Spring TaskScheduler 的动态调度（注册/启停/改 cron/立即执行）+ 分布式锁多实例防重，任务持久化与页面由业务方实现</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

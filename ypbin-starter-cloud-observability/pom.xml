@@ -17,7 +17,7 @@
     <description>可观测性：X-Request-Id 与 MDC/traceId 关联，Micrometer Tracing 门面（OTLP 上报可选）</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

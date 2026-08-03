@@ -17,7 +17,7 @@
     <description>缓存能力：基于 Redis 的默认实现，预留 CacheService 策略接口以便扩展</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

@@ -17,7 +17,7 @@
     <description>CRUD 扩展：通用控制器/服务基类、分页查询模型，消除增删改查样板代码</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

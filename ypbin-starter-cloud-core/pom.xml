@@ -17,7 +17,7 @@
     <description>微服务核心：OpenFeign 增强（请求头透传、上下文传递）、熔断降级</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

@@ -9,7 +9,13 @@
 
 ## [未发布]
 
+当前开发版本 `1.1.0-SNAPSHOT`。
+
 ## [1.0.0] - 2026-08-03
+
+> 已发布至 Maven Central（`cn.ypbin`）。发布过程中修复了无 parent 的三个聚合 POM
+> （根聚合、`dependencies`、`bom`）缺少 `url/licenses/scm/developers` 元数据与 GPG 签名的问题，
+> 元数据统一下沉到 `dependencies`（供子模块继承）与 `bom`（自带）。
 
 首个正式版本。基于 Spring Boot 3.5 的开箱即用基础能力 starter 集合，覆盖单体与微服务，共 33 个模块。
 

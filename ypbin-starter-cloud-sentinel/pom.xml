@@ -17,7 +17,7 @@
     <description>Sentinel 高阶限流保护：Web 接口限流 + 网关限流 + 被拒统一 R 响应 + Nacos 规则热更新（Dashboard 需单独部署）</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

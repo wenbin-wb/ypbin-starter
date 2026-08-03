@@ -17,7 +17,7 @@
     <description>国际化：基于 Spring MessageSource 的多语言，按请求头/参数解析 Locale</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

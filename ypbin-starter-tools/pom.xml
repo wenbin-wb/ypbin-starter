@@ -17,7 +17,7 @@
     <description>常用工具：限流、幂等（注解 + AOP，可插拔存储）、加解密工具</description>
 
     <properties>
-        <revision>1.0.0</revision>
+        <revision>1.1.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>
