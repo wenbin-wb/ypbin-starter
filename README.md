@@ -2,9 +2,9 @@
 
 # ypbin-starter
 
-**一套基于 Spring Boot 3.5 的开箱即用企业级基础能力 starter 集合**
+**为企业级 Spring Boot 应用打造的系统级基建**
 
-覆盖单体应用与微服务架构 · 约定优于配置 · 按需引入 · 可覆盖可扩展
+让业务团队从第一行代码起就站在生产就绪的地基上 · 单体与微服务同源 · 约定优于配置 · 可覆盖可扩展
 
 [![Maven Central](https://img.shields.io/maven-central/v/cn.ypbin/ypbin-starter-bom?label=Maven%20Central&color=blue)](https://central.sonatype.com/artifact/cn.ypbin/ypbin-starter-bom)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
@@ -19,22 +19,33 @@
 
 ## 简介
 
-`ypbin-starter` 把企业级后端反复要写的基础能力（统一响应、鉴权、缓存、多租户、数据权限、日志审计、微服务治理……）沉淀成一组可独立引入的 Spring Boot Starter。业务系统只做业务，系统级能力交给 starter：默认自动装配、零配置即用，需要定制时通过扩展点接口覆盖，无侵入。
+每个团队起新项目，都要把统一响应、鉴权、缓存、多租户、数据权限、日志审计、微服务治理这些东西重写一遍——同样的坑，不同的踩法。`ypbin-starter` 把这层「系统级基建」一次性做对、做透，沉淀成一组可独立引入的 Spring Boot Starter：**业务系统只写业务，基建交给 starter。**
 
-- **单体、微服务通吃**：基础层两者共用，对外契约一致，同一套调用逻辑复用。
-- **发布至 Maven Central**：坐标 `cn.ypbin`，通过 BOM 一键管理全部模块版本。
-- **生产就绪**：安全默认（生产关文档、身份头清洗、密码策略）、性能细节（多级缓存、零 N+1 翻译、异步日志）均已内建。
+它不是又一个把开源库简单包一层的脚手架。每一个模块的边界、每一个默认值、每一处扩展点的位置，都是在真实生产场景里权衡过的结果——安全默认优先于便利、扩展点优先于配置项、约定优先于文档。
+
+- **一套架构，单体微服务同源**。基础层不依赖 Spring Cloud，单体直接用、微服务叠加治理层，对外契约完全一致，前端无感知。避免了「单体一套、微服务另起炉灶」的常见撕裂。
+- **能力即插即拔，且随时可被接管**。所有能力 Bean 一律 `@ConditionalOnMissingBean` + `@ConditionalOnProperty`——你定义同类型 Bean 就覆盖默认实现，改一行配置就关停整个模块。starter 定义抽象与默认行为，业务方按需注入自己的实现，不改 starter 一行源码。
+- **难做对的地方，替你做对了**。缓存击穿/穿透/雪崩三重防护、序列化期零 N+1 的引用翻译、异步线程的上下文透传、密码错误锁定的 TTL 竞态、接口签名的时钟偏移与重放窗口——这些容易埋雷的细节都已内建并经过对抗性审查。
+
+## 设计取舍
+
+> 好的框架不在于它做了什么，而在于它拒绝做什么。以下是几个关键决策及其理由。
+
+- **认证选 Sa-Token，而非自研 JWT 或 Spring Security。** 后台管理的诉求是「会话、踢人、续期、多端」，Spring Security 的过滤器链对此过重，自研 JWT 又要重造轮子。需要开放平台级 access+refresh 双令牌时才上 OAuth2，不为极少数场景绑架全局复杂度。
+- **扩展点强制批量，从 API 层面消灭 N+1。** `@RefText` 的数据源接口一次收一组 ID、返回映射，业务方想写出 N+1 都难；列表翻译由切面在序列化前自动预加载，业务代码零改动。把正确的做法设成唯一的做法。
+- **异常统一 HTTP 200 + 业务码。** 前后端交互中 HTTP 状态码语义混乱是常见摩擦源，本项目约定所有业务异常走 200、由 `R.code` 区分，前端只需一套拦截逻辑。这是明确的取舍，不是疏忽。
+- **数据权限只拦标注方法，不做全局无差别切面。** 全局拦截会让定时任务、登录校验等内部查询悄悄丢数据；`@DataPermission` 显式开启，边界清晰、可预期。
+- **starter 只给运行时与扩展点，不碰业务表。** 客户端管理、字典、在线用户、任务调度——表结构和页面归业务系统，starter 提供抽象和默认（读配置）实现。职责边界一刀切干净，升级 starter 不会动业务数据。
 
 ## 特性
 
-- **分层架构**：基础层（core/json/web/data/cache/security 等）单体与微服务共用，扩展层（crud/tenant/datapermission）按需引入。
-- **约定优于配置**：统一 `ypbin.*` 配置前缀，默认自动装配，零配置即可用。
-- **可覆盖可扩展**：能力 Bean 全部 `@ConditionalOnMissingBean` 可覆盖，`@ConditionalOnProperty` 可开关；模块间通过扩展点接口解耦。
-- **企业级细节**：多租户跨租户逃逸、异步上下文透传、分布式限流与幂等、数据权限门控、全局异常统一、审计字段自动填充、XSS 防护、字段加密、数据脱敏。
-- **微服务就绪**：Feign 请求头透传与 R 错误解码、CircuitBreaker 默认开启、版本灰度负载均衡、Nacos 注册/配置/动态路由、Gateway 横切（CORS/异常/身份头清洗/鉴权/Swagger 聚合）。
-- **能力齐全**：Excel 导入导出、行为验证码、邮件、国密 SM2/SM4、雪花 ID、树形结构工具开箱即用。
-- **版本治理**：`${revision}` + flatten 统一版本，对外提供 BOM 一键导入。
-- **质量保障**：spotless 统一代码风格 + license 头，核心逻辑单元测试覆盖。
+- **分层架构**：基础层（core/json/web/data/cache/security 等）单体与微服务共用；扩展层（crud/tenant/datapermission）与微服务层（cloud-*）按需叠加。层间单向依赖，无循环。
+- **约定优于配置**：统一 `ypbin.*` 配置前缀，自动装配，零配置即用；每个默认值都选生产安全的一侧。
+- **可覆盖可扩展**：能力 Bean 全部 `@ConditionalOnMissingBean` 可覆盖、`@ConditionalOnProperty` 可开关；模块间仅通过扩展点接口解耦，不泄露实现。
+- **安全内建**：生产环境自动关闭 API 文档、网关身份头清洗防伪造、密码复杂度/错误锁定/有效期策略、XSS 过滤、字段加密、数据脱敏、接口签名防重放。
+- **性能内建**：多级缓存（L1 Caffeine + L2 Redis + Pub/Sub 失效广播）、缓存三重防护、序列化期零 N+1 翻译、日志异步落库、限流/幂等 Redis+Lua 原子实现。
+- **微服务就绪**：Feign 请求头透传与 R 错误解码、CircuitBreaker 默认开启、版本灰度负载均衡、Nacos 注册/配置/动态路由、Gateway 横切、Sentinel 被调方保护、requestId 全链路贯穿。
+- **工程治理**：`${revision}` + flatten 统一版本，对外 BOM 一键导入；spotless 强制代码风格与 license 头；已发布 Maven Central，遵循语义化版本。
 
 ## 技术栈
 
