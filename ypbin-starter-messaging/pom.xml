@@ -17,7 +17,7 @@
     <description>消息能力：基于 Spring Mail 的邮件发送封装（文本/HTML/附件）</description>
 
     <properties>
-        <revision>1.0.0-SNAPSHOT</revision>
+        <revision>1.0.0</revision>
     </properties>
 
     <dependencies>

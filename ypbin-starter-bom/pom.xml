@@ -13,7 +13,7 @@
     <description>对外统一 BOM：业务方 import 本 BOM 即可管理所有 ypbin-starter 模块版本</description>
 
     <properties>
-        <revision>1.0.0-SNAPSHOT</revision>
+        <revision>1.0.0</revision>
     </properties>
 
     <dependencyManagement>

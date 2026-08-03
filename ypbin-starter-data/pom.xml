@@ -17,7 +17,7 @@
     <description>数据访问增强：MyBatis-Plus 基础实体、分页拦截器、字段自动填充</description>
 
     <properties>
-        <revision>1.0.0-SNAPSHOT</revision>
+        <revision>1.0.0</revision>
     </properties>
 
     <dependencies>

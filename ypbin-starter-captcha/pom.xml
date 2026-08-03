@@ -17,7 +17,7 @@
     <description>验证码：基于 tianai-captcha 的行为验证码（滑块/旋转/点选/拼接）生成与校验</description>
 
     <properties>
-        <revision>1.0.0-SNAPSHOT</revision>
+        <revision>1.0.0</revision>
     </properties>
 
     <dependencies>

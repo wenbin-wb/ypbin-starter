@@ -13,7 +13,7 @@
     <description>统一依赖与插件版本管理，同时作为所有子模块的 parent</description>
 
     <properties>
-        <revision>1.0.0-SNAPSHOT</revision>
+        <revision>1.0.0</revision>
         <java.version>17</java.version>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -514,8 +514,10 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <autoPublish>true</autoPublish>
-                            <waitUntil>published</waitUntil>
+                            <!-- 首次发布用 false：上传后停在 Central Portal「待发布」态，人工核对无误再手动点发布，避免误发不可撤回。
+                                 稳定后可改回 true 走全自动发布。 -->
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>uploaded</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -41,6 +41,8 @@ gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>   # 公钥上传（供�
     <profile>
       <id>gpg</id>
       <properties>
+        <!-- 指定 gpg 可执行文件：务必指向生成密钥的那个 gpg，避免 Git 自带旧版 gpg 读不到密钥库 -->
+        <gpg.executable>C:\Program Files\GnuPG\bin\gpg.exe</gpg.executable>
         <gpg.keyname>【你的 GPG KEYID】</gpg.keyname>
         <gpg.passphrase>【GPG 密钥密码】</gpg.passphrase>
       </properties>

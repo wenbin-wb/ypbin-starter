@@ -17,7 +17,7 @@
     <description>认证授权：基于 Sa-Token 的登录辅助、权限数据源扩展点与放行配置</description>
 
     <properties>
-        <revision>1.0.0-SNAPSHOT</revision>
+        <revision>1.0.0</revision>
     </properties>
 
     <dependencies>
