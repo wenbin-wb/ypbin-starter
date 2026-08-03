@@ -1119,6 +1119,8 @@ ypbin:
 
 因此内置端点仅在存在 `SseUserIdResolver` Bean 时才注册：**引入 security 模块即自动桥接**一个基于登录会话的实现（用当前登录用户 ID 订阅）；未引入 security（或无该 Bean）时内置端点不注册，需自行提供实现或自建带鉴权的端点。
 
+> **与全局登录拦截的关系（自动处理，无需手动配白名单）**：引入 security 且启用全局登录拦截时，starter 会**自动把订阅端点 `ypbin.sse.path` 加入 Sa-Token 放行列表**——订阅靠 ticket 或 Cookie 登录态自证，若被登录拦截器在进控制器前拦死，ticket 逻辑就走不到。**换票端点 `ypbin.sse.ticket-path` 不放行**（它靠登录态签发票据，必须保留拦截）。这一放行是 starter 端点自己的契约要求，如同自动放行 SpringDoc 文档路径，接入方无需往 `ypbin.security.excludes` 手动添加。
+
 前端建立订阅——不传 userId，鉴权走登录态（Cookie/Session 会随 `EventSource` 自动携带；`EventSource` 原生不能带 `Authorization` 头，若鉴权依赖 header，见下方自建端点）：
 
 ```javascript

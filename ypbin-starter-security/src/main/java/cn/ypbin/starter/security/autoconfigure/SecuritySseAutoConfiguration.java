@@ -16,10 +16,15 @@
 package cn.ypbin.starter.security.autoconfigure;
 
 import cn.ypbin.starter.messaging.autoconfigure.SseAutoConfiguration;
+import cn.ypbin.starter.messaging.sse.SseProperties;
 import cn.ypbin.starter.messaging.sse.SseUserIdResolver;
 import cn.ypbin.starter.security.core.LoginHelper;
+import cn.ypbin.starter.security.satoken.SecurityExcludePathProvider;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -54,5 +59,23 @@ public class SecuritySseAutoConfiguration {
     @ConditionalOnMissingBean
     public SseUserIdResolver securitySseUserIdResolver() {
         return () -> LoginHelper.getUserIdSafely().map(String::valueOf);
+    }
+
+    /**
+     * 把 SSE 订阅端点路径贡献给 Sa-Token 放行列表：订阅端点靠一次性票据自证身份（{@code EventSource}
+     * 不能带 Authorization 头），必须免于全局登录拦截，否则请求进不到控制器、票据逻辑走不到。
+     *
+     * <p>只放行订阅端点（{@code ypbin.sse.path}），<strong>不放行换票端点</strong>（{@code ypbin.sse.ticket-path}）
+     * ——换票靠登录态签发票据，必须保留拦截。仅在 {@code ypbin.sse.enabled=true} 时贡献。</p>
+     *
+     * <p>用 {@code @Value} 直接读环境属性而非注入 {@link SseProperties}：本配置 {@code @AutoConfigureBefore}
+     * 于 messaging，此刻 {@code SseProperties} Bean 尚未注册，但属性值始终可读，默认值与 {@code SseProperties} 一致。</p>
+     */
+    @Bean
+    @ConditionalOnBean(SseUserIdResolver.class)
+    @ConditionalOnProperty(prefix = "ypbin.sse", name = "enabled", havingValue = "true")
+    public SecurityExcludePathProvider sseSubscribeExcludePathProvider(
+        @Value("${ypbin.sse.path:/ypbin/sse/subscribe}") String subscribePath) {
+        return () -> List.of(subscribePath);
     }
 }

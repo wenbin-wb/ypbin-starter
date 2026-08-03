@@ -32,6 +32,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * <p>检测到类路径存在 SpringDoc 时，自动追加 Swagger / 文档相关路径到放行列表，避免文档页被登录拦截。</p>
  *
+ * <p>此外，收集所有 {@link SecurityExcludePathProvider} 贡献的路径合入放行列表：让其它 starter 端点（如靠
+ * 一次性票据自证身份的 SSE 订阅端点）自动免于登录拦截，无需接入方手动配白名单。</p>
+ *
  * @author wenbin
  * @since 2026-07-31
  */
@@ -47,8 +50,12 @@ public class SaTokenWebConfigurer implements WebMvcConfigurer {
 
     private final SecurityProperties properties;
 
-    public SaTokenWebConfigurer(SecurityProperties properties) {
+    private final List<SecurityExcludePathProvider> excludePathProviders;
+
+    public SaTokenWebConfigurer(SecurityProperties properties,
+        List<SecurityExcludePathProvider> excludePathProviders) {
         this.properties = properties;
+        this.excludePathProviders = excludePathProviders;
     }
 
     @Override
@@ -56,6 +63,13 @@ public class SaTokenWebConfigurer implements WebMvcConfigurer {
         List<String> excludes = new ArrayList<>(properties.getExcludes());
         if (properties.isExcludeApiDoc() && isSpringDocPresent()) {
             excludes.addAll(API_DOC_EXCLUDES);
+        }
+        // 其它模块贡献的放行路径（如 SSE 订阅端点靠 ticket 自证，须免登录拦截）
+        for (SecurityExcludePathProvider provider : excludePathProviders) {
+            List<String> paths = provider.excludePaths();
+            if (paths != null) {
+                excludes.addAll(paths);
+            }
         }
         registry.addInterceptor(new SaInterceptor(handle -> StpUtil.checkLogin()))
             .addPathPatterns(properties.getIncludes())

@@ -35,6 +35,7 @@ import cn.ypbin.starter.security.password.policy.PasswordExpiration;
 import cn.ypbin.starter.security.password.policy.PasswordPolicyProvider;
 import cn.ypbin.starter.security.password.policy.PasswordValidator;
 import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
+import cn.ypbin.starter.security.satoken.SecurityExcludePathProvider;
 import cn.ypbin.starter.security.satoken.StpPermissionAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -182,8 +183,9 @@ public class SecurityAutoConfiguration {
     @ConditionalOnClass({SaInterceptor.class, WebMvcConfigurer.class})
     @ConditionalOnProperty(prefix = "ypbin.security", name = "interceptor", havingValue = "true", matchIfMissing = true)
     @ConditionalOnMissingBean(SaTokenWebConfigurer.class)
-    public SaTokenWebConfigurer saTokenWebConfigurer(SecurityProperties properties) {
-        return new SaTokenWebConfigurer(properties);
+    public SaTokenWebConfigurer saTokenWebConfigurer(SecurityProperties properties,
+        ObjectProvider<SecurityExcludePathProvider> excludePathProviders) {
+        return new SaTokenWebConfigurer(properties, excludePathProviders.orderedStream().toList());
     }
 
     /**

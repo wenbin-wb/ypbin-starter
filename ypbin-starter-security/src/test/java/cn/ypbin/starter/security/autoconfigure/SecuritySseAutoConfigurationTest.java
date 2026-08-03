@@ -21,6 +21,8 @@ import cn.ypbin.starter.messaging.autoconfigure.SseAutoConfiguration;
 import cn.ypbin.starter.messaging.sse.SseSubscribeController;
 import cn.ypbin.starter.messaging.sse.SseTicketController;
 import cn.ypbin.starter.messaging.sse.SseUserIdResolver;
+import cn.ypbin.starter.security.satoken.SecurityExcludePathProvider;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
@@ -49,6 +51,17 @@ class SecuritySseAutoConfigurationTest {
             // 关键断言：端点依赖 resolver 已注册，顺序正确时才存在
             assertThat(context).hasSingleBean(SseSubscribeController.class);
             assertThat(context).hasSingleBean(SseTicketController.class);
+        });
+    }
+
+    @Test
+    void contributesSubscribePathToExcludes_butNotTicketPath() {
+        runner.run(context -> {
+            assertThat(context).hasSingleBean(SecurityExcludePathProvider.class);
+            List<String> excluded = context.getBean(SecurityExcludePathProvider.class).excludePaths();
+            // 订阅端点靠 ticket 自证，须放行；换票端点靠登录态签发，不得放行
+            assertThat(excluded).contains("/ypbin/sse/subscribe");
+            assertThat(excluded).doesNotContain("/ypbin/sse/ticket");
         });
     }
 
