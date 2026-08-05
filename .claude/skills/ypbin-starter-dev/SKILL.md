@@ -17,7 +17,7 @@ description: ypbin-starter 框架库开发与合规审计标准。开发任何 s
 - **开发模式**：新增/扩展能力模块时，严格按下面的「新建能力模块配方」与铁律落地。
 - **审计模式**：审查已有代码时，逐条对照「铁律」与「审计清单」，输出违规项 + 整改建议。
 
-作者署名统一 `wenbin`。改动只编译验证不启动服务，本机命令行无 java/mvn，走 IntelliJ 内置工具链（memory `build-env`）。
+作者署名统一 `wenbin`。改动只编译验证不启动服务；本机命令行 PATH 无 java/mvn，但可直接调 IDEA 内置 Maven + `.jdks/azul-17.0.18` 跑构建（memory `build-env`，命令见「验证」段）。
 
 ## 铁律（RED — 违反即判不合格，必须整改）
 
@@ -224,9 +224,24 @@ rg -ni "blade|continew" --glob '*.java' --glob '*.md'
 
 4. **发布 Maven Central：parent-less POM 要自带元数据 + GPG 签名**。`ypbin-starter-bom`（无 parent）必须自带 `url/licenses/scm/developers/organization`；`ypbin-starter-dependencies` 作为子模块 parent 也要补这些字段（子模块靠继承拿到，缺了会被 Central 拒收）。根聚合 pom 与 bom 的 release profile 各自要挂 `maven-gpg-plugin`，否则这两个 parent-less 的 `.pom` 上传后缺 `.asc` 签名，校验失败。参照 commit `e0cffe5`（1.0.0 据此成功发布）。
 
+5. **JDK 17 项目别用 JDK 19+ 的 API**。本项目编译目标 JDK 17，但本机 `.jdks` 下还有 21、IDEA 自带 JBR 25，容易顺手写超前 API 导致「IDEA 里不飘红、命令行 17 编译不过」。已踩：`Locale.of(String, String)` 是 JDK 19+ 才有，17 下 `找不到符号`，改用 `new Locale("zh", "CN")`。其它常见 17 缺失：`Stream.toList()` 有（16+）可用，但 `Math.clamp`、`String` 的部分方法、虚拟线程等是 21+ 的，勿用。写完务必用 **JDK 17** 命令行编译一遍验证（见「验证」段），不能只靠 IDEA。
+
+6. **spotless 强制格式，不达标直接 build fail**。项目挂了 `spotless-maven-plugin` 的 `check`（google-java-format 系），格式不符时 `mvn test` 在编译前就红（报 `format violations`）。硬性两点：**static import 必须置于所有普通 import 之前**、**未使用的 import 必须删除**（写测试常见：import 了接口但只用 lambda，就成了未用 import）。
+   - **修复**：提交/验证前先跑 `mvn -pl <模块> spotless:apply` 自动格式化，再 `test`。别手动对齐格式，交给 apply。
+
 ## 验证
 
-本机命令行无 java/mvn，走 IntelliJ 内置工具链编译（memory `build-env`）。starter 是发布库，改动后：
-1. 让用户在 IDEA 里 Build / 内置 Maven 编译对应模块，确认无编译错误。
+本机命令行 PATH 无 java/mvn，但可直接调用 IDEA 内置 Maven + `.jdks` 下的独立 JDK 跑构建（memory `build-env`，已验证可用）。starter 是发布库，改动后：
+
+1. 命令行编译/跑测试（git-bash，**务必用 JDK 17**，别用 JBR 的 25 或 .jdks 里的 21）：
+   ```bash
+   export JAVA_HOME="/c/Users/Administrator/.jdks/azul-17.0.18"
+   MVN="/c/Program Files/JetBrains/IntelliJ IDEA 2026.1/plugins/maven/lib/maven3/bin/mvn.cmd"
+   cd /c/Users/Administrator/IdeaProjects/starter/ypbin-starter
+   "$MVN" -pl <模块>[,<模块>...] -am spotless:apply   # 先修格式（PITFALL 6）
+   "$MVN" -pl <模块>[,<模块>...] -am test              # 再编译+测试
+   ```
+   `-am`（also-make）会带上依赖模块一起编译，改了被依赖的 L1 模块时必须加。
 2. 涉及装配逻辑的改动，补/跑对应模块的 `ApplicationContextRunner` 测试，验证条件生效与可覆盖性。
 3. 新增能力模块记得同步 `.imports` 登记、父 pom `<module>` 声明、依赖进 dependencies/bom。
+4. 测试模块若报找不到 JUnit/AssertJ，检查该模块 pom 是否缺 `spring-boot-starter-test`（test scope）——它一并带来 JUnit5 + AssertJ + `MockHttpServletRequest`。
