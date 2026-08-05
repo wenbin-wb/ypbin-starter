@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.ypbin</groupId>
+        <artifactId>ypbin-starter-dependencies</artifactId>
+        <version>${revision}</version>
+        <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ypbin-starter-license</artifactId>
+
+    <name>${project.artifactId}</name>
+    <description>License 授权：机器指纹绑定 + 使用期限 + SM2 签发验签 + @LicenseCheck 注解式模块/参数级授权 + 登录回验 + 联机校验扩展点，覆盖离线授权到在线鉴权的商业授权防护链路</description>
+
+    <properties>
+        <revision>1.1.0-SNAPSHOT</revision>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-core</artifactId>
+        </dependency>
+        <!-- 国密 SM2 签发/验签、SM3 指纹摘要、SM4 授权文件加密复用 tools 的加密工具。
+             这是 License 校验的核心能力，缺失将无法验签，故为硬依赖而非可选（不做静默降级）。 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-tools</artifactId>
+        </dependency>
+        <!-- tools 中 BouncyCastle 为可选依赖（不用国密可不引入），不会传递到此。
+             License 的验签/指纹强依赖国密，故在此显式声明为硬依赖。 -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+        </dependency>
+        <!-- 登录回验挂到 security 的 LoginVerifyProvider 扩展点；未引入 security 时跳过登录回验，其余能力不受影响 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-security</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- 运行期定期联机校验复用 job 的动态调度；未引入时不注册定期校验任务 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-job</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- 授权载体序列化/反序列化：Jackson 原生支持 record，jsr310 处理 LocalDateTime。
+             签发时对序列化后的载荷字节签名并连同载荷原样封装，验签直接基于存储字节，规避重序列化的字段顺序问题。 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- @LicenseCheck 注解切面 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <!-- 登录回验拦截失败时向 Servlet 响应写统一 R，可选 -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

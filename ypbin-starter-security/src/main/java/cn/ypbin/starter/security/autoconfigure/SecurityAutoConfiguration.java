@@ -16,12 +16,14 @@
 package cn.ypbin.starter.security.autoconfigure;
 
 import cn.dev33.satoken.interceptor.SaInterceptor;
+import cn.dev33.satoken.listener.SaTokenEventCenter;
 import cn.dev33.satoken.stp.StpInterface;
 import cn.ypbin.starter.security.client.DefaultLoginClientProvider;
 import cn.ypbin.starter.security.client.DefaultLoginClientService;
 import cn.ypbin.starter.security.client.LoginClientHolder;
 import cn.ypbin.starter.security.client.LoginClientProvider;
 import cn.ypbin.starter.security.client.LoginClientService;
+import cn.ypbin.starter.security.core.LoginVerifyProvider;
 import cn.ypbin.starter.security.core.PermissionProvider;
 import cn.ypbin.starter.security.handler.SaTokenExceptionHandler;
 import cn.ypbin.starter.security.online.DefaultOnlineUserService;
@@ -34,9 +36,11 @@ import cn.ypbin.starter.security.password.policy.DefaultPasswordPolicyProvider;
 import cn.ypbin.starter.security.password.policy.PasswordExpiration;
 import cn.ypbin.starter.security.password.policy.PasswordPolicyProvider;
 import cn.ypbin.starter.security.password.policy.PasswordValidator;
+import cn.ypbin.starter.security.satoken.LoginVerifyListener;
 import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
 import cn.ypbin.starter.security.satoken.SecurityExcludePathProvider;
 import cn.ypbin.starter.security.satoken.StpPermissionAdapter;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -169,6 +173,29 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean
     public StpInterface stpInterface(PermissionProvider permissionProvider) {
         return new StpPermissionAdapter(permissionProvider);
+    }
+
+    /**
+     * 登录回验监听器。
+     *
+     * <p>收集容器中所有 {@link LoginVerifyProvider}，在每次登录成功后逐个回验（如授权 License 回验），
+     * 并注册进 Sa-Token 事件中心。</p>
+     *
+     * <p>不使用 {@code @ConditionalOnBean(LoginVerifyProvider.class)}：那会依赖自动配置的处理顺序，若
+     * 贡献 Provider 的模块晚于本配置装配，条件会误判为无 Provider 而静默不注册。改为始终创建本 Bean，用
+     * {@link ObjectProvider} 在上下文刷新时惰性收集全部 Provider（不受装配顺序影响），仅当确有 Provider
+     * 时才注册监听器，避免注册空转监听器。业务方提供自定义同名 Bean 可覆盖。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LoginVerifyListener loginVerifyListener(ObjectProvider<LoginVerifyProvider> providers) {
+        List<LoginVerifyProvider> list = providers.orderedStream().toList();
+        LoginVerifyListener listener = new LoginVerifyListener(list);
+        if (!list.isEmpty()) {
+            SaTokenEventCenter.registerListener(listener);
+            log.info("[ypbin-starter] 已启用登录回验监听器（{} 个回验源），登录成功后将执行平台级回验。", list.size());
+        }
+        return listener;
     }
 
     /**

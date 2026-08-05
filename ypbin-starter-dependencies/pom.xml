@@ -357,6 +357,11 @@
             </dependency>
             <dependency>
                 <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-license</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-app-web</artifactId>
                 <version>${revision}</version>
             </dependency>
