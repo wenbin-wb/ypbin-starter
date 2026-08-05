@@ -17,7 +17,7 @@
     <description>Jackson 统一序列化配置：JavaTime、大数字转字符串、null 友好处理</description>
 
     <properties>
-        <revision>1.1.0-SNAPSHOT</revision>
+        <revision>1.1.0</revision>
     </properties>
 
     <dependencies>

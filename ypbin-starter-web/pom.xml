@@ -17,7 +17,7 @@
     <description>Web 层能力：全局异常处理、CORS 跨域、XSS 过滤</description>
 
     <properties>
-        <revision>1.1.0-SNAPSHOT</revision>
+        <revision>1.1.0</revision>
     </properties>
 
     <dependencies>

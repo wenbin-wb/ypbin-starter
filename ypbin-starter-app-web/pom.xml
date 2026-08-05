@@ -17,7 +17,7 @@
     <description>单体 Web 应用聚合 starter：一次引入常用 L1 基础能力</description>
 
     <properties>
-        <revision>1.1.0-SNAPSHOT</revision>
+        <revision>1.1.0</revision>
     </properties>
 
     <!-- 纯聚合 starter：引入本模块即获得单体 Web 应用常用基础能力，仍可按需排除单个依赖 -->
