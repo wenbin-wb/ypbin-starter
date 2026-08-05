@@ -482,6 +482,40 @@ UserContext.setLoginUser(loginUser);
 OnlineUserHelper.record(ip, browser, os);   // 可选：记录终端信息供在线列表展示
 ```
 
+### license — 商业授权
+
+面向「按授权交付」的商业软件：供应方离线签发授权，运行端离线验签放行。基于国密 SM2（签名验签）+ SM4（授权文件对称加密）+ SM3（机器指纹摘要），私钥只在供应方签发端持有，运行端仅需公钥，无需联网即可校验。
+
+- **一行集成**：在需保护的方法或类上标注 `@LicenseCheck`，进入方法前自动校验当前授权；类上标注对其下所有方法生效，方法上可覆盖。校验不通过抛授权异常，由全局异常处理器转统一响应体。
+- **校验维度按需组合**：基础可用性（合法或宽限期内，过期即拦截，默认）；`module()` 要求授权范围包含指定功能模块，实现模块级细粒度授权；`online()` 要求触发一次联机回验以感知远程吊销（需接入联机校验扩展点）。
+- **机器指纹绑定**：`MachineFingerprint` 采集主机特征生成 SM3 摘要，授权文件可绑定指纹，换机即失效，默认开启。
+- **离线状态机**：`LicenseStatus` 表达合法 / 宽限期 / 过期 / 非法等状态，`LicenseManager` 加载并缓存当前授权，`LicenseVerifier` 做验签与状态判定。
+- **启动策略**：默认缺授权即启动失败并暴露原因，避免「以为受保护实则裸奔」；`allow-startup-without-license: true` 则以「非法不可用」状态启动，受保护能力被拦截、其余照常，适配先启动后补授权的交付流程。
+
+```yaml
+ypbin:
+  license:
+    enabled: true                       # 是否启用授权校验（默认开）
+    public-key: <SM2 公钥 Base64>        # 运行端仅需公钥验签，私钥仅供应方签发端持有
+    secret-key: <SM4 密钥 Base64>        # 授权文件对称加解密密钥（16 字节）
+    location: ./license.dat             # 授权文件路径
+    fingerprint-enabled: true           # 机器指纹绑定校验（默认开）
+    allow-startup-without-license: false # 无授权文件时是否允许启动（默认否）
+```
+
+```java
+@LicenseCheck                            // 基础可用性校验
+public void export() { ... }
+
+@LicenseCheck(module = "report")         // 额外要求授权含 report 模块
+public void report() { ... }
+
+@LicenseCheck(online = true)             // 额外触发联机回验
+public void sync() { ... }
+```
+
+**扩展点**：`LicenseStore`（授权串存取，默认文件实现 `FileLicenseStore`）、`RemoteVerifyProvider`（联机回验来源）；集成侧 `LicenseLoginVerifier`（登录时校验授权）、`OnlineVerifyJob`（周期联机回验）。签发端能力（签发 / 审批 / 密钥托管 / 交付）由 admin 授权管理台承载，starter 只提供运行时抽象与验签地基。
+
 ### api-doc — API 文档
 
 SpringDoc OpenAPI 开箱即用，配置文档元信息：
