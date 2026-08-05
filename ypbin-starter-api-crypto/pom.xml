@@ -17,7 +17,7 @@
     <description>接口加解密：@ApiEncrypt 标注的接口自动对请求体解密、响应体加密</description>
 
     <properties>
-        <revision>1.1.0</revision>
+        <revision>1.2.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

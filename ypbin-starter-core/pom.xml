@@ -17,7 +17,7 @@
     <description>核心基础模块：统一响应、异常体系、通用枚举、常量、Spring 上下文与通用工具</description>
 
     <properties>
-        <revision>1.1.0</revision>
+        <revision>1.2.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

@@ -17,7 +17,7 @@
     <description>操作日志：基于 @Log 注解的 AOP 采集，Include 控制粒度，LogDao 扩展持久化</description>
 
     <properties>
-        <revision>1.1.0</revision>
+        <revision>1.2.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

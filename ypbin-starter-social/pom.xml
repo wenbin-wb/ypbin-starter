@@ -17,7 +17,7 @@
     <description>第三方登录：基于 JustAuth 的 OAuth 登录（微信/QQ/GitHub 等），可插拔 state 缓存</description>
 
     <properties>
-        <revision>1.1.0</revision>
+        <revision>1.2.0-SNAPSHOT</revision>
     </properties>
 
     <dependencies>

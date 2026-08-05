@@ -17,7 +17,7 @@
     <description>微服务应用聚合 starter：在单体 Web 基础上叠加常用 L3 微服务能力</description>
 
     <properties>
-        <revision>1.1.0</revision>
+        <revision>1.2.0-SNAPSHOT</revision>
     </properties>
 
     <!-- 纯聚合 starter：在 app-web 基础上叠加微服务常用能力（Nacos/Feign/负载均衡/可观测性/限流） -->
