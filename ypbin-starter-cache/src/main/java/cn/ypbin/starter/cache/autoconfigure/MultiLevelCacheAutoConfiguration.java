@@ -42,15 +42,21 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 /**
  * 多级缓存自动配置。
  *
- * <p>仅在类路径存在 Caffeine 且 {@code ypbin.cache.multi-level.enabled=true} 时生效：以 L1（Caffeine）
- * 包裹 L2（Redis {@link RedisCacheService}）构成多级缓存，并覆盖默认 {@link CacheService} Bean。
+ * <p>仅在类路径同时存在 Caffeine 与 spring-data-redis 且 {@code ypbin.cache.multi-level.enabled=true} 时生效：
+ * 以 L1（Caffeine）包裹 L2（Redis {@link RedisCacheService}）构成多级缓存，并覆盖默认 {@link CacheService} Bean。
  * 开启失效广播时，基于 Redis Pub/Sub 在多实例间同步 L1 失效。</p>
+ *
+ * <p><strong>类级 {@code @ConditionalOnClass} 必须同时纳入 {@link StringRedisTemplate}：</strong>本类多个
+ * {@code @Bean} 方法签名直接引用 Redis 类型（{@code StringRedisTemplate}/{@code RedisTemplate}/
+ * {@code RedisConnectionFactory} 等，同属 spring-data-redis）。方法级条件拦不住 Spring 对配置类的方法内省，
+ * 若只守 Caffeine、在「有 Caffeine 无 Redis」时整类会被内省，加载 Redis 类型即抛 {@code NoClassDefFoundError}。
+ * 把 Redis 纳入类级条件后，缺 Redis 时整类在内省前跳过。多级缓存 = L1 Caffeine + L2 Redis，缺任一不装配也符合语义。</p>
  *
  * @author wenbin
  * @since 2026-07-31
  */
 @AutoConfiguration(after = CacheAutoConfiguration.class)
-@ConditionalOnClass(Caffeine.class)
+@ConditionalOnClass({Caffeine.class, StringRedisTemplate.class})
 @ConditionalOnProperty(prefix = MultiLevelCacheProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(MultiLevelCacheProperties.class)
 public class MultiLevelCacheAutoConfiguration {

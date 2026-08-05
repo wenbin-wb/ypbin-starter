@@ -192,6 +192,7 @@ public final class XxxUtils {
 | R8 | 类缺 `@author wenbin`/`@since`，或误用 `@date`/写版本号；license 头缺失或用错 admin 的年份文案 | 看每个类的顶部 license 块与类级 Javadoc |
 | R9 | 用了 `ResponseEntity`/自定义 4xx/5xx，没走 `R<T>` | 搜 `ResponseEntity` / `HttpStatus.` |
 | R10 | 代码/注释/文档出现 `blade`/`continew` 等参考项目品牌词 | 搜 `blade` / `continew`（含 README、注释） |
+| R11 | 可选依赖类型裸露在 `@Bean` 方法签名（参数/返回类型），仅靠方法级 `@ConditionalOnClass` 兜底 → 无该依赖时内省崩（PITFALL 4） | 对 pom 里 `<optional>true</optional>` 的库，搜其类型是否直接出现在 `@Bean` 签名；确认所在类有**类级** `@ConditionalOnClass` 或改用 `ObjectProvider<T>` 包装 |
 
 审计命令示例（用 Grep 工具，内置 ripgrep，跨平台）：
 
@@ -222,11 +223,19 @@ rg -ni "blade|continew" --glob '*.java' --glob '*.md'
    - **正确做法**：用显式的「安全取用」变体（no-context 时返回空而非抛），如审计字段填充在无上下文时安全跳过。参照 `LoginHelper`/`UserContext` 的 safe 访问 + `SafeAccessNoContextTest`。
    - 注意与铁律7的边界：这是**已知且预期**的无上下文场景走独立的显式 safe 方法，不是在正常路径里 `catch` 吞异常假装成功。别把普通调用也无脑套 try-catch 兜底。
 
-4. **发布 Maven Central：parent-less POM 要自带元数据 + GPG 签名**。`ypbin-starter-bom`（无 parent）必须自带 `url/licenses/scm/developers/organization`；`ypbin-starter-dependencies` 作为子模块 parent 也要补这些字段（子模块靠继承拿到，缺了会被 Central 拒收）。根聚合 pom 与 bom 的 release profile 各自要挂 `maven-gpg-plugin`，否则这两个 parent-less 的 `.pom` 上传后缺 `.asc` 签名，校验失败。参照 commit `e0cffe5`（1.0.0 据此成功发布）。
+4. **可选依赖类型出现在 `@Bean` 方法签名 → 无该依赖时启动崩（`NoClassDefFoundError`）**。这是**地基级**坑：`@Bean` 方法的参数/返回类型直接写可选依赖类型（如 `StringRedisTemplate`），只靠**方法级** `@ConditionalOnClass(StringRedisTemplate.class)` 兜底 **无效**——`@ConditionalOnClass` 只阻止 Bean 注册，阻止不了 Spring 对配置类做**方法内省**（处理配置类时用 `getDeclaredMethods` 加载所有 `@Bean` 方法的参/返回类型）。classpath 缺该库时内省阶段就抛 `NoClassDefFoundError`，条件生效太晚，整个应用起不来。任何轻量消费端（只引 web、无 Redis/无 MySQL）传递引入该模块即中招。
+   - **判据**：可选依赖（pom 里 `<optional>true</optional>`）的类型，是否**直接**出现在某 `@Bean` 方法签名里，而该方法所在类**没有类级** `@ConditionalOnClass` 守住这个类型。
+   - **两种正确写法**：
+     1. **类级隔离**：把所有引用该可选类型的 `@Bean` 收拢进一个嵌套 `@Configuration`，类上打 **类级** `@ConditionalOnClass(可选类型.class)`——类级条件在内省该类方法**之前**评估，缺依赖时整类跳过、外层不碰该类型。用 `@Import(嵌套类.class)` 引入（**被 import 的配置先于外层自身 `@Bean` 注册**，故 Redis 实现能先注册、内存兜底的 `@ConditionalOnMissingBean` 正确退让——**不要依赖嵌套类声明顺序，那不可靠**）。参照 `ToolsAutoConfiguration.RedisStoreConfiguration`。
+     2. **`ObjectProvider<T>` 包装**：`@Bean` 参数写 `ObjectProvider<StringRedisTemplate>` 而非裸 `StringRedisTemplate`——原始参数类型是 `ObjectProvider`，可选类型只是被擦除的泛型参，内省不加载它。适合"存在则用、否则兜底"的单 Bean 选择。参照 `SecurityAutoConfiguration#passwordAttemptStore`、`SseAutoConfiguration#sseTicketStore`。
+   - **若整个配置类本就该"有该依赖才生效"**（如多级缓存 = L1 Caffeine + L2 Redis，缺 Redis 无意义），直接把该类型并入**类级** `@ConditionalOnClass({A.class, B.class})` 即可，最简洁。参照 `MultiLevelCacheAutoConfiguration` 同时守 `Caffeine` + `StringRedisTemplate`。
+   - **验证必须覆盖两种场景**：用 `ApplicationContextRunner` + `FilteredClassLoader(可选类型.class)` 复现"无依赖"（断言 `hasNotFailed()` + 装配兜底/不装配），再提供 mock Bean 验"有依赖"（断言装配的是分布式实现而非兜底）。参照 `ToolsAutoConfigurationTest`。
 
-5. **JDK 17 项目别用 JDK 19+ 的 API**。本项目编译目标 JDK 17，但本机 `.jdks` 下还有 21、IDEA 自带 JBR 25，容易顺手写超前 API 导致「IDEA 里不飘红、命令行 17 编译不过」。已踩：`Locale.of(String, String)` 是 JDK 19+ 才有，17 下 `找不到符号`，改用 `new Locale("zh", "CN")`。其它常见 17 缺失：`Stream.toList()` 有（16+）可用，但 `Math.clamp`、`String` 的部分方法、虚拟线程等是 21+ 的，勿用。写完务必用 **JDK 17** 命令行编译一遍验证（见「验证」段），不能只靠 IDEA。
+5. **发布 Maven Central：parent-less POM 要自带元数据 + GPG 签名**。`ypbin-starter-bom`（无 parent）必须自带 `url/licenses/scm/developers/organization`；`ypbin-starter-dependencies` 作为子模块 parent 也要补这些字段（子模块靠继承拿到，缺了会被 Central 拒收）。根聚合 pom 与 bom 的 release profile 各自要挂 `maven-gpg-plugin`，否则这两个 parent-less 的 `.pom` 上传后缺 `.asc` 签名，校验失败。参照 commit `e0cffe5`（1.0.0 据此成功发布）。
 
-6. **spotless 强制格式，不达标直接 build fail**。项目挂了 `spotless-maven-plugin` 的 `check`（google-java-format 系），格式不符时 `mvn test` 在编译前就红（报 `format violations`）。硬性两点：**static import 必须置于所有普通 import 之前**、**未使用的 import 必须删除**（写测试常见：import 了接口但只用 lambda，就成了未用 import）。
+6. **JDK 17 项目别用 JDK 19+ 的 API**。本项目编译目标 JDK 17，但本机 `.jdks` 下还有 21、IDEA 自带 JBR 25，容易顺手写超前 API 导致「IDEA 里不飘红、命令行 17 编译不过」。已踩：`Locale.of(String, String)` 是 JDK 19+ 才有，17 下 `找不到符号`，改用 `new Locale("zh", "CN")`。其它常见 17 缺失：`Stream.toList()` 有（16+）可用，但 `Math.clamp`、`String` 的部分方法、虚拟线程等是 21+ 的，勿用。写完务必用 **JDK 17** 命令行编译一遍验证（见「验证」段），不能只靠 IDEA。
+
+7. **spotless 强制格式，不达标直接 build fail**。项目挂了 `spotless-maven-plugin` 的 `check`（google-java-format 系），格式不符时 `mvn test` 在编译前就红（报 `format violations`）。硬性两点：**static import 必须置于所有普通 import 之前**、**未使用的 import 必须删除**（写测试常见：import 了接口但只用 lambda，就成了未用 import）。
    - **修复**：提交/验证前先跑 `mvn -pl <模块> spotless:apply` 自动格式化，再 `test`。别手动对齐格式，交给 apply。
 
 ## 验证
