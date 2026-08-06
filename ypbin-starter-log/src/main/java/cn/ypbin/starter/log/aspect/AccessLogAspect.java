@@ -70,9 +70,12 @@ public class AccessLogAspect {
 
     /**
      * 环绕控制器方法：无 Web 上下文或命中排除路径时直接放行；否则打印请求块、执行、打印响应块。
+     *
+     * <p>切入点匹配 {@code @RestController}（覆盖 API 控制器主体，其本身带 {@code @Controller} 元注解）。
+     * 不追加 {@code @within(Controller)} 分支——AspectJ 对 {@code || @within(Controller)} 的组合匹配会抛
+     * {@code Type referred to is not an annotation type}，导致整个切入点不生效（实测确认）。</p>
      */
-    @Around("@within(org.springframework.web.bind.annotation.RestController) "
-        + "|| @within(org.springframework.web.bind.annotation.Controller)")
+    @Around("@within(org.springframework.web.bind.annotation.RestController)")
     public Object around(ProceedingJoinPoint point) throws Throwable {
         ServletRequestAttributes attributes =
             (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
