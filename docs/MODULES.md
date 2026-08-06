@@ -646,7 +646,7 @@ public class Ip2regionLocationResolver implements IpLocationResolver {
 
 - 写日志通过事件 + `@Async` 异步执行，DB 抖动不影响主接口（异步线程无 Sa-Token 上下文时，操作人取值安全降级不报错）。
 
-**全量访问日志**（与 `@Log` 互补，无需注解，记录所有请求的 URI/方法/状态/耗时/IP）：
+**全量访问日志**（与 `@Log` 互补，无需注解）：基于 AOP 切面记录控制器请求/响应的分块日志——Request/Response Start/End、方法/URI/参数（JSON）、逐请求头（敏感头自动掩码）、IP、响应体、耗时，调试友好：
 
 ```yaml
 ypbin:
@@ -654,7 +654,27 @@ ypbin:
     access:
       enabled: true
       exclude-path-patterns: ["/actuator/**", "/static/**"]
+      mask-headers: [authorization, cookie, token]   # 头名小写包含任一关键字即掩码值
 ```
+
+输出形如：
+
+```
+================  Request Start  ================
+===> GET: /orders Parameters: {"current":1,"size":10}
+===Headers===
+  content-type: application/json
+  Authorization: ******
+===IP===  10.0.0.1
+================   Request End   ================
+
+================  Response Start  ================
+===Result===  {"code":200,"data":[...]}
+<=== GET: /orders (12 ms)
+================   Response End   ================
+```
+
+> 注意：请求参数（含登录接口的 `@RequestBody`）会以 JSON 打印到日志，敏感**头**默认掩码、请求体不掩码——生产环境请按需通过 `exclude-path-patterns` 或日志级别控制。方法抛异常时 `===Result===` 打印 `exception: {message}` 后继续抛出（由全局异常处理器接管）。
 
 `@Log` 精准采集业务操作（可落库），访问日志是全量流水（打印到日志），按需选用或并用。
 

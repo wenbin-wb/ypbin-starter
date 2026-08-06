@@ -131,7 +131,7 @@
 | 安全 | `ypbin-starter-security` | Sa-Token 封装（全局登录拦截、当前用户门面、权限数据源扩展点）、登录客户端策略、密码编码器与密码策略（复杂度/错误锁定） | `ypbin.security` |
 | API 文档 | `ypbin-starter-api-doc` | SpringDoc OpenAPI 元信息配置 | `ypbin.api-doc` |
 | 存储 | `ypbin-starter-storage` | 本地 + S3 兼容对象存储，多源路由 | `ypbin.storage` |
-| 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP + 全量访问日志拦截器 | `ypbin.log` |
+| 日志 | `ypbin-starter-log` | `@Log` 操作日志 AOP + 全量访问日志切面 | `ypbin.log` |
 | 工具 | `ypbin-starter-tools` | 分布式限流 `@RateLimit`、幂等 `@Idempotent`、分布式锁 `@DistributedLock`、AES/国密加解密 | `ypbin.tools` |
 | 异步 | `ypbin-starter-async` | 统一线程池、`@Async` 接管、异步异常处理、上下文透传、`AsyncUtils` 静态工具 | `ypbin.async` |
 | 定时任务 | `ypbin-starter-job` | 动态调度（注册/启停/改 cron/立即执行）、分布式锁多实例防重、执行监听落库扩展点 | `ypbin.job` |
