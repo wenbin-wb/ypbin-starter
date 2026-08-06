@@ -21,6 +21,7 @@ import cn.ypbin.starter.license.core.LicenseManager;
 import cn.ypbin.starter.license.exception.LicenseErrorCode;
 import cn.ypbin.starter.license.exception.LicenseException;
 import cn.ypbin.starter.license.extension.FileLicenseStore;
+import cn.ypbin.starter.license.extension.HttpRemoteVerifyProvider;
 import cn.ypbin.starter.license.extension.LicenseStore;
 import cn.ypbin.starter.license.extension.RemoteVerifyProvider;
 import cn.ypbin.starter.license.integration.LicenseLoginVerifier;
@@ -107,6 +108,18 @@ public class LicenseAutoConfiguration {
     }
 
     /**
+     * 联机校验 HTTP 参考实现：仅配置了 {@code ypbin.license.online.base-url} 时装配，
+     * 业务侧自定义 {@link RemoteVerifyProvider} 时自动退位。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "ypbin.license.online", name = "base-url")
+    public HttpRemoteVerifyProvider httpRemoteVerifyProvider(LicenseProperties properties) {
+        return new HttpRemoteVerifyProvider(properties.getOnline().getBaseUrl(),
+            properties.getOnline().getToken(), properties.getOnline().getTimeout());
+    }
+
+    /**
      * security 集成：登录回验。仅当 classpath 存在 security 的 {@link LoginVerifyProvider} 时装配。
      */
     @Configuration(proxyBeanMethods = false)
@@ -115,9 +128,10 @@ public class LicenseAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        public LicenseLoginVerifier licenseLoginVerifier(LicenseManager licenseManager) {
+        public LicenseLoginVerifier licenseLoginVerifier(LicenseManager licenseManager,
+            ObjectProvider<RemoteVerifyProvider> remoteVerifyProviders) {
             log.info("[ypbin-starter] 已启用登录回验：每次登录成功后回验当前授权。");
-            return new LicenseLoginVerifier(licenseManager);
+            return new LicenseLoginVerifier(licenseManager, remoteVerifyProviders.orderedStream().toList());
         }
     }
 

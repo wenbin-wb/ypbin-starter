@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.license.autoconfigure;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -49,6 +50,9 @@ public class LicenseProperties {
      * 适用于先启动后补授权的交付流程。</p>
      */
     private boolean allowStartupWithoutLicense = false;
+
+    /** 联机校验配置：配置了服务地址才启用 {@code @LicenseCheck(online=true)} 的实时回验 */
+    private Online online = new Online();
 
     public boolean isEnabled() {
         return enabled;
@@ -96,5 +100,55 @@ public class LicenseProperties {
 
     public void setAllowStartupWithoutLicense(boolean allowStartupWithoutLicense) {
         this.allowStartupWithoutLicense = allowStartupWithoutLicense;
+    }
+
+    public Online getOnline() {
+        return online;
+    }
+
+    public void setOnline(Online online) {
+        this.online = online;
+    }
+
+    /**
+     * 联机校验配置。
+     *
+     * <p>为消费端配置供应方的联机校验服务地址，即可启用 {@code @LicenseCheck(online=true)} 与定期联机
+     * 任务的实时回验，感知远程吊销。网络不可达时采用放行+告警策略，只有服务端明确返回无效才阻断。</p>
+     */
+    public static class Online {
+
+        /** 联机校验服务根地址（如 {@code http://license-admin:8080}）；为空则不装配联机校验 */
+        private String baseUrl;
+
+        /** 联机校验共享令牌，经请求头 {@code X-License-Token} 携带，需与校验服务端配置一致 */
+        private String token;
+
+        /** 单次联机校验超时时间 */
+        private Duration timeout = Duration.ofSeconds(3);
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public String getToken() {
+            return token;
+        }
+
+        public void setToken(String token) {
+            this.token = token;
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
     }
 }
