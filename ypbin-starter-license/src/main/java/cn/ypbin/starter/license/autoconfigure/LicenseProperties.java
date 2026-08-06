@@ -115,17 +115,30 @@ public class LicenseProperties {
      *
      * <p>为消费端配置供应方的联机校验服务地址，即可启用 {@code @LicenseCheck(online=true)} 与定期联机
      * 任务的实时回验，感知远程吊销。网络不可达时采用放行+告警策略，只有服务端明确返回无效才阻断。</p>
+     *
+     * <p>鉴权采用接口签名：accessKey 为公开的应用标识、secretKey 为参与签名的私有密钥，二者由签发端
+     * 「开放应用管理」为每个消费端应用独立签发；密钥泄露只影响单一应用，且可在应用管理禁用/重置。</p>
      */
     public static class Online {
 
         /** 联机校验服务根地址（如 {@code http://license-admin:8080}）；为空则不装配联机校验 */
         private String baseUrl;
 
-        /** 联机校验共享令牌，经请求头 {@code X-License-Token} 携带，需与校验服务端配置一致 */
-        private String token;
+        /** 开放应用 Access Key（公开标识，与签发端应用管理注册的应用一致） */
+        private String accessKey;
+
+        /** 开放应用 Secret Key（私有密钥，参与请求签名，不下发） */
+        private String secretKey;
 
         /** 单次联机校验超时时间 */
-        private Duration timeout = Duration.ofSeconds(3);
+        private Duration timeout = Duration.ofSeconds(5);
+
+        /**
+         * 联机校验缓存窗口（秒）：最近一次服务端明确返回有效后，窗口内不再重复联机校验，
+         * 避免 {@code @LicenseCheck(online=true)} 每次方法调用都发 HTTP。吊销感知延迟 ≤ 缓存窗口，
+         * 默认 1 小时。网络异常/非 200 等「放行但不明确有效」不进入缓存窗口，下次调用仍会重试。
+         */
+        private long cacheSeconds = 3600;
 
         public String getBaseUrl() {
             return baseUrl;
@@ -135,12 +148,20 @@ public class LicenseProperties {
             this.baseUrl = baseUrl;
         }
 
-        public String getToken() {
-            return token;
+        public String getAccessKey() {
+            return accessKey;
         }
 
-        public void setToken(String token) {
-            this.token = token;
+        public void setAccessKey(String accessKey) {
+            this.accessKey = accessKey;
+        }
+
+        public String getSecretKey() {
+            return secretKey;
+        }
+
+        public void setSecretKey(String secretKey) {
+            this.secretKey = secretKey;
         }
 
         public Duration getTimeout() {
@@ -149,6 +170,14 @@ public class LicenseProperties {
 
         public void setTimeout(Duration timeout) {
             this.timeout = timeout;
+        }
+
+        public long getCacheSeconds() {
+            return cacheSeconds;
+        }
+
+        public void setCacheSeconds(long cacheSeconds) {
+            this.cacheSeconds = cacheSeconds;
         }
     }
 }

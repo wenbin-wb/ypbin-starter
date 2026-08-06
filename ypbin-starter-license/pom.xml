@@ -49,6 +49,14 @@
             <artifactId>ypbin-starter-job</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- 联机校验请求签名复用 sign 的 SignClient/SignGenerator（AK/SK + timestamp/nonce/sign）。
+             可选依赖：仅消费端启用联机校验（配 ypbin.license.online.base-url）时按需引入；
+             未引入则 HTTP 联机校验不装配（@ConditionalOnClass），纯离线授权不受影响。 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-sign</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <!-- 授权载体序列化/反序列化：Jackson 原生支持 record，jsr310 处理 LocalDateTime。
              签发时对序列化后的载荷字节签名并连同载荷原样封装，验签直接基于存储字节，规避重序列化的字段顺序问题。 -->

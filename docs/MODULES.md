@@ -516,6 +516,24 @@ public void sync() { ... }
 
 **扩展点**：`LicenseStore`（授权串存取，默认文件实现 `FileLicenseStore`）、`RemoteVerifyProvider`（联机回验来源）；集成侧 `LicenseLoginVerifier`（登录时校验授权）、`OnlineVerifyJob`（周期联机回验）。签发端能力（签发 / 审批 / 密钥托管 / 交付）由 admin 授权管理台承载，starter 只提供运行时抽象与验签地基。
 
+**联机校验（可选，感知远程吊销）**：需引入 `ypbin-starter-sign`（接口签名）并配置服务地址，自动装配 `HttpRemoteVerifyProvider` 参考实现。网络不可达/超时/非 200/解析失败均**放行+告警**，只有服务端明确返回 `valid=false` 才阻断——避免网络抖动锁死业务，同时绝不掩盖明确吊销。吊销感知延迟 ≤ 缓存窗口。
+
+```yaml
+ypbin:
+  license:
+    online:
+      base-url: https://license-admin.example.com   # 联机校验服务根地址；配置后启用
+      access-key: <开放应用 AK>                      # 签发端「开放应用管理」为消费端应用签发
+      secret-key: <开放应用 SK>                      # 私有密钥，参与请求签名，不下发
+      timeout: 5s                                   # 单次校验超时（默认 5s）
+      cache-seconds: 3600                           # 缓存窗口（默认 1 小时）：明确有效后窗口内不重复联机
+```
+
+- **鉴权**：请求经接口签名（`accessKey/timestamp/nonce/sign` 四件套）上报授权编号与机器指纹；应用级 AK/SK 独立可吊销，某应用密钥泄露只影响该应用，可在签发端禁用/重置。
+- **缓存窗口**：服务端明确返回有效后，窗口内 `@LicenseCheck(online=true)` 直接放行、不再发 HTTP；网络/服务异常「放行但不明确有效」**不进入窗口**，下次调用仍重试，服务恢复后吊销可被及时感知。
+- **安全提示**：机器指纹经请求参数上报，生产环境联机校验服务**必须启用 HTTPS**，避免指纹明文在公网传输；响应协议中 `valid` 字段缺失时按有效处理（容忍取向，仅明确 `valid=false` 才阻断）。
+- **依赖说明**：`ypbin-starter-sign` 是可选依赖，仅启用联机校验时引入；未引入则 HTTP 联机校验不装配，纯离线授权不受影响。
+
 ### api-doc — API 文档
 
 SpringDoc OpenAPI 开箱即用，配置文档元信息：

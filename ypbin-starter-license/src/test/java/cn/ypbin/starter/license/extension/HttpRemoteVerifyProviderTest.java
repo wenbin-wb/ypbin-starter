@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.license.extension;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -45,6 +46,7 @@ class HttpRemoteVerifyProviderTest {
     private HttpServer server;
     private volatile int status = 200;
     private volatile String responseBody = "{\"data\":{\"valid\":true,\"reason\":\"ok\"}}";
+    private volatile int requestCount = 0;
 
     @BeforeEach
     void startServer() throws IOException {
@@ -59,6 +61,7 @@ class HttpRemoteVerifyProviderTest {
     }
 
     private void handle(HttpExchange exchange) throws IOException {
+        requestCount++;
         byte[] body = responseBody.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(status, body.length);
         exchange.getResponseBody().write(body);
@@ -66,8 +69,12 @@ class HttpRemoteVerifyProviderTest {
     }
 
     private HttpRemoteVerifyProvider provider() {
+        return provider(3600);
+    }
+
+    private HttpRemoteVerifyProvider provider(long cacheSeconds) {
         return new HttpRemoteVerifyProvider("http://localhost:" + server.getAddress().getPort(),
-            "test-token", Duration.ofSeconds(2));
+            "test-access-key", "test-secret-key", Duration.ofSeconds(2), cacheSeconds);
     }
 
     private LicenseContent content() {
@@ -105,5 +112,40 @@ class HttpRemoteVerifyProviderTest {
     @Test
     void verify_shouldAllowWhenContentAbsent() {
         assertThatCode(() -> provider().verify(null, "f1")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void verify_shouldSkipSecondCallWithinCacheWindow() {
+        HttpRemoteVerifyProvider p = provider();
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+
+        // 窗口内（默认 1 小时）第二次校验直接放行，不再发 HTTP
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+    }
+
+    @Test
+    void verify_shouldNotCacheWhenServiceReportsError() {
+        status = 500;
+        HttpRemoteVerifyProvider p = provider();
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+
+        // 网络/服务异常是「放行但不明确有效」，不进入缓存窗口，下次仍会重试
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(2);
+    }
+
+    @Test
+    void verify_shouldNotCacheRejectedResult() {
+        responseBody = "{\"data\":{\"valid\":false,\"reason\":\"授权已被吊销\"}}";
+        HttpRemoteVerifyProvider p = provider();
+        assertThatThrownBy(() -> p.verify(content(), "f1")).isInstanceOf(LicenseException.class);
+
+        // 明确拒绝不缓存：服务端恢复后应能立即重新校验通过
+        responseBody = "{\"data\":{\"valid\":true,\"reason\":\"ok\"}}";
+        assertThatCode(() -> p.verify(content(), "f1")).doesNotThrowAnyException();
+        assertThat(requestCount).isEqualTo(2);
     }
 }

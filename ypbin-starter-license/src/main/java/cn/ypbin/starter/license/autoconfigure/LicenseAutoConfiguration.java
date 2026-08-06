@@ -27,6 +27,7 @@ import cn.ypbin.starter.license.extension.RemoteVerifyProvider;
 import cn.ypbin.starter.license.integration.LicenseLoginVerifier;
 import cn.ypbin.starter.license.integration.OnlineVerifyJob;
 import cn.ypbin.starter.security.core.LoginVerifyProvider;
+import cn.ypbin.starter.sign.core.SignClient;
 import java.nio.file.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,8 +47,9 @@ import org.springframework.util.StringUtils;
  * <p>仅当 {@code ypbin.license.enabled=true}（默认）时装配。装配授权串存储（默认本地文件）、授权状态机、
  * {@code @LicenseCheck} 切面，并在启动阶段加载并校验授权（含机器指纹校验），实现启动即锁定非法环境。</p>
  *
- * <p>对 security、job 的集成置于条件装配的嵌套配置中：仅当对应模块在 classpath 时才装配登录回验、
- * 定期联机校验，缺失时静默跳过该项集成但不影响其余授权能力（这是「能力可选」而非「问题掩盖」）。</p>
+ * <p>对 security、job、sign 的集成置于条件装配的嵌套配置中：仅当对应模块在 classpath 时才装配登录回验、
+ * 定期联机校验、HTTP 联机校验参考实现，缺失时静默跳过该项集成但不影响其余授权能力（这是「能力可选」而非
+ * 「问题掩盖」）。</p>
  *
  * @author wenbin
  * @since 2026-08-05
@@ -108,15 +110,36 @@ public class LicenseAutoConfiguration {
     }
 
     /**
-     * 联机校验 HTTP 参考实现：仅配置了 {@code ypbin.license.online.base-url} 时装配，
-     * 业务侧自定义 {@link RemoteVerifyProvider} 时自动退位。
+     * 联机校验 HTTP 参考实现（依赖 sign 模块的签名客户端，按 sign 是否在 classpath 条件装配，
+     * 见 {@link RemoteVerifyConfiguration}）。
      */
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.license.online", name = "base-url")
-    public HttpRemoteVerifyProvider httpRemoteVerifyProvider(LicenseProperties properties) {
-        return new HttpRemoteVerifyProvider(properties.getOnline().getBaseUrl(),
-            properties.getOnline().getToken(), properties.getOnline().getTimeout());
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(SignClient.class)
+    static class RemoteVerifyConfiguration {
+
+        /**
+         * 联机校验 HTTP 参考实现：仅当 sign 模块在 classpath 且配置了 {@code ypbin.license.online.base-url}
+         * 时装配，业务侧自定义 {@link RemoteVerifyProvider} 时自动退位。
+         *
+         * <p>装配即要求开放应用 AK/SK 齐备，缺失直接抛异常暴露配置错误——否则每次联机校验都会因签名无法
+         * 通过而持续被拦，静默配置缺失等于线上反复误拦。类级 {@code @ConditionalOnClass(SignClient.class)}：
+         * sign 为可选依赖，缺它时不装配本实现（也不内省引用其类型的 {@code @Bean} 方法签名）。</p>
+         */
+        @Bean
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "ypbin.license.online", name = "base-url")
+        public HttpRemoteVerifyProvider httpRemoteVerifyProvider(LicenseProperties properties) {
+            String accessKey = properties.getOnline().getAccessKey();
+            String secretKey = properties.getOnline().getSecretKey();
+            if (!StringUtils.hasText(accessKey) || !StringUtils.hasText(secretKey)) {
+                throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
+                    "联机校验缺少开放应用密钥：请配置 ypbin.license.online.access-key 与 secret-key"
+                        + "（在签发端「开放应用管理」为消费端应用签发）");
+            }
+            return new HttpRemoteVerifyProvider(properties.getOnline().getBaseUrl(),
+                accessKey, secretKey, properties.getOnline().getTimeout(),
+                properties.getOnline().getCacheSeconds());
+        }
     }
 
     /**
