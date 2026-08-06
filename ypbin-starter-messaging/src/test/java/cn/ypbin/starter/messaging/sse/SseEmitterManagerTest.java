@@ -28,7 +28,20 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  */
 class SseEmitterManagerTest {
 
-    private final SseEmitterManager manager = new SseEmitterManager(60_000L);
+    /** 现有行为测试：禁用心跳（间隔 0），避免测试期间起调度线程 */
+    private final SseEmitterManager manager = new SseEmitterManager(60_000L, 0);
+
+    @Test
+    void heartbeatEnabled_whenIntervalPositive() {
+        SseEmitterManager m = new SseEmitterManager(60_000L, 30);
+        assertThat(m.isHeartbeatEnabled()).isTrue();
+    }
+
+    @Test
+    void heartbeatDisabled_whenIntervalZero() {
+        SseEmitterManager m = new SseEmitterManager(60_000L, 0);
+        assertThat(m.isHeartbeatEnabled()).isFalse();
+    }
 
     @Test
     void connectShouldRegisterUserOnline() {

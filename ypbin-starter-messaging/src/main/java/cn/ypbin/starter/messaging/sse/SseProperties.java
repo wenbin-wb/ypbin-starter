@@ -41,8 +41,20 @@ public class SseProperties {
     /** 一次性订阅票据有效期（秒），换票后应尽快用于订阅 */
     private long ticketTtlSeconds = 30L;
 
-    /** 连接超时（毫秒），0 表示不超时（不建议）；到期后客户端自动重连 */
-    private long timeout = 300_000L;
+    /**
+     * 连接超时（毫秒），默认 0 不超时。
+     *
+     * <p>0 表示长连接不设总超时，由心跳（{@link #getHeartbeatIntervalSeconds()}）负责保活与死连接检测，
+     * 适合通知中心等长连接场景（前端已有重连兜底）。配有限值则作为安全网，到点由容器回收连接
+     * （回收时全局异常处理器已静默化，不产生 ERROR 噪音）。</p>
+     */
+    private long timeout = 0L;
+
+    /**
+     * 心跳间隔（秒），默认 30。定期向连接发送 {@code : ping} 注释帧，保活中间代理并尽早暴露死连接
+     * （发送失败即回收）。0 表示关闭心跳。
+     */
+    private long heartbeatIntervalSeconds = 30L;
 
     public boolean isEnabled() {
         return enabled;
@@ -90,5 +102,13 @@ public class SseProperties {
 
     public void setTimeout(long timeout) {
         this.timeout = timeout;
+    }
+
+    public long getHeartbeatIntervalSeconds() {
+        return heartbeatIntervalSeconds;
+    }
+
+    public void setHeartbeatIntervalSeconds(long heartbeatIntervalSeconds) {
+        this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
     }
 }

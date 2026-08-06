@@ -20,6 +20,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -43,12 +47,22 @@ public class SseEmitterManager {
 
     private final long timeoutMillis;
 
-    public SseEmitterManager(long timeoutMillis) {
+    /** 心跳间隔（毫秒），<=0 表示关闭心跳 */
+    private final long heartbeatIntervalMillis;
+
+    /** 心跳调度器（懒创建，daemon 线程不阻塞关闭）；所有连接共享 */
+    private volatile ScheduledExecutorService scheduler;
+
+    public SseEmitterManager(long timeoutMillis, long heartbeatIntervalSeconds) {
         this.timeoutMillis = timeoutMillis;
+        this.heartbeatIntervalMillis = Math.max(0, heartbeatIntervalSeconds) * 1000L;
     }
 
     /**
      * 为指定用户建立一个 SSE 连接并注册。
+     *
+     * <p>建连后启动心跳（定期发送 {@code : ping} 注释帧）保活中间代理、尽早暴露死连接；心跳发送失败
+     * 即回收连接。连接完成/超时/异常时取消心跳并摘除。</p>
      *
      * @param userId 用户标识
      * @return 新建的 SseEmitter，交给 Controller 返回给客户端
@@ -57,9 +71,19 @@ public class SseEmitterManager {
         SseEmitter emitter = new SseEmitter(timeoutMillis);
         emitters.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(emitter);
 
-        emitter.onCompletion(() -> remove(userId, emitter));
-        emitter.onTimeout(() -> remove(userId, emitter));
-        emitter.onError(e -> remove(userId, emitter));
+        ScheduledFuture<?> heartbeat = startHeartbeat(userId, emitter);
+        emitter.onCompletion(() -> {
+            cancelHeartbeat(heartbeat);
+            remove(userId, emitter);
+        });
+        emitter.onTimeout(() -> {
+            cancelHeartbeat(heartbeat);
+            remove(userId, emitter);
+        });
+        emitter.onError(e -> {
+            cancelHeartbeat(heartbeat);
+            remove(userId, emitter);
+        });
         // 建连即发一条注释帧，触发浏览器 EventSource onopen，并尽早暴露断连
         try {
             emitter.send(SseEmitter.event().comment("connected"));
@@ -67,6 +91,79 @@ public class SseEmitterManager {
             remove(userId, emitter);
         }
         return emitter;
+    }
+
+    /**
+     * 启动心跳任务：每隔 {@code heartbeatIntervalMillis} 发送一条 {@code : ping} 注释帧。
+     *
+     * <p>发送成功说明连接存活（同时保活中间代理）；失败说明连接已死，取消自身并回收连接。
+     * 心跳无法重置容器异步总超时（配了有限 {@code timeout} 时到点仍会回收，但回收已静默化）。</p>
+     *
+     * @param userId  用户标识
+     * @param emitter 连接
+     * @return 心跳任务（未启用时返回 {@code null}）
+     */
+    private ScheduledFuture<?> startHeartbeat(String userId, SseEmitter emitter) {
+        if (heartbeatIntervalMillis <= 0) {
+            return null;
+        }
+        ScheduledFuture<?>[] self = new ScheduledFuture<?>[1];
+        ScheduledFuture<?> future = scheduler().scheduleAtFixedRate(() -> {
+            try {
+                emitter.send(SseEmitter.event().comment("ping"));
+            } catch (Exception e) {
+                log.debug("[ypbin-starter] SSE 心跳失败，回收连接：userId={}", userId);
+                if (self[0] != null) {
+                    self[0].cancel(false);
+                }
+                remove(userId, emitter);
+            }
+        }, heartbeatIntervalMillis, heartbeatIntervalMillis, TimeUnit.MILLISECONDS);
+        self[0] = future;
+        return future;
+    }
+
+    /**
+     * 心跳调度器（懒创建单例，daemon 线程）。
+     *
+     * @return 调度器
+     */
+    private ScheduledExecutorService scheduler() {
+        ScheduledExecutorService s = scheduler;
+        if (s == null) {
+            synchronized (this) {
+                s = scheduler;
+                if (s == null) {
+                    s = Executors.newScheduledThreadPool(1, r -> {
+                        Thread t = new Thread(r, "ypbin-sse-heartbeat");
+                        t.setDaemon(true);
+                        return t;
+                    });
+                    scheduler = s;
+                }
+            }
+        }
+        return s;
+    }
+
+    /**
+     * 取消心跳任务。
+     *
+     * @param heartbeat 心跳任务（可为 {@code null}）
+     */
+    private static void cancelHeartbeat(ScheduledFuture<?> heartbeat) {
+        if (heartbeat != null) {
+            heartbeat.cancel(false);
+        }
+    }
+
+    /**
+     * 心跳是否启用（间隔配置大于 0）。
+     *
+     * @return 启用返回 true
+     */
+    boolean isHeartbeatEnabled() {
+        return heartbeatIntervalMillis > 0;
     }
 
     /**
