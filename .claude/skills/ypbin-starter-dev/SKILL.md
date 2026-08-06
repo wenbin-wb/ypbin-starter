@@ -238,6 +238,9 @@ rg -ni "blade|continew" --glob '*.java' --glob '*.md'
 7. **spotless 强制格式，不达标直接 build fail**。项目挂了 `spotless-maven-plugin` 的 `check`（google-java-format 系），格式不符时 `mvn test` 在编译前就红（报 `format violations`）。硬性两点：**static import 必须置于所有普通 import 之前**、**未使用的 import 必须删除**（写测试常见：import 了接口但只用 lambda，就成了未用 import）。
    - **修复**：提交/验证前先跑 `mvn -pl <模块> spotless:apply` 自动格式化，再 `test`。别手动对齐格式，交给 apply。
 
+8. **AspectJ 复合切入点 `|| @within(注解)` 可能抛异常致切面静默失效**。`@Around("@within(A) || @within(B)")` 这类**复合**切入点，AspectJ 对部分注解（实测 Spring 的 `@Controller`）匹配时抛 `IllegalArgumentException: Type referred to is not an annotation type`，整个切入点匹配失败 → 目标类不被 AOP 代理 → 切面静默不生效（无报错、日志空，极难查）。`@RestController` 自带 `@Controller` 元注解，无需并列两个 `@within`；需覆盖多注解时先确认每个分支独立可匹配，或用 `execution` 类切入点。
+   - **验证切面必须用真实 Spring Boot**（`@SpringBootTest` + MockMvc 完整启动）：`ApplicationContextRunner` 无法复现 AOP 代理时序——即便 `ReflectiveAspectJAdvisorFactory` 能解析出 advisor、pointcut 手动匹配为 true，容器里 `findCandidateAdvisors()` 也有 advisor 但 **controller 不被代理**（AspectJ 匹配时抛异常）。真实集成测试能立刻暴露。参照 `AccessLogAspect`（commit `f734ac2`）、`AccessLogAspectRealIntegrationTest`。
+
 ## 验证
 
 本机命令行 PATH 无 java/mvn，但可直接调用 IDEA 内置 Maven + `.jdks` 下的独立 JDK 跑构建（memory `build-env`，已验证可用）。starter 是发布库，改动后：
