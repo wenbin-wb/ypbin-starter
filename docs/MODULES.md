@@ -1080,7 +1080,8 @@ ApiResponse<?> data = captchaService.generate();   // 返回 id + 图片，前�
 boolean ok = captchaService.verify(id, track);
 ```
 
-图片资源、二次校验等通过 tianai 自身的配置项调整。
+内置默认资源（SLIDER/ROTATE 模板、字体、背景图）由 starter 在启动时幂等自动加载，零配置即可
+开箱使用；如需自定义模板/背景图或二次校验，通过 tianai 自身的配置项调整。
 
 ### messaging — 消息（邮件 / WebSocket / SSE / MQTT）
 
