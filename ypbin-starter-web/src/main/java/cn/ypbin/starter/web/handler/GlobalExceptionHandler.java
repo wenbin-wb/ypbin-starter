@@ -29,6 +29,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -108,6 +109,17 @@ public class GlobalExceptionHandler {
     public R<Void> handleNotFound(Exception e, HttpServletRequest request) {
         log.warn("[接口不存在] {}", request.getRequestURI());
         return R.fail(GlobalErrorCode.NOT_FOUND.getCode(), "接口不存在");
+    }
+
+    /**
+     * SSE 长连接异步超时：属预期内的连接回收（非业务异常），记一行 WARN 即可。
+     *
+     * <p>返回 void 不写响应体——连接已达超时被容器回收，响应 Content-Type 已是 {@code text/event-stream}，
+     * 若返回 {@link R} 会因无转换器抛 {@code HttpMessageNotWritableException} 产生二次噪音。</p>
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public void handleAsyncRequestTimeout(AsyncRequestTimeoutException e, HttpServletRequest request) {
+        log.warn("[SSE 超时回收] {} -> {}", request.getRequestURI(), e.getMessage());
     }
 
     /**

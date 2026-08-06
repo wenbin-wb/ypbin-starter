@@ -57,7 +57,7 @@ public class SseAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public SseEmitterManager sseEmitterManager(SseProperties properties) {
-        return new SseEmitterManager(properties.getTimeout());
+        return new SseEmitterManager(properties.getTimeout(), properties.getHeartbeatIntervalSeconds());
     }
 
     @Bean
