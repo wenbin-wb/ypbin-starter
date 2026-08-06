@@ -28,14 +28,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "ypbin.log.access")
 public class AccessLogProperties {
 
-    /** 是否启用全量访问日志拦截器，默认关闭（与 @Log 注解版互补，按需开启） */
+    /** 是否启用全量访问日志切面，默认关闭（与 @Log 注解版互补，按需开启） */
     private boolean enabled = false;
-
-    /** 拦截路径 */
-    private List<String> pathPatterns = new ArrayList<>(List.of("/**"));
 
     /** 排除路径（静态资源、健康检查等） */
     private List<String> excludePathPatterns = new ArrayList<>();
+
+    /** 敏感请求头关键字（头名小写包含即掩码值），默认掩码授权/会话相关头 */
+    private List<String> maskHeaders = new ArrayList<>(List.of("authorization", "cookie", "token"));
 
     public boolean isEnabled() {
         return enabled;
@@ -45,19 +45,19 @@ public class AccessLogProperties {
         this.enabled = enabled;
     }
 
-    public List<String> getPathPatterns() {
-        return pathPatterns;
-    }
-
-    public void setPathPatterns(List<String> pathPatterns) {
-        this.pathPatterns = pathPatterns;
-    }
-
     public List<String> getExcludePathPatterns() {
         return excludePathPatterns;
     }
 
     public void setExcludePathPatterns(List<String> excludePathPatterns) {
         this.excludePathPatterns = excludePathPatterns;
+    }
+
+    public List<String> getMaskHeaders() {
+        return maskHeaders;
+    }
+
+    public void setMaskHeaders(List<String> maskHeaders) {
+        this.maskHeaders = maskHeaders;
     }
 }

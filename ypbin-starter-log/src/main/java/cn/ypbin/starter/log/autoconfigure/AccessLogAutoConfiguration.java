@@ -15,41 +15,41 @@
  */
 package cn.ypbin.starter.log.autoconfigure;
 
-import cn.ypbin.starter.log.interceptor.AccessLogInterceptor;
+import cn.ypbin.starter.log.aspect.AccessLogAspect;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 全量访问日志自动配置。
  *
- * <p>仅在 Servlet Web 环境、引入 spring-webmvc 且 {@code ypbin.log.access.enabled=true} 时生效。
- * 注册 {@link AccessLogInterceptor} 记录全量请求流水，与基于 {@code @Log} 注解的操作日志互补。</p>
+ * <p>仅在 Servlet Web 环境、存在 {@link RestController}（spring-web）且 {@code ypbin.log.access.enabled=true}
+ * 时生效。注册 {@link AccessLogAspect} 打印控制器请求/响应分块日志，与基于 {@code @Log} 注解的操作日志互补。
+ * 切面依赖 AOP，log 模块已引入 spring-boot-starter-aop。</p>
  *
  * @author wenbin
  * @since 2026-07-30
  */
 @AutoConfiguration
-@ConditionalOnClass(WebMvcConfigurer.class)
+@ConditionalOnClass(RestController.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnProperty(prefix = "ypbin.log.access", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(AccessLogProperties.class)
 public class AccessLogAutoConfiguration {
 
     @Bean
-    public WebMvcConfigurer accessLogWebMvcConfigurer(AccessLogProperties properties) {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addInterceptors(InterceptorRegistry registry) {
-                registry.addInterceptor(new AccessLogInterceptor())
-                    .addPathPatterns(properties.getPathPatterns())
-                    .excludePathPatterns(properties.getExcludePathPatterns());
-            }
-        };
+    @ConditionalOnMissingBean
+    public AccessLogAspect accessLogAspect(
+        ObjectProvider<ObjectMapper> mapperProvider, AccessLogProperties properties) {
+        // 复用容器中的 ObjectMapper（继承 json 模块配置），无则退化为默认实例
+        ObjectMapper objectMapper = mapperProvider.getIfAvailable(ObjectMapper::new);
+        return new AccessLogAspect(objectMapper, properties);
     }
 }
