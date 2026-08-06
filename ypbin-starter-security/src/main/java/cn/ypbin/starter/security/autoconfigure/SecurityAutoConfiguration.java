@@ -51,6 +51,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -68,6 +70,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @ConditionalOnClass(StpInterface.class)
 @ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(SecurityProperties.class)
+@Import(SecurityAutoConfiguration.RedisAttemptStoreConfiguration.class)
 public class SecurityAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityAutoConfiguration.class);
@@ -138,13 +141,13 @@ public class SecurityAutoConfiguration {
     }
 
     /**
-     * 密码错误计数存储：存在 Redis 时用 Redis（多节点共享），否则用内存。
+     * 密码错误计数存储（内存兜底）：无 Redis 或无自定义实现时装配；存在 Redis 时由
+     * {@link RedisAttemptStoreConfiguration} 先注册的 Redis 实现接管，本 Bean 自动退让。
      */
     @Bean
-    @ConditionalOnMissingBean
-    public PasswordAttemptStore passwordAttemptStore(ObjectProvider<StringRedisTemplate> redisTemplate) {
-        StringRedisTemplate template = redisTemplate.getIfAvailable();
-        return template != null ? new RedisPasswordAttemptStore(template) : new InMemoryPasswordAttemptStore();
+    @ConditionalOnMissingBean(PasswordAttemptStore.class)
+    public PasswordAttemptStore inMemoryPasswordAttemptStore() {
+        return new InMemoryPasswordAttemptStore();
     }
 
     /**
@@ -232,5 +235,24 @@ public class SecurityAutoConfiguration {
      * 空标记 Bean，仅用于触发 {@link LoginClientHolder#bind(LoginClientService)}。
      */
     public static final class LoginClientHolderInitializer {
+    }
+
+    /**
+     * Redis 密码错误计数存储配置。
+     *
+     * <p>类级 {@code @ConditionalOnClass(StringRedisTemplate.class)}：无 spring-data-redis 时整个类被跳过、
+     * 其 {@code @Bean} 方法不被内省——方法级 {@code @ConditionalOnClass} 阻止不了 Spring 对方法签名的内省，
+     * 签名里含 {@code StringRedisTemplate} 而无该依赖时会先抛 NoClassDefFoundError。经 {@code @Import}
+     * 先于外层内存兜底注册，存在 Redis 时优先生效、内存兜底退让。</p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(StringRedisTemplate.class)
+    static class RedisAttemptStoreConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(PasswordAttemptStore.class)
+        public PasswordAttemptStore passwordAttemptStore(StringRedisTemplate redisTemplate) {
+            return new RedisPasswordAttemptStore(redisTemplate);
+        }
     }
 }
