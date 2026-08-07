@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -40,6 +41,7 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration(after = ImageCaptchaAutoConfiguration.class)
 @ConditionalOnClass(ImageCaptchaApplication.class)
 @ConditionalOnProperty(prefix = "ypbin.captcha", name = "enabled", havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties(CaptchaProperties.class)
 public class CaptchaAutoConfiguration {
 
     @Bean
@@ -52,7 +54,8 @@ public class CaptchaAutoConfiguration {
     @Bean(initMethod = "init")
     @ConditionalOnBean(ImageCaptchaApplication.class)
     @ConditionalOnMissingBean
-    public CaptchaResourceInitializer captchaResourceInitializer(ImageCaptchaApplication application) {
-        return new CaptchaResourceInitializer(application);
+    public CaptchaResourceInitializer captchaResourceInitializer(ImageCaptchaApplication application,
+        CaptchaProperties properties) {
+        return new CaptchaResourceInitializer(application, properties);
     }
 }

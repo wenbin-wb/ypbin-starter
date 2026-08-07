@@ -45,6 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -146,7 +147,7 @@ public class SecurityAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(PasswordAttemptStore.class)
-    public PasswordAttemptStore inMemoryPasswordAttemptStore() {
+    public PasswordAttemptStore passwordAttemptStore() {
         return new InMemoryPasswordAttemptStore();
     }
 
@@ -244,9 +245,15 @@ public class SecurityAutoConfiguration {
      * 其 {@code @Bean} 方法不被内省——方法级 {@code @ConditionalOnClass} 阻止不了 Spring 对方法签名的内省，
      * 签名里含 {@code StringRedisTemplate} 而无该依赖时会先抛 NoClassDefFoundError。经 {@code @Import}
      * 先于外层内存兜底注册，存在 Redis 时优先生效、内存兜底退让。</p>
+     *
+     * <p>类级 {@code @ConditionalOnClass} 只判断 classpath 是否有该类，不代表容器里真有可用的
+     * {@link StringRedisTemplate} Bean（如未配置 Redis 连接、或测试环境只引入了依赖未装配自动配置）。
+     * 叠加 {@code @ConditionalOnBean(StringRedisTemplate.class)}，两者都满足才展开本配置，避免 Redis Bean
+     * 因缺少注入源在启动期抛 {@code UnsatisfiedDependencyException}。</p>
      */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(StringRedisTemplate.class)
+    @ConditionalOnBean(StringRedisTemplate.class)
     static class RedisAttemptStoreConfiguration {
 
         @Bean

@@ -134,11 +134,30 @@ public class LicenseProperties {
         private Duration timeout = Duration.ofSeconds(5);
 
         /**
-         * 联机校验缓存窗口（秒）：最近一次服务端明确返回有效后，窗口内不再重复联机校验，
+         * 联机校验缓存窗口（秒）：最近一次服务端<strong>明确返回有效</strong>后，窗口内不再重复联机校验，
          * 避免 {@code @LicenseCheck(online=true)} 每次方法调用都发 HTTP。吊销感知延迟 ≤ 缓存窗口，
-         * 默认 1 小时。网络异常/非 200 等「放行但不明确有效」不进入缓存窗口，下次调用仍会重试。
+         * 默认 1 小时。
          */
         private long cacheSeconds = 3600;
+
+        /**
+         * 放行窗口（秒）：网络异常/HTTP 非 200/响应解析失败/{@code valid} 字段缺失或非布尔等「放行但不明确
+         * 有效」结果，进入这个短窗口，窗口内不再重复联机（防止联机服务不可用时被高频调用打爆），默认 1 分钟。
+         * 与 {@link #cacheSeconds} 是两套独立窗口：只有服务端明确返回有效才用长窗口，放行永远只用这个短窗口。
+         */
+        private long failOpenCacheSeconds = 60;
+
+        /**
+         * 连续放行次数阈值：达到该阈值后放行窗口升级为 {@link #failOpenBackoffSeconds}（更长），
+         * 默认 5 次。服务端任意一次明确返回（有效或无效）都会重置计数——只有「连续不可达/异常」才升级退避。
+         */
+        private int failOpenThreshold = 5;
+
+        /**
+         * 退避窗口（秒）：连续放行次数达到 {@link #failOpenThreshold} 后使用的更长窗口，默认 5 分钟，
+         * 进一步降低对故障中的联机服务的调用频率。
+         */
+        private long failOpenBackoffSeconds = 300;
 
         public String getBaseUrl() {
             return baseUrl;
@@ -178,6 +197,30 @@ public class LicenseProperties {
 
         public void setCacheSeconds(long cacheSeconds) {
             this.cacheSeconds = cacheSeconds;
+        }
+
+        public long getFailOpenCacheSeconds() {
+            return failOpenCacheSeconds;
+        }
+
+        public void setFailOpenCacheSeconds(long failOpenCacheSeconds) {
+            this.failOpenCacheSeconds = failOpenCacheSeconds;
+        }
+
+        public int getFailOpenThreshold() {
+            return failOpenThreshold;
+        }
+
+        public void setFailOpenThreshold(int failOpenThreshold) {
+            this.failOpenThreshold = failOpenThreshold;
+        }
+
+        public long getFailOpenBackoffSeconds() {
+            return failOpenBackoffSeconds;
+        }
+
+        public void setFailOpenBackoffSeconds(long failOpenBackoffSeconds) {
+            this.failOpenBackoffSeconds = failOpenBackoffSeconds;
         }
     }
 }

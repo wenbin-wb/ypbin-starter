@@ -30,13 +30,18 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link HttpRemoteVerifyProvider} 联机校验单元测试：验证「仅服务端明确返回无效才阻断，网络/服务异常
- * 一律放行」的容忍策略。
+ * {@link HttpRemoteVerifyProvider} 联机校验单元测试：验证「仅服务端明确返回无效才阻断，其余一切放行但
+ * 不明确有效」的三桶裁决策略，以及放行窗口/退避升级/单飞的防打爆行为。
  *
  * @author wenbin
  * @since 2026-08-06
@@ -69,12 +74,18 @@ class HttpRemoteVerifyProviderTest {
     }
 
     private HttpRemoteVerifyProvider provider() {
-        return provider(3600);
+        return provider(3600, 60, 5, 300);
     }
 
     private HttpRemoteVerifyProvider provider(long cacheSeconds) {
+        return provider(cacheSeconds, 60, 5, 300);
+    }
+
+    private HttpRemoteVerifyProvider provider(long cacheSeconds, long failOpenCacheSeconds, int failOpenThreshold,
+        long failOpenBackoffSeconds) {
         return new HttpRemoteVerifyProvider("http://localhost:" + server.getAddress().getPort(),
-            "test-access-key", "test-secret-key", Duration.ofSeconds(2), cacheSeconds);
+            "test-access-key", "test-secret-key", Duration.ofSeconds(2), cacheSeconds, failOpenCacheSeconds,
+            failOpenThreshold, failOpenBackoffSeconds);
     }
 
     private LicenseContent content() {
@@ -115,6 +126,29 @@ class HttpRemoteVerifyProviderTest {
     }
 
     @Test
+    void verify_shouldTreatMissingValidFieldAsFailOpenNotValid() {
+        // valid 字段缺失：不是明确裁决，绝不能当作有效缓存住
+        responseBody = "{\"data\":{\"reason\":\"unknown\"}}";
+        HttpRemoteVerifyProvider p = provider(3600, 0, 5, 300);
+        assertThatCode(() -> p.verify(content(), "f1")).doesNotThrowAnyException();
+
+        // 若上一步被误判为「明确有效」并缓存，这里就不会真正联机、也不会抛异常
+        responseBody = "{\"data\":{\"valid\":false,\"reason\":\"revoked\"}}";
+        assertThatThrownBy(() -> p.verify(content(), "f1")).isInstanceOf(LicenseException.class);
+    }
+
+    @Test
+    void verify_shouldTreatNonBooleanValidAsFailOpenNotValid() {
+        // valid 字段存在但非布尔（解析异常场景）：同样只能算放行，不能算明确有效
+        responseBody = "{\"data\":{\"valid\":\"yes\",\"reason\":\"x\"}}";
+        HttpRemoteVerifyProvider p = provider(3600, 0, 5, 300);
+        assertThatCode(() -> p.verify(content(), "f1")).doesNotThrowAnyException();
+
+        responseBody = "{\"data\":{\"valid\":false,\"reason\":\"revoked\"}}";
+        assertThatThrownBy(() -> p.verify(content(), "f1")).isInstanceOf(LicenseException.class);
+    }
+
+    @Test
     void verify_shouldSkipSecondCallWithinCacheWindow() {
         HttpRemoteVerifyProvider p = provider();
         p.verify(content(), "f1");
@@ -123,18 +157,6 @@ class HttpRemoteVerifyProviderTest {
         // 窗口内（默认 1 小时）第二次校验直接放行，不再发 HTTP
         p.verify(content(), "f1");
         assertThat(requestCount).isEqualTo(1);
-    }
-
-    @Test
-    void verify_shouldNotCacheWhenServiceReportsError() {
-        status = 500;
-        HttpRemoteVerifyProvider p = provider();
-        p.verify(content(), "f1");
-        assertThat(requestCount).isEqualTo(1);
-
-        // 网络/服务异常是「放行但不明确有效」，不进入缓存窗口，下次仍会重试
-        p.verify(content(), "f1");
-        assertThat(requestCount).isEqualTo(2);
     }
 
     @Test
@@ -147,5 +169,91 @@ class HttpRemoteVerifyProviderTest {
         responseBody = "{\"data\":{\"valid\":true,\"reason\":\"ok\"}}";
         assertThatCode(() -> p.verify(content(), "f1")).doesNotThrowAnyException();
         assertThat(requestCount).isEqualTo(2);
+    }
+
+    @Test
+    void verify_shouldCacheFailOpenResultWithinFailOpenWindow() {
+        status = 500;
+        HttpRemoteVerifyProvider p = provider(3600, 3600, 5, 300);
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+
+        // 放行窗口内第二次调用直接放行，不重复联机（防打爆）
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+    }
+
+    @Test
+    void verify_shouldRetryEveryCallWhenFailOpenWindowDisabled() {
+        status = 500;
+        HttpRemoteVerifyProvider p = provider(3600, 0, 5, 300);
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(2);
+    }
+
+    @Test
+    void verify_shouldEscalateToBackoffWindowAfterConsecutiveFailures() {
+        status = 500;
+        // 放行窗口关闭（每次都会重试），阈值 2：连续 2 次放行后升级为长退避窗口
+        HttpRemoteVerifyProvider p = provider(3600, 0, 2, 3600);
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(2);
+
+        // 已达阈值进入退避窗口，第三次直接放行不再联机
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(2);
+    }
+
+    @Test
+    void verify_shouldResetFailOpenCountOnExplicitResponse() {
+        status = 500;
+        HttpRemoteVerifyProvider p = provider(3600, 0, 2, 3600);
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(1);
+
+        // 服务端恢复并明确返回有效：重置连续放行计数
+        status = 200;
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(2);
+
+        // 缓存窗口内直接放行，不再联机
+        p.verify(content(), "f1");
+        assertThat(requestCount).isEqualTo(2);
+    }
+
+    @Test
+    void verify_shouldSingleFlightConcurrentCallsOnCacheMiss() throws Exception {
+        int threads = 8;
+        HttpRemoteVerifyProvider p = provider();
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<?>> futures = new java.util.ArrayList<>();
+        try {
+            for (int i = 0; i < threads; i++) {
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    p.verify(content(), "f1");
+                    return null;
+                }));
+            }
+            ready.await();
+            start.countDown();
+            for (Future<?> future : futures) {
+                future.get(5, TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdown();
+        }
+
+        // 缓存未命中时的并发调用应单飞：只有一个线程真正发起联机请求
+        assertThat(requestCount).isEqualTo(1);
     }
 }

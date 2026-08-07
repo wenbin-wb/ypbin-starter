@@ -60,9 +60,18 @@ class AccessLogAspectRealIntegrationTest {
         }
     }
 
+    @org.springframework.stereotype.Controller
+    static class PlainController {
+        @GetMapping("/plain")
+        @org.springframework.web.bind.annotation.ResponseBody
+        public String plain() {
+            return "plain-ok";
+        }
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @Import(DemoController.class)
+    @Import({DemoController.class, PlainController.class})
     static class TestApplication {
     }
 
@@ -102,7 +111,24 @@ class AccessLogAspectRealIntegrationTest {
         String captured = appender.list.stream()
             .map(ILoggingEvent::getFormattedMessage)
             .collect(Collectors.joining("\n"));
+        assertThat(captured).contains("===Handler===  " + DemoController.class.getSimpleName() + ".demo");
         assertThat(captured).contains("===> GET: /demo Parameters: {\"current\":2}");
         assertThat(captured).contains("===Result===  \"ok\"");
+    }
+
+    @Test
+    void aspectLogsPlainControllerWithResponseBodyMethod() throws Exception {
+        // 普通 @Controller 也会被 AOP 代理——切入点 @annotation(ResponseBody) 分支生效的前提
+        assertThat(AopUtils.isAopProxy(context.getBean(PlainController.class)))
+            .as("方法级 @ResponseBody 所在的 controller 应被 AOP 代理").isTrue();
+
+        mockMvc.perform(get("/plain")).andExpect(status().isOk());
+
+        String captured = appender.list.stream()
+            .map(ILoggingEvent::getFormattedMessage)
+            .collect(Collectors.joining("\n"));
+        assertThat(captured).contains("===Handler===  " + PlainController.class.getSimpleName() + ".plain");
+        assertThat(captured).contains("===> GET: /plain Parameters: {}");
+        assertThat(captured).contains("===Result===  \"plain-ok\"");
     }
 }
