@@ -35,14 +35,16 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartRequest;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 /**
- * 全量访问日志切面（BladeX 风格分块日志）。
+ * 全量访问日志切面（分块日志）。
  *
  * <p>环绕拦截控制器方法，打印请求/响应分块日志：方法/URI/参数（JSON）、逐请求头（敏感头掩码）、
  * IP、响应体、耗时。与基于 {@code @Log} 注解的操作日志互补：后者精准采集业务操作（可落库），
@@ -59,6 +61,8 @@ public class AccessLogAspect {
 
     private static final Logger log = LoggerFactory.getLogger("ypbin.access");
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
+    /** 响应体日志最大字符数，超出截断（避免大响应体撑爆日志文件） */
+    private static final int MAX_RESULT_LENGTH = 2000;
 
     private final ObjectMapper objectMapper;
     private final AccessLogProperties properties;
@@ -71,11 +75,13 @@ public class AccessLogAspect {
     /**
      * 环绕控制器方法：无 Web 上下文或命中排除路径时直接放行；否则打印请求块、执行、打印响应块。
      *
-     * <p>切入点匹配 {@code @RestController}（覆盖 API 控制器主体，其本身带 {@code @Controller} 元注解）。
+     * <p>切入点匹配 {@code @RestController}（覆盖绝大多数 API 控制器）以及方法级
+     * {@code @ResponseBody}（覆盖普通 {@code @Controller} 上仅部分方法直返 JSON 的场景）。
      * 不追加 {@code @within(Controller)} 分支——AspectJ 对 {@code || @within(Controller)} 的组合匹配会抛
      * {@code Type referred to is not an annotation type}，导致整个切入点不生效（实测确认）。</p>
      */
-    @Around("@within(org.springframework.web.bind.annotation.RestController)")
+    @Around("@within(org.springframework.web.bind.annotation.RestController)"
+        + " || @annotation(org.springframework.web.bind.annotation.ResponseBody)")
     public Object around(ProceedingJoinPoint point) throws Throwable {
         ServletRequestAttributes attributes =
             (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -90,8 +96,10 @@ public class AccessLogAspect {
 
         long start = System.currentTimeMillis();
         String method = request.getMethod();
+        MethodSignature signature = (MethodSignature) point.getSignature();
         // 请求块
         log.info("================  Request Start  ================");
+        log.info("===Handler===  {}.{}", signature.getDeclaringType().getSimpleName(), signature.getName());
         log.info("===> {}: {} Parameters: {}", method, uri, buildParams(point));
         log.info("===Headers===");
         for (Map.Entry<String, String> header : resolveHeaders(request).entrySet()) {
@@ -106,7 +114,7 @@ public class AccessLogAspect {
             long cost = System.currentTimeMillis() - start;
             // 响应块
             log.info("================  Response Start  ================");
-            log.info("===Result===  {}", serialize(result));
+            log.info("===Result===  {}", serializeResult(result));
             log.info("<=== {}: {} ({} ms)", method, uri, cost);
             log.info("================   Response End   ================");
             return result;
@@ -233,7 +241,61 @@ public class AccessLogAspect {
             && !(arg instanceof HttpSession)
             && !(arg instanceof MultipartRequest)
             && !(arg instanceof InputStream)
-            && !(arg instanceof OutputStream);
+            && !(arg instanceof OutputStream)
+            && !(arg instanceof Resource)
+            && !(arg instanceof byte[])
+            && !(arg instanceof StreamingResponseBody);
+    }
+
+    /**
+     * 序列化返回值：大体积/流式类型（文件下载、二进制流等）只打摘要，避免整段读入内存打进日志、
+     * 拖垮磁盘 IO，甚至消费掉只能读一次的流导致响应异常；其余类型正常 JSON 序列化后按长度截断。
+     *
+     * @param result 方法返回值
+     * @return 摘要或截断后的 JSON 字符串
+     */
+    private String serializeResult(Object result) {
+        String summary = summarize(result);
+        return summary != null ? summary : truncate(serialize(result));
+    }
+
+    /**
+     * 流/二进制/资源类型的简短摘要，不读取、不消费原始内容。
+     *
+     * @param value 待判断对象
+     * @return 摘要；不属于该类别返回 null
+     */
+    private static String summarize(Object value) {
+        if (value instanceof Resource resource) {
+            String name = resource.getFilename();
+            return "<Resource: " + (name != null ? name : resource.getDescription()) + ">";
+        }
+        if (value instanceof byte[] bytes) {
+            return "<byte[" + bytes.length + "]>";
+        }
+        if (value instanceof InputStream) {
+            return "<InputStream>";
+        }
+        if (value instanceof OutputStream) {
+            return "<OutputStream>";
+        }
+        if (value instanceof StreamingResponseBody) {
+            return "<StreamingResponseBody>";
+        }
+        return null;
+    }
+
+    /**
+     * 超长内容截断，避免单条巨型 JSON（如大数组、超长文本字段）撑爆日志文件。
+     *
+     * @param json 原始字符串
+     * @return 截断后的字符串；未超长或为 null 原样返回
+     */
+    private static String truncate(String json) {
+        if (json == null || json.length() <= MAX_RESULT_LENGTH) {
+            return json;
+        }
+        return json.substring(0, MAX_RESULT_LENGTH) + "...(truncated, total " + json.length() + " chars)";
     }
 
     /**

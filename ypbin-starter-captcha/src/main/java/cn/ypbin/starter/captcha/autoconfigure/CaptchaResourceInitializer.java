@@ -24,6 +24,7 @@ import cloud.tianai.captcha.resource.DefaultBuiltInResources;
 import cloud.tianai.captcha.resource.ImageCaptchaResourceManager;
 import cloud.tianai.captcha.resource.ResourceStore;
 import cloud.tianai.captcha.resource.common.model.dto.Resource;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +33,9 @@ import org.slf4j.LoggerFactory;
  *
  * <p>tianai-captcha 默认不加载任何内置资源：{@code captcha.init-default-resource} 关闭（默认）时模板与背景全空，
  * 生成验证码即抛异常；即便打开该开关也只加载模板与字体、不加载背景图。本类在 {@link ImageCaptchaApplication}
- * 创建后幂等补齐内置资源（SLIDER/ROTATE 模板 + 字体、默认背景图），宿主零配置即可开箱使用。</p>
+ * 创建后幂等补齐内置资源（SLIDER/ROTATE 模板 + 字体、背景图），宿主零配置即可开箱使用。背景图默认加载
+ * tianai 内置的单张图；宿主通过 {@link CaptchaProperties#getBackgroundResources()} 配置自定义背景时改为
+ * 全部加载，验证码随机取用，避免背景单一。</p>
  *
  * <p>资源通过 {@link ImageCaptchaResourceManager#getResourceStore()} 解析，用 {@link ResourceStore#getTarget()}
  * 穿透字体缓存拿到真正可写的 {@link CrudResourceStore}，判空后再加载，避免与 tianai 自带的默认加载重复。</p>
@@ -55,14 +58,20 @@ public class CaptchaResourceInitializer {
 
     private final ImageCaptchaApplication application;
 
-    public CaptchaResourceInitializer(ImageCaptchaApplication application) {
+    private final List<String> backgroundResources;
+
+    public CaptchaResourceInitializer(ImageCaptchaApplication application, CaptchaProperties properties) {
         this.application = application;
+        this.backgroundResources = properties.getBackgroundResources();
     }
 
     /**
-     * 幂等加载内置默认资源。模板判空后加载，背景图按验证码类型判空后注册。
+     * 幂等加载默认资源。模板判空后加载，背景图按验证码类型判空后注册。
+     *
+     * <p>{@code synchronized}：{@code initMethod} 由容器单次调用，加锁防止业务方并发重复触发初始化时
+     * 出现判空到写入之间的竞态（同一背景被注册两次）。</p>
      */
-    public void init() {
+    public synchronized void init() {
         ResourceStore store = application.getImageCaptchaResourceManager().getResourceStore().getTarget();
         if (!(store instanceof CrudResourceStore crudStore)) {
             log.error(
@@ -71,7 +80,7 @@ public class CaptchaResourceInitializer {
             return;
         }
         loadDefaultTemplates(crudStore);
-        loadDefaultBackgrounds(crudStore);
+        loadBackgrounds(crudStore);
     }
 
     private void loadDefaultTemplates(CrudResourceStore store) {
@@ -82,12 +91,16 @@ public class CaptchaResourceInitializer {
         log.debug("[ypbin-starter] captcha 默认模板已加载（SLIDER/ROTATE/字体）。");
     }
 
-    private void loadDefaultBackgrounds(CrudResourceStore store) {
+    private void loadBackgrounds(CrudResourceStore store) {
+        List<String> resources = backgroundResources.isEmpty() ? List.of(DEFAULT_BACKGROUND_IMAGE) : backgroundResources;
         for (String type : new String[] {CaptchaTypeConstant.SLIDER, CaptchaTypeConstant.ROTATE}) {
-            if (store.listResourcesByTypeAndTag(type, DEFAULT_TAG).isEmpty()) {
-                store.addResource(type, new Resource(CLASS_PATH, DEFAULT_BACKGROUND_IMAGE));
-                log.debug("[ypbin-starter] captcha 默认背景图已注册（{}）。", type);
+            if (!store.listResourcesByTypeAndTag(type, DEFAULT_TAG).isEmpty()) {
+                continue;
             }
+            for (String resource : resources) {
+                store.addResource(type, new Resource(CLASS_PATH, resource));
+            }
+            log.debug("[ypbin-starter] captcha 背景图已注册（{}，{} 张）。", type, resources.size());
         }
     }
 }

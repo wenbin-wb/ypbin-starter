@@ -45,14 +45,17 @@ import org.slf4j.LoggerFactory;
  * <p>鉴权密钥来自签发端「开放应用管理」签发的 AK/SK：accessKey 公开标识、secretKey 参与签名，应用级独立
  * 可吊销，替代原先的共享令牌——某个应用密钥泄露只影响该应用，可在管理端禁用/重置。</p>
  *
- * <p>网络容忍采用「放行+告警」：连接失败、超时、非 200 或响应解析失败均视为瞬时异常，放行本次校验并
- * 输出告警日志；只有服务端明确返回 {@code valid=false} 才抛 {@link LicenseException} 阻断——避免网络
- * 抖动把正常业务锁死，同时绝不静默掩盖明确的吊销判定。</p>
+ * <p><strong>三桶裁决</strong>：服务端响应 {@code data.valid} 为明确布尔值时才算「明确裁决」——
+ * {@code true} 放行并进入长缓存窗口（{@link #cacheMillis}）；{@code false} 抛
+ * {@link LicenseException} 阻断，不缓存。其余一切（连接失败/超时/非 200/响应体无法解析/
+ * {@code valid} 字段缺失或非布尔）都是「放行但不明确」，绝不当作明确有效处理，只进入更短的放行窗口
+ * （{@link #failOpenMillis}），避免网络抖动把正常业务锁死，也避免吊销感知被误当作长缓存掩盖。</p>
  *
- * <p><strong>缓存窗口</strong>：为避免 {@code @LicenseCheck(online=true)} 每次方法调用都发 HTTP，最近一次
- * 服务端<strong>明确返回有效</strong>后，窗口内（{@code ypbin.license.online.cache-seconds}，默认 1 小时）
- * 直接放行不再重复联机。网络异常/非 200 等「放行但不明确有效」<strong>不进入缓存窗口</strong>，下次调用
- * 仍会重试，避免服务恢复后吊销感知被窗口掩盖。吊销感知延迟 ≤ 缓存窗口。</p>
+ * <p><strong>防打爆</strong>：放行结果只缓存 {@link #failOpenMillis}，连续放行次数达到
+ * {@link #failOpenThreshold} 后升级为更长的退避窗口 {@link #failOpenBackoffMillis}（仍是放行，不是
+ * 拒绝）；服务端任意一次明确响应（有效或无效）都会重置连续放行计数。缓存命中判断与实际联机校验之间用
+ * {@link #verifyLock} 做单飞（single-flight）：并发请求在缓存未命中时只会有一个真正发起 HTTP 调用，
+ * 其余等待其结果，避免联机服务不可用/高并发下被同时打出大量重复请求。</p>
  *
  * @author wenbin
  * @since 2026-08-06
@@ -68,18 +71,31 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
     private final String secretKey;
     private final Duration timeout;
     private final long cacheMillis;
+    private final long failOpenMillis;
+    private final int failOpenThreshold;
+    private final long failOpenBackoffMillis;
     private final HttpClient client;
+    private final Object verifyLock = new Object();
 
     /** 最近一次服务端明确返回有效的时间戳（毫秒）；0 表示从未明确校验通过。volatile 保证多线程可见 */
     private volatile long lastValidAt;
 
+    /** 放行窗口的到期时间戳（毫秒）；窗口内跳过联机，直接放行。volatile 保证多线程可见 */
+    private volatile long failOpenUntil;
+
+    /** 连续放行（未明确裁决）次数，仅在 {@link #verifyLock} 内读写 */
+    private int consecutiveFailOpenCount;
+
     public HttpRemoteVerifyProvider(String baseUrl, String accessKey, String secretKey, Duration timeout,
-        long cacheSeconds) {
+        long cacheSeconds, long failOpenCacheSeconds, int failOpenThreshold, long failOpenBackoffSeconds) {
         this.baseUrl = stripTrailingSlash(baseUrl);
         this.accessKey = accessKey;
         this.secretKey = secretKey;
         this.timeout = timeout;
         this.cacheMillis = Math.max(0, cacheSeconds) * 1000L;
+        this.failOpenMillis = Math.max(0, failOpenCacheSeconds) * 1000L;
+        this.failOpenThreshold = Math.max(1, failOpenThreshold);
+        this.failOpenBackoffMillis = Math.max(0, failOpenBackoffSeconds) * 1000L;
         this.client = HttpClient.newBuilder().connectTimeout(timeout).build();
     }
 
@@ -88,11 +104,39 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         if (content == null || content.licenseId() == null) {
             return;
         }
-        // 缓存窗口内直接放行：最近一次明确有效距今未超窗口，无需重复联机
-        long cached = lastValidAt;
-        if (cached != 0 && System.currentTimeMillis() - cached < cacheMillis) {
+        if (isCacheHit()) {
             return;
         }
+        synchronized (verifyLock) {
+            // 双检：可能在等锁期间已被其他线程完成联机校验并写入缓存/放行窗口
+            if (isCacheHit()) {
+                return;
+            }
+            doVerify(content, fingerprint);
+        }
+    }
+
+    /**
+     * 判断是否命中缓存（长缓存窗口内的明确有效，或放行窗口内的不明确裁决），命中则本次直接放行。
+     *
+     * @return 是否命中缓存
+     */
+    private boolean isCacheHit() {
+        long now = System.currentTimeMillis();
+        long validSince = lastValidAt;
+        if (validSince != 0 && now - validSince < cacheMillis) {
+            return true;
+        }
+        return now < failOpenUntil;
+    }
+
+    /**
+     * 实际发起联机校验并按三桶裁决更新缓存/放行窗口状态；调用方须持有 {@link #verifyLock}。
+     *
+     * @param content 授权内容
+     * @param fingerprint 机器指纹
+     */
+    private void doVerify(LicenseContent content, String fingerprint) {
         String licenseId = content.licenseId();
         // 用开放应用 AK/SK 对业务参数签名，生成四件套（accessKey/timestamp/nonce/sign）随请求上报
         Map<String, String> signed = SignClient.sign(
@@ -109,31 +153,57 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.warn("[ypbin-starter] 联机校验被中断，本次放行(licenseId={}):{}", licenseId, e.getMessage());
+            markFailOpen();
             return;
         } catch (IOException e) {
             log.warn("[ypbin-starter] 联机校验服务不可达，本次放行(licenseId={}):{}", licenseId, e.getMessage());
+            markFailOpen();
             return;
         }
         if (response.statusCode() != 200) {
             log.warn("[ypbin-starter] 联机校验服务异常(HTTP {})，本次放行(licenseId={})",
                 response.statusCode(), licenseId);
+            markFailOpen();
             return;
         }
+        JsonNode data;
         try {
-            JsonNode data = MAPPER.readTree(response.body()).path("data");
-            if (data.path("valid").asBoolean(true)) {
-                // 仅「服务端明确有效」进入缓存窗口；网络放行路径不更新，下次调用仍会重试
-                lastValidAt = System.currentTimeMillis();
-                return;
-            }
-            String reason = data.path("reason").asText("");
-            throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
-                "联机授权校验未通过：" + (reason.isBlank() ? "授权可能已被吊销" : reason));
-        } catch (LicenseException e) {
-            throw e;
+            data = MAPPER.readTree(response.body()).path("data");
         } catch (Exception e) {
             log.warn("[ypbin-starter] 联机校验响应解析失败，本次放行(licenseId={}):{}", licenseId, e.getMessage());
+            markFailOpen();
+            return;
         }
+        JsonNode validNode = data.path("valid");
+        if (!validNode.isBoolean()) {
+            log.warn("[ypbin-starter] 联机校验响应缺少有效的 valid 字段，本次放行(licenseId={})", licenseId);
+            markFailOpen();
+            return;
+        }
+        if (validNode.booleanValue()) {
+            markValid();
+            return;
+        }
+        // 明确拒绝：重置放行计数（服务端可达且给出明确答复），不缓存，直接阻断
+        consecutiveFailOpenCount = 0;
+        failOpenUntil = 0;
+        String reason = data.path("reason").asText("");
+        throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
+            "联机授权校验未通过：" + (reason.isBlank() ? "授权可能已被吊销" : reason));
+    }
+
+    /** 服务端明确返回有效：进入长缓存窗口，重置放行计数 */
+    private void markValid() {
+        lastValidAt = System.currentTimeMillis();
+        failOpenUntil = 0;
+        consecutiveFailOpenCount = 0;
+    }
+
+    /** 放行但不明确有效：进入放行窗口，连续放行达阈值后升级为退避窗口 */
+    private void markFailOpen() {
+        consecutiveFailOpenCount++;
+        long window = consecutiveFailOpenCount >= failOpenThreshold ? failOpenBackoffMillis : failOpenMillis;
+        failOpenUntil = System.currentTimeMillis() + window;
     }
 
     /**

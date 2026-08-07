@@ -29,6 +29,7 @@ import cn.ypbin.starter.tools.lock.LockService;
 import cn.ypbin.starter.tools.lock.RedisLockService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -117,9 +118,15 @@ public class ToolsAutoConfiguration {
      *
      * <p>各 Redis Bean 带 {@code @ConditionalOnMissingBean}，且经 {@code @Import} 先于外层内存兜底注册，
      * 故存在 Redis 时优先生效、内存兜底退让；{@code distributed=false} 可强制走内存实现。</p>
+     *
+     * <p>类级 {@code @ConditionalOnClass} 只判断 classpath 是否有该类，不代表容器里真有可用的
+     * {@link StringRedisTemplate} Bean（如未配置 Redis 连接、或测试环境只引入了依赖未装配自动配置）。
+     * 叠加 {@code @ConditionalOnBean(StringRedisTemplate.class)}，两者都满足才展开本配置，避免 Redis Bean
+     * 因缺少注入源在启动期抛 {@code UnsatisfiedDependencyException}。</p>
      */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(StringRedisTemplate.class)
+    @ConditionalOnBean(StringRedisTemplate.class)
     static class RedisStoreConfiguration {
 
         /**

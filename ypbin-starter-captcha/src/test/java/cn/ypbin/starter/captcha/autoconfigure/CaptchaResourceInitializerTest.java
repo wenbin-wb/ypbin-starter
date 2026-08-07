@@ -26,6 +26,7 @@ import cloud.tianai.captcha.resource.DefaultBuiltInResources;
 import cloud.tianai.captcha.resource.ResourceProviders;
 import cloud.tianai.captcha.resource.impl.DefaultImageCaptchaResourceManager;
 import cloud.tianai.captcha.resource.impl.LocalMemoryResourceStore;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -79,15 +80,32 @@ class CaptchaResourceInitializerTest {
         assertThat(store.listResourcesByTypeAndTag(CaptchaTypeConstant.SLIDER, DEFAULT_TAG)).hasSize(1);
     }
 
+    @Test
+    void shouldLoadAllConfiguredBackgroundsWhenMultipleConfigured() {
+        LocalMemoryResourceStore store = newStore();
+        CaptchaProperties properties = new CaptchaProperties();
+        properties.setBackgroundResources(List.of("captcha/bg/1.jpg", "captcha/bg/2.jpg", "captcha/bg/3.jpg"));
+        CaptchaResourceInitializer initializer = newInitializer(store, properties);
+
+        initializer.init();
+
+        assertThat(store.listResourcesByTypeAndTag(CaptchaTypeConstant.SLIDER, DEFAULT_TAG)).hasSize(3);
+        assertThat(store.listResourcesByTypeAndTag(CaptchaTypeConstant.ROTATE, DEFAULT_TAG)).hasSize(3);
+    }
+
     private LocalMemoryResourceStore newStore() {
         return new LocalMemoryResourceStore();
     }
 
     private CaptchaResourceInitializer newInitializer(LocalMemoryResourceStore store) {
+        return newInitializer(store, new CaptchaProperties());
+    }
+
+    private CaptchaResourceInitializer newInitializer(LocalMemoryResourceStore store, CaptchaProperties properties) {
         DefaultImageCaptchaResourceManager manager =
                 new DefaultImageCaptchaResourceManager(store, new ResourceProviders());
         ImageCaptchaApplication application = mock(ImageCaptchaApplication.class);
         when(application.getImageCaptchaResourceManager()).thenReturn(manager);
-        return new CaptchaResourceInitializer(application);
+        return new CaptchaResourceInitializer(application, properties);
     }
 }

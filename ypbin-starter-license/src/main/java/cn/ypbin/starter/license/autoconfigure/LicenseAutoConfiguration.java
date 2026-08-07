@@ -138,7 +138,8 @@ public class LicenseAutoConfiguration {
             }
             return new HttpRemoteVerifyProvider(properties.getOnline().getBaseUrl(),
                 accessKey, secretKey, properties.getOnline().getTimeout(),
-                properties.getOnline().getCacheSeconds());
+                properties.getOnline().getCacheSeconds(), properties.getOnline().getFailOpenCacheSeconds(),
+                properties.getOnline().getFailOpenThreshold(), properties.getOnline().getFailOpenBackoffSeconds());
         }
     }
 
