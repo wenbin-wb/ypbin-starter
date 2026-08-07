@@ -17,6 +17,7 @@ package cn.ypbin.starter.captcha.autoconfigure;
 
 import cloud.tianai.captcha.application.ImageCaptchaApplication;
 import cloud.tianai.captcha.spring.autoconfiguration.ImageCaptchaAutoConfiguration;
+import cn.ypbin.starter.captcha.core.CaptchaResourceReloader;
 import cn.ypbin.starter.captcha.core.CaptchaService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -47,8 +48,8 @@ public class CaptchaAutoConfiguration {
     @Bean
     @ConditionalOnBean(ImageCaptchaApplication.class)
     @ConditionalOnMissingBean
-    public CaptchaService captchaService(ImageCaptchaApplication application) {
-        return new CaptchaService(application);
+    public CaptchaService captchaService(ImageCaptchaApplication application, CaptchaResourceReloader resourceReloader) {
+        return new CaptchaService(application, resourceReloader);
     }
 
     @Bean(initMethod = "init")
