@@ -9,7 +9,27 @@
 
 ## [未发布]
 
-当前开发版本 `1.2.0-SNAPSHOT`。
+## [1.2.0] - 2026-08-07
+
+新增日志字段掩码与 License 联机校验加固，修复访问日志切面失效、SSE 长连接超时刷屏、多个可选 Redis 依赖装配隐患。共 34 个模块。
+
+### 新增能力
+- **`@LogMask` 字段掩码**（`ypbin-starter-log`）：`LogMaskModule` 注册进 Jackson，标注字段序列化进访问日志/操作日志时自动替换为掩码，避免明文密码等敏感字段落盘
+- **访问日志切面改造**：`AccessLogInterceptor` 改为 `AccessLogAspect`（AOP 环绕通知），Request/Response 分块打印，新增 `===Handler===` 打印当前处理方法所属类名与方法名，便于按调用定位日志
+- **License 联机校验加固**：`HttpRemoteVerifyProvider` 引入缓存窗口（避免高并发下每次方法调用同步发起 HTTP 校验）、single-flight（同一 licenseId 并发校验合并为一次请求）、失败退避重试，网络异常/超时/非 200 与服务端明确拒绝三种结果分桶裁决，仅明确拒绝阻断，其余放行并告警
+- **验证码多背景图**：`ypbin.captcha.background-resources` 支持配置多张自定义背景，随机取用，默认回退加载内置背景
+- **SSE 心跳保活**：长连接默认不超时（`timeout=0`），新增 `heartbeat-interval-seconds`（默认 30s）定期发送保活帧，中间代理不再误判空闲断连
+
+### 修复
+- **访问日志切面完全不生效**：切入点 `@within(RestController) || @within(Controller)` 组合触发 AspectJ 「Type referred to is not an annotation type」异常，导致整个切入点匹配失败、controller 未被 AOP 代理；改为只保留 `@within(RestController)` 分支
+- **SSE 长连接约 5 分钟必断且刷屏噪音**：Tomcat 异步超时从建连起总计时，默认 300s 到点即掐；全局异常处理器把 `AsyncRequestTimeoutException` 当未知系统异常记 ERROR 全栈，并试图向已中断的 event-stream 响应写入 JSON 体二次报错；补充专属异常处理与心跳保活
+- **可选 Redis 依赖类级 `@ConditionalOnClass` 挡不住 Bean 缺失**：security/sign/tools/messaging 四个模块的 Redis 存储嵌套配置类只判断 `StringRedisTemplate` 是否在 classpath，未判断容器内是否真有该 Bean；消费端传递引入 spring-data-redis 却未配置连接时，嵌套配置仍展开、`UnsatisfiedDependencyException` 崩溃，统一补充 `@ConditionalOnBean(StringRedisTemplate.class)`
+- **验证码默认资源不自动加载**：`init-default-resource` 关闭或仅加载模板字体时背景图仍为空，访问 `/captcha` 500；新增 `CaptchaResourceInitializer` 幂等补齐
+
+### 工程
+- 移除 License v1 授权串校验遗留代码（v2 压缩格式已稳定，不再需要兼容分支）
+- 启动横幅收敛：data/messaging 模块默认关闭第三方组件启动横幅打印，业务方仍可覆盖开启
+- `docs/MODULES.md` 补充联机校验缓存窗口语义、验证码多背景配置说明
 
 ## [1.1.0] - 2026-08-06
 
@@ -34,7 +54,8 @@
 - 新增 GitHub Actions CI（push/PR 自动编译、代码风格校验与测试）
 - README 首页重写（徽章、设计取舍章、发布坐标修正），模块文档拆至 `docs/MODULES.md`
 
-[未发布]: https://github.com/wenbin-wb/ypbin-starter/compare/v1.1.0...HEAD
+[未发布]: https://github.com/wenbin-wb/ypbin-starter/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.2.0
 [1.1.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.1.0
 
 > 已发布至 Maven Central（`cn.ypbin`）。发布过程中修复了无 parent 的三个聚合 POM

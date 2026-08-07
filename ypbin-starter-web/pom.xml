@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>Web 层能力：全局异常处理、CORS 跨域、XSS 过滤</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

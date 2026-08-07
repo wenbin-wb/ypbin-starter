@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>Excel 导入导出：基于 FastExcel 的注解驱动读写与 HTTP 导出封装</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

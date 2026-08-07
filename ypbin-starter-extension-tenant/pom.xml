@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>多租户扩展：基于 MyBatis-Plus 的行级租户隔离，可插拔租户上下文</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>
