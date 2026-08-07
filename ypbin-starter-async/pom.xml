@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>异步执行与线程池治理：统一线程池、@Async 接管、异步异常处理、上下文透传、AsyncUtils 静态工具</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

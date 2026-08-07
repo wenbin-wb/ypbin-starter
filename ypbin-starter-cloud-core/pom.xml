@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>微服务核心：OpenFeign 增强（请求头透传、上下文传递）、熔断降级</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

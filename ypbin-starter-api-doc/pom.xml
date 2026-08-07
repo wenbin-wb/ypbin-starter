@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>API 文档：基于 SpringDoc OpenAPI 的开箱即用配置</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

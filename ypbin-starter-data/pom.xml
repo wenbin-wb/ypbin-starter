@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>数据访问增强：MyBatis-Plus 基础实体、分页拦截器、字段自动填充</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

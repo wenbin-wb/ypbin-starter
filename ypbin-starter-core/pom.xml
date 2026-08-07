@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>核心基础模块：统一响应、异常体系、通用枚举、常量、Spring 上下文与通用工具</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <!-- 提供 @ConfigurationProperties / 自动配置能力，spring-context 等随之引入 -->
         <dependency>

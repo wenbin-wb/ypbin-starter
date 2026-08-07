@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>国际化：基于 Spring MessageSource 的多语言，按请求头/参数解析 Locale</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

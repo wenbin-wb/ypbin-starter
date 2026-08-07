@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>微服务负载均衡：版本灰度、优先 IP、权重与 Nacos metadata 注册辅助</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>敏感词过滤：基于 Hutool DFA 的敏感词检测、替换、可插拔词库</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>
