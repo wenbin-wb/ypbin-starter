@@ -516,7 +516,7 @@ public void sync() { ... }
 
 **扩展点**：`LicenseStore`（授权串存取，默认文件实现 `FileLicenseStore`）、`RemoteVerifyProvider`（联机回验来源）；集成侧 `LicenseLoginVerifier`（登录时校验授权）、`OnlineVerifyJob`（周期联机回验）。签发端能力（签发 / 审批 / 密钥托管 / 交付）由 admin 授权管理台承载，starter 只提供运行时抽象与验签地基。
 
-**联机校验（可选，感知远程吊销）**：需引入 `ypbin-starter-sign`（接口签名）并配置服务地址，自动装配 `HttpRemoteVerifyProvider` 参考实现。网络不可达/超时/非 200/解析失败均**放行+告警**，只有服务端明确返回 `valid=false` 才阻断——避免网络抖动锁死业务，同时绝不掩盖明确吊销。吊销感知延迟 ≤ 缓存窗口。
+**联机校验（可选，感知远程吊销）**：需引入 `ypbin-starter-sign`（接口签名）并配置服务地址，自动装配 `HttpRemoteVerifyProvider` 参考实现。响应 `valid` 字段为明确布尔值时才算「明确裁决」：`true` 放行并进入长缓存窗口，`false` 阻断且不缓存；其余一切（网络不可达/超时/非 200/解析失败/`valid` 缺失或非布尔）都是「放行但不明确」，只进入更短的放行窗口，绝不当作明确有效——避免网络抖动锁死业务，同时绝不掩盖明确吊销。吊销感知延迟 ≤ 缓存窗口。
 
 ```yaml
 ypbin:
@@ -526,12 +526,15 @@ ypbin:
       access-key: <开放应用 AK>                      # 签发端「开放应用管理」为消费端应用签发
       secret-key: <开放应用 SK>                      # 私有密钥，参与请求签名，不下发
       timeout: 5s                                   # 单次校验超时（默认 5s）
-      cache-seconds: 3600                           # 缓存窗口（默认 1 小时）：明确有效后窗口内不重复联机
+      cache-seconds: 3600                           # 长缓存窗口（默认 1 小时）：明确有效后窗口内不重复联机
+      fail-open-cache-seconds: 60                    # 放行窗口（默认 1 分钟）：不明确裁决结果的短缓存，防止联机服务故障时被打爆
+      fail-open-threshold: 5                         # 连续放行次数阈值（默认 5）：达到后放行窗口升级为退避窗口
+      fail-open-backoff-seconds: 300                 # 退避窗口（默认 5 分钟）：连续放行超阈值后使用，仍是放行不是拒绝
 ```
 
 - **鉴权**：请求经接口签名（`accessKey/timestamp/nonce/sign` 四件套）上报授权编号与机器指纹；应用级 AK/SK 独立可吊销，某应用密钥泄露只影响该应用，可在签发端禁用/重置。
-- **缓存窗口**：服务端明确返回有效后，窗口内 `@LicenseCheck(online=true)` 直接放行、不再发 HTTP；网络/服务异常「放行但不明确有效」**不进入窗口**，下次调用仍重试，服务恢复后吊销可被及时感知。
-- **安全提示**：机器指纹经请求参数上报，生产环境联机校验服务**必须启用 HTTPS**，避免指纹明文在公网传输；响应协议中 `valid` 字段缺失时按有效处理（容忍取向，仅明确 `valid=false` 才阻断）。
+- **缓存窗口**：服务端明确返回有效后，窗口内 `@LicenseCheck(online=true)` 直接放行、不再发 HTTP；「放行但不明确有效」进入更短的放行窗口，连续多次不明确裁决后自动升级为更长的退避窗口，均在窗口到期后重新联机——服务恢复后吊销可被及时感知，故障期间也不会被高频调用打爆。缓存命中判断与实际联机调用之间做了单飞（single-flight），并发请求在缓存未命中时只会有一次真正的 HTTP 调用。
+- **安全提示**：机器指纹经请求参数上报，生产环境联机校验服务建议启用 HTTPS，减少指纹在公网传输被窃听的风险。
 - **依赖说明**：`ypbin-starter-sign` 是可选依赖，仅启用联机校验时引入；未引入则 HTTP 联机校验不装配，纯离线授权不受影响。
 
 ### api-doc — API 文档
@@ -656,6 +659,18 @@ ypbin:
       exclude-path-patterns: ["/actuator/**", "/static/**"]
       mask-headers: [authorization, cookie, token]   # 头名小写包含任一关键字即掩码值
 ```
+
+请求/响应体按 DTO 字段掩码：字段标 `@LogMask` 后，该字段在访问日志的 JSON 序列化里固定替换为 `******`，不影响该 DTO 正常序列化为接口响应：
+
+```java
+public class LoginReq {
+    private String username;
+    @LogMask
+    private String password;   // 日志里打印 "password":"******"，接口响应不受影响
+}
+```
+
+`@LogMask` 只作用于访问日志专用的序列化器，无侵入性；密码、密钥、Token 等字段应标注。
 
 输出形如：
 
@@ -1082,6 +1097,20 @@ boolean ok = captchaService.verify(id, track);
 
 内置默认资源（SLIDER/ROTATE 模板、字体、背景图）由 starter 在启动时幂等自动加载，零配置即可
 开箱使用；如需自定义模板/背景图或二次校验，通过 tianai 自身的配置项调整。
+
+默认只加载 tianai 内置的单张背景图，验证码画面单一。配置多张自定义背景后全部注册，验证码随机取用：
+
+```yaml
+ypbin:
+  captcha:
+    enabled: true
+    background-resources:            # classpath 相对路径，为空则回退加载内置默认背景
+      - captcha/bg/1.jpg
+      - captcha/bg/2.jpg
+      - captcha/bg/3.jpg
+```
+
+对应资源需放在 `resources/captcha/bg/` 下随 jar 打包。
 
 ### messaging — 消息（邮件 / WebSocket / SSE / MQTT）
 

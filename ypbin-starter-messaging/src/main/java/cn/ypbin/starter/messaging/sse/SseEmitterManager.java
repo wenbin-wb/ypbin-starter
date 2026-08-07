@@ -123,6 +123,9 @@ public class SseEmitterManager {
         return future;
     }
 
+    /** 心跳调度线程数：小型固定池，避免单线程下某个心跳发送阻塞（如慢客户端）拖慢其余用户的心跳 */
+    private static final int HEARTBEAT_THREADS = 2;
+
     /**
      * 心跳调度器（懒创建单例，daemon 线程）。
      *
@@ -134,7 +137,7 @@ public class SseEmitterManager {
             synchronized (this) {
                 s = scheduler;
                 if (s == null) {
-                    s = Executors.newScheduledThreadPool(1, r -> {
+                    s = Executors.newScheduledThreadPool(HEARTBEAT_THREADS, r -> {
                         Thread t = new Thread(r, "ypbin-sse-heartbeat");
                         t.setDaemon(true);
                         return t;

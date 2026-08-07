@@ -192,7 +192,7 @@ public final class XxxUtils {
 | R8 | 类缺 `@author wenbin`/`@since`，或误用 `@date`/写版本号；license 头缺失或用错 admin 的年份文案 | 看每个类的顶部 license 块与类级 Javadoc |
 | R9 | 用了 `ResponseEntity`/自定义 4xx/5xx，没走 `R<T>` | 搜 `ResponseEntity` / `HttpStatus.` |
 | R10 | 代码/注释/文档出现 `blade`/`continew` 等参考项目品牌词 | 搜 `blade` / `continew`（含 README、注释） |
-| R11 | 可选依赖类型裸露在 `@Bean` 方法签名（参数/返回类型），仅靠方法级 `@ConditionalOnClass` 兜底 → 无该依赖时内省崩（PITFALL 4） | 对 pom 里 `<optional>true</optional>` 的库，搜其类型是否直接出现在 `@Bean` 签名；确认所在类有**类级** `@ConditionalOnClass` 或改用 `ObjectProvider<T>` 包装 |
+| R11 | 可选依赖类型裸露在 `@Bean` 方法签名（参数/返回类型），仅靠方法级 `@ConditionalOnClass` 兜底 → 无该依赖时内省崩（PITFALL 4） | 对 pom 里 `<optional>true</optional>` 的库，搜其类型是否直接出现在 `@Bean` 签名；确认所在类有**类级** `@ConditionalOnClass`，优先改用嵌套 `@Configuration` + `@Import`（写法 1），`ObjectProvider<T>` 包装（写法 2）仅作备选 |
 
 审计命令示例（用 Grep 工具，内置 ripgrep，跨平台）：
 
@@ -226,10 +226,12 @@ rg -ni "blade|continew" --glob '*.java' --glob '*.md'
 4. **可选依赖类型出现在 `@Bean` 方法签名 → 无该依赖时启动崩（`NoClassDefFoundError`）**。这是**地基级**坑：`@Bean` 方法的参数/返回类型直接写可选依赖类型（如 `StringRedisTemplate`），只靠**方法级** `@ConditionalOnClass(StringRedisTemplate.class)` 兜底 **无效**——`@ConditionalOnClass` 只阻止 Bean 注册，阻止不了 Spring 对配置类做**方法内省**（处理配置类时用 `getDeclaredMethods` 加载所有 `@Bean` 方法的参/返回类型）。classpath 缺该库时内省阶段就抛 `NoClassDefFoundError`，条件生效太晚，整个应用起不来。任何轻量消费端（只引 web、无 Redis/无 MySQL）传递引入该模块即中招。
    - **判据**：可选依赖（pom 里 `<optional>true</optional>`）的类型，是否**直接**出现在某 `@Bean` 方法签名里，而该方法所在类**没有类级** `@ConditionalOnClass` 守住这个类型。
    - **两种正确写法**：
-     1. **类级隔离**：把所有引用该可选类型的 `@Bean` 收拢进一个嵌套 `@Configuration`，类上打 **类级** `@ConditionalOnClass(可选类型.class)`——类级条件在内省该类方法**之前**评估，缺依赖时整类跳过、外层不碰该类型。用 `@Import(嵌套类.class)` 引入（**被 import 的配置先于外层自身 `@Bean` 注册**，故 Redis 实现能先注册、内存兜底的 `@ConditionalOnMissingBean` 正确退让——**不要依赖嵌套类声明顺序，那不可靠**）。参照 `ToolsAutoConfiguration.RedisStoreConfiguration`。
-     2. **`ObjectProvider<T>` 包装**：`@Bean` 参数写 `ObjectProvider<StringRedisTemplate>` 而非裸 `StringRedisTemplate`——原始参数类型是 `ObjectProvider`，可选类型只是被擦除的泛型参，内省不加载它。适合"存在则用、否则兜底"的单 Bean 选择。参照 `SecurityAutoConfiguration#passwordAttemptStore`、`SseAutoConfiguration#sseTicketStore`。
+     1. **类级隔离（本项目统一采用，优先选这个）**：把所有引用该可选类型的 `@Bean` 收拢进一个嵌套 `@Configuration`，类上打 **类级** `@ConditionalOnClass(可选类型.class)`——类级条件在内省该类方法**之前**评估，缺依赖时整类跳过、外层不碰该类型。用 `@Import(嵌套类.class)` 引入（**被 import 的配置先于外层自身 `@Bean` 注册**，故 Redis 实现能先注册、内存兜底的 `@ConditionalOnMissingBean` 正确退让——**不要依赖嵌套类声明顺序，那不可靠**）。参照 `ToolsAutoConfiguration.RedisStoreConfiguration`、`SecurityAutoConfiguration.RedisAttemptStoreConfiguration`、`SseAutoConfiguration.RedisTicketStoreConfiguration`、`SignAutoConfiguration.RedisNonceStoreConfiguration`——四个可选 Redis 场景已统一改为此写法，别再新写 `ObjectProvider<StringRedisTemplate>` 版本。
+     2. **`ObjectProvider<T>` 包装**：`@Bean` 参数写 `ObjectProvider<StringRedisTemplate>` 而非裸 `StringRedisTemplate`——原始参数类型是 `ObjectProvider`，可选类型只是被擦除的泛型参，内省不加载它。历史上用过，但会导致装配逻辑和"是否存在该依赖"的分支判断都塞进方法体，可读性和可测性弱于写法 1；本项目已把所有 Redis-optional 场景迁移到写法 1，写法 2 仅在确实只需"存在则用、否则退化为同一 Bean 内部逻辑分支"（而非切换实现类）的场景考虑。
    - **若整个配置类本就该"有该依赖才生效"**（如多级缓存 = L1 Caffeine + L2 Redis，缺 Redis 无意义），直接把该类型并入**类级** `@ConditionalOnClass({A.class, B.class})` 即可，最简洁。参照 `MultiLevelCacheAutoConfiguration` 同时守 `Caffeine` + `StringRedisTemplate`。
    - **验证必须覆盖两种场景**：用 `ApplicationContextRunner` + `FilteredClassLoader(可选类型.class)` 复现"无依赖"（断言 `hasNotFailed()` + 装配兜底/不装配），再提供 mock Bean 验"有依赖"（断言装配的是分布式实现而非兜底）。参照 `ToolsAutoConfigurationTest`。
+   - **陷阱变种：类级 `@ConditionalOnClass` 只挡 classpath，不代表真有该 Bean**。写法 1 的嵌套类只判断"该可选类型的 class 文件在不在 classpath"，不判断"容器里有没有一个该类型的 Bean"。若消费端只是把可选依赖的 jar 传递引入（如 messaging 传递依赖 spring-data-redis）却没配置 Redis 连接（未装配 `RedisAutoConfiguration`，容器里根本没有 `StringRedisTemplate` Bean），嵌套类仍会展开，其 `@Bean` 方法尝试注入不存在的 `StringRedisTemplate` → `UnsatisfiedDependencyException`，比没做隔离时更晚崩，但一样崩。多模块集成测试（如 security 引入 messaging 的 `SseAutoConfiguration`）最容易踩中，因为测试 classpath 常年挂着 spring-data-redis 却没有 Redis 连接 Bean。
+     - **修复**：嵌套类同时叠加 **`@ConditionalOnBean(可选类型.class)`**——`@ConditionalOnClass` 挡 classpath 缺失，`@ConditionalOnBean` 挡 classpath 有但容器没实例。两者都满足才展开。参照四个模块的最新写法：`@ConditionalOnClass(StringRedisTemplate.class)` + `@ConditionalOnBean(StringRedisTemplate.class)` 同时标在嵌套类上。
 
 5. **发布 Maven Central：parent-less POM 要自带元数据 + GPG 签名**。`ypbin-starter-bom`（无 parent）必须自带 `url/licenses/scm/developers/organization`；`ypbin-starter-dependencies` 作为子模块 parent 也要补这些字段（子模块靠继承拿到，缺了会被 Central 拒收）。根聚合 pom 与 bom 的 release profile 各自要挂 `maven-gpg-plugin`，否则这两个 parent-less 的 `.pom` 上传后缺 `.asc` 签名，校验失败。参照 commit `e0cffe5`（1.0.0 据此成功发布）。
 

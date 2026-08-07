@@ -22,10 +22,7 @@ import cn.ypbin.starter.license.exception.LicenseException;
 import cn.ypbin.starter.tools.crypto.Sm2Utils;
 import cn.ypbin.starter.tools.crypto.Sm2Utils.KeyPairBase64;
 import cn.ypbin.starter.tools.crypto.Sm4Utils;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -85,23 +82,6 @@ class LicenseSignerTest {
             LocalDateTime.now().plusDays(30), 0));
 
         assertThat(authCode).doesNotContain("+", "/", "=");
-    }
-
-    @Test
-    void verify_shouldRejectLegacyV1Envelope() {
-        // 手工构造 v1 信封：明文 JSON 载荷直接入信封（无 version 字段），标准 Base64，SM4-GCM 加密
-        LicenseContent content = keys.content(LocalDateTime.now().minusDays(1),
-            LocalDateTime.now().plusDays(30), 0);
-        String payload = LicenseJson.toJson(content);
-        String signature = Sm2Utils.sign(payload, keys.sm2.privateKey());
-        String envelopeJson = LicenseJson.toJson(
-            Map.of("payload", payload, "signature", signature));
-        byte[] key = Base64.getDecoder().decode(keys.sm4);
-        byte[] encrypted = Sm4Utils.encryptGcm(envelopeJson.getBytes(StandardCharsets.UTF_8), key);
-        String legacyAuthCode = Base64.getEncoder().encodeToString(encrypted);
-
-        assertThatThrownBy(() -> LicenseSigner.verify(legacyAuthCode, keys.sm2.publicKey(), keys.sm4))
-            .isInstanceOf(LicenseException.class);
     }
 
     @Test

@@ -17,6 +17,7 @@ package cn.ypbin.starter.log.aspect;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -81,6 +82,8 @@ class AccessLogAspectTest {
         MethodSignature signature = mock(MethodSignature.class);
         when(point.getSignature()).thenReturn(signature);
         when(signature.getParameterNames()).thenReturn(new String[] {"current", "size"});
+        doReturn(AccessLogAspectTest.class).when(signature).getDeclaringType();
+        when(signature.getName()).thenReturn("list");
         when(point.getArgs()).thenReturn(new Object[] {1, 10});
         when(point.proceed()).thenReturn("result");
         return point;
@@ -97,6 +100,7 @@ class AccessLogAspectTest {
 
         String log = capturedLog();
         assertThat(log).contains("================  Request Start  ================");
+        assertThat(log).contains("===Handler===  AccessLogAspectTest.list");
         assertThat(log).contains("===> GET: /orders Parameters: {\"current\":1,\"size\":10}");
         assertThat(log).contains("===Headers===");
         assertThat(log).containsIgnoringCase("content-type: application/json");
@@ -131,6 +135,8 @@ class AccessLogAspectTest {
         MethodSignature signature = mock(MethodSignature.class);
         when(point.getSignature()).thenReturn(signature);
         when(signature.getParameterNames()).thenReturn(new String[0]);
+        doReturn(AccessLogAspectTest.class).when(signature).getDeclaringType();
+        when(signature.getName()).thenReturn("fail");
         when(point.getArgs()).thenReturn(new Object[0]);
         when(point.proceed()).thenThrow(new IllegalStateException("boom"));
 
@@ -212,5 +218,89 @@ class AccessLogAspectTest {
         request.setRemoteAddr("10.0.0.1");
 
         assertThat(AccessLogAspect.resolveIp(request)).isEqualTo("10.0.0.1");
+    }
+
+    @Test
+    void around_shouldSummarizeByteArrayResult() throws Throwable {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        setRequest(request);
+        ProceedingJoinPoint point = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        when(point.getSignature()).thenReturn(signature);
+        when(signature.getParameterNames()).thenReturn(new String[0]);
+        doReturn(AccessLogAspectTest.class).when(signature).getDeclaringType();
+        when(signature.getName()).thenReturn("download");
+        when(point.getArgs()).thenReturn(new Object[0]);
+        when(point.proceed()).thenReturn(new byte[] {1, 2, 3});
+
+        aspect().around(point);
+
+        assertThat(capturedLog()).contains("===Result===  <byte[3]>");
+    }
+
+    @Test
+    void around_shouldSummarizeInputStreamResult() throws Throwable {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        setRequest(request);
+        ProceedingJoinPoint point = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        when(point.getSignature()).thenReturn(signature);
+        when(signature.getParameterNames()).thenReturn(new String[0]);
+        doReturn(AccessLogAspectTest.class).when(signature).getDeclaringType();
+        when(signature.getName()).thenReturn("download");
+        when(point.getArgs()).thenReturn(new Object[0]);
+        when(point.proceed()).thenReturn(new java.io.ByteArrayInputStream(new byte[] {1}));
+
+        aspect().around(point);
+
+        assertThat(capturedLog()).contains("===Result===  <InputStream>");
+    }
+
+    @Test
+    void around_shouldTruncateOversizedResult() throws Throwable {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/big");
+        setRequest(request);
+        ProceedingJoinPoint point = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        when(point.getSignature()).thenReturn(signature);
+        when(signature.getParameterNames()).thenReturn(new String[0]);
+        doReturn(AccessLogAspectTest.class).when(signature).getDeclaringType();
+        when(signature.getName()).thenReturn("big");
+        when(point.getArgs()).thenReturn(new Object[0]);
+        when(point.proceed()).thenReturn("x".repeat(3000));
+
+        aspect().around(point);
+
+        assertThat(capturedLog()).contains("...(truncated, total 3002 chars)");
+    }
+
+    static class LoginRequest {
+        public String username;
+        @cn.ypbin.starter.log.annotation.LogMask
+        public String password;
+    }
+
+    @Test
+    void around_shouldMaskAnnotatedFieldInResult() throws Throwable {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
+        setRequest(request);
+        ProceedingJoinPoint point = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        when(point.getSignature()).thenReturn(signature);
+        when(signature.getParameterNames()).thenReturn(new String[0]);
+        doReturn(AccessLogAspectTest.class).when(signature).getDeclaringType();
+        when(signature.getName()).thenReturn("login");
+        when(point.getArgs()).thenReturn(new Object[0]);
+        LoginRequest body = new LoginRequest();
+        body.username = "tom";
+        body.password = "s3cret";
+        when(point.proceed()).thenReturn(body);
+
+        ObjectMapper maskingMapper = new ObjectMapper()
+            .registerModule(new cn.ypbin.starter.log.support.LogMaskModule());
+        new AccessLogAspect(maskingMapper, new AccessLogProperties()).around(point);
+
+        assertThat(capturedLog()).contains("\"password\":\"******\"");
+        assertThat(capturedLog()).doesNotContain("s3cret");
     }
 }

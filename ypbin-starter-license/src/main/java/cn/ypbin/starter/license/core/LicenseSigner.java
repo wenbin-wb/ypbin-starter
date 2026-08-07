@@ -29,7 +29,7 @@ import java.util.zip.Inflater;
 /**
  * License 签发与验签。
  *
- * <p>签发流程（v2）：{@link LicenseContent} 序列化为 JSON 载荷字节 → Deflate 压缩 → URL 安全 Base64
+ * <p>签发流程：{@link LicenseContent} 序列化为 JSON 载荷字节 → Deflate 压缩 → URL 安全 Base64
  * （无填充）编码为信封载荷 → SM2 私钥对载荷字符串字节签名 → 载荷与签名封装为 {@link LicenseEnvelope}
  * （含版本号）→ 信封 JSON 经 SM4-GCM 加密 → URL 安全 Base64 输出为授权串。校验流程逆序执行，且验签
  * 直接基于解密后信封中存储的载荷原文，不重序列化。</p>
@@ -50,7 +50,7 @@ public final class LicenseSigner {
      */
     public static final int MAX_AUTH_CODE_LENGTH = 768;
 
-    /** 当前信封格式版本。旧版本（v1 明文载荷）授权串不兼容，校验时按版本号拒绝。 */
+    /** 当前信封格式版本，校验时按版本号拒绝不匹配的授权串。 */
     public static final int ENVELOPE_VERSION = 2;
 
     private LicenseSigner() {
@@ -123,7 +123,6 @@ public final class LicenseSigner {
     private static LicenseEnvelope decrypt(String authCode, String sm4KeyBase64) {
         try {
             byte[] key = Base64.getDecoder().decode(sm4KeyBase64);
-            // URL 安全解码器同样兼容标准 Base64 字母表，历史标准 Base64 授权串可解出但因版本不符被拒
             byte[] encrypted = Base64.getUrlDecoder().decode(authCode);
             byte[] decrypted = Sm4Utils.decryptGcm(encrypted, key);
             String envelopeJson = new String(decrypted, StandardCharsets.UTF_8);
