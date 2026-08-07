@@ -24,6 +24,7 @@ import cloud.tianai.captcha.resource.DefaultBuiltInResources;
 import cloud.tianai.captcha.resource.ImageCaptchaResourceManager;
 import cloud.tianai.captcha.resource.ResourceStore;
 import cloud.tianai.captcha.resource.common.model.dto.Resource;
+import cn.ypbin.starter.captcha.core.CaptchaResourceReloader;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,12 +39,14 @@ import org.slf4j.LoggerFactory;
  * 全部加载，验证码随机取用，避免背景单一。</p>
  *
  * <p>资源通过 {@link ImageCaptchaResourceManager#getResourceStore()} 解析，用 {@link ResourceStore#getTarget()}
- * 穿透字体缓存拿到真正可写的 {@link CrudResourceStore}，判空后再加载，避免与 tianai 自带的默认加载重复。</p>
+ * 穿透字体缓存拿到真正可写的 {@link CrudResourceStore}，判空后再加载，避免与 tianai 自带的默认加载重复。
+ * 同时实现 {@link CaptchaResourceReloader}：store 为 Redis 等外部存储时可能被清空（如 Redis 重启未持久化），
+ * {@link CaptchaService} 捕获到"模板/资源为空"的异常后调用 {@link #reload()} 补载，无需重启应用。</p>
  *
  * @author wenbin
  * @since 2026-08-06
  */
-public class CaptchaResourceInitializer {
+public class CaptchaResourceInitializer implements CaptchaResourceReloader {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaResourceInitializer.class);
 
@@ -66,12 +69,20 @@ public class CaptchaResourceInitializer {
     }
 
     /**
+     * 幂等加载默认资源。容器启动时调用一次。
+     */
+    public void init() {
+        reload();
+    }
+
+    /**
      * 幂等加载默认资源。模板判空后加载，背景图按验证码类型判空后注册。
      *
-     * <p>{@code synchronized}：{@code initMethod} 由容器单次调用，加锁防止业务方并发重复触发初始化时
-     * 出现判空到写入之间的竞态（同一背景被注册两次）。</p>
+     * <p>{@code synchronized}：防止业务方并发重复触发（容器启动调用一次，{@link CaptchaService} 的
+     * 异常兜底可能并发再次调用）时出现判空到写入之间的竞态（同一背景被注册两次）。</p>
      */
-    public synchronized void init() {
+    @Override
+    public synchronized void reload() {
         ResourceStore store = application.getImageCaptchaResourceManager().getResourceStore().getTarget();
         if (!(store instanceof CrudResourceStore crudStore)) {
             log.error(
