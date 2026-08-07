@@ -4,50 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>cn.ypbin</groupId>
+    <parent>
+        <groupId>cn.ypbin</groupId>
+        <artifactId>ypbin-starter</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <artifactId>ypbin-starter-bom</artifactId>
-    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
     <description>对外统一 BOM：业务方 import 本 BOM 即可管理所有 ypbin-starter 模块版本</description>
-    <url>https://github.com/wenbin-wb/ypbin-starter</url>
-
-    <!-- 发布中央仓库必需元数据：本模块无 parent，需自带 -->
-    <licenses>
-        <license>
-            <name>Apache License, Version 2.0</name>
-            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-
-    <organization>
-        <name>ypbin</name>
-        <url>https://github.com/wenbin-wb</url>
-    </organization>
-
-    <developers>
-        <developer>
-            <id>wenbin</id>
-            <name>wenbin</name>
-            <url>https://github.com/wenbin-wb</url>
-            <roles>
-                <role>author</role>
-            </roles>
-        </developer>
-    </developers>
-
-    <scm>
-        <connection>scm:git:https://github.com/wenbin-wb/ypbin-starter.git</connection>
-        <developerConnection>scm:git:https://github.com/wenbin-wb/ypbin-starter.git</developerConnection>
-        <url>https://github.com/wenbin-wb/ypbin-starter</url>
-        <tag>HEAD</tag>
-    </scm>
-
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
 
     <dependencyManagement>
         <dependencies>
@@ -214,70 +182,4 @@
         </dependencies>
     </dependencyManagement>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
-                <version>1.6.0</version>
-                <configuration>
-                    <updatePomFile>true</updatePomFile>
-                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>flatten</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>flatten</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>flatten.clean</id>
-                        <phase>clean</phase>
-                        <goals>
-                            <goal>clean</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <!-- Central Portal 发布插件：bom 无 parent 继承不到 dependencies 的配置，需独立声明 -->
-            <plugin>
-                <groupId>org.sonatype.central</groupId>
-                <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.8.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <publishingServerId>central</publishingServerId>
-                    <autoPublish>true</autoPublish>
-                    <waitUntil>uploaded</waitUntil>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <!-- 发布 profile：本模块无 parent，需自带 GPG 签名（否则上传的 .pom 缺 .asc 校验失败） -->
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.2.4</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>接口签名：accessKey+timestamp+nonce+sign 四件套校验，@ApiSign 注解 + 全局拦截，防重放，应用来源可扩展</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

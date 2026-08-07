@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>License 授权：机器指纹绑定 + 使用期限 + SM2 签发验签 + @LicenseCheck 注解式模块/参数级授权 + 登录回验 + 联机校验扩展点，覆盖离线授权到在线鉴权的商业授权防护链路</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

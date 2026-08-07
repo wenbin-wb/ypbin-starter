@@ -59,7 +59,7 @@ gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>   # 公钥上传（供�
 
 以发布 `1.0.0` 为例：
 
-**1. 确认版本号**：把 `ypbin-starter-dependencies/pom.xml` 里 `<revision>` 改为正式版（去掉 `-SNAPSHOT`）：
+**1. 确认版本号**：把根聚合 `pom.xml` 里 `<revision>` 改为正式版（去掉 `-SNAPSHOT`），全部 34 个子模块通过 parent 继承自动生效：
 ```xml
 <revision>1.0.0</revision>
 ```

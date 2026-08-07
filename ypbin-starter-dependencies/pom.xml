@@ -4,54 +4,20 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>cn.ypbin</groupId>
+    <parent>
+        <groupId>cn.ypbin</groupId>
+        <artifactId>ypbin-starter</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <artifactId>ypbin-starter-dependencies</artifactId>
-    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
     <description>统一依赖与插件版本管理，同时作为所有子模块的 parent</description>
-    <url>https://github.com/wenbin-wb/ypbin-starter</url>
-
-    <!-- 发布中央仓库必需元数据：作为所有子模块的 parent，这些字段会被各模块继承 -->
-    <licenses>
-        <license>
-            <name>Apache License, Version 2.0</name>
-            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-
-    <organization>
-        <name>ypbin</name>
-        <url>https://github.com/wenbin-wb</url>
-    </organization>
-
-    <developers>
-        <developer>
-            <id>wenbin</id>
-            <name>wenbin</name>
-            <url>https://github.com/wenbin-wb</url>
-            <roles>
-                <role>author</role>
-            </roles>
-        </developer>
-    </developers>
-
-    <scm>
-        <connection>scm:git:https://github.com/wenbin-wb/ypbin-starter.git</connection>
-        <developerConnection>scm:git:https://github.com/wenbin-wb/ypbin-starter.git</developerConnection>
-        <url>https://github.com/wenbin-wb/ypbin-starter</url>
-        <tag>HEAD</tag>
-    </scm>
 
     <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-        <java.version>17</java.version>
-        <maven.compiler.release>17</maven.compiler.release>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-
         <!-- 平台版本 -->
         <spring-boot.version>3.5.16</spring-boot.version>
         <!-- 微服务层：与 Boot 3.5.x 硬绑定，勿升 2025.1.x（那是 Boot 4.x 的） -->
@@ -71,13 +37,10 @@
         <paho-mqtt.version>1.2.5</paho-mqtt.version>
         <sms4j.version>3.3.5</sms4j.version>
 
-        <!-- 插件版本 -->
-        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+        <!-- 插件版本（仅本模块独有插件；flatten/central-publishing/gpg 已由根 pom 继承） -->
         <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
-        <maven-gpg-plugin.version>3.2.4</maven-gpg-plugin.version>
-        <central-publishing-maven-plugin.version>0.8.0</central-publishing-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -387,22 +350,10 @@
         </dependency>
     </dependencies>
 
+    <!-- maven-compiler-plugin / flatten-maven-plugin 的 pluginManagement 已由根 pom 继承，不重复声明 -->
     <build>
         <pluginManagement>
             <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <configuration>
-                        <release>${maven.compiler.release}</release>
-                        <parameters>true</parameters>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>flatten-maven-plugin</artifactId>
-                    <version>${flatten-maven-plugin.version}</version>
-                </plugin>
                 <plugin>
                     <groupId>com.diffplug.spotless</groupId>
                     <artifactId>spotless-maven-plugin</artifactId>
@@ -439,32 +390,8 @@
                 </plugin>
             </plugins>
         </pluginManagement>
-        <!-- 绑定到所有子模块：install/deploy 时把 ${revision} 展开为真实版本 -->
+        <!-- flatten-maven-plugin / central-publishing-maven-plugin 已由根 pom <build><plugins> 继承，不重复声明 -->
         <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
-                <configuration>
-                    <updatePomFile>true</updatePomFile>
-                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>flatten</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>flatten</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>flatten.clean</id>
-                        <phase>clean</phase>
-                        <goals>
-                            <goal>clean</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
             <!-- 代码风格校验：绑定 process-test-classes（早于 test 执行），使日常 mvn test 即触发检查，
                  不通过则构建失败。避免格式问题潜伏到 verify/发布阶段才暴露。 -->
             <plugin>
@@ -480,30 +407,13 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--
-             | Sonatype Central Portal 发布插件（2024 后新流程）。放在父 pom 主 build（非 profile）+ extensions=true，
-             | 才能接管整个 reactor 的 deploy 并禁用默认 maven-deploy-plugin（否则无 distributionManagement 会报错）。
-             | 未 -Prelease 时无签名附件，但插件仅在 deploy 阶段联网上传，日常 install 不受影响。
-             | autoPublish=false：上传后停在 Central Portal「待发布」态，人工核对再手动发布，避免误发不可撤回。
-            -->
-            <plugin>
-                <groupId>org.sonatype.central</groupId>
-                <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>${central-publishing-maven-plugin.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <publishingServerId>central</publishingServerId>
-                    <autoPublish>true</autoPublish>
-                    <waitUntil>uploaded</waitUntil>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 
     <profiles>
         <!--
-         | 发布 profile：仅在 mvn deploy -Prelease 时激活，生成 source/javadoc 附件并 GPG 签名。
-         | 默认不激活，避免拖慢日常构建；gpg 插件需本地安装 gpg 并配置密钥。
+         | 发布 profile：仅在 mvn deploy -Prelease 时激活，生成 source/javadoc 附件（GPG 签名已由根 pom 的
+         | release profile 继承，不重复声明）。默认不激活，避免拖慢日常构建。
         -->
         <profile>
             <id>release</id>
@@ -539,20 +449,6 @@
                                 <phase>package</phase>
                                 <goals>
                                     <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>${maven-gpg-plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
                                 </goals>
                             </execution>
                         </executions>

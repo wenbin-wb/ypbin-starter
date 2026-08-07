@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>Nacos 注册发现与配置中心整合封装（基于 spring-cloud-alibaba）</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

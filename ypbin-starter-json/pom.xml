@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>Jackson 统一序列化配置：JavaTime、大数字转字符串、null 友好处理</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>

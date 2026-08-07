@@ -16,10 +16,6 @@
     <name>${project.artifactId}</name>
     <description>网关：基于 Spring Cloud Gateway（WebFlux），统一跨域、请求 ID、全局异常</description>
 
-    <properties>
-        <revision>1.2.0-SNAPSHOT</revision>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>cn.ypbin</groupId>
