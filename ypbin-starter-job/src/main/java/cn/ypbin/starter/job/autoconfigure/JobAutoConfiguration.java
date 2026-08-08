@@ -15,9 +15,11 @@
  */
 package cn.ypbin.starter.job.autoconfigure;
 
+import cn.ypbin.starter.job.core.CronService;
 import cn.ypbin.starter.job.core.JobExecutionListener;
 import cn.ypbin.starter.job.core.JobHandler;
 import cn.ypbin.starter.job.core.JobManager;
+import cn.ypbin.starter.job.core.SpringCronService;
 import cn.ypbin.starter.job.core.YpbinJob;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -87,16 +89,25 @@ public class JobAutoConfiguration {
     }
 
     /**
+     * Spring Cron 表达式校验与执行时间计算服务。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public CronService cronService() {
+        return new SpringCronService();
+    }
+
+    /**
      * 任务调度管理器。
      */
     @Bean
     @ConditionalOnMissingBean
     public JobManager jobManager(TaskScheduler jobTaskScheduler, JobExecutionListener listener,
-        JobManager.JobLock jobLock, ApplicationContext applicationContext) {
+        JobManager.JobLock jobLock, CronService cronService, ApplicationContext applicationContext) {
         Map<String, JobHandler> handlers = collectHandlers(applicationContext);
         String nodeId = UUID.randomUUID().toString().replace("-", "");
         log.info("[ypbin-starter] job manager initialized, executors={}, nodeId={}.", handlers.keySet(), nodeId);
-        return new JobManager(nodeId, jobTaskScheduler, handlers, listener, jobLock);
+        return new JobManager(nodeId, jobTaskScheduler, handlers, listener, jobLock, cronService);
     }
 
     /**
