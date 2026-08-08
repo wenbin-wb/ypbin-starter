@@ -51,6 +51,7 @@ public class JobManager {
     private final Map<String, JobHandler> handlers;
     private final JobExecutionListener listener;
     private final JobLock jobLock;
+    private final CronService cronService;
 
     /** jobId -> 运行时调度句柄 */
     private final Map<Long, Scheduled> registry = new ConcurrentHashMap<>();
@@ -59,12 +60,13 @@ public class JobManager {
     }
 
     public JobManager(String nodeId, TaskScheduler taskScheduler, Map<String, JobHandler> handlers,
-        JobExecutionListener listener, JobLock jobLock) {
+        JobExecutionListener listener, JobLock jobLock, CronService cronService) {
         this.nodeId = nodeId;
         this.taskScheduler = taskScheduler;
         this.handlers = handlers;
         this.listener = listener;
         this.jobLock = jobLock;
+        this.cronService = cronService;
     }
 
     /**
@@ -193,8 +195,9 @@ public class JobManager {
         if (definition.getExecutor() == null || definition.getExecutor().isBlank()) {
             throw new IllegalArgumentException("任务执行器不能为空");
         }
-        if (!definition.isCronTrigger()
-            && (definition.getFixedRateSeconds() == null || definition.getFixedRateSeconds() <= 0)) {
+        if (definition.isCronTrigger()) {
+            cronService.validate(definition.getCron());
+        } else if (definition.getFixedRateSeconds() == null || definition.getFixedRateSeconds() <= 0) {
             throw new IllegalArgumentException("任务须指定 cron 或正的固定间隔秒数");
         }
     }
