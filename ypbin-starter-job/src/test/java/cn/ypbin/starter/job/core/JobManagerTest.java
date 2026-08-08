@@ -16,6 +16,7 @@
 package cn.ypbin.starter.job.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
@@ -34,6 +35,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  * @since 2026-08-01
  */
 class JobManagerTest {
+
+    private static final CronService CRON_SERVICE = new SpringCronService();
 
     private ThreadPoolTaskScheduler scheduler;
 
@@ -95,7 +98,7 @@ class JobManagerTest {
                 success.incrementAndGet();
             }
         };
-        JobManager manager = new JobManager("node-1", scheduler, handlers, listener, ALWAYS);
+        JobManager manager = new JobManager("node-1", scheduler, handlers, listener, ALWAYS, CRON_SERVICE);
 
         manager.register(fixedRate(1L, "demo", 1));
         await().atMost(Duration.ofSeconds(3)).until(() -> runs.get() >= 1);
@@ -111,7 +114,7 @@ class JobManagerTest {
         Map<String, JobHandler> handlers = Map.of("demo", ctx -> runs.incrementAndGet());
         JobManager manager = new JobManager("node-1", scheduler, handlers,
             new JobExecutionListener() {
-            }, ALWAYS);
+            }, ALWAYS, CRON_SERVICE);
 
         JobDefinition def = fixedRate(2L, "demo", 3600);
         manager.triggerNow(def);
@@ -130,7 +133,7 @@ class JobManagerTest {
             }
         };
         // 抢不到锁：不执行、回调 onSkip
-        JobManager manager = new JobManager("node-1", scheduler, handlers, listener, NEVER);
+        JobManager manager = new JobManager("node-1", scheduler, handlers, listener, NEVER, CRON_SERVICE);
 
         manager.triggerNow(fixedRate(3L, "demo", 3600));
         await().atMost(Duration.ofSeconds(2)).until(() -> skips.get() == 1);
@@ -146,7 +149,7 @@ class JobManagerTest {
                 error.set(e);
             }
         };
-        JobManager manager = new JobManager("node-1", scheduler, Map.of(), listener, ALWAYS);
+        JobManager manager = new JobManager("node-1", scheduler, Map.of(), listener, ALWAYS, CRON_SERVICE);
 
         manager.triggerNow(fixedRate(4L, "notExist", 3600));
         await().atMost(Duration.ofSeconds(2)).until(() -> error.get() != null);
@@ -159,10 +162,25 @@ class JobManagerTest {
         });
         JobManager manager = new JobManager("node-1", scheduler, handlers,
             new JobExecutionListener() {
-            }, ALWAYS);
+            }, ALWAYS, CRON_SERVICE);
 
         manager.register(fixedRate(5L, "demo", 3600));
         manager.register(fixedRate(5L, "demo", 1800)); // 重复注册应替换而非报错
         assertThat(manager.scheduledIds()).containsExactly(5L);
+    }
+
+    @Test
+    void rejectsInvalidCronBeforeRegistration() {
+        Map<String, JobHandler> handlers = Map.of("demo", ctx -> {
+        });
+        JobManager manager = new JobManager("node-1", scheduler, handlers,
+            new JobExecutionListener() {
+            }, ALWAYS, CRON_SERVICE);
+        JobDefinition definition = new JobDefinition(6L, "invalid", "demo", "0 0 25 * * ?");
+
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> manager.register(definition))
+            .withMessageContaining("Cron 表达式不合法");
+        assertThat(manager.isScheduled(6L)).isFalse();
     }
 }

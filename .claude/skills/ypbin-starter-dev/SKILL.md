@@ -237,8 +237,8 @@ rg -ni "blade|continew" --glob '*.java' --glob '*.md'
 
 6. **JDK 17 项目别用 JDK 19+ 的 API**。本项目编译目标 JDK 17，但本机 `.jdks` 下还有 21、IDEA 自带 JBR 25，容易顺手写超前 API 导致「IDEA 里不飘红、命令行 17 编译不过」。已踩：`Locale.of(String, String)` 是 JDK 19+ 才有，17 下 `找不到符号`，改用 `new Locale("zh", "CN")`。其它常见 17 缺失：`Stream.toList()` 有（16+）可用，但 `Math.clamp`、`String` 的部分方法、虚拟线程等是 21+ 的，勿用。写完务必用 **JDK 17** 命令行编译一遍验证（见「验证」段），不能只靠 IDEA。
 
-7. **spotless 强制格式，不达标直接 build fail**。项目挂了 `spotless-maven-plugin` 的 `check`（google-java-format 系），格式不符时 `mvn test` 在编译前就红（报 `format violations`）。硬性两点：**static import 必须置于所有普通 import 之前**、**未使用的 import 必须删除**（写测试常见：import 了接口但只用 lambda，就成了未用 import）。
-   - **修复**：提交/验证前先跑 `mvn -pl <模块> spotless:apply` 自动格式化，再 `test`。别手动对齐格式，交给 apply。
+7. **spotless 强制格式，不达标直接 build fail**。项目挂了 `spotless-maven-plugin` 的 `check`（google-java-format 系），并绑定到 `process-test-classes`，所以正常执行 `mvn test` 就会在测试前检查格式并在违规时失败。硬性两点：**static import 必须置于所有普通 import 之前**、**未使用的 import 必须删除**（写测试常见：import 了接口但只用 lambda，就成了未用 import）。
+   - 根聚合目录不能保证解析 `spotless:apply` 的插件前缀，**不要把它当成无条件可用的固定命令**。需要自动修复时先确认当前模块/POM 可解析插件；否则使用完整坐标 `com.diffplug.spotless:spotless-maven-plugin:<当前版本>:apply`（版本以 `ypbin-starter-dependencies/pom.xml` 为准）。最终必须执行正常 `test` 生命周期，让已绑定的 `spotless:check` 权威验收。
 
 8. **AspectJ 复合切入点 `|| @within(注解)` 可能抛异常致切面静默失效**。`@Around("@within(A) || @within(B)")` 这类**复合**切入点，AspectJ 对部分注解（实测 Spring 的 `@Controller`）匹配时抛 `IllegalArgumentException: Type referred to is not an annotation type`，整个切入点匹配失败 → 目标类不被 AOP 代理 → 切面静默不生效（无报错、日志空，极难查）。`@RestController` 自带 `@Controller` 元注解，无需并列两个 `@within`；需覆盖多注解时先确认每个分支独立可匹配，或用 `execution` 类切入点。
    - **验证切面必须用真实 Spring Boot**（`@SpringBootTest` + MockMvc 完整启动）：`ApplicationContextRunner` 无法复现 AOP 代理时序——即便 `ReflectiveAspectJAdvisorFactory` 能解析出 advisor、pointcut 手动匹配为 true，容器里 `findCandidateAdvisors()` 也有 advisor 但 **controller 不被代理**（AspectJ 匹配时抛异常）。真实集成测试能立刻暴露。参照 `AccessLogAspect`（commit `f734ac2`）、`AccessLogAspectRealIntegrationTest`。
@@ -252,9 +252,9 @@ rg -ni "blade|continew" --glob '*.java' --glob '*.md'
    export JAVA_HOME="/c/Users/Administrator/.jdks/azul-17.0.18"
    MVN="/c/Program Files/JetBrains/IntelliJ IDEA 2026.1/plugins/maven/lib/maven3/bin/mvn.cmd"
    cd /c/Users/Administrator/IdeaProjects/starter/ypbin-starter
-   "$MVN" -pl <模块>[,<模块>...] -am spotless:apply   # 先修格式（PITFALL 6）
-   "$MVN" -pl <模块>[,<模块>...] -am test              # 再编译+测试
+   "$MVN" -pl <模块>[,<模块>...] -am test
    ```
+   `test` 生命周期会自动执行已绑定的 `spotless:check`。若检查失败需要自动修复，先确认插件前缀在当前目录可解析；不能解析时使用 `com.diffplug.spotless:spotless-maven-plugin:<当前版本>:apply` 完整坐标，版本取 `ypbin-starter-dependencies/pom.xml`，修复后重新执行 `test`。
    `-am`（also-make）会带上依赖模块一起编译，改了被依赖的 L1 模块时必须加。
 2. 涉及装配逻辑的改动，补/跑对应模块的 `ApplicationContextRunner` 测试，验证条件生效与可覆盖性。
 3. 新增能力模块记得同步 `.imports` 登记、父 pom `<module>` 声明、依赖进 dependencies/bom。
