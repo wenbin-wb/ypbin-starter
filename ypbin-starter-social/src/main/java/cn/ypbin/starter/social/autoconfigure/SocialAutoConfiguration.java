@@ -16,11 +16,12 @@
 package cn.ypbin.starter.social.autoconfigure;
 
 import cn.ypbin.starter.social.core.AuthRequestProvider;
+import cn.ypbin.starter.social.core.DefaultSocialRequestRegistry;
+import cn.ypbin.starter.social.core.SocialRequestRegistry;
 import cn.ypbin.starter.social.core.SocialService;
 import java.util.List;
 import me.zhyd.oauth.request.AuthRequest;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,12 +30,11 @@ import org.springframework.context.annotation.Bean;
 /**
  * 第三方登录自动配置。
  *
- * <p>仅在引入 JustAuth 且容器中存在至少一个 {@link AuthRequestProvider}（业务方为具体平台
- * 配置的授权请求）时装配 {@link SocialService}。本模块不预设任何平台配置，因为各平台的
- * appId / secret / 回调地址均由业务方持有。</p>
+ * <p>引入 JustAuth 且能力开关开启时，始终装配可覆盖的 {@link SocialRequestRegistry} 与
+ * {@link SocialService}。业务方可通过 {@link AuthRequestProvider} 提供初始化平台，也可在运行时动态注册。
  *
  * @author wenbin
- * @since 2026-07-30
+ * @since 2026-08-08
  */
 @AutoConfiguration
 @ConditionalOnClass(AuthRequest.class)
@@ -42,9 +42,14 @@ import org.springframework.context.annotation.Bean;
 public class SocialAutoConfiguration {
 
     @Bean
-    @ConditionalOnBean(AuthRequestProvider.class)
     @ConditionalOnMissingBean
-    public SocialService socialService(List<AuthRequestProvider> providers) {
-        return new SocialService(providers);
+    public SocialRequestRegistry socialRequestRegistry(List<AuthRequestProvider> providers) {
+        return new DefaultSocialRequestRegistry(providers);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SocialService socialService(SocialRequestRegistry registry) {
+        return new SocialService(registry);
     }
 }
