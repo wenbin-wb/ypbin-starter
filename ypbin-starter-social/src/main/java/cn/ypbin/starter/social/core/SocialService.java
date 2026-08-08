@@ -16,8 +16,7 @@
 package cn.ypbin.starter.social.core;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthUser;
@@ -27,20 +26,27 @@ import me.zhyd.oauth.utils.AuthStateUtils;
 /**
  * 第三方登录服务。
  *
- * <p>按平台标识（source）调度对应的 JustAuth {@link AuthRequest}：生成授权跳转地址、处理回调
- * 换取用户信息。各平台的 {@link AuthRequest} 由业务方通过 {@link AuthRequestProvider} 注册。</p>
+ * <p>按平台标识（source）从 {@link SocialRequestRegistry} 动态查找对应的 JustAuth {@link AuthRequest}：
+ * 生成授权跳转地址、处理回调换取用户信息。
  *
  * @author wenbin
- * @since 2026-07-30
+ * @since 2026-08-08
  */
 public class SocialService {
 
-    private final Map<String, AuthRequest> requests;
+    private final SocialRequestRegistry registry;
 
+    public SocialService(SocialRequestRegistry registry) {
+        this.registry = registry;
+    }
+
+    /**
+     * 兼容基于授权请求提供者列表的构造方式。
+     *
+     * @param providers 授权请求提供者列表
+     */
     public SocialService(List<AuthRequestProvider> providers) {
-        this.requests = providers.stream()
-            .collect(Collectors.toMap(p -> p.getSource().toLowerCase(), AuthRequestProvider::getAuthRequest,
-                (a, b) -> b));
+        this(new DefaultSocialRequestRegistry(providers));
     }
 
     /**
@@ -73,15 +79,11 @@ public class SocialService {
      *
      * @return 平台标识集合
      */
-    public java.util.Set<String> sources() {
-        return requests.keySet();
+    public Set<String> sources() {
+        return registry.sources();
     }
 
     private AuthRequest require(String source) {
-        AuthRequest request = requests.get(source == null ? null : source.toLowerCase());
-        if (request == null) {
-            throw new SocialException("未配置第三方登录平台：" + source);
-        }
-        return request;
+        return registry.require(source);
     }
 }
