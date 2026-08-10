@@ -40,7 +40,7 @@ public class JobDefinition {
     /** cron 表达式（与 fixedRateSeconds 二选一） */
     private String cron;
 
-    /** 固定间隔秒数（cron 为空时生效） */
+    /** 固定频率秒数（与 cron 二选一） */
     private Long fixedRateSeconds;
 
     /** 执行参数（业务自定义，透传给 {@link JobContext#getArgs()}） */

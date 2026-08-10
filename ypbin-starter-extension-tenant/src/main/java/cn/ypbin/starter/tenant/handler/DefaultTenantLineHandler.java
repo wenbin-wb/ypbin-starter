@@ -27,8 +27,8 @@ import net.sf.jsqlparser.expression.NullValue;
 /**
  * 默认租户行处理器。
  *
- * <p>为 SQL 自动追加租户条件。租户值取自 {@link TenantProvider}，无租户上下文时返回
- * {@code NULL}（不产生越权数据）；配置的忽略表跳过隔离。</p>
+ * <p>为 SQL 自动追加租户条件。优先使用 {@link TenantContext} 显式绑定的租户，其次读取
+ * {@link TenantProvider}；两者都无租户时返回 {@code NULL}，配置的忽略表跳过隔离。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -47,7 +47,8 @@ public class DefaultTenantLineHandler implements TenantLineHandler {
 
     @Override
     public Expression getTenantId() {
-        return tenantProvider.getCurrentTenantId()
+        return TenantContext.getTenantId()
+            .or(tenantProvider::getCurrentTenantId)
             .<Expression>map(LongValue::new)
             .orElseGet(NullValue::new);
     }

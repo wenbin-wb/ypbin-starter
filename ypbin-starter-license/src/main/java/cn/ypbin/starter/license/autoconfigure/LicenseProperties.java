@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.license.autoconfigure;
 
+import cn.ypbin.starter.license.extension.RemoteFailurePolicy;
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -133,6 +134,9 @@ public class LicenseProperties {
         /** 单次联机校验超时时间 */
         private Duration timeout = Duration.ofSeconds(5);
 
+        /** 联机服务无法明确裁决时的处理策略 */
+        private RemoteFailurePolicy failurePolicy = RemoteFailurePolicy.FAIL_OPEN_WITH_WARNING;
+
         /**
          * 联机校验缓存窗口（秒）：最近一次服务端<strong>明确返回有效</strong>后，窗口内不再重复联机校验，
          * 避免 {@code @LicenseCheck(online=true)} 每次方法调用都发 HTTP。吊销感知延迟 ≤ 缓存窗口，
@@ -189,6 +193,14 @@ public class LicenseProperties {
 
         public void setTimeout(Duration timeout) {
             this.timeout = timeout;
+        }
+
+        public RemoteFailurePolicy getFailurePolicy() {
+            return failurePolicy;
+        }
+
+        public void setFailurePolicy(RemoteFailurePolicy failurePolicy) {
+            this.failurePolicy = failurePolicy;
         }
 
         public long getCacheSeconds() {

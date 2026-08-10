@@ -13,27 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.tenant.core;
-
-import cn.ypbin.starter.core.context.ContextPropagator;
+package cn.ypbin.starter.license.extension;
 
 /**
- * 租户上下文的跨线程传播器。
- *
- * <p>注册到 core 的上下文透传体系，使异步任务子线程继承显式租户与忽略状态。</p>
+ * 联机授权校验异常策略。
  *
  * @author wenbin
- * @since 2026-07-30
+ * @since 2026-08-09
  */
-public class TenantContextPropagator implements ContextPropagator<TenantContext.ContextSnapshot> {
+public enum RemoteFailurePolicy {
 
-    @Override
-    public TenantContext.ContextSnapshot capture() {
-        return TenantContext.snapshot();
-    }
+    /** 网络或响应异常时阻断 */
+    FAIL_CLOSED,
 
-    @Override
-    public void restore(TenantContext.ContextSnapshot snapshot) {
-        TenantContext.restore(snapshot);
-    }
+    /** 网络或响应异常时告警并临时放行 */
+    FAIL_OPEN_WITH_WARNING
 }

@@ -63,6 +63,13 @@ public class MultiLevelCacheService implements CacheService {
     }
 
     @Override
+    public boolean setIfAbsent(String key, Object value, Duration timeout) {
+        boolean stored = l2.setIfAbsent(key, value, timeout);
+        invalidateLocalAndBroadcast(key);
+        return stored;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public <T> T get(String key, Class<T> type) {
         Object local = l1.getIfPresent(key);
@@ -79,6 +86,13 @@ public class MultiLevelCacheService implements CacheService {
     @Override
     public boolean delete(String key) {
         boolean removed = l2.delete(key);
+        invalidateLocalAndBroadcast(key);
+        return removed;
+    }
+
+    @Override
+    public boolean compareAndDelete(String key, Object expected) {
+        boolean removed = l2.compareAndDelete(key, expected);
         invalidateLocalAndBroadcast(key);
         return removed;
     }

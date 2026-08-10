@@ -20,6 +20,7 @@ import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.model.PageResult;
 import cn.ypbin.starter.crud.service.BaseService;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import jakarta.validation.Valid;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -102,7 +103,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
     }
 
     @GetMapping
-    public R<PageResult<RESP>> page(Q query) {
+    public R<PageResult<RESP>> page(@Valid Q query) {
         checkPermission(ACTION_LIST);
         PageResult<T> source = getBaseService().page(query, buildQueryWrapper(query));
         PageResult<RESP> view = PageResult.of(

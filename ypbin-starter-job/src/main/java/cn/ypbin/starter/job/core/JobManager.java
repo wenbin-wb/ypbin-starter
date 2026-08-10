@@ -19,8 +19,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
@@ -56,7 +58,7 @@ public class JobManager {
     /** jobId -> 运行时调度句柄 */
     private final Map<Long, Scheduled> registry = new ConcurrentHashMap<>();
 
-    private record Scheduled(JobDefinition definition, ScheduledFuture<?> future) {
+    private record Scheduled(JobDefinition definition, ScheduledFuture<?> future, Object activationToken) {
     }
 
     public JobManager(String nodeId, TaskScheduler taskScheduler, Map<String, JobHandler> handlers,
@@ -70,20 +72,66 @@ public class JobManager {
     }
 
     /**
-     * 注册（或替换）一个任务并开始调度。已存在同 ID 任务时先取消再注册（用于 cron/参数变更即时生效）。
+     * 注册（或原子替换）一个任务并开始调度。候选调度创建失败时保留旧调度。
      *
      * @param definition 任务定义
      */
     public synchronized void register(JobDefinition definition) {
         validate(definition);
-        cancel(definition.getId());
-        Runnable task = () -> runWithGuard(definition, false);
-        ScheduledFuture<?> future = definition.isCronTrigger()
-            ? taskScheduler.schedule(task, new CronTrigger(definition.getCron()))
-            : taskScheduler.schedule(task, new PeriodicTrigger(Duration.ofSeconds(definition.getFixedRateSeconds())));
-        registry.put(definition.getId(), new Scheduled(definition, future));
-        log.info("[ypbin-starter] job registered: id={}, name={}, cron={}, rate={}s.",
-            definition.getId(), definition.getName(), definition.getCron(), definition.getFixedRateSeconds());
+        Scheduled candidate = createCandidate(definition);
+        Scheduled previous = registry.put(definition.getId(), candidate);
+        cancel(previous);
+        logRegistration(definition);
+    }
+
+    /**
+     * 原子替换任务。与 {@link #register(JobDefinition)} 语义一致。
+     *
+     * @param definition 任务定义
+     */
+    public synchronized void replace(JobDefinition definition) {
+        register(definition);
+    }
+
+    /**
+     * 将本节点运行态与完整任务定义集合对齐。候选调度全部创建成功后才统一切换；任一候选创建失败时，
+     * 取消已创建的候选并完整保留原运行态。
+     *
+     * @param definitions 完整的启用任务定义集合
+     */
+    public synchronized void reconcile(List<JobDefinition> definitions) {
+        Objects.requireNonNull(definitions, "任务定义集合不能为空");
+        Map<Long, JobDefinition> desired = new LinkedHashMap<>();
+        for (JobDefinition definition : definitions) {
+            validate(definition);
+            if (desired.putIfAbsent(definition.getId(), definition) != null) {
+                throw new IllegalArgumentException("任务定义 ID 重复：" + definition.getId());
+            }
+        }
+
+        Map<Long, Scheduled> candidates = new LinkedHashMap<>();
+        try {
+            for (JobDefinition definition : desired.values()) {
+                Scheduled current = registry.get(definition.getId());
+                if (current == null || !sameDefinition(current.definition(), definition)) {
+                    candidates.put(definition.getId(), createCandidate(definition));
+                }
+            }
+        } catch (RuntimeException e) {
+            candidates.values().forEach(this::cancel);
+            throw e;
+        }
+
+        for (Map.Entry<Long, Scheduled> entry : candidates.entrySet()) {
+            Scheduled previous = registry.put(entry.getKey(), entry.getValue());
+            cancel(previous);
+            logRegistration(entry.getValue().definition());
+        }
+        for (Long jobId : new ArrayList<>(registry.keySet())) {
+            if (!desired.containsKey(jobId)) {
+                cancel(jobId);
+            }
+        }
     }
 
     /**
@@ -137,8 +185,56 @@ public class JobManager {
         return new ArrayList<>(registry.keySet());
     }
 
+    private Scheduled createCandidate(JobDefinition definition) {
+        Object activationToken = new Object();
+        Runnable task = () -> {
+            if (isActive(definition.getId(), activationToken)) {
+                runWithGuard(definition, false);
+            }
+        };
+        ScheduledFuture<?> future = schedule(definition, task);
+        if (future == null) {
+            throw new IllegalStateException("任务调度器未返回调度句柄：" + definition.getId());
+        }
+        return new Scheduled(definition, future, activationToken);
+    }
+
+    private ScheduledFuture<?> schedule(JobDefinition definition, Runnable task) {
+        if (definition.isCronTrigger()) {
+            return taskScheduler.schedule(task, new CronTrigger(definition.getCron()));
+        }
+        PeriodicTrigger trigger = new PeriodicTrigger(
+            Duration.ofSeconds(definition.getFixedRateSeconds()));
+        trigger.setFixedRate(true);
+        return taskScheduler.schedule(task, trigger);
+    }
+
+    private boolean isActive(Long jobId, Object activationToken) {
+        Scheduled scheduled = registry.get(jobId);
+        return scheduled != null && scheduled.activationToken() == activationToken;
+    }
+
+    private boolean sameDefinition(JobDefinition left, JobDefinition right) {
+        return Objects.equals(left.getId(), right.getId())
+            && Objects.equals(left.getName(), right.getName())
+            && Objects.equals(left.getExecutor(), right.getExecutor())
+            && Objects.equals(left.getCron(), right.getCron())
+            && Objects.equals(left.getFixedRateSeconds(), right.getFixedRateSeconds())
+            && Objects.equals(left.getArgs(), right.getArgs())
+            && left.getTimeoutSeconds() == right.getTimeoutSeconds()
+            && left.isConcurrentGuard() == right.isConcurrentGuard();
+    }
+
+    private void logRegistration(JobDefinition definition) {
+        log.info("[ypbin-starter] job registered: id={}, name={}, cron={}, rate={}s.",
+            definition.getId(), definition.getName(), definition.getCron(), definition.getFixedRateSeconds());
+    }
+
     private void cancel(Long jobId) {
-        Scheduled scheduled = registry.remove(jobId);
+        cancel(registry.remove(jobId));
+    }
+
+    private void cancel(Scheduled scheduled) {
         if (scheduled != null) {
             scheduled.future().cancel(false);
         }
@@ -188,6 +284,15 @@ public class JobManager {
         }
     }
 
+    /**
+     * 校验任务定义是否可执行，不会注册或触发调度。
+     *
+     * @param definition 任务定义
+     */
+    public void validateDefinition(JobDefinition definition) {
+        validate(definition);
+    }
+
     private void validate(JobDefinition definition) {
         if (definition.getId() == null) {
             throw new IllegalArgumentException("任务 ID 不能为空");
@@ -195,10 +300,17 @@ public class JobManager {
         if (definition.getExecutor() == null || definition.getExecutor().isBlank()) {
             throw new IllegalArgumentException("任务执行器不能为空");
         }
-        if (definition.isCronTrigger()) {
+        if (!handlers.containsKey(definition.getExecutor())) {
+            throw new IllegalArgumentException("任务执行器不存在：" + definition.getExecutor());
+        }
+        boolean cronTrigger = definition.isCronTrigger();
+        boolean fixedRateTrigger = definition.getFixedRateSeconds() != null
+            && definition.getFixedRateSeconds() > 0;
+        if (cronTrigger == fixedRateTrigger) {
+            throw new IllegalArgumentException("任务须且只能指定 cron 或正的固定频率秒数之一");
+        }
+        if (cronTrigger) {
             cronService.validate(definition.getCron());
-        } else if (definition.getFixedRateSeconds() == null || definition.getFixedRateSeconds() <= 0) {
-            throw new IllegalArgumentException("任务须指定 cron 或正的固定间隔秒数");
         }
     }
 

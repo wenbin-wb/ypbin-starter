@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.crud.model;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.io.Serial;
 import java.io.Serializable;
 
@@ -32,9 +34,12 @@ public class PageQuery implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /** 页码（从 1 开始） */
+    @Min(value = 1, message = "页码必须大于等于 1")
     private long page = 1L;
 
     /** 每页条数 */
+    @Min(value = 1, message = "每页条数必须大于等于 1")
+    @Max(value = 100, message = "每页条数不能大于 100")
     private long pageSize = 10L;
 
     /** 排序字段 */

@@ -17,16 +17,27 @@ package cn.ypbin.starter.job.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.scheduling.support.PeriodicTrigger;
 
 /**
  * {@link JobManager} 调度、手动触发、集群防重、执行体路由测试。
@@ -141,19 +152,19 @@ class JobManagerTest {
     }
 
     @Test
-    void missingExecutorCallsOnError() {
-        AtomicReference<Throwable> error = new AtomicReference<>();
-        JobExecutionListener listener = new JobExecutionListener() {
-            @Override
-            public void onError(JobContext context, long durationMs, Throwable e) {
-                error.set(e);
-            }
-        };
-        JobManager manager = new JobManager("node-1", scheduler, Map.of(), listener, ALWAYS, CRON_SERVICE);
+    void missingExecutorIsRejectedBeforeScheduling() {
+        JobManager manager = new JobManager("node-1", scheduler, Map.of(),
+            new JobExecutionListener() {
+            }, ALWAYS, CRON_SERVICE);
+        JobDefinition definition = fixedRate(4L, "notExist", 3600);
 
-        manager.triggerNow(fixedRate(4L, "notExist", 3600));
-        await().atMost(Duration.ofSeconds(2)).until(() -> error.get() != null);
-        assertThat(error.get()).hasMessageContaining("执行器不存在");
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> manager.register(definition))
+            .withMessageContaining("任务执行器不存在");
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> manager.triggerNow(definition))
+            .withMessageContaining("任务执行器不存在");
+        assertThat(manager.isScheduled(4L)).isFalse();
     }
 
     @Test
@@ -171,16 +182,120 @@ class JobManagerTest {
 
     @Test
     void rejectsInvalidCronBeforeRegistration() {
-        Map<String, JobHandler> handlers = Map.of("demo", ctx -> {
-        });
-        JobManager manager = new JobManager("node-1", scheduler, handlers,
-            new JobExecutionListener() {
-            }, ALWAYS, CRON_SERVICE);
+        JobManager manager = manager(scheduler);
         JobDefinition definition = new JobDefinition(6L, "invalid", "demo", "0 0 25 * * ?");
 
         assertThatIllegalArgumentException()
             .isThrownBy(() -> manager.register(definition))
             .withMessageContaining("Cron 表达式不合法");
         assertThat(manager.isScheduled(6L)).isFalse();
+    }
+
+    @Test
+    void replacementFailureKeepsPreviousScheduleActive() {
+        TaskScheduler taskScheduler = mock(TaskScheduler.class);
+        ScheduledFuture<?> previousFuture = mock(ScheduledFuture.class);
+        doReturn(previousFuture)
+            .doThrow(new IllegalStateException("schedule failed"))
+            .when(taskScheduler)
+            .schedule(any(Runnable.class), any(Trigger.class));
+        JobManager manager = manager(taskScheduler);
+
+        manager.register(fixedRate(7L, "demo", 3600));
+
+        assertThatThrownBy(() -> manager.replace(fixedRate(7L, "demo", 1800)))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("schedule failed");
+        assertThat(manager.isScheduled(7L)).isTrue();
+        assertThat(manager.scheduledIds()).containsExactly(7L);
+        verify(previousFuture, never()).cancel(false);
+    }
+
+    @Test
+    void fixedRateRegistrationUsesFixedRateTrigger() {
+        TaskScheduler taskScheduler = mock(TaskScheduler.class);
+        ScheduledFuture<?> future = mock(ScheduledFuture.class);
+        doReturn(future)
+            .when(taskScheduler)
+            .schedule(any(Runnable.class), any(Trigger.class));
+        JobManager manager = manager(taskScheduler);
+
+        manager.register(fixedRate(8L, "demo", 30));
+
+        ArgumentCaptor<Trigger> triggerCaptor = ArgumentCaptor.forClass(Trigger.class);
+        verify(taskScheduler).schedule(any(Runnable.class), triggerCaptor.capture());
+        assertThat(triggerCaptor.getValue()).isInstanceOf(PeriodicTrigger.class);
+        assertThat(((PeriodicTrigger)triggerCaptor.getValue()).isFixedRate()).isTrue();
+    }
+
+    @Test
+    void rejectsMissingOrMultipleTriggerDefinitions() {
+        JobManager manager = manager(scheduler);
+        JobDefinition missing = fixedRate(9L, "demo", 0);
+        JobDefinition multiple = fixedRate(10L, "demo", 30);
+        multiple.setCron("0 * * * * *");
+
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> manager.register(missing))
+            .withMessageContaining("须且只能指定");
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> manager.register(multiple))
+            .withMessageContaining("须且只能指定");
+    }
+
+    @Test
+    void validatesDefinitionWithoutRegisteringSchedule() {
+        JobManager manager = manager(scheduler);
+        JobDefinition definition = fixedRate(17L, "demo", 30);
+
+        manager.validateDefinition(definition);
+
+        assertThat(manager.isScheduled(17L)).isFalse();
+    }
+
+    @Test
+    void reconcileAddsUpdatesAndRemovesSchedules() {
+        JobManager manager = manager(scheduler);
+        manager.register(fixedRate(11L, "demo", 3600));
+        manager.register(fixedRate(12L, "demo", 3600));
+
+        manager.reconcile(List.of(
+            fixedRate(11L, "demo", 1800),
+            fixedRate(13L, "demo", 3600)));
+
+        assertThat(manager.scheduledIds()).containsExactlyInAnyOrder(11L, 13L);
+    }
+
+    @Test
+    void reconcileFailureKeepsEntirePreviousRegistry() {
+        TaskScheduler taskScheduler = mock(TaskScheduler.class);
+        ScheduledFuture<?> firstPrevious = mock(ScheduledFuture.class);
+        ScheduledFuture<?> secondPrevious = mock(ScheduledFuture.class);
+        ScheduledFuture<?> candidate = mock(ScheduledFuture.class);
+        doReturn(firstPrevious, secondPrevious, candidate)
+            .doThrow(new IllegalStateException("schedule failed"))
+            .when(taskScheduler)
+            .schedule(any(Runnable.class), any(Trigger.class));
+        JobManager manager = manager(taskScheduler);
+        manager.register(fixedRate(14L, "demo", 3600));
+        manager.register(fixedRate(15L, "demo", 3600));
+
+        assertThatThrownBy(() -> manager.reconcile(List.of(
+            fixedRate(14L, "demo", 1800),
+            fixedRate(15L, "demo", 3600),
+            fixedRate(16L, "demo", 3600))))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("schedule failed");
+
+        assertThat(manager.scheduledIds()).containsExactlyInAnyOrder(14L, 15L);
+        verify(firstPrevious, never()).cancel(false);
+        verify(secondPrevious, never()).cancel(false);
+        verify(candidate).cancel(false);
+    }
+
+    private JobManager manager(TaskScheduler taskScheduler) {
+        return new JobManager("node-1", taskScheduler, Map.of("demo", context -> {
+        }), new JobExecutionListener() {
+        }, ALWAYS, CRON_SERVICE);
     }
 }
