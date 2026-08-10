@@ -58,7 +58,7 @@ public class DataScopeMultiHandler implements MultiDataPermissionHandler {
             return CCJSqlParserUtil.parseCondExpression(sql);
         } catch (Exception e) {
             log.error("[ypbin-starter] 数据范围 SQL 片段解析失败: {}", sql, e);
-            return null;
+            throw new IllegalArgumentException("数据范围 SQL 片段解析失败", e);
         }
     }
 }

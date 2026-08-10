@@ -18,20 +18,22 @@ package cn.ypbin.starter.sign.core;
 /**
  * 签名校验结果。
  *
- * @param success 是否通过
- * @param message 失败原因（通过时为空）
+ * @param success   是否通过
+ * @param message   失败原因（通过时为空）
+ * @param accessKey 已认证的应用标识（失败时为空）
  * @author wenbin
  * @since 2026-07-30
  */
-public record SignResult(boolean success, String message) {
+public record SignResult(boolean success, String message, String accessKey) {
 
     /**
      * 成功结果。
      *
+     * @param accessKey 已认证的应用标识
      * @return 成功
      */
-    public static SignResult ok() {
-        return new SignResult(true, "");
+    public static SignResult ok(String accessKey) {
+        return new SignResult(true, "", accessKey);
     }
 
     /**
@@ -41,6 +43,6 @@ public record SignResult(boolean success, String message) {
      * @return 失败
      */
     public static SignResult fail(String message) {
-        return new SignResult(false, message);
+        return new SignResult(false, message, "");
     }
 }

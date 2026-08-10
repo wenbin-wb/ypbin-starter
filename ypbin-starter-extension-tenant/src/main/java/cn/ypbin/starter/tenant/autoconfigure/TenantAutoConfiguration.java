@@ -18,6 +18,7 @@ package cn.ypbin.starter.tenant.autoconfigure;
 import cn.ypbin.starter.core.context.ContextPropagator;
 import cn.ypbin.starter.data.core.InnerInterceptorProvider;
 import cn.ypbin.starter.tenant.aspect.TenantIgnoreAspect;
+import cn.ypbin.starter.tenant.core.TenantContext;
 import cn.ypbin.starter.tenant.core.TenantContextPropagator;
 import cn.ypbin.starter.tenant.core.TenantProvider;
 import cn.ypbin.starter.tenant.handler.DefaultTenantLineHandler;
@@ -85,11 +86,11 @@ public class TenantAutoConfiguration {
     }
 
     /**
-     * 租户忽略标记的跨线程传播器：使异步任务子线程继承主线程的忽略状态。
+     * 租户上下文跨线程传播器：使异步任务子线程继承租户与忽略状态。
      */
     @Bean
     @ConditionalOnMissingBean
-    public ContextPropagator<Integer> tenantContextPropagator() {
+    public ContextPropagator<TenantContext.ContextSnapshot> tenantContextPropagator() {
         return new TenantContextPropagator();
     }
 }

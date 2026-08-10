@@ -28,6 +28,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -83,9 +84,15 @@ class HttpRemoteVerifyProviderTest {
 
     private HttpRemoteVerifyProvider provider(long cacheSeconds, long failOpenCacheSeconds, int failOpenThreshold,
         long failOpenBackoffSeconds) {
+        return provider(cacheSeconds, failOpenCacheSeconds, failOpenThreshold, failOpenBackoffSeconds,
+            RemoteFailurePolicy.FAIL_OPEN_WITH_WARNING);
+    }
+
+    private HttpRemoteVerifyProvider provider(long cacheSeconds, long failOpenCacheSeconds, int failOpenThreshold,
+        long failOpenBackoffSeconds, RemoteFailurePolicy failurePolicy) {
         return new HttpRemoteVerifyProvider("http://localhost:" + server.getAddress().getPort(),
             "test-access-key", "test-secret-key", Duration.ofSeconds(2), cacheSeconds, failOpenCacheSeconds,
-            failOpenThreshold, failOpenBackoffSeconds);
+            failOpenThreshold, failOpenBackoffSeconds, failurePolicy);
     }
 
     private LicenseContent content() {
@@ -118,6 +125,33 @@ class HttpRemoteVerifyProviderTest {
         server.stop(0);
 
         assertThatCode(() -> provider().verify(content(), "f1")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void verify_shouldRejectErrorWhenFailClosed() {
+        status = 500;
+        HttpRemoteVerifyProvider p = provider(3600, 60, 5, 300, RemoteFailurePolicy.FAIL_CLOSED);
+
+        assertThatThrownBy(() -> p.verify(content(), "f1"))
+            .isInstanceOf(LicenseException.class);
+    }
+
+    @Test
+    void verify_shouldRejectUnreachableWhenFailClosed() {
+        server.stop(0);
+        HttpRemoteVerifyProvider p = provider(3600, 60, 5, 300, RemoteFailurePolicy.FAIL_CLOSED);
+
+        assertThatThrownBy(() -> p.verify(content(), "f1"))
+            .isInstanceOf(LicenseException.class);
+    }
+
+    @Test
+    void verify_shouldRejectMalformedResponseWhenFailClosed() {
+        responseBody = "{not-json";
+        HttpRemoteVerifyProvider p = provider(3600, 60, 5, 300, RemoteFailurePolicy.FAIL_CLOSED);
+
+        assertThatThrownBy(() -> p.verify(content(), "f1"))
+            .isInstanceOf(LicenseException.class);
     }
 
     @Test
@@ -234,7 +268,7 @@ class HttpRemoteVerifyProviderTest {
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         CountDownLatch ready = new CountDownLatch(threads);
         CountDownLatch start = new CountDownLatch(1);
-        List<Future<?>> futures = new java.util.ArrayList<>();
+        List<Future<?>> futures = new ArrayList<>();
         try {
             for (int i = 0; i < threads; i++) {
                 futures.add(pool.submit(() -> {

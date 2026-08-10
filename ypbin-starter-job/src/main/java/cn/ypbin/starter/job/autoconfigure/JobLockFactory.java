@@ -105,6 +105,7 @@ final class JobLockFactory {
             try {
                 return (boolean) unlock.invoke(lockService, key, owner);
             } catch (ReflectiveOperationException e) {
+                log.warn("[ypbin-starter] 分布式锁 unlock 调用失败，锁将等待 TTL 过期: {}", e.getMessage());
                 return false;
             }
         }

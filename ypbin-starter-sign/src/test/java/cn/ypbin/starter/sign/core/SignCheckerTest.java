@@ -20,8 +20,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -57,6 +60,7 @@ class SignCheckerTest {
         SignResult result = checker.check(signedRequest("ak-001"));
 
         assertThat(result.success()).isTrue();
+        assertThat(result.accessKey()).isEqualTo("ak-001");
     }
 
     @Test
@@ -109,14 +113,14 @@ class SignCheckerTest {
         SignProperties properties = new SignProperties();
         properties.setReplayProtect(true);
         // 简单内存 nonce：首次 true，再次 false
-        java.util.Set<String> used = new java.util.HashSet<>();
+        Set<String> used = new HashSet<>();
         NonceStore store = (key, ttl) -> used.add(key);
         return new SignChecker(properties, store, new ObjectMapper(), provider);
     }
 
     /** 按指定时间戳（秒）重新签名的请求 */
     private MockHttpServletRequest signedRequestAt(String accessKey, long timestampSeconds) {
-        java.util.Map<String, String> biz = new java.util.HashMap<>();
+        Map<String, String> biz = new HashMap<>();
         biz.put("orderNo", "A100");
         biz.put("accessKey", accessKey);
         biz.put("timestamp", String.valueOf(timestampSeconds));

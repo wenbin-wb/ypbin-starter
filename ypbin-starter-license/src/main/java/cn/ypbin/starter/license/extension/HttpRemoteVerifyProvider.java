@@ -74,6 +74,7 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
     private final long failOpenMillis;
     private final int failOpenThreshold;
     private final long failOpenBackoffMillis;
+    private final RemoteFailurePolicy failurePolicy;
     private final HttpClient client;
     private final Object verifyLock = new Object();
 
@@ -87,7 +88,8 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
     private int consecutiveFailOpenCount;
 
     public HttpRemoteVerifyProvider(String baseUrl, String accessKey, String secretKey, Duration timeout,
-        long cacheSeconds, long failOpenCacheSeconds, int failOpenThreshold, long failOpenBackoffSeconds) {
+        long cacheSeconds, long failOpenCacheSeconds, int failOpenThreshold, long failOpenBackoffSeconds,
+        RemoteFailurePolicy failurePolicy) {
         this.baseUrl = stripTrailingSlash(baseUrl);
         this.accessKey = accessKey;
         this.secretKey = secretKey;
@@ -96,6 +98,7 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         this.failOpenMillis = Math.max(0, failOpenCacheSeconds) * 1000L;
         this.failOpenThreshold = Math.max(1, failOpenThreshold);
         this.failOpenBackoffMillis = Math.max(0, failOpenBackoffSeconds) * 1000L;
+        this.failurePolicy = failurePolicy;
         this.client = HttpClient.newBuilder().connectTimeout(timeout).build();
     }
 
@@ -152,32 +155,32 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.warn("[ypbin-starter] 联机校验被中断，本次放行(licenseId={}):{}", licenseId, e.getMessage());
-            markFailOpen();
+            log.warn("[ypbin-starter] 联机校验被中断(licenseId={}):{}", licenseId, e.getMessage());
+            handleIndeterminate(licenseId);
             return;
         } catch (IOException e) {
-            log.warn("[ypbin-starter] 联机校验服务不可达，本次放行(licenseId={}):{}", licenseId, e.getMessage());
-            markFailOpen();
+            log.warn("[ypbin-starter] 联机校验服务不可达(licenseId={}):{}", licenseId, e.getMessage());
+            handleIndeterminate(licenseId);
             return;
         }
         if (response.statusCode() != 200) {
-            log.warn("[ypbin-starter] 联机校验服务异常(HTTP {})，本次放行(licenseId={})",
+            log.warn("[ypbin-starter] 联机校验服务异常(HTTP {}，licenseId={})",
                 response.statusCode(), licenseId);
-            markFailOpen();
+            handleIndeterminate(licenseId);
             return;
         }
         JsonNode data;
         try {
             data = MAPPER.readTree(response.body()).path("data");
         } catch (Exception e) {
-            log.warn("[ypbin-starter] 联机校验响应解析失败，本次放行(licenseId={}):{}", licenseId, e.getMessage());
-            markFailOpen();
+            log.warn("[ypbin-starter] 联机校验响应解析失败(licenseId={}):{}", licenseId, e.getMessage());
+            handleIndeterminate(licenseId);
             return;
         }
         JsonNode validNode = data.path("valid");
         if (!validNode.isBoolean()) {
-            log.warn("[ypbin-starter] 联机校验响应缺少有效的 valid 字段，本次放行(licenseId={})", licenseId);
-            markFailOpen();
+            log.warn("[ypbin-starter] 联机校验响应缺少有效的 valid 字段(licenseId={})", licenseId);
+            handleIndeterminate(licenseId);
             return;
         }
         if (validNode.booleanValue()) {
@@ -190,6 +193,20 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         String reason = data.path("reason").asText("");
         throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
             "联机授权校验未通过：" + (reason.isBlank() ? "授权可能已被吊销" : reason));
+    }
+
+    /** 无明确裁决时按配置选择阻断或告警放行 */
+    private void handleIndeterminate(String licenseId) {
+        if (failurePolicy == RemoteFailurePolicy.FAIL_CLOSED) {
+            consecutiveFailOpenCount = 0;
+            failOpenUntil = 0;
+            log.warn("[ypbin-starter] 联机授权校验未获得明确结果，按 FAIL_CLOSED 拒绝(licenseId={})", licenseId);
+            throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
+                "联机授权校验未获得明确结果：" + licenseId);
+        }
+        log.warn("[ypbin-starter] 联机授权校验未获得明确结果，按 FAIL_OPEN_WITH_WARNING 放行(licenseId={})",
+            licenseId);
+        markFailOpen();
     }
 
     /** 服务端明确返回有效：进入长缓存窗口，重置放行计数 */

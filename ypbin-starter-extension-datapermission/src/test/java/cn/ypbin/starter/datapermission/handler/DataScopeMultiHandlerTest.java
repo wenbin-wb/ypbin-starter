@@ -16,6 +16,7 @@
 package cn.ypbin.starter.datapermission.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import cn.ypbin.starter.datapermission.core.DataPermissionContext;
 import net.sf.jsqlparser.expression.Expression;
@@ -82,13 +83,13 @@ class DataScopeMultiHandlerTest {
     }
 
     @Test
-    void shouldReturnNullWhenSqlUnparsable() {
+    void shouldThrowWhenSqlUnparsable() {
         DataScopeMultiHandler handler = new DataScopeMultiHandler((mappedStatementId, tableName) -> "this is not valid sql !!!");
         DataPermissionContext.enter();
 
-        Expression expression = handler.getSqlSegment(table, null, "com.demo.OrderMapper.selectList");
-
-        assertThat(expression).isNull();
+        assertThatThrownBy(() -> handler.getSqlSegment(table, null, "com.demo.OrderMapper.selectList"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("数据范围 SQL 片段解析失败");
     }
 
     @Test

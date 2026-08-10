@@ -78,6 +78,18 @@ public final class CacheUtils {
     }
 
     /**
+     * 仅当键不存在时原子写入缓存并设置过期时间。
+     *
+     * @param key     键
+     * @param value   值
+     * @param timeout 过期时长
+     * @return 是否写入成功
+     */
+    public static boolean setIfAbsent(String key, Object value, Duration timeout) {
+        return cacheService().setIfAbsent(key, value, timeout);
+    }
+
+    /**
      * 读取缓存。
      *
      * @param key  键
@@ -97,6 +109,17 @@ public final class CacheUtils {
      */
     public static boolean delete(String key) {
         return cacheService().delete(key);
+    }
+
+    /**
+     * 仅当缓存值与期望值相等时原子删除。
+     *
+     * @param key      键
+     * @param expected 期望值
+     * @return 是否匹配并删除成功
+     */
+    public static boolean compareAndDelete(String key, Object expected) {
+        return cacheService().compareAndDelete(key, expected);
     }
 
     /**

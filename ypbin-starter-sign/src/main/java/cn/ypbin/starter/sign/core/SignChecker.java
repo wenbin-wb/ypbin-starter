@@ -129,7 +129,7 @@ public class SignChecker {
             log.warn("[ypbin-starter] 签名验证失败 accessKey={}", accessKey);
             return SignResult.fail("签名验证失败");
         }
-        return SignResult.ok();
+        return SignResult.ok(accessKey);
     }
 
     /**
@@ -163,8 +163,7 @@ public class SignChecker {
     @SuppressWarnings("unchecked")
     private void mergeJsonBody(HttpServletRequest request, List<String> skip, Map<String, String> params) {
         try {
-            String body = new String(request.getInputStream().readAllBytes(),
-                java.nio.charset.StandardCharsets.UTF_8);
+            String body = new String(request.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (body.isBlank()) {
                 return;
             }

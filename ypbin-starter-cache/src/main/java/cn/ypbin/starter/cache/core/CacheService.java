@@ -48,6 +48,16 @@ public interface CacheService {
     void set(String key, Object value, Duration timeout);
 
     /**
+     * 仅当键不存在时原子写入缓存并设置过期时间。
+     *
+     * @param key     键
+     * @param value   值
+     * @param timeout 过期时长
+     * @return 是否写入成功
+     */
+    boolean setIfAbsent(String key, Object value, Duration timeout);
+
+    /**
      * 读取缓存。
      *
      * @param key  键
@@ -64,6 +74,15 @@ public interface CacheService {
      * @return 是否删除成功
      */
     boolean delete(String key);
+
+    /**
+     * 仅当缓存值与期望值相等时原子删除。
+     *
+     * @param key      键
+     * @param expected 期望值
+     * @return 是否匹配并删除成功
+     */
+    boolean compareAndDelete(String key, Object expected);
 
     /**
      * 批量删除。

@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,11 @@ class MultiLevelCacheServiceTest {
         }
 
         @Override
+        public boolean setIfAbsent(String key, Object value, Duration timeout) {
+            return store.putIfAbsent(key, value) == null;
+        }
+
+        @Override
         @SuppressWarnings("unchecked")
         public <T> T get(String key, Class<T> type) {
             getCount.incrementAndGet();
@@ -62,6 +68,16 @@ class MultiLevelCacheServiceTest {
         @Override
         public boolean delete(String key) {
             return store.remove(key) != null;
+        }
+
+        @Override
+        public boolean compareAndDelete(String key, Object expected) {
+            Object current = store.get(key);
+            if (!Objects.equals(current, expected)) {
+                return false;
+            }
+            store.remove(key);
+            return true;
         }
 
         @Override
@@ -107,6 +123,21 @@ class MultiLevelCacheServiceTest {
     private MultiLevelCacheService build(FakeL2 l2) {
         Cache<String, Object> l1 = Caffeine.newBuilder().maximumSize(100).build();
         return new MultiLevelCacheService(l2, l1, null);
+    }
+
+    @Test
+    void setIfAbsentShouldUseL2AsAtomicSourceAndEvictL1() {
+        FakeL2 l2 = new FakeL2();
+        l2.set("k", "old");
+        MultiLevelCacheService cache = build(l2);
+        assertThat(cache.get("k", String.class)).isEqualTo("old");
+
+        assertThat(cache.setIfAbsent("k", "new", Duration.ofMinutes(1))).isFalse();
+        assertThat(l2.store).containsEntry("k", "old");
+        assertThat(cache.get("k", String.class)).isEqualTo("old");
+
+        assertThat(cache.setIfAbsent("new", "value", Duration.ofMinutes(1))).isTrue();
+        assertThat(cache.get("new", String.class)).isEqualTo("value");
     }
 
     @Test
@@ -162,9 +193,34 @@ class MultiLevelCacheServiceTest {
         l2.set("k", "v");
         MultiLevelCacheService cache = build(l2);
 
-        cache.get("k", String.class);      // 回填 L1
-        cache.delete("k");                  // 失效 L1 + L2
+        cache.get("k", String.class); // 回填 L1
+        cache.delete("k"); // 失效 L1 + L2
         assertThat(cache.get("k", String.class)).isNull();
+    }
+
+    @Test
+    void compareAndDeleteShouldRemoveMatchingL2ValueAndEvictL1() {
+        FakeL2 l2 = new FakeL2();
+        l2.set("k", "v");
+        MultiLevelCacheService cache = build(l2);
+        assertThat(cache.get("k", String.class)).isEqualTo("v");
+
+        assertThat(cache.compareAndDelete("k", "v")).isTrue();
+        assertThat(l2.store).doesNotContainKey("k");
+        assertThat(cache.get("k", String.class)).isNull();
+    }
+
+    @Test
+    void compareAndDeleteShouldKeepMismatchedL2ValueAndRefreshStaleL1() {
+        FakeL2 l2 = new FakeL2();
+        l2.set("k", "old");
+        MultiLevelCacheService cache = build(l2);
+        assertThat(cache.get("k", String.class)).isEqualTo("old");
+        l2.set("k", "current");
+
+        assertThat(cache.compareAndDelete("k", "wrong")).isFalse();
+        assertThat(l2.store).containsEntry("k", "current");
+        assertThat(cache.get("k", String.class)).isEqualTo("current");
     }
 
     @Test

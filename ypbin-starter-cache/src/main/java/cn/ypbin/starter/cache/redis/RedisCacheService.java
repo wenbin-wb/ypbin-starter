@@ -18,12 +18,14 @@ package cn.ypbin.starter.cache.redis;
 import cn.ypbin.starter.cache.core.CacheService;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 /**
  * 基于 {@link RedisTemplate} 的缓存实现。
@@ -51,6 +53,10 @@ public class RedisCacheService implements CacheService {
     private static final long RETRY_INTERVAL_MILLIS = 50L;
     private static final int MAX_RETRY = 20;
 
+    private static final DefaultRedisScript<Long> COMPARE_AND_DELETE_SCRIPT = new DefaultRedisScript<>(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        Long.class);
+
     private final RedisTemplate<String, Object> redisTemplate;
 
     public RedisCacheService(RedisTemplate<String, Object> redisTemplate) {
@@ -68,6 +74,11 @@ public class RedisCacheService implements CacheService {
     }
 
     @Override
+    public boolean setIfAbsent(String key, Object value, Duration timeout) {
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, value, timeout));
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public <T> T get(String key, Class<T> type) {
         Object value = redisTemplate.opsForValue().get(key);
@@ -77,6 +88,12 @@ public class RedisCacheService implements CacheService {
     @Override
     public boolean delete(String key) {
         return Boolean.TRUE.equals(redisTemplate.delete(key));
+    }
+
+    @Override
+    public boolean compareAndDelete(String key, Object expected) {
+        Long result = redisTemplate.execute(COMPARE_AND_DELETE_SCRIPT, List.of(key), expected);
+        return result != null && result > 0;
     }
 
     @Override
@@ -147,11 +164,7 @@ public class RedisCacheService implements CacheService {
     }
 
     private void releaseLoadLock(String lockKey, String owner) {
-        // 仅释放自己持有的锁
-        Object current = redisTemplate.opsForValue().get(lockKey);
-        if (owner.equals(current)) {
-            redisTemplate.delete(lockKey);
-        }
+        compareAndDelete(lockKey, owner);
     }
 
     @SuppressWarnings("unchecked")
