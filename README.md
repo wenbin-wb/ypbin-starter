@@ -14,6 +14,8 @@
 
 [快速开始](#快速开始) · [模块总览](#模块总览) · [业务系统如何对接](#业务系统如何对接) · [各模块使用文档](#各模块使用文档)
 
+[完整文档：https://ypbin.cn/guide/starter/](https://ypbin.cn/guide/starter/)
+
 </div>
 
 ---
@@ -80,7 +82,7 @@
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-bom</artifactId>
-            <version>1.0.0</version>
+            <version>1.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
