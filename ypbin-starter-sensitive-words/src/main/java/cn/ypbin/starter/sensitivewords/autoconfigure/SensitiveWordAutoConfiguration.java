@@ -16,6 +16,7 @@
 package cn.ypbin.starter.sensitivewords.autoconfigure;
 
 import cn.hutool.dfa.WordTree;
+import cn.ypbin.starter.sensitivewords.aspect.SensitiveWordFilterAspect;
 import cn.ypbin.starter.sensitivewords.core.SensitiveWordProvider;
 import cn.ypbin.starter.sensitivewords.core.SensitiveWordService;
 import org.springframework.beans.factory.ObjectProvider;
@@ -48,5 +49,12 @@ public class SensitiveWordAutoConfiguration {
         ObjectProvider<SensitiveWordProvider> providerObjectProvider) {
         SensitiveWordProvider provider = providerObjectProvider.getIfAvailable();
         return new SensitiveWordService(provider != null ? provider.getWords() : properties.getWords());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SensitiveWordFilterAspect sensitiveWordFilterAspect(SensitiveWordService sensitiveWordService,
+        SensitiveWordProperties properties) {
+        return new SensitiveWordFilterAspect(sensitiveWordService, properties);
     }
 }
