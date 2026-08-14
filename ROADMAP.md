@@ -6,12 +6,13 @@
 
 ## 0. 当前状态总览
 
-- **模块**：33 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async、job）
-- **构建**：全量 33 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **模块**：34 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async、job、license）
+- **构建**：全量 34 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 17 · Spring Boot 3.5.16 · Spring Cloud 2025.0.3 · spring-cloud-alibaba 2025.0.0.0
-- **后续可选**：CI 接入 `-Pit`、v1.0.0 发布、示例工程
+- **发布状态**：v1.0.0 / v1.1.0 / v1.2.0 / v1.3.0 均已发布至 Maven Central；当前开发版 **1.4.0-SNAPSHOT**
+- **后续可选**：CI 接入 `-Pit`（GitHub Actions + Testcontainers）；示例工程
 
 ## 1. 定位与设计原则
 

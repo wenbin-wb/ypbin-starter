@@ -9,6 +9,9 @@
 
 ## [未发布]
 
+### 新增
+- **`@SensitiveWordFilter` 注解驱动过滤**（`ypbin-starter-sensitive-words`）：新增 `@SensitiveWordFilter` 双目标注解（FIELD + METHOD）与 `SensitiveWordFilterAspect` AOP 切面。字段上标注声明哪些 `String` 字段需要过滤，方法上标注触发切面在执行前自动遍历入参并替换命中词；替换字符取 `ypbin.sensitive-words.replacement` 配置，彻底替代手动注入 `SensitiveWordService` 的侵入式写法
+
 ## [1.3.0] - 2026-08-14
 
 增强定时任务、验证码、第三方登录与 License 联机校验稳定性，并补充多个模块的单测覆盖。共 34 个模块。

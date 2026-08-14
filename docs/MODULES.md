@@ -1349,9 +1349,29 @@ mqttSubscriber.unsubscribe("device/+/up");
 ```yaml
 ypbin:
   sensitive-words:
-    words: [敏感词1, 敏感词2]
-    replacement: '*'
+    words: [赌博, 色情, 违禁]   # 静态词库
+    replacement: '*'             # 命中词替换字符，默认 *
 ```
+
+**注解驱动（推荐，1.4.0-SNAPSHOT+）**：DTO 字段标 `@SensitiveWordFilter` 声明需过滤，Service 方法标触发 AOP 自动处理：
+
+```java
+// DTO 字段声明
+public class NoticeSaveReq {
+    @SensitiveWordFilter
+    private String title;
+    @SensitiveWordFilter
+    private String content;
+}
+
+// Service 方法触发
+@Override
+@SensitiveWordFilter   // 执行前自动过滤所有标注字段，无需手动注入 SensitiveWordService
+@Transactional
+public void createNotice(NoticeSaveReq req) { ... }
+```
+
+**编程式调用**：
 
 ```java
 @Autowired
