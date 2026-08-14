@@ -7,7 +7,20 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [未发布]
+## [1.3.0] - 2026-08-14
+
+增强定时任务、验证码、第三方登录与 License 联机校验稳定性，并补充多个模块的单测覆盖。共 34 个模块。
+
+### 增强
+- **定时任务 Cron 前置校验**（`ypbin-starter-job`）：新增 `CronService` 接口与 `SpringCronService` 实现（基于 Spring `CronExpression`），`JobManager.register()` 时对 cron 触发的任务先校验表达式语法，非法即拒绝并给出明确错误，不再等到真正触发才暴露；并提供 `nextExecutionTimes` 预览后续触发时间点
+- **License 联机授权失败策略**（`ypbin-starter-license`）：新增 `RemoteFailurePolicy`（`FAIL_CLOSED` / `FAIL_OPEN_WITH_WARNING`），`HttpRemoteVerifyProvider` 依据策略裁决网络异常/超时/非 200 与明确拒绝三类结果，可配置下更从容应对被调方短暂不可用
+- **第三方登录动态注册**（`ypbin-starter-social`）：新增 `SocialRequestRegistry` + `DefaultSocialRequestRegistry`（线程安全），宿主可在运行时动态注册/停用平台请求，不再需要重启服务调整第三方登录配置
+- **验证码资源自愈**（`ypbin-starter-captcha`）：新增 `CaptchaResourceReloader` 接口，`CaptchaService.generate` 捕获资源数据丢失异常后自动 reload 默认资源并重试，解决远程 Redis 重启未持久化导致的验证码 500
+- **缓存多级/Redis 完善**（`ypbin-starter-cache`）：多级缓存与 Redis 缓存实现完善（含超时等待兜底）并补测试
+
+### 工程
+- 补充 cache / job / tenant / crud（分页参数校验）/ datapermission / sign / license / social 等模块单元测试
+- README 补充官网文档链接；补充 Apache-2.0 LICENSE 与许可证文件；`.claude` 开发目录移出版本管理
 
 ## [1.2.0] - 2026-08-07
 
@@ -54,8 +67,8 @@
 - 新增 GitHub Actions CI（push/PR 自动编译、代码风格校验与测试）
 - README 首页重写（徽章、设计取舍章、发布坐标修正），模块文档拆至 `docs/MODULES.md`
 
-[未发布]: https://github.com/wenbin-wb/ypbin-starter/compare/v1.2.0...HEAD
 [1.2.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.2.0
+[1.3.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.3.0
 [1.1.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.1.0
 
 > 已发布至 Maven Central（`cn.ypbin`）。发布过程中修复了无 parent 的三个聚合 POM
@@ -80,5 +93,4 @@
 ### 微服务
 - Feign 增强、Nacos、版本灰度负载均衡、网关、可观测性、流量防护
 
-[未发布]: https://github.com/wenbin-wb/ypbin-starter/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.0.0
