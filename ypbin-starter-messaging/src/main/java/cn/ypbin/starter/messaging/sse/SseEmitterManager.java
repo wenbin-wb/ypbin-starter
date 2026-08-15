@@ -20,7 +20,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -59,7 +59,7 @@ public class SseEmitterManager implements DisposableBean {
     private volatile ScheduledExecutorService scheduler;
 
     /** 发送执行器：每次推送在独立虚拟线程里执行，慢客户端不阻塞其他连接 */
-    private final Executor sendExecutor;
+    private final ExecutorService sendExecutor;
 
     public SseEmitterManager(long timeoutMillis, long heartbeatIntervalSeconds) {
         this.timeoutMillis = timeoutMillis;
@@ -67,7 +67,7 @@ public class SseEmitterManager implements DisposableBean {
         this.sendExecutor = buildSendExecutor();
     }
 
-    private static Executor buildSendExecutor() {
+    private static ExecutorService buildSendExecutor() {
         return Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("ypbin-sse-send-", 0).factory());
     }
@@ -238,6 +238,16 @@ public class SseEmitterManager implements DisposableBean {
      */
     @Override
     public void destroy() {
+        // 先停止新推送入队，再等进行中的 doSend 完成（最多 5s），保证优雅关闭
+        sendExecutor.shutdown();
+        try {
+            if (!sendExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                sendExecutor.shutdownNow();
+            }
+        } catch (InterruptedException ignored) {
+            sendExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
         ScheduledExecutorService s = scheduler;
         if (s != null) {
             s.shutdownNow();
