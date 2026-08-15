@@ -29,7 +29,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -51,7 +51,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * @author wenbin
  * @since 2026-07-30
  */
-@AutoConfiguration(before = RedisAutoConfiguration.class)
+@AutoConfiguration(before = DataRedisAutoConfiguration.class)
 @ConditionalOnClass(RedisTemplate.class)
 @ConditionalOnProperty(prefix = "ypbin.cache", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class CacheAutoConfiguration {

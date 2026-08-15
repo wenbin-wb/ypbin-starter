@@ -42,7 +42,7 @@
 
         <dependency>
             <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <artifactId>sa-token-spring-boot4-starter</artifactId>
         </dependency>
         <!-- 密码编码器（BCrypt/Pbkdf2 等），轻量，不含完整 Spring Security -->
         <dependency>

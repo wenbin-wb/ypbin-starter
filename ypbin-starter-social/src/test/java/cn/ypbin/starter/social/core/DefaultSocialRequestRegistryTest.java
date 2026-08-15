@@ -96,7 +96,7 @@ class DefaultSocialRequestRegistryTest {
         DefaultSocialRequestRegistry registry = new DefaultSocialRequestRegistry();
         CountDownLatch ready = new CountDownLatch(count);
         CountDownLatch start = new CountDownLatch(1);
-        ExecutorService executor = Executors.newFixedThreadPool(count);
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         try {
             for (int i = 0; i < count; i++) {
                 int index = i;

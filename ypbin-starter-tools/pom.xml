@@ -22,9 +22,10 @@
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
 
+        <!-- 限流/幂等注解切面需要 AOP；Spring Boot 4.x 已移除 spring-boot-starter-aop，直接声明 aspectjweaver -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
         </dependency>
         <!-- 分布式限流基于 Redis + Lua，可选：无 Redis 时退化为内存限流 -->
         <dependency>

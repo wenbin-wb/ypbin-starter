@@ -116,7 +116,7 @@ public class StorageAutoConfiguration {
         registrars.forEach(r -> all.addAll(r.strategies()));
         String defaultPlatform = properties.getDefaultPlatform();
         if ((defaultPlatform == null || defaultPlatform.isBlank()) && !all.isEmpty()) {
-            defaultPlatform = all.get(0).platform();
+            defaultPlatform = all.getFirst().platform();
         }
         log.info("[ypbin-starter] storage router initialized, platforms={}, default={}.",
             all.stream().map(StorageStrategy::platform).toList(), defaultPlatform);

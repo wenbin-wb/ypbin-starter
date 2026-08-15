@@ -52,8 +52,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.jackson2.autoconfigure.Jackson2AutoConfiguration;
+import org.springframework.boot.jackson2.autoconfigure.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -73,7 +74,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass(ObjectMapper.class)
-@AutoConfigureBefore(org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration.class)
+@AutoConfigureBefore(Jackson2AutoConfiguration.class)
 @ConditionalOnProperty(prefix = "ypbin.json", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(JacksonProperties.class)
 public class JacksonAutoConfiguration {
@@ -169,7 +170,7 @@ public class JacksonAutoConfiguration {
      * {@link RefTextResolver}、且 {@code ypbin.json.ref-text.auto-resolve=true}（默认）时生效。
      * 业务无需手动 preload 即享列表零 N+1 翻译。
      */
-    @org.springframework.boot.autoconfigure.AutoConfiguration
+    @AutoConfiguration
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnClass(org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice.class)
     @ConditionalOnProperty(prefix = "ypbin.json.ref-text", name = "auto-resolve", havingValue = "true",

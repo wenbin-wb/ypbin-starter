@@ -26,10 +26,14 @@ import org.springframework.core.env.MapPropertySource;
 /**
  * Web 默认属性注入器。
  *
- * <p>以最低优先级注入框架推荐的默认配置，使 404（无匹配处理器）能抛出
- * {@code NoHandlerFoundException}，从而被全局异常处理器捕获并返回统一 JSON，
- * 而非默认的 HTML Whitelabel 错误页。业务方在 {@code application.yml} 中的配置优先级更高，
- * 可随时覆盖。</p>
+ * <p>以最低优先级注入框架推荐的默认配置：</p>
+ * <ul>
+ *     <li>关闭静态资源默认映射，确保 404 抛出 {@code NoHandlerFoundException}
+ *         而非被资源处理器吞掉（Spring Framework 7 / Boot 4.x 起默认即抛出，此项仍保留为防御性配置）；</li>
+ *     <li>启用 JDK 21 虚拟线程（{@code spring.threads.virtual.enabled=true}），让 Tomcat 的
+ *         HTTP 请求处理线程池切换为虚拟线程执行器，显著提升 I/O 密集型场景的并发吞吐量。</li>
+ * </ul>
+ * <p>业务方在 {@code application.yml} 中的配置优先级更高，可随时覆盖。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -44,10 +48,11 @@ public class WebDefaultsEnvironmentPostProcessor implements EnvironmentPostProce
             return;
         }
         Map<String, Object> defaults = new HashMap<>();
-        // 让 DispatcherServlet 在无匹配处理器时抛异常，交由全局异常处理器统一处理
-        defaults.put("spring.mvc.throw-exception-if-no-handler-found", "true");
         // 关闭静态资源默认映射，避免 404 被资源处理器吞掉而不抛异常
         defaults.put("spring.web.resources.add-mappings", "false");
+        // JDK 21 虚拟线程：让 Tomcat 的请求处理线程池切换为虚拟线程执行器，
+        // I/O 密集场景下可大幅提升并发吞吐（业务 yml 中配置 false 可关闭）
+        defaults.put("spring.threads.virtual.enabled", "true");
         // 追加到末尾：优先级最低，用户配置可覆盖
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
     }

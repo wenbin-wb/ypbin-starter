@@ -105,7 +105,7 @@ public class VersionServiceInstanceChooser {
                 return instance;
             }
         }
-        return instances.get(instances.size() - 1);
+        return instances.getLast();
     }
 
     private long totalWeight(List<ServiceInstance> instances) {

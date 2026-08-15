@@ -18,11 +18,13 @@ package cn.ypbin.starter.async.autoconfigure;
 import cn.ypbin.starter.async.core.LoggingAsyncUncaughtExceptionHandler;
 import cn.ypbin.starter.async.util.AsyncHolder;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -69,8 +71,8 @@ public class AsyncAutoConfiguration {
         executor.setRejectedExecutionHandler(resolveRejectionHandler(properties.getRejectionPolicy()));
         if (properties.isVirtualThreads()) {
             executor.setVirtualThreads(true);
-            log.warn("[ypbin-starter] 已启用虚拟线程，线程池的 core-size/max-size/queue-capacity/"
-                + "keep-alive-seconds/rejection-policy 等池化参数将不生效。");
+            log.info("[ypbin-starter] 已启用虚拟线程（@Async），池化参数 core-size/max-size/"
+                + "queue-capacity/keep-alive-seconds/rejection-policy 均不生效。");
         }
         taskDecorator.ifAvailable(executor::setTaskDecorator);
         executor.initialize();
@@ -107,13 +109,13 @@ public class AsyncAutoConfiguration {
      */
     @Bean
     public AsyncHolderInitializer asyncHolderInitializer(
-            @org.springframework.beans.factory.annotation.Qualifier("ypbinTaskExecutor") Executor executor,
-            @org.springframework.beans.factory.annotation.Qualifier("ypbinTaskScheduler") TaskScheduler scheduler) {
+            @Qualifier("ypbinTaskExecutor") Executor executor,
+            @Qualifier("ypbinTaskScheduler") TaskScheduler scheduler) {
         AsyncHolder.bind(executor, scheduler);
         return new AsyncHolderInitializer();
     }
 
-    private java.util.concurrent.RejectedExecutionHandler resolveRejectionHandler(
+    private RejectedExecutionHandler resolveRejectionHandler(
             AsyncProperties.RejectionPolicy policy) {
         return switch (policy) {
             case ABORT -> new ThreadPoolExecutor.AbortPolicy();

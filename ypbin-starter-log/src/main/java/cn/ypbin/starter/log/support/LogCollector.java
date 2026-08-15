@@ -224,7 +224,7 @@ public class LogCollector {
             return null;
         }
         // 单参数直接序列化该对象，多参数序列化为数组
-        return serialize(loggable.size() == 1 ? loggable.get(0) : loggable);
+        return serialize(loggable.size() == 1 ? loggable.getFirst() : loggable);
     }
 
     private boolean isLoggable(Object arg) {

@@ -22,10 +22,10 @@
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
 
-        <!-- Spring Cloud Gateway 基于 WebFlux（响应式），与 servlet 模块技术栈不同 -->
+        <!-- Spring Cloud 2025.1.x 起 Gateway WebFlux 模块重命名为 gateway-server-webflux -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-gateway</artifactId>
+            <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
         </dependency>
         <!-- Swagger 聚合依赖（可选），webflux-ui 提供 SwaggerUiConfigProperties，gateway 路由表自动生成 Swagger URL 列表 -->
         <dependency>

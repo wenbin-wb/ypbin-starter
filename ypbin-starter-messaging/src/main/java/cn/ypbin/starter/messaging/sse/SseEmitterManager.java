@@ -123,11 +123,11 @@ public class SseEmitterManager {
         return future;
     }
 
-    /** 心跳调度线程数：小型固定池，避免单线程下某个心跳发送阻塞（如慢客户端）拖慢其余用户的心跳 */
-    private static final int HEARTBEAT_THREADS = 2;
-
     /**
-     * 心跳调度器（懒创建单例，daemon 线程）。
+     * 心跳调度器（懒创建单例）。
+     *
+     * <p>JDK 21 虚拟线程工厂：心跳任务以 I/O 阻塞（慢客户端写入）为主，虚拟线程可弹性承载，
+     * 无需预设固定线程数；保留 daemon 语义由虚拟线程工厂的 thread builder 设置。</p>
      *
      * @return 调度器
      */
@@ -137,11 +137,8 @@ public class SseEmitterManager {
             synchronized (this) {
                 s = scheduler;
                 if (s == null) {
-                    s = Executors.newScheduledThreadPool(HEARTBEAT_THREADS, r -> {
-                        Thread t = new Thread(r, "ypbin-sse-heartbeat");
-                        t.setDaemon(true);
-                        return t;
-                    });
+                    Thread.Builder.OfVirtual builder = Thread.ofVirtual().name("ypbin-sse-heartbeat-", 0);
+                    s = Executors.newScheduledThreadPool(1, builder.factory());
                     scheduler = s;
                 }
             }
