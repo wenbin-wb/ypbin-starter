@@ -37,7 +37,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
-import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * 操作日志自动配置。
@@ -50,7 +49,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * @since 2026-07-30
  */
 @AutoConfiguration
-@EnableAsync
 @ConditionalOnClass(org.aspectj.lang.ProceedingJoinPoint.class)
 @ConditionalOnProperty(prefix = "ypbin.log", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(LogProperties.class)

@@ -30,6 +30,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -38,12 +39,22 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 /**
  * 异步执行自动配置。
  *
- * <p>装配统一线程池 {@code ypbinTaskExecutor}、调度器 {@code ypbinTaskScheduler}，绑定
- * {@link AsyncHolder} 供 AsyncUtils 静态使用，并按需接管 {@code @Async}。线程池自动挂载容器内的
- * {@link TaskDecorator}（core 提供上下文透传装饰器），使租户/用户/MDC 透传到异步线程。</p>
+ * <p>装配统一执行器 {@code ypbinTaskExecutor}、调度器 {@code ypbinTaskScheduler}，绑定
+ * {@link AsyncHolder} 供 AsyncUtils 静态使用，并按需接管 {@code @Async}。
+ *
+ * <p>执行器有两种模式（由 {@code ypbin.async.virtual-threads} 控制）：
+ * <ul>
+ *   <li><b>虚拟线程模式（默认，JDK 21+）</b>：使用 {@link SimpleAsyncTaskExecutor} + {@link Thread#ofVirtual()}
+ *       工厂，每次提交创建一个虚拟线程，无池化上限，适合 I/O 密集型任务。池化参数（core-size / max-size /
+ *       queue-capacity / rejection-policy）在此模式下不生效。</li>
+ *   <li><b>平台线程模式</b>：使用有界 {@link ThreadPoolTaskExecutor}，pool / queue / rejection 参数全部生效，
+ *       适合 CPU 密集或需要明确背压控制的任务。</li>
+ * </ul>
+ *
+ * <p>两种模式下 {@link TaskDecorator}（core 提供上下文透传装饰器）均会挂载，确保租户/用户/MDC 透传到异步线程。
  *
  * @author wenbin
- * @since 2026-07-31
+ * @since 2026-08-15
  */
 @AutoConfiguration
 @ConditionalOnProperty(prefix = AsyncProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -53,12 +64,24 @@ public class AsyncAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(AsyncAutoConfiguration.class);
 
     /**
-     * 统一业务线程池。
+     * 统一业务执行器。
+     *
+     * <p>虚拟线程模式：{@link SimpleAsyncTaskExecutor} + JDK 21 {@link Thread#ofVirtual()} 工厂，
+     * 无池化上限，直接利用平台虚拟线程调度，零空闲线程开销，适合大量短生命周期 I/O 任务。
+     * 平台线程模式：有界 {@link ThreadPoolTaskExecutor}，所有池化参数生效。
      */
     @Bean(name = "ypbinTaskExecutor")
     @ConditionalOnMissingBean(name = "ypbinTaskExecutor")
-    public ThreadPoolTaskExecutor ypbinTaskExecutor(AsyncProperties properties,
+    public Executor ypbinTaskExecutor(AsyncProperties properties,
             ObjectProvider<TaskDecorator> taskDecorator) {
+        if (properties.isVirtualThreads()) {
+            SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor(properties.getThreadNamePrefix());
+            executor.setVirtualThreads(true);
+            taskDecorator.ifAvailable(executor::setTaskDecorator);
+            log.info("[ypbin-starter] 已启用虚拟线程执行器（{}），池化参数不生效。",
+                properties.getThreadNamePrefix() + "*");
+            return executor;
+        }
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(properties.getCoreSize());
         executor.setMaxPoolSize(properties.getMaxSize());
@@ -69,13 +92,11 @@ public class AsyncAutoConfiguration {
         executor.setWaitForTasksToCompleteOnShutdown(properties.isAwaitTermination());
         executor.setAwaitTerminationSeconds(properties.getAwaitTerminationSeconds());
         executor.setRejectedExecutionHandler(resolveRejectionHandler(properties.getRejectionPolicy()));
-        if (properties.isVirtualThreads()) {
-            executor.setVirtualThreads(true);
-            log.info("[ypbin-starter] 已启用虚拟线程（@Async），池化参数 core-size/max-size/"
-                + "queue-capacity/keep-alive-seconds/rejection-policy 均不生效。");
-        }
         taskDecorator.ifAvailable(executor::setTaskDecorator);
         executor.initialize();
+        log.info("[ypbin-starter] 已启用平台线程执行器，core={} max={} queue={} policy={}。",
+            properties.getCoreSize(), properties.getMaxSize(),
+            properties.getQueueCapacity(), properties.getRejectionPolicy());
         return executor;
     }
 

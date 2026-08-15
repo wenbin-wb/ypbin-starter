@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 
@@ -34,20 +35,32 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * 时不覆盖。</p>
  *
  * @author wenbin
- * @since 2026-07-31
+ * @since 2026-08-15
  */
 @AutoConfiguration(after = AsyncAutoConfiguration.class)
 @ConditionalOnProperty(prefix = AsyncProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableAsync
 public class AsyncAnnotationAutoConfiguration {
 
-    @Bean
+    /**
+     * 当 {@code ypbin.async.enable-annotation=true}（默认）时才启用 {@link EnableAsync}。
+     *
+     * <p>把 {@code @EnableAsync} 放在内部类上而非外层，是为了让 enable-annotation 开关真正生效：
+     * Spring 处理 {@code @EnableAsync} 时会注册 APC（AsyncAnnotationBeanPostProcessor），
+     * 外层类级注解无论 {@code @Bean} 上的条件如何都会执行；只有用条件控制整个内部 {@code @Configuration}
+     * 类是否被注册，才能让 APC 的注册受条件约束。</p>
+     */
+    @Configuration
+    @EnableAsync
     @ConditionalOnProperty(prefix = AsyncProperties.PREFIX, name = "enable-annotation", havingValue = "true",
         matchIfMissing = true)
-    @ConditionalOnMissingBean(AsyncConfigurer.class)
-    public YpbinAsyncConfigurer ypbinAsyncConfigurer(
-            @Qualifier("ypbinTaskExecutor") Executor executor,
-            AsyncUncaughtExceptionHandler exceptionHandler) {
-        return new YpbinAsyncConfigurer(executor, exceptionHandler);
+    static class EnableAsyncConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(AsyncConfigurer.class)
+        YpbinAsyncConfigurer ypbinAsyncConfigurer(
+                @Qualifier("ypbinTaskExecutor") Executor executor,
+                AsyncUncaughtExceptionHandler exceptionHandler) {
+            return new YpbinAsyncConfigurer(executor, exceptionHandler);
+        }
     }
 }
