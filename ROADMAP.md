@@ -10,7 +10,7 @@
 - **构建**：全量 34 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
-- **技术基线**：JDK 17 · Spring Boot 3.5.16 · Spring Cloud 2025.0.3 · spring-cloud-alibaba 2025.0.0.0
+- **技术基线**：JDK 21 · Spring Boot 4.1.0 · Spring Cloud 2025.1.2 · spring-cloud-alibaba 2025.1.0.0
 - **发布状态**：v1.0.0 / v1.1.0 / v1.2.0 / v1.3.0 均已发布至 Maven Central；当前开发版 **1.4.0-SNAPSHOT**
 - **后续可选**：CI 接入 `-Pit`（GitHub Actions + Testcontainers）；示例工程
 
@@ -26,8 +26,8 @@
 
 | 项 | 选型 |
 |---|---|
-| JDK | 17 |
-| Spring Boot | 3.5.x |
+| JDK | 21 |
+| Spring Boot | 4.1.x |
 | 认证 | Sa-Token |
 | ORM | MyBatis-Plus（起步单实现） |
 | 缓存 | Redis（起步单实现，预留 CacheService 接口） |
@@ -106,7 +106,7 @@ ypbin-starter/                        聚合 POM
 - ✅ `ypbin-starter-bom`（对外 BOM）
 - ✅ `ypbin-starter-core`（常量/异常/统一响应/BaseEnum/SpringUtils/CoreAutoConfiguration）
 - ✅ 环境验证：`mvn -DskipTests clean install` **BUILD SUCCESS**（9 模块全通过，产物已装入本地仓库）
-  - 工具链：IntelliJ 内置 JBR(Java 25) + 内置 Maven3，编译 target Java 17
+  - 工具链：IntelliJ 内置 JBR(Java 25) + 内置 Maven3，编译 target Java 21
   - 修复记录：core 补 slf4j-api；json 补 spring-web；`matchIfAbsent`→`matchIfMissing`；MyBatis-Plus 3.5.9→3.5.16 并显式引入 mybatis-plus-jsqlparser
 
 ### 里程碑 M1 — Web 最小可用
@@ -172,8 +172,7 @@ ypbin-starter/                        聚合 POM
 
 ### 里程碑 M5 — 微服务层（Nacos，已启动）
 版本锁定（硬绑定，不可追最新）：
-- Spring Boot 3.5.16 → Spring Cloud **2025.0.3** → spring-cloud-alibaba **2025.0.0.0**（Nacos）
-- 注意：Spring Cloud 2025.1.x / alibaba 2025.1.0.0 是给 Boot 4.x 的，不能用。
+- Spring Boot 4.1.0 → Spring Cloud **2025.1.2** → spring-cloud-alibaba **2025.1.0.0**（Nacos）
 
 #### M5 最终模块与能力（6 个 cloud 模块）
 
@@ -419,10 +418,24 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
   hutool 5.8.47、bouncycastle 1.85、springdoc 2.8.17
 - ✅ 验证码换成行为验证码 tianai-captcha 1.5.5（滑块/旋转/点选/拼接 + 轨迹校验），
   替换只支持图形的 easy-captcha；captcha 模块改为薄封装 tianai 的 ImageCaptchaApplication
-- 决策：不升 Spring Boot 4.x（大版本迁移，sa-token/mp 兼容性未验证，风险高）——用户拍板留 3.5 最新补丁
 - 踩坑修复：mybatis-plus 3.5.17 破坏性重构，IService/ServiceImpl 从 extension.service 包
   迁到 spring.service 包（新 artifact mybatis-plus-spring），改 crud 模块两处 import 修复
 - 全量 19 模块 BUILD SUCCESS，30 单测全绿
+
+### 里程碑 M10 — Spring Boot 4 + JDK 21 升级
+- ✅ spring-boot.version: 3.5.16 → 4.1.0，java.version / maven.compiler.release: 17 → 21
+- ✅ Spring Cloud 2025.0.3 → 2025.1.2，spring-cloud-alibaba 2025.0.0.0 → 2025.1.0.0
+- ✅ SpringDoc 2.8.17 → 3.1.0；sa-token-spring-boot3-starter → sa-token-spring-boot4-starter；
+  mybatis-plus-spring-boot3-starter → mybatis-plus-spring-boot4-starter
+- ✅ Boot 4 破坏性变更修复：spring-boot-starter-aop 移除 → aspectjweaver 直接声明；
+  spring-cloud-starter-gateway → spring-cloud-starter-gateway-server-webflux；
+  RedisAutoConfiguration → DataRedisAutoConfiguration；
+  Jackson2ObjectMapperBuilderCustomizer 包迁移；mica-ip2region 4.1.0
+- ✅ JDK 21 新特性应用：虚拟线程 spring.threads.virtual.enabled=true；
+  SseEmitterManager 心跳改 Thread.ofVirtual()；
+  getFirst/getLast、switch 类型模式、record、Locale.of、Executors.newVirtualThreadPerTaskExecutor
+- ✅ Dockerfile JRE 17 → 21 + 分代 ZGC（-XX:+ZGenerational）
+- 全量模块 BUILD SUCCESS
 
 依赖策略：允许联网从中央仓库下载（FastExcel / easy-captcha / BouncyCastle 等）。
 仍不做：短信多厂商、分布式事务、灰度、代码生成（依赖重或属微服务/独立工程）。

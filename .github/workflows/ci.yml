@@ -15,11 +15,11 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 配置 JDK 17
+      - name: 配置 JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
           cache: maven
 
       - name: 编译、代码风格校验与测试
