@@ -15,11 +15,16 @@
  */
 package cn.ypbin.starter.ai.autoconfigure.tool;
 
-import java.util.Collection;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -45,20 +50,38 @@ public class AiToolAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(AiToolAutoConfiguration.class);
 
     /**
-     * 收集容器中所有 Bean，通过 {@link MethodToolCallbackProvider} 自动发现
-     * 标注 {@code @Tool} 方法并统一暴露给 ChatClient。
+     * 收集容器中携带 {@code @Tool} 注解方法的 Bean，通过 {@link MethodToolCallbackProvider}
+     * 统一暴露给 ChatClient。仅对含 {@code @Tool} 方法的 Bean 做反射，避免全容器扫描开销。
      */
     @Bean
     @ConditionalOnMissingBean(ToolCallbackProvider.class)
     public ToolCallbackProvider ypbinToolCallbackProvider(ApplicationContext context) {
-        Collection<Object> allBeans = context.getBeansOfType(Object.class).values();
-        ToolCallbackProvider provider = MethodToolCallbackProvider.builder()
-            .toolObjects(allBeans.toArray())
-            .build();
-        int toolCount = provider.getToolCallbacks().length;
-        if (toolCount > 0) {
-            log.debug("[ypbin-ai] discovered {} @Tool methods from container beans", toolCount);
+        Map<String, Object> allBeans = context.getBeansOfType(Object.class);
+        List<Object> toolBeans = new ArrayList<>();
+        for (Object bean : allBeans.values()) {
+            if (containsToolMethod(AopUtils.getTargetClass(bean))) {
+                toolBeans.add(bean);
+            }
         }
+        ToolCallbackProvider provider = MethodToolCallbackProvider.builder()
+            .toolObjects(toolBeans.toArray())
+            .build();
+        log.debug("[ypbin-ai] discovered {} bean(s) with @Tool methods", toolBeans.size());
         return provider;
+    }
+
+    /**
+     * 判断类及其继承链上是否存在标注 {@code @Tool} 的方法（含父类声明）。
+     */
+    private static boolean containsToolMethod(Class<?> clazz) {
+        for (Class<?> current = clazz; current != null && current != Object.class;
+                current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (method.isAnnotationPresent(Tool.class)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

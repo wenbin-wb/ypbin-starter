@@ -16,11 +16,15 @@
 package cn.ypbin.starter.ai.rag;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.core.io.ByteArrayResource;
 
 /**
  * 文档加载与切片工具。
@@ -52,12 +56,11 @@ public final class DocumentLoader {
     public static List<Document> loadAndChunk(byte[] bytes, String filename,
             Map<String, Object> metadata) {
         List<Document> rawDocs = parseRaw(bytes, filename);
-        List<Document> chunks = new org.springframework.ai.transformer.splitter.TokenTextSplitter()
-            .apply(rawDocs);
+        List<Document> chunks = TokenTextSplitter.builder().build().apply(rawDocs);
         // 注入 metadata
         return chunks.stream()
             .map(c -> {
-                Map<String, Object> merged = new java.util.HashMap<>(c.getMetadata());
+                Map<String, Object> merged = new HashMap<>(c.getMetadata());
                 merged.putAll(metadata);
                 return new Document(c.getId(), c.getText(), merged);
             })
@@ -75,17 +78,20 @@ public final class DocumentLoader {
     }
 
     private static List<Document> parsePdf(byte[] bytes, String filename) {
+        // spring-ai-pdf-document-reader 为可选依赖：未引入时退化为纯文本解析
         try {
             Class.forName("org.springframework.ai.reader.pdf.PagePdfDocumentReader");
-            org.springframework.core.io.ByteArrayResource resource =
-                new org.springframework.core.io.ByteArrayResource(bytes) {
-                    @Override public String getFilename() { return filename; }
-                };
-            return new org.springframework.ai.reader.pdf.PagePdfDocumentReader(resource).get();
         } catch (ClassNotFoundException e) {
             log.warn("[ypbin-ai] spring-ai-pdf-document-reader 未引入，PDF 文件 {} 退化为纯文本解析", filename);
             String text = new String(bytes, StandardCharsets.UTF_8);
             return List.of(new Document(text, Map.of("source", filename != null ? filename : "")));
         }
+        ByteArrayResource resource = new ByteArrayResource(bytes) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        };
+        return new PagePdfDocumentReader(resource).get();
     }
 }

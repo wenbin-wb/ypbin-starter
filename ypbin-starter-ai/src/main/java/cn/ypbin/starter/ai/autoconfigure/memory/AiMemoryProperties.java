@@ -37,6 +37,9 @@ public class AiMemoryProperties {
      */
     private Type type = Type.IN_MEMORY;
 
+    /** 记忆窗口大小（每次请求携带的历史消息条数），默认 20 */
+    private int windowSize = 20;
+
     public enum Type {
         IN_MEMORY, JDBC
     }
@@ -47,5 +50,13 @@ public class AiMemoryProperties {
 
     public void setType(Type type) {
         this.type = type;
+    }
+
+    public int getWindowSize() {
+        return windowSize;
+    }
+
+    public void setWindowSize(int windowSize) {
+        this.windowSize = windowSize;
     }
 }

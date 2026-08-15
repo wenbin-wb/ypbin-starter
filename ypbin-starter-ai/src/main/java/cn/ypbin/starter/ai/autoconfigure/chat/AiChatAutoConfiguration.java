@@ -64,7 +64,7 @@ public class AiChatAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(ChatClient.class)
     @ConditionalOnBean(ChatModel.class)
-    public ChatClient chatClient(ChatModel chatModel, ChatMemory chatMemory, AiChatProperties props) {
+    public ChatClient chatClient(ChatModel chatModel, AiChatProperties props) {
         log.debug("[ypbin-ai] chatClient configured, systemPrompt length={}",
             props.getDefaultSystemPrompt().length());
         return ChatClient.builder(chatModel)
@@ -77,11 +77,12 @@ public class AiChatAutoConfiguration {
     @ConditionalOnMissingBean(AiChatService.class)
     @ConditionalOnBean({ChatMemory.class, ChatModel.class})
     public AiChatService aiChatService(ChatClient chatClient, ChatMemory chatMemory,
-            ObjectProvider<VectorStore> vectorStoreProvider) {
+            ObjectProvider<VectorStore> vectorStoreProvider, AiChatProperties props) {
         VectorStore vectorStore = vectorStoreProvider.getIfAvailable();
-        if (vectorStore != null) {
-            log.debug("[ypbin-ai] VectorStore detected, RAG enabled in AiChatService");
+        if (vectorStore != null && props.isRagEnabled()) {
+            log.debug("[ypbin-ai] VectorStore detected, global RAG enabled");
         }
-        return new DefaultAiChatService(chatClient, chatMemory, vectorStore);
+        return new DefaultAiChatService(chatClient, chatMemory, vectorStore,
+            props.isRagEnabled(), props.getStreamTimeoutMs());
     }
 }

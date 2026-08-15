@@ -15,6 +15,9 @@
  */
 package cn.ypbin.starter.ai.rag;
 
+import cn.ypbin.starter.ai.autoconfigure.rag.AiRagProperties;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -40,9 +43,13 @@ public class DefaultAiRagService implements AiRagService {
     private static final String DOC_ID_KEY = "documentId";
 
     private final VectorStore vectorStore;
+    private final double similarityThreshold;
+    private final int maxContextLength;
 
-    public DefaultAiRagService(VectorStore vectorStore) {
+    public DefaultAiRagService(VectorStore vectorStore, AiRagProperties props) {
         this.vectorStore = vectorStore;
+        this.similarityThreshold = props.getSimilarityThreshold();
+        this.maxContextLength = props.getMaxContextLength();
     }
 
     @Override
@@ -53,7 +60,7 @@ public class DefaultAiRagService implements AiRagService {
         // 为每个片段注入 knowledgeBaseId，用于检索时按库过滤
         List<Document> enriched = documents.stream()
             .map(doc -> {
-                Map<String, Object> meta = new java.util.HashMap<>(doc.getMetadata());
+                Map<String, Object> meta = new HashMap<>(doc.getMetadata());
                 meta.put(KB_ID_KEY, knowledgeBaseId);
                 return new Document(doc.getId(), doc.getText(), meta);
             })
@@ -69,11 +76,40 @@ public class DefaultAiRagService implements AiRagService {
         var request = SearchRequest.builder()
             .query(query)
             .topK(topK)
+            .similarityThreshold(similarityThreshold)
             .filterExpression(filter)
             .build();
         List<Document> results = vectorStore.similaritySearch(request);
         log.debug("[ypbin-ai] search kb={}, query='{}', hits={}", knowledgeBaseId, query, results.size());
-        return results;
+        return limitContextLength(results);
+    }
+
+    /**
+     * 限制检索片段总字符数（{@code ypbin.ai.rag.max-context-length}），
+     * 超出时按顺序截断文本，防止注入上下文时超出模型窗口。
+     */
+    private List<Document> limitContextLength(List<Document> documents) {
+        if (maxContextLength <= 0 || documents.isEmpty()) {
+            return documents;
+        }
+        int budget = maxContextLength;
+        List<Document> limited = new ArrayList<>();
+        for (Document doc : documents) {
+            String text = doc.getText();
+            if (text == null || text.isEmpty()) {
+                continue;
+            }
+            if (text.length() > budget) {
+                limited.add(new Document(doc.getId(), text.substring(0, budget), doc.getMetadata()));
+                break;
+            }
+            limited.add(doc);
+            budget -= text.length();
+            if (budget <= 0) {
+                break;
+            }
+        }
+        return limited;
     }
 
     @Override
