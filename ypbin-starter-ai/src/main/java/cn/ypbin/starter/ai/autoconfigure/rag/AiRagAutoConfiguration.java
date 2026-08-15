@@ -48,9 +48,9 @@ public class AiRagAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(AiRagService.class)
     @ConditionalOnBean(VectorStore.class)
-    public AiRagService aiRagService(VectorStore vectorStore) {
+    public AiRagService aiRagService(VectorStore vectorStore, AiRagProperties props) {
         log.debug("[ypbin-ai] AiRagService configured with VectorStore: {}",
             vectorStore.getClass().getSimpleName());
-        return new DefaultAiRagService(vectorStore);
+        return new DefaultAiRagService(vectorStore, props);
     }
 }

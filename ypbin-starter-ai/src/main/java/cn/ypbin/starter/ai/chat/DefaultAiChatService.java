@@ -15,13 +15,17 @@
  */
 package cn.ypbin.starter.ai.chat;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -45,11 +49,26 @@ public class DefaultAiChatService implements AiChatService {
     private final ChatClient chatClient;
     private final ChatMemory chatMemory;
     private final VectorStore vectorStore;
+    private final boolean ragEnabled;
+    private final long streamTimeoutMs;
 
-    public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore) {
+    public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
+            boolean ragEnabled, long streamTimeoutMs) {
         this.chatClient = chatClient;
         this.chatMemory = chatMemory;
         this.vectorStore = vectorStore;
+        this.ragEnabled = ragEnabled;
+        this.streamTimeoutMs = streamTimeoutMs;
+    }
+
+    /**
+     * 流式响应超时保护：配置大于 0 时生效，避免上游长时间不返回导致连接悬挂。
+     */
+    private Flux<String> withTimeout(Flux<String> flux) {
+        if (streamTimeoutMs <= 0) {
+            return flux;
+        }
+        return flux.timeout(Duration.ofMillis(streamTimeoutMs));
     }
 
     @Override
@@ -57,7 +76,7 @@ public class DefaultAiChatService implements AiChatService {
         log.debug("[ypbin-ai] chat: conversationId={}", conversationId);
         return chatClient.prompt()
             .advisors(spec -> spec
-                .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+                .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
             .call()
@@ -67,13 +86,13 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public Flux<String> chatStream(String conversationId, String userMessage) {
         log.debug("[ypbin-ai] chatStream: conversationId={}", conversationId);
-        return chatClient.prompt()
+        return withTimeout(chatClient.prompt()
             .advisors(spec -> spec
-                .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+                .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
             .stream()
-            .content();
+            .content());
     }
 
     @Override
@@ -91,32 +110,69 @@ public class DefaultAiChatService implements AiChatService {
         var ragAdvisor = RetrievalAugmentationAdvisor.builder()
             .documentRetriever(retriever)
             .build();
-        return chatClient.prompt()
+        return withTimeout(chatClient.prompt()
             .advisors(spec -> spec
-                .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build(), ragAdvisor)
+                .advisors(memoryAdvisor(), ragAdvisor)
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
             .stream()
-            .content();
+            .content());
     }
 
     @Override
     public Flux<String> chatWithSystemPrompt(String conversationId, String systemPrompt, String userMessage) {
         log.debug("[ypbin-ai] chatWithSystemPrompt: conversationId={}", conversationId);
-        return chatClient.prompt()
+        return withTimeout(chatClient.prompt()
             .system(systemPrompt)
             .advisors(spec -> spec
-                .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+                .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
             .stream()
-            .content();
+            .content());
     }
 
     @Override
     public void clearMemory(String conversationId) {
         chatMemory.clear(conversationId);
         log.debug("[ypbin-ai] memory cleared: conversationId={}", conversationId);
+    }
+
+    /**
+     * 组装当前请求的 Advisor 链：记忆必选，全局 RAG 按配置可选。
+     */
+    private Advisor[] buildAdvisors() {
+        List<Advisor> advisors = new ArrayList<>();
+        advisors.add(memoryAdvisor());
+        RetrievalAugmentationAdvisor rag = globalRagAdvisor();
+        if (rag != null) {
+            advisors.add(rag);
+        }
+        return advisors.toArray(new Advisor[0]);
+    }
+
+    /**
+     * 记忆 Advisor：历史窗口大小由 {@link org.springframework.ai.chat.memory.MessageWindowChatMemory}
+     * 的 maxMessages 控制（见 AiMemoryAutoConfiguration / ypbin.ai.memory.window-size）。
+     */
+    private MessageChatMemoryAdvisor memoryAdvisor() {
+        return MessageChatMemoryAdvisor.builder(chatMemory).build();
+    }
+
+    /**
+     * 全局 RAG Advisor：当 {@code ypbin.ai.chat.rag-enabled=true} 且已配置向量库时，
+     * 普通对话也自动检索全部知识库片段增强回答；未开启时返回 {@code null}（不注入）。
+     */
+    private RetrievalAugmentationAdvisor globalRagAdvisor() {
+        if (!ragEnabled || vectorStore == null) {
+            return null;
+        }
+        var retriever = VectorStoreDocumentRetriever.builder()
+            .vectorStore(vectorStore)
+            .build();
+        return RetrievalAugmentationAdvisor.builder()
+            .documentRetriever(retriever)
+            .build();
     }
 
     /**
@@ -132,6 +188,6 @@ public class DefaultAiChatService implements AiChatService {
             .filterExpression(() -> new FilterExpressionBuilder()
                 .eq("knowledgeBaseId", knowledgeBaseId).build())
             .build();
-        return retriever.retrieve(new org.springframework.ai.rag.Query(query));
+        return retriever.retrieve(new Query(query));
     }
 }

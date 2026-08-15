@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
+import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -51,11 +52,11 @@ public class AiMemoryAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(ChatMemory.class)
-    public ChatMemory inMemoryChatMemory() {
+    public ChatMemory inMemoryChatMemory(AiMemoryProperties props) {
         log.debug("[ypbin-ai] using InMemory chat memory (重启后丢失，生产请切换 ypbin.ai.memory.type=jdbc)");
         return MessageWindowChatMemory.builder()
             .chatMemoryRepository(new InMemoryChatMemoryRepository())
-            .maxMessages(20)
+            .maxMessages(props.getWindowSize())
             .build();
     }
 
@@ -70,13 +71,12 @@ public class AiMemoryAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(ChatMemory.class)
-        public ChatMemory jdbcChatMemory(
-                org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository repository,
+        public ChatMemory jdbcChatMemory(JdbcChatMemoryRepository repository,
                 AiMemoryProperties props) {
             log.debug("[ypbin-ai] using JDBC chat memory (持久化，重启后历史保留)");
             return MessageWindowChatMemory.builder()
                 .chatMemoryRepository(repository)
-                .maxMessages(20)
+                .maxMessages(props.getWindowSize())
                 .build();
         }
     }
