@@ -16,7 +16,6 @@
 package cn.ypbin.starter.job.core;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +50,7 @@ public class JobManager {
     /** 节点唯一标识（用于分布式锁持有者） */
     private final String nodeId;
     private final TaskScheduler taskScheduler;
+    private final Executor jobExecutor;
     private final Map<String, JobHandler> handlers;
     private final JobExecutionListener listener;
     private final JobLock jobLock;
@@ -61,10 +62,12 @@ public class JobManager {
     private record Scheduled(JobDefinition definition, ScheduledFuture<?> future, Object activationToken) {
     }
 
-    public JobManager(String nodeId, TaskScheduler taskScheduler, Map<String, JobHandler> handlers,
-        JobExecutionListener listener, JobLock jobLock, CronService cronService) {
+    public JobManager(String nodeId, TaskScheduler taskScheduler, Executor jobExecutor,
+            Map<String, JobHandler> handlers,
+            JobExecutionListener listener, JobLock jobLock, CronService cronService) {
         this.nodeId = nodeId;
         this.taskScheduler = taskScheduler;
+        this.jobExecutor = jobExecutor;
         this.handlers = handlers;
         this.listener = listener;
         this.jobLock = jobLock;
@@ -153,7 +156,8 @@ public class JobManager {
         if (scheduled == null) {
             throw new IllegalArgumentException("任务未注册：" + jobId);
         }
-        taskScheduler.schedule(() -> runWithGuard(scheduled.definition(), true), Instant.now());
+        // 使用执行线程池执行，调度线程不阻塞
+        jobExecutor.execute(() -> runWithGuard(scheduled.definition(), true));
     }
 
     /**
@@ -163,7 +167,7 @@ public class JobManager {
      */
     public void triggerNow(JobDefinition definition) {
         validate(definition);
-        taskScheduler.schedule(() -> runWithGuard(definition, true), Instant.now());
+        jobExecutor.execute(() -> runWithGuard(definition, true));
     }
 
     /**
@@ -187,9 +191,10 @@ public class JobManager {
 
     private Scheduled createCandidate(JobDefinition definition) {
         Object activationToken = new Object();
+        // 调度线程只负责判断激活态和提交，不执行任何阻塞操作
         Runnable task = () -> {
             if (isActive(definition.getId(), activationToken)) {
-                runWithGuard(definition, false);
+                jobExecutor.execute(() -> runWithGuard(definition, false));
             }
         };
         ScheduledFuture<?> future = schedule(definition, task);

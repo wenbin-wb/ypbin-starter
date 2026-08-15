@@ -24,6 +24,7 @@ import cn.ypbin.starter.job.core.YpbinJob;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
@@ -34,6 +35,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
@@ -53,6 +55,20 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 public class JobAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(JobAutoConfiguration.class);
+
+    /**
+     * 任务执行线程池（与调度线程池隔离）。
+     *
+     * <p>采用虚拟线程，每个任务独占一条虚拟线程；调度线程只负责触发和提交，不直接执行业务 handler，
+     * 避免单个阻塞任务堵住调度器、导致其他 cron/fixed-rate 任务延迟触发。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "jobExecutor")
+    public Executor jobExecutor() {
+        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("ypbin-job-exec-");
+        executor.setVirtualThreads(true);
+        return executor;
+    }
 
     /**
      * 调度线程池。
@@ -102,12 +118,13 @@ public class JobAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    public JobManager jobManager(TaskScheduler jobTaskScheduler, JobExecutionListener listener,
-        JobManager.JobLock jobLock, CronService cronService, ApplicationContext applicationContext) {
+    public JobManager jobManager(TaskScheduler jobTaskScheduler, Executor jobExecutor,
+            JobExecutionListener listener,
+            JobManager.JobLock jobLock, CronService cronService, ApplicationContext applicationContext) {
         Map<String, JobHandler> handlers = collectHandlers(applicationContext);
         String nodeId = UUID.randomUUID().toString().replace("-", "");
         log.info("[ypbin-starter] job manager initialized, executors={}, nodeId={}.", handlers.keySet(), nodeId);
-        return new JobManager(nodeId, jobTaskScheduler, handlers, listener, jobLock, cronService);
+        return new JobManager(nodeId, jobTaskScheduler, jobExecutor, handlers, listener, jobLock, cronService);
     }
 
     /**

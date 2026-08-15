@@ -28,6 +28,7 @@ import static org.mockito.Mockito.verify;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
@@ -109,7 +110,7 @@ class JobManagerTest {
                 success.incrementAndGet();
             }
         };
-        JobManager manager = new JobManager("node-1", scheduler, handlers, listener, ALWAYS, CRON_SERVICE);
+        JobManager manager = new JobManager("node-1", scheduler, Executors.newVirtualThreadPerTaskExecutor(), handlers, listener, ALWAYS, CRON_SERVICE);
 
         manager.register(fixedRate(1L, "demo", 1));
         await().atMost(Duration.ofSeconds(3)).until(() -> runs.get() >= 1);
@@ -123,7 +124,7 @@ class JobManagerTest {
     void triggerNowExecutesImmediately() {
         AtomicInteger runs = new AtomicInteger();
         Map<String, JobHandler> handlers = Map.of("demo", ctx -> runs.incrementAndGet());
-        JobManager manager = new JobManager("node-1", scheduler, handlers,
+        JobManager manager = new JobManager("node-1", scheduler, Executors.newVirtualThreadPerTaskExecutor(), handlers,
             new JobExecutionListener() {
             }, ALWAYS, CRON_SERVICE);
 
@@ -144,7 +145,7 @@ class JobManagerTest {
             }
         };
         // 抢不到锁：不执行、回调 onSkip
-        JobManager manager = new JobManager("node-1", scheduler, handlers, listener, NEVER, CRON_SERVICE);
+        JobManager manager = new JobManager("node-1", scheduler, Executors.newVirtualThreadPerTaskExecutor(), handlers, listener, NEVER, CRON_SERVICE);
 
         manager.triggerNow(fixedRate(3L, "demo", 3600));
         await().atMost(Duration.ofSeconds(2)).until(() -> skips.get() == 1);
@@ -153,7 +154,7 @@ class JobManagerTest {
 
     @Test
     void missingExecutorIsRejectedBeforeScheduling() {
-        JobManager manager = new JobManager("node-1", scheduler, Map.of(),
+        JobManager manager = new JobManager("node-1", scheduler, Executors.newVirtualThreadPerTaskExecutor(), Map.of(),
             new JobExecutionListener() {
             }, ALWAYS, CRON_SERVICE);
         JobDefinition definition = fixedRate(4L, "notExist", 3600);
@@ -171,7 +172,7 @@ class JobManagerTest {
     void registerReplacesOnReRegister() {
         Map<String, JobHandler> handlers = Map.of("demo", ctx -> {
         });
-        JobManager manager = new JobManager("node-1", scheduler, handlers,
+        JobManager manager = new JobManager("node-1", scheduler, Executors.newVirtualThreadPerTaskExecutor(), handlers,
             new JobExecutionListener() {
             }, ALWAYS, CRON_SERVICE);
 
@@ -294,7 +295,7 @@ class JobManagerTest {
     }
 
     private JobManager manager(TaskScheduler taskScheduler) {
-        return new JobManager("node-1", taskScheduler, Map.of("demo", context -> {
+        return new JobManager("node-1", taskScheduler, Executors.newVirtualThreadPerTaskExecutor(), Map.of("demo", context -> {
         }), new JobExecutionListener() {
         }, ALWAYS, CRON_SERVICE);
     }
