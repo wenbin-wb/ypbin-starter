@@ -9,8 +9,8 @@
 [![CI](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/cn.ypbin/ypbin-starter-bom?label=Maven%20Central&color=blue)](https://central.sonatype.com/artifact/cn.ypbin/ypbin-starter-bom)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
 [快速开始](#快速开始) · [模块总览](#模块总览) · [业务系统如何对接](#业务系统如何对接) · [各模块使用文档](#各模块使用文档)
 
@@ -54,19 +54,19 @@
 
 | 项 | 版本 |
 |---|---|
-| JDK | 17 |
-| Spring Boot | 3.5.16 |
+| JDK | 21 |
+| Spring Boot | 4.1.0 |
 | 认证 | Sa-Token 1.45.0 |
 | ORM | MyBatis-Plus 3.5.17 |
 | 缓存 | Redis（Spring Data Redis） |
 | 对象存储 | AWS SDK v2（S3 兼容） |
-| API 文档 | SpringDoc OpenAPI 2.8.17 |
+| API 文档 | SpringDoc OpenAPI 3.1.0 |
 | Excel | FastExcel 1.3.0 |
 | 验证码 | tianai-captcha 1.5.5（滑块/旋转/点选/拼接） |
 | 加解密 | AES-GCM / 国密 SM2·SM4（BouncyCastle 1.85） |
 | 邮件 | Spring Mail（配置可动态化） |
-| 微服务 | Spring Cloud 2025.0.3 + Gateway / OpenFeign / LoadBalancer |
-| 注册配置 | Nacos（spring-cloud-alibaba 2025.0.0.0） |
+| 微服务 | Spring Cloud 2025.1.2 + Gateway / OpenFeign / LoadBalancer |
+| 注册配置 | Nacos（spring-cloud-alibaba 2025.1.0.0） |
 | 熔断降级 | Resilience4j |
 | 网关 | Spring Cloud Gateway（WebFlux） |
 
@@ -202,6 +202,7 @@
 | ypbin-starter | Spring Boot | Spring Cloud | JDK |
 |---|---|---|---|
 | 1.0.x | 3.5.x | 2025.0.x | 17+ |
+| 1.4.x+ | 4.1.x | 2025.1.x | 21+ |
 
 遵循[语义化版本](https://semver.org/lang/zh-CN/)。版本变更详见 [CHANGELOG.md](CHANGELOG.md)。
 
