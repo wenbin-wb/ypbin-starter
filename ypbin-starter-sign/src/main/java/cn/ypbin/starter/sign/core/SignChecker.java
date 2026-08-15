@@ -173,11 +173,14 @@ public class SignChecker {
                 if (skip.contains(entry.getKey()) || value == null) {
                     continue;
                 }
-                if (value instanceof String || value instanceof Number || value instanceof Boolean) {
-                    params.put(entry.getKey(), String.valueOf(value));
-                } else {
-                    params.put(entry.getKey(), objectMapper.writeValueAsString(value));
-                }
+                // JDK 21 switch 类型模式：基本 JSON 标量直接 valueOf，复杂结构序列化
+                String strVal = switch (value) {
+                    case String s -> s;
+                    case Number n -> String.valueOf(n);
+                    case Boolean b -> String.valueOf(b);
+                    default -> objectMapper.writeValueAsString(value);
+                };
+                params.put(entry.getKey(), strVal);
             }
         } catch (Exception e) {
             log.warn("[ypbin-starter] 解析 JSON 请求体用于签名失败: {}", e.getMessage());

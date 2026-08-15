@@ -70,7 +70,7 @@ class LogAspectTest {
     void loggedMethod_publishesRecordWithMeta() {
         service.create();
         assertThat(CAPTURED).hasSize(1);
-        LogRecord record = CAPTURED.get(0);
+        LogRecord record = CAPTURED.getFirst();
         assertThat(record.getDescription()).isEqualTo("创建");
         assertThat(record.getModule()).isEqualTo("演示");
         assertThat(record.isSuccess()).isTrue();
@@ -81,8 +81,8 @@ class LogAspectTest {
     void failedMethod_recordsError_andRethrows() {
         assertThatThrownBy(() -> service.fail()).isInstanceOf(IllegalStateException.class);
         assertThat(CAPTURED).hasSize(1);
-        assertThat(CAPTURED.get(0).isSuccess()).isFalse();
-        assertThat(CAPTURED.get(0).getErrorMsg()).contains("boom");
+        assertThat(CAPTURED.getFirst().isSuccess()).isFalse();
+        assertThat(CAPTURED.getFirst().getErrorMsg()).contains("boom");
     }
 
     @Test

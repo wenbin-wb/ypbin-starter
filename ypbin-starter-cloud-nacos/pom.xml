@@ -53,9 +53,10 @@
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- testcontainers 2.x 将 junit-jupiter 模块重命名为 testcontainers-junit-jupiter -->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

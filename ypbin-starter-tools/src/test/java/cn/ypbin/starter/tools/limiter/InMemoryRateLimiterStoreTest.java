@@ -66,7 +66,7 @@ class InMemoryRateLimiterStoreTest {
         Duration window = Duration.ofSeconds(30);
         int threads = 16;
         int perThread = 1000;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         AtomicLong max = new AtomicLong();
         Future<?>[] futures = new Future<?>[threads];
         for (int t = 0; t < threads; t++) {

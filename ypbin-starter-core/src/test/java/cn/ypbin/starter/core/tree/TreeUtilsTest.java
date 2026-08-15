@@ -71,12 +71,12 @@ class TreeUtilsTest {
         List<Node> roots = TreeUtils.build(flat);
 
         assertThat(roots).hasSize(1);
-        Node root = roots.get(0);
+        Node root = roots.getFirst();
         assertThat(root.id).isEqualTo(1L);
         assertThat(root.children).hasSize(2);
         Node child2 = root.children.stream().filter(n -> n.id == 2L).findFirst().orElseThrow();
         assertThat(child2.children).hasSize(1);
-        assertThat(child2.children.get(0).id).isEqualTo(4L);
+        assertThat(child2.children.getFirst().id).isEqualTo(4L);
     }
 
     @Test
@@ -88,8 +88,8 @@ class TreeUtilsTest {
         List<Node> roots = TreeUtils.build(flat);
 
         assertThat(roots).hasSize(1);
-        assertThat(roots.get(0).id).isEqualTo(10L);
-        assertThat(roots.get(0).children).hasSize(1);
+        assertThat(roots.getFirst().id).isEqualTo(10L);
+        assertThat(roots.getFirst().children).hasSize(1);
     }
 
     @Test
@@ -101,7 +101,7 @@ class TreeUtilsTest {
         List<Node> roots = TreeUtils.build(flat, 0L);
 
         assertThat(roots).hasSize(1);
-        assertThat(roots.get(0).id).isEqualTo(1L);
+        assertThat(roots.getFirst().id).isEqualTo(1L);
     }
 
     @Test
@@ -133,7 +133,7 @@ class TreeUtilsTest {
 
         List<Node> roots = TreeUtils.build(flat);
 
-        assertThat(TreeUtils.getDescendantIds(roots.get(0))).containsExactlyInAnyOrder(2L, 3L, 4L);
+        assertThat(TreeUtils.getDescendantIds(roots.getFirst())).containsExactlyInAnyOrder(2L, 3L, 4L);
     }
 
     @Test

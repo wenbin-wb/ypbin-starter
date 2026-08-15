@@ -61,7 +61,7 @@ class NacosRoutePropertiesTest {
         List<RouteDefinition> routes = objectMapper.readValue(json, ROUTE_LIST_TYPE);
 
         assertThat(routes).hasSize(1);
-        RouteDefinition route = routes.get(0);
+        RouteDefinition route = routes.getFirst();
         assertThat(route.getId()).isEqualTo("user-service");
         assertThat(route.getUri().toString()).isEqualTo("lb://user-service");
         assertThat(route.getOrder()).isEqualTo(0);

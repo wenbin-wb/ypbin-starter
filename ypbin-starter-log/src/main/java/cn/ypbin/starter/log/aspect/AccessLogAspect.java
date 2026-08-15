@@ -155,7 +155,7 @@ public class AccessLogAspect {
         }
         if (names == null || names.length == 0) {
             // 参数名不可得：单参直序列化 / 多参序列化为数组
-            Object target = loggable.size() == 1 ? loggable.get(0) : loggable;
+            Object target = loggable.size() == 1 ? loggable.getFirst() : loggable;
             String json = serialize(target);
             return json == null ? "{}" : json;
         }

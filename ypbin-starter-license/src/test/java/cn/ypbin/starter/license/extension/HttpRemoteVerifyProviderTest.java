@@ -265,7 +265,7 @@ class HttpRemoteVerifyProviderTest {
     void verify_shouldSingleFlightConcurrentCallsOnCacheMiss() throws Exception {
         int threads = 8;
         HttpRemoteVerifyProvider p = provider();
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         CountDownLatch ready = new CountDownLatch(threads);
         CountDownLatch start = new CountDownLatch(1);
         List<Future<?>> futures = new ArrayList<>();

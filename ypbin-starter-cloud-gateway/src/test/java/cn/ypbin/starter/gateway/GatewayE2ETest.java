@@ -73,7 +73,7 @@ class GatewayE2ETest {
             RECEIVED_HEADERS.clear();
             exchange.getRequestHeaders().forEach((k, v) -> {
                 if (!v.isEmpty()) {
-                    RECEIVED_HEADERS.put(k.toLowerCase(), v.get(0));
+                    RECEIVED_HEADERS.put(k.toLowerCase(), v.getFirst());
                 }
             });
             byte[] body = "downstream-ok".getBytes(StandardCharsets.UTF_8);

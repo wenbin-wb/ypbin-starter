@@ -71,7 +71,7 @@ public class StorageRouter {
             this.defaultPlatform = defaultPlatform;
         } else if ((this.defaultPlatform == null || !strategies.containsKey(this.defaultPlatform))
             && !newStrategies.isEmpty()) {
-            this.defaultPlatform = newStrategies.get(0).platform();
+            this.defaultPlatform = newStrategies.getFirst().platform();
         }
     }
 

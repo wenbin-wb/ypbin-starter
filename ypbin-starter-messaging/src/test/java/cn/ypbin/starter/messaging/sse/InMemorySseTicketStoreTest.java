@@ -64,7 +64,7 @@ class InMemorySseTicketStoreTest {
         store.save("race", "1003", Duration.ofSeconds(30));
 
         int threads = 16;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         try {
             List<Callable<Optional<String>>> tasks = new ArrayList<>();
             for (int i = 0; i < threads; i++) {

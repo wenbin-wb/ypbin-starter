@@ -59,7 +59,7 @@ class InMemoryIdempotentStoreTest {
         String key = "order:concurrent";
         Duration ttl = Duration.ofSeconds(30);
         int threads = 32;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
         List<Callable<Boolean>> tasks = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
             tasks.add(() -> store.tryAcquire(key, ttl));

@@ -34,8 +34,8 @@ public class AsyncProperties {
     /** 是否接管 {@code @Async}（启用 @EnableAsync 并把默认执行器指向本模块线程池），默认开启 */
     private boolean enableAnnotation = true;
 
-    /** 是否优先使用虚拟线程（JDK 21+ 生效）；开启后 taskExecutor 使用虚拟线程执行器 */
-    private boolean virtualThreads = false;
+    /** 是否优先使用虚拟线程（JDK 21+ 生效）；开启后 taskExecutor 使用虚拟线程执行器，默认开启 */
+    private boolean virtualThreads = true;
 
     /** 核心线程数 */
     private int coreSize = 8;

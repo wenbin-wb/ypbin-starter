@@ -73,8 +73,8 @@ class ExcelUtilsTest {
 
         List<Row> read = ExcelUtils.read(new ByteArrayInputStream(out.toByteArray()), Row.class);
         assertThat(read).hasSize(2);
-        assertThat(read.get(0).getUsername()).isEqualTo("alice");
-        assertThat(read.get(0).getAge()).isEqualTo(20);
+        assertThat(read.getFirst().getUsername()).isEqualTo("alice");
+        assertThat(read.getFirst().getAge()).isEqualTo(20);
         assertThat(read.get(1).getUsername()).isEqualTo("bob");
         assertThat(read.get(1).getAge()).isEqualTo(30);
     }

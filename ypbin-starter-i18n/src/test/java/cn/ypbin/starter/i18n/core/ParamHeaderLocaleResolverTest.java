@@ -42,7 +42,7 @@ class ParamHeaderLocaleResolverTest {
 
         Locale locale = resolver.resolveLocale(request);
 
-        assertThat(locale).isEqualTo(new Locale("en", "US"));
+        assertThat(locale).isEqualTo(Locale.of("en", "US"));
     }
 
     @Test
@@ -50,7 +50,7 @@ class ParamHeaderLocaleResolverTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Accept-Language", "en_US");
 
-        assertThat(resolver.resolveLocale(request)).isEqualTo(new Locale("en", "US"));
+        assertThat(resolver.resolveLocale(request)).isEqualTo(Locale.of("en", "US"));
     }
 
     @Test
@@ -67,8 +67,8 @@ class ParamHeaderLocaleResolverTest {
         MockHttpServletRequest hyphen = new MockHttpServletRequest();
         hyphen.setParameter("lang", "zh-CN");
 
-        assertThat(resolver.resolveLocale(underscore)).isEqualTo(new Locale("zh", "CN"));
-        assertThat(resolver.resolveLocale(hyphen)).isEqualTo(new Locale("zh", "CN"));
+        assertThat(resolver.resolveLocale(underscore)).isEqualTo(Locale.of("zh", "CN"));
+        assertThat(resolver.resolveLocale(hyphen)).isEqualTo(Locale.of("zh", "CN"));
     }
 
     @Test
@@ -77,7 +77,7 @@ class ParamHeaderLocaleResolverTest {
         request.addHeader("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8");
 
         // 取首选语言，忽略权重与其余候选
-        assertThat(resolver.resolveLocale(request)).isEqualTo(new Locale("en", "US"));
+        assertThat(resolver.resolveLocale(request)).isEqualTo(Locale.of("en", "US"));
     }
 
     @Test
