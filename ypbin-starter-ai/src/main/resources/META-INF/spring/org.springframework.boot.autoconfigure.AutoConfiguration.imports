@@ -1,0 +1,4 @@
+cn.ypbin.starter.ai.autoconfigure.memory.AiMemoryAutoConfiguration
+cn.ypbin.starter.ai.autoconfigure.chat.AiChatAutoConfiguration
+cn.ypbin.starter.ai.autoconfigure.rag.AiRagAutoConfiguration
+cn.ypbin.starter.ai.autoconfigure.tool.AiToolAutoConfiguration
