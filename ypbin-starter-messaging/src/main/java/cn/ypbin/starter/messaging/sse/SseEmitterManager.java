@@ -20,12 +20,14 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
@@ -33,12 +35,15 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  *
  * <p>维护「用户 → 该用户的多个 SSE 连接」注册表，支持同一用户多端/多标签页同时在线。负责创建
  * 连接、注册完成/超时/异常时自动摘除，以及向指定用户或全体推送。连接对象为内存态，仅单实例有效；
- * 多实例扇出需在上层配合 Redis Pub/Sub 等（见文档）。</p>
+ * 多实例扇出需在上层配合 Redis Pub/Sub 等（见文档）。
+ *
+ * <p>推送路径（{@link #sendToUser}/{@link #broadcast}）通过虚拟线程执行器异步分发，
+ * 每个连接的发送互相隔离，一个慢客户端不会阻塞其他连接或调用方线程。
  *
  * @author wenbin
- * @since 2026-07-31
+ * @since 2026-08-15
  */
-public class SseEmitterManager {
+public class SseEmitterManager implements DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(SseEmitterManager.class);
 
@@ -53,9 +58,18 @@ public class SseEmitterManager {
     /** 心跳调度器（懒创建，daemon 线程不阻塞关闭）；所有连接共享 */
     private volatile ScheduledExecutorService scheduler;
 
+    /** 发送执行器：每次推送在独立虚拟线程里执行，慢客户端不阻塞其他连接 */
+    private final Executor sendExecutor;
+
     public SseEmitterManager(long timeoutMillis, long heartbeatIntervalSeconds) {
         this.timeoutMillis = timeoutMillis;
         this.heartbeatIntervalMillis = Math.max(0, heartbeatIntervalSeconds) * 1000L;
+        this.sendExecutor = buildSendExecutor();
+    }
+
+    private static Executor buildSendExecutor() {
+        return Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("ypbin-sse-send-", 0).factory());
     }
 
     /**
@@ -169,6 +183,8 @@ public class SseEmitterManager {
     /**
      * 向指定用户的所有连接推送。
      *
+     * <p>每条连接在独立虚拟线程里发送，互相隔离，慢客户端不阻塞其他连接。</p>
+     *
      * @param userId    用户标识
      * @param eventName 事件名
      * @param data      载荷
@@ -179,18 +195,22 @@ public class SseEmitterManager {
             return;
         }
         for (SseEmitter emitter : set) {
-            doSend(userId, emitter, eventName, data);
+            sendExecutor.execute(() -> doSend(userId, emitter, eventName, data));
         }
     }
 
     /**
      * 向全体在线连接广播。
      *
+     * <p>每条连接在独立虚拟线程里发送，互相隔离，慢客户端不阻塞其他连接。</p>
+     *
      * @param eventName 事件名
      * @param data      载荷
      */
     public void broadcast(String eventName, Object data) {
-        emitters.forEach((userId, set) -> set.forEach(emitter -> doSend(userId, emitter, eventName, data)));
+        emitters.forEach((userId, set) ->
+            set.forEach(emitter ->
+                sendExecutor.execute(() -> doSend(userId, emitter, eventName, data))));
     }
 
     /**
@@ -211,6 +231,17 @@ public class SseEmitterManager {
      */
     public int onlineCount() {
         return emitters.size();
+    }
+
+    /**
+     * Spring 容器关闭时释放心跳调度器资源。
+     */
+    @Override
+    public void destroy() {
+        ScheduledExecutorService s = scheduler;
+        if (s != null) {
+            s.shutdownNow();
+        }
     }
 
     private void doSend(String userId, SseEmitter emitter, String eventName, Object data) {
