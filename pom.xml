@@ -80,6 +80,7 @@
         <module>ypbin-starter-license</module>
         <module>ypbin-starter-app-web</module>
         <module>ypbin-starter-app-cloud</module>
+        <module>ypbin-starter-ai</module>
     </modules>
 
     <properties>
