@@ -27,6 +27,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
+        <!-- Spring Boot 4.x 主序列化器为 Jackson 3（tools.jackson.*），自动配置在 spring-boot-jackson -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson</artifactId>
+        </dependency>
         <!-- Spring Boot 4.x 将 Jackson 2 自动配置迁移到独立模块（已标 deprecated，Boot 5 将移除） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
