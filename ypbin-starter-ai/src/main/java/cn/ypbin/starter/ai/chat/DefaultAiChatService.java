@@ -15,6 +15,11 @@
  */
 package cn.ypbin.starter.ai.chat;
 
+import com.openai.client.OpenAIClient;
+import com.openai.client.OpenAIClientAsync;
+import com.openai.client.OpenAIClientAsyncImpl;
+import com.openai.client.OpenAIClientImpl;
+import com.openai.core.ClientOptions;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +30,9 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.http.okhttp.SpringAiOpenAiHttpClient;
 import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
@@ -46,19 +54,69 @@ public class DefaultAiChatService implements AiChatService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultAiChatService.class);
 
+    /** yml 模型 starter 装配的 ChatClient；为空时按 {@link AiModelConfigResolver} 动态构建 */
     private final ChatClient chatClient;
     private final ChatMemory chatMemory;
     private final VectorStore vectorStore;
+    /** 动态模型解析器（业务方实现，从模型配置表读取当前模型） */
+    private final AiModelConfigResolver modelResolver;
+    /** 默认系统提示词（动态构建 ChatClient 时注入） */
+    private final String defaultSystemPrompt;
     private final boolean ragEnabled;
     private final long streamTimeoutMs;
 
     public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
-            boolean ragEnabled, long streamTimeoutMs) {
+            AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
+            long streamTimeoutMs) {
         this.chatClient = chatClient;
         this.chatMemory = chatMemory;
         this.vectorStore = vectorStore;
+        this.modelResolver = modelResolver;
+        this.defaultSystemPrompt = defaultSystemPrompt;
         this.ragEnabled = ragEnabled;
         this.streamTimeoutMs = streamTimeoutMs;
+    }
+
+    /**
+     * 解析当前会话使用的 ChatClient：优先 yml 装配的实例；
+     * 否则通过 {@link AiModelConfigResolver} 动态构建 OpenAI 兼容模型。
+     */
+    private ChatClient resolveClient() {
+        if (chatClient != null) {
+            return chatClient;
+        }
+        AiModelConfigResolver.AiModelInfo info = modelResolver == null ? null : modelResolver.resolve();
+        if (info == null || info.baseUrl() == null || info.baseUrl().isBlank()) {
+            throw new IllegalStateException("未配置可用的模型，请在 AI 配置中新增并设为默认模型");
+        }
+        // 传输层客户端必须按请求独立创建：Spring AI 流式调用结束后会关闭持有的
+        // OpenAI 客户端（连带关闭底层连接池），共享实例会导致后续请求被拒绝
+        ClientOptions options = ClientOptions.builder()
+            .apiKey(info.apiKey())
+            .baseUrl(normalizeBaseUrl(info.baseUrl()))
+            .httpClient(SpringAiOpenAiHttpClient.builder().build())
+            .build();
+        OpenAIClient client = new OpenAIClientImpl(options);
+        OpenAIClientAsync asyncClient = new OpenAIClientAsyncImpl(options);
+        OpenAiChatModel chatModel = OpenAiChatModel.builder()
+            .openAiClient(client)
+            .openAiClientAsync(asyncClient)
+            .options(OpenAiChatOptions.builder().model(info.modelName()).build())
+            .build();
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+        if (defaultSystemPrompt != null && !defaultSystemPrompt.isBlank()) {
+            builder.defaultSystem(defaultSystemPrompt);
+        }
+        log.debug("[ypbin-ai] dynamic ChatClient built: baseUrl={}, model={}", info.baseUrl(), info.modelName());
+        return builder.build();
+    }
+
+    private static String normalizeBaseUrl(String baseUrl) {
+        String normalized = baseUrl.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     /**
@@ -74,7 +132,7 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public String chat(String conversationId, String userMessage) {
         log.debug("[ypbin-ai] chat: conversationId={}", conversationId);
-        return chatClient.prompt()
+        return resolveClient().prompt()
             .advisors(spec -> spec
                 .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
@@ -86,7 +144,7 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public Flux<String> chatStream(String conversationId, String userMessage) {
         log.debug("[ypbin-ai] chatStream: conversationId={}", conversationId);
-        return withTimeout(chatClient.prompt()
+        return withTimeout(resolveClient().prompt()
             .advisors(spec -> spec
                 .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
@@ -110,7 +168,7 @@ public class DefaultAiChatService implements AiChatService {
         var ragAdvisor = RetrievalAugmentationAdvisor.builder()
             .documentRetriever(retriever)
             .build();
-        return withTimeout(chatClient.prompt()
+        return withTimeout(resolveClient().prompt()
             .advisors(spec -> spec
                 .advisors(memoryAdvisor(), ragAdvisor)
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
@@ -122,7 +180,7 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public Flux<String> chatWithSystemPrompt(String conversationId, String systemPrompt, String userMessage) {
         log.debug("[ypbin-ai] chatWithSystemPrompt: conversationId={}", conversationId);
-        return withTimeout(chatClient.prompt()
+        return withTimeout(resolveClient().prompt()
             .system(systemPrompt)
             .advisors(spec -> spec
                 .advisors(buildAdvisors())
