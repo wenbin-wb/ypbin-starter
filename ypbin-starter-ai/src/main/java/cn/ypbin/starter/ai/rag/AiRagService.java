@@ -64,4 +64,27 @@ public interface AiRagService {
      * @param documentId      文档 ID（对应 ai_document 表）
      */
     void deleteDocument(String knowledgeBaseId, String documentId);
+
+    /**
+     * 多知识库联合检索：在多个知识库中分别检索并按 RRF 合并排序。
+     *
+     * @param knowledgeBaseIds 知识库 ID 列表
+     * @param query            查询文本
+     * @param topKPerKb        每个知识库取前 K 条
+     * @param maxTotal         合并后最多返回条数
+     * @return 合并召回片段（按相关度降序）
+     */
+    List<Document> searchMultiple(List<String> knowledgeBaseIds, String query,
+            int topKPerKb, int maxTotal);
+
+    /**
+     * 检索 + 关键词重叠重排：在向量召回基础上按「查询词与片段文本的关键词重叠度」重排，
+     * 提升查询词精确命中的片段优先，改进无外部 rerank 模型时的召回精排。
+     *
+     * @param knowledgeBaseId 知识库 ID
+     * @param query           查询文本
+     * @param topK            召回条数
+     * @return 重排后的片段列表
+     */
+    List<Document> searchWithRerank(String knowledgeBaseId, String query, int topK);
 }
