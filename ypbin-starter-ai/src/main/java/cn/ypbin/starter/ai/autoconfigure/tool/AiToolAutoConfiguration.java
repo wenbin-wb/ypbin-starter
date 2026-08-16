@@ -71,15 +71,28 @@ public class AiToolAutoConfiguration {
     }
 
     /**
-     * 判断类及其继承链上是否存在标注 {@code @Tool} 的方法（含父类声明）。
+     * 判断类、父类与实现的接口上是否存在标注 {@code @Tool} 的方法（接口声明的方法亦计入）。
      */
     private static boolean containsToolMethod(Class<?> clazz) {
         for (Class<?> current = clazz; current != null && current != Object.class;
                 current = current.getSuperclass()) {
-            for (Method method : current.getDeclaredMethods()) {
-                if (method.isAnnotationPresent(Tool.class)) {
-                    return true;
-                }
+            if (hasToolMethod(current.getDeclaredMethods())) {
+                return true;
+            }
+        }
+        // 接口默认方法也可能声明 @Tool，遍历接口链补充
+        for (Class<?> iface : clazz.getInterfaces()) {
+            if (hasToolMethod(iface.getDeclaredMethods())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasToolMethod(Method[] methods) {
+        for (Method method : methods) {
+            if (method.isAnnotationPresent(Tool.class)) {
+                return true;
             }
         }
         return false;

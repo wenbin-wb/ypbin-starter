@@ -33,14 +33,8 @@ public class AiChatProperties {
     /** 是否启用对话能力，默认开启 */
     private boolean enabled = true;
 
-    /**
-     * 默认系统提示词。使用 DeepSeek/GPT 等模型时作为 system 角色消息注入。
-     * 支持占位符：{username}、{tenantName}（由 DefaultAiChatService 在运行时替换）。
-     */
+    /** 默认系统提示词。使用 DeepSeek/GPT 等模型时作为 system 角色消息注入 */
     private String defaultSystemPrompt = "你是一个专业的企业级 AI 助手，请用简洁清晰的中文回答问题。";
-
-    /** 每次请求携带的历史消息条数（MessageWindow 模式），默认 20 条 */
-    private int windowSize = 20;
 
     /** 是否在对话中启用 RAG 检索增强（需要同时配置 ypbin.ai.rag.enabled=true）*/
     private boolean ragEnabled = false;
@@ -62,14 +56,6 @@ public class AiChatProperties {
 
     public void setDefaultSystemPrompt(String defaultSystemPrompt) {
         this.defaultSystemPrompt = defaultSystemPrompt;
-    }
-
-    public int getWindowSize() {
-        return windowSize;
-    }
-
-    public void setWindowSize(int windowSize) {
-        this.windowSize = windowSize;
     }
 
     public boolean isRagEnabled() {
