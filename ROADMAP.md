@@ -6,8 +6,8 @@
 
 ## 0. 当前状态总览
 
-- **模块**：34 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async、job、license）
-- **构建**：全量 34 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **模块**：35 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async、job、license、ai）
+- **构建**：全量 35 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 21 · Spring Boot 4.1.0 · Spring Cloud 2025.1.2 · spring-cloud-alibaba 2025.1.0.0
@@ -73,7 +73,8 @@ ypbin-starter/                        聚合 POM
 │   ├── ypbin-starter-i18n            国际化 MessageSource + Locale 解析
 │   ├── ypbin-starter-api-crypto      @ApiEncrypt 接口加解密
 │   ├── ypbin-starter-social          JustAuth 第三方登录
-│   └── ypbin-starter-sign            @ApiSign 接口签名/防重放
+│   ├── ypbin-starter-sign            @ApiSign 接口签名/防重放
+│   └── ypbin-starter-ai              Spring AI 对话（模型配置表驱动）
 │
 ├── L2 扩展层（可选）
 │   ├── ypbin-starter-extension-crud            通用 CRUD 基类

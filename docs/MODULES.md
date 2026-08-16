@@ -1839,3 +1839,52 @@ optional 依赖），即可对路由维度限流，规则同样从 Nacos 热加�
 > Sentinel Dashboard 是独立进程，需单独部署（`deploy/docker-compose.yml` 已内置一个用于本地自测）。
 > Resilience4j 与 Sentinel 是「调用方容错」与「被调方保护」的分工，无需二选一。
 
+---
+
+### ai — AI 对话
+
+基于 Spring AI 2.0 的对话能力封装（`AiChatService`）：流式/非流式对话、多轮记忆、可选 RAG。模型不写在 yml，由业务方实现 `AiModelConfigResolver` 从配置表读取默认模型，starter 动态构建 OpenAI 兼容客户端。
+
+```xml
+<dependency>
+    <groupId>cn.ypbin</groupId>
+    <artifactId>ypbin-starter-ai</artifactId>
+</dependency>
+```
+
+**动态模型解析**：实现 `AiModelConfigResolver`（返回 `AiModelInfo(baseUrl, apiKey, modelName)`）后，`DefaultAiChatService` 每次调用按配置动态构建 `OpenAiChatModel`；yml 存在 `ChatClient` Bean 时优先使用 yml 实例，两者皆无则调用时报「未配置可用的模型」。
+
+使用示例：
+
+```java
+@Autowired
+private AiChatService aiChatService;
+
+Flux<String> stream = aiChatService.chatStream(conversationId, userMessage);  // 流式
+String answer = aiChatService.chat(conversationId, userMessage);              // 非流式
+Flux<String> withKb = aiChatService.chatWithKnowledge(conversationId, userMessage, knowledgeBaseId); // RAG
+aiChatService.clearMemory(conversationId);                                     // 清记忆
+```
+
+配置项：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `ypbin.ai.enabled` | `true` | 模块总开关 |
+| `ypbin.ai.chat.enabled` | `true` | 对话能力开关 |
+| `ypbin.ai.chat.default-system-prompt` | 你是一个专业的企业级 AI 助手… | 默认系统提示词（支持 `{username}`/`{tenantName}` 占位符） |
+| `ypbin.ai.chat.window-size` | `20` | 携带历史消息条数（影响首 token 延迟） |
+| `ypbin.ai.chat.rag-enabled` | `false` | 对话附加全局 RAG（需 rag.enabled=true） |
+| `ypbin.ai.chat.stream-timeout-ms` | `0` | 流式超时（毫秒），0 不超时 |
+| `ypbin.ai.memory.type` | `in-memory` | 记忆存储：`in-memory` / `jdbc`（需引入 spring-ai-starter-model-chat-memory-repository-jdbc 并建表） |
+| `ypbin.ai.memory.window-size` | `20` | 记忆窗口大小 |
+| `ypbin.ai.rag.enabled` | `false` | RAG 总开关（需 VectorStore） |
+| `ypbin.ai.rag.top-k` / `similarity-threshold` / `max-context-length` | `5` / `0.7` / `8000` | RAG 检索参数 |
+
+**注意事项**（踩坑沉淀）：
+
+- 动态构建需同时提供同步与异步客户端（`OpenAIClientImpl` + `OpenAIClientAsyncImpl`），缺异步客户端时 `OpenAiChatModel.build()` 自行装配会因无凭证报错；
+- 传输层客户端（okhttp 连接池）必须按请求独立创建：Spring AI 流式结束后会关闭持有的客户端（连带关闭连接池），共享实例导致后续请求被拒绝；okhttp 空闲资源自动回收，独立创建无泄漏；
+- `baseUrl` 需以 `/v1` 结尾（OpenAI 兼容惯例），SDK 按 `{baseUrl}/chat/completions` 拼路径；
+- `memory.type=jdbc` 使用 Spring AI `JdbcChatMemoryRepository`，需按 Spring AI 官方 `schema-mysql.sql` 建 `SPRING_AI_CHAT_MEMORY` 表（列名/索引完全一致，表名大写硬编码于查询语句）。
+

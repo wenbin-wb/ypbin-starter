@@ -10,7 +10,11 @@
 ## [未发布]
 
 ### 新增
+- **AI 对话模块**（`ypbin-starter-ai`）：基于 Spring AI 2.0 的对话能力封装——流式/非流式对话（`AiChatService`）、多轮记忆（内存 / JDBC 持久化）、可选 RAG 检索增强。核心设计为**模型配置表驱动**：新增 `AiModelConfigResolver` 扩展点，业务方从配置表读取默认模型，starter 动态构建 OpenAI 兼容客户端（`OpenAIClientImpl` + `OpenAIClientAsyncImpl`），模型地址/密钥/型号全部运行时下发、无需在 yml 配置模型 starter。已适配 Spring AI 2.0 关闭客户端的行为（传输层按请求独立创建）与 OpenAI 兼容 baseUrl 规范（`/v1` 后缀）
 - **`@SensitiveWordFilter` 注解驱动过滤**（`ypbin-starter-sensitive-words`）：新增 `@SensitiveWordFilter` 双目标注解（FIELD + METHOD）与 `SensitiveWordFilterAspect` AOP 切面。字段上标注声明哪些 `String` 字段需要过滤，方法上标注触发切面在执行前自动遍历入参并替换命中词；替换字符取 `ypbin.sensitive-words.replacement` 配置，彻底替代手动注入 `SensitiveWordService` 的侵入式写法
+
+### 修复
+- **登录拦截器误伤异步错误分发**（`ypbin-starter-security`）：Sa-Token 拦截器对 ERROR/ASYNC 分发（如 SSE 流失败后的错误分发）二次执行登录校验，此时 Sa-Token 上下文未初始化，抛 `SaTokenContextException` 掩盖真实错误；改为非 REQUEST 分发直接放行
 
 ## [1.3.0] - 2026-08-14
 

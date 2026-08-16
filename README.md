@@ -145,6 +145,7 @@
 | 接口加解密 | `ypbin-starter-api-crypto` | `@ApiEncrypt` 请求解密/响应加密（Advice） | `ypbin.api-crypto` |
 | 接口签名 | `ypbin-starter-sign` | `@ApiSign` 四件套验签（AK/SK）、防重放、应用启停/过期、MD5/HMAC 可配 | `ypbin.sign` |
 | 第三方登录 | `ypbin-starter-social` | JustAuth OAuth 登录，按平台可插拔 | `ypbin.social` |
+| AI 对话 | `ypbin-starter-ai` | Spring AI 对话（流式/非流式）、多轮记忆、RAG；模型配置表驱动动态构建 OpenAI 兼容客户端 | `ypbin.ai` |
 | 多租户 | `ypbin-starter-extension-tenant` | 行级租户隔离、`@TenantIgnore` 跨租户逃逸 | `ypbin.tenant` |
 | CRUD | `ypbin-starter-extension-crud` | 通用控制器/服务基类，防 Over-Posting | — |
 | 数据权限 | `ypbin-starter-extension-datapermission` | 行级数据范围过滤、`@DataPermission` 门控 | `ypbin.data-permission` |
