@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-31
  */
-@ConfigurationProperties(prefix = "ypbin.gateway.swagger")
+@ConfigurationProperties(prefix = GatewaySwaggerAggregationProperties.PREFIX)
 public class GatewaySwaggerAggregationProperties {
+
+    public static final String PREFIX = "ypbin.gateway.swagger";
 
     /** 是否启用 Swagger 聚合，默认关闭 */
     private boolean enabled = false;

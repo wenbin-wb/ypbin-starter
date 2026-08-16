@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-08-01
  */
-@ConfigurationProperties(prefix = "ypbin.job")
+@ConfigurationProperties(prefix = JobProperties.PREFIX)
 public class JobProperties {
+
+    public static final String PREFIX = "ypbin.job";
 
     /** 是否启用定时任务调度，默认开启 */
     private boolean enabled = true;

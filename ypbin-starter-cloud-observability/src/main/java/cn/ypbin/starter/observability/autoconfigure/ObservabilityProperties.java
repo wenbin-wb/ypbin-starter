@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-31
  */
-@ConfigurationProperties(prefix = "ypbin.observability")
+@ConfigurationProperties(prefix = ObservabilityProperties.PREFIX)
 public class ObservabilityProperties {
+
+    public static final String PREFIX = "ypbin.observability";
 
     /** 是否启用可观测性（X-Request-Id 与 MDC 关联），默认开启 */
     private boolean enabled = true;

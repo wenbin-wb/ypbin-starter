@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.data")
+@ConfigurationProperties(prefix = DataProperties.PREFIX)
 public class DataProperties {
+
+    public static final String PREFIX = "ypbin.data";
 
     /** 是否启用数据增强，默认开启 */
     private boolean enabled = true;

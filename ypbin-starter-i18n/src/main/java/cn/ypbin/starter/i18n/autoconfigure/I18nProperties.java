@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.i18n")
+@ConfigurationProperties(prefix = I18nProperties.PREFIX)
 public class I18nProperties {
+
+    public static final String PREFIX = "ypbin.i18n";
 
     /** 是否启用国际化，默认开启 */
     private boolean enabled = true;

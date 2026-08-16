@@ -52,6 +52,7 @@ public class DataPermissionAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(DataPermissionAutoConfiguration.class);
 
     @Bean
+    @ConditionalOnMissingBean(name = "dataPermissionInnerInterceptorProvider")
     public InnerInterceptorProvider dataPermissionInnerInterceptorProvider(DataScopeHandler dataScopeHandler) {
         log.debug("[ypbin-starter] data permission interceptor registered.");
         return new InnerInterceptorProvider() {

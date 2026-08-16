@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.tenant")
+@ConfigurationProperties(prefix = TenantProperties.PREFIX)
 public class TenantProperties {
+
+    public static final String PREFIX = "ypbin.tenant";
 
     /** 是否启用多租户，默认关闭（需显式开启） */
     private boolean enabled = false;

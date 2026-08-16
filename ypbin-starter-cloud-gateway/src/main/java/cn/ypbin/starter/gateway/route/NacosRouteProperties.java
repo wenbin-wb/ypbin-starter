@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-31
  */
-@ConfigurationProperties(prefix = "ypbin.gateway.route.nacos")
+@ConfigurationProperties(prefix = NacosRouteProperties.PREFIX)
 public class NacosRouteProperties {
+
+    public static final String PREFIX = "ypbin.gateway.route.nacos";
 
     /** 是否启用 Nacos 动态路由，默认关闭 */
     private boolean enabled = false;

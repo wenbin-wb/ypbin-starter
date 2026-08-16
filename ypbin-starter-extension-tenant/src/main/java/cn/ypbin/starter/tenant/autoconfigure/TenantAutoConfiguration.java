@@ -60,6 +60,7 @@ public class TenantAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(name = "tenantInnerInterceptorProvider")
     public InnerInterceptorProvider tenantInnerInterceptorProvider(TenantProvider tenantProvider,
                                                                    TenantProperties properties) {
         return new InnerInterceptorProvider() {

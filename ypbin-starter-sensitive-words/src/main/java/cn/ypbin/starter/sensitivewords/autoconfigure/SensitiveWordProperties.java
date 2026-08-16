@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.sensitive-words")
+@ConfigurationProperties(prefix = SensitiveWordProperties.PREFIX)
 public class SensitiveWordProperties {
+
+    public static final String PREFIX = "ypbin.sensitive-words";
 
     /** 是否启用敏感词过滤，默认开启 */
     private boolean enabled = true;

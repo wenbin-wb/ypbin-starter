@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.json")
+@ConfigurationProperties(prefix = JacksonProperties.PREFIX)
 public class JacksonProperties {
+
+    public static final String PREFIX = "ypbin.json";
 
     /** 是否启用统一 Jackson 定制，默认开启 */
     private boolean enabled = true;

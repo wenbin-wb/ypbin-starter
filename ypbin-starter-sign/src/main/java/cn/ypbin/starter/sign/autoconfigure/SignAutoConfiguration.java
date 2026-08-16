@@ -96,6 +96,7 @@ public class SignAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public WebMvcConfigurer signWebMvcConfigurer(SignInterceptor signInterceptor) {
         return new WebMvcConfigurer() {
             @Override

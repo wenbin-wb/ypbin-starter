@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-31
  */
-@ConfigurationProperties(prefix = "ypbin.cloud.sentinel")
+@ConfigurationProperties(prefix = SentinelProperties.PREFIX)
 public class SentinelProperties {
+
+    public static final String PREFIX = "ypbin.cloud.sentinel";
 
     /** 是否启用被限流/降级时的统一 R 响应，默认开启 */
     private boolean enabled = true;

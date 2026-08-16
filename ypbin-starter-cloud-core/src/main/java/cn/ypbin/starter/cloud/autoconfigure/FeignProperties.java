@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.cloud.feign")
+@ConfigurationProperties(prefix = FeignProperties.PREFIX)
 public class FeignProperties {
+
+    public static final String PREFIX = "ypbin.cloud.feign";
 
     /** 是否启用 Feign 增强（请求头透传等），默认开启 */
     private boolean enabled = true;

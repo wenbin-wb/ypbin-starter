@@ -26,8 +26,10 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.api-doc")
+@ConfigurationProperties(prefix = ApiDocProperties.PREFIX)
 public class ApiDocProperties {
+
+    public static final String PREFIX = "ypbin.api-doc";
 
     /** 是否启用 API 文档，默认开启 */
     private boolean enabled = true;

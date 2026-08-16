@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.log.access")
+@ConfigurationProperties(prefix = AccessLogProperties.PREFIX)
 public class AccessLogProperties {
+
+    public static final String PREFIX = "ypbin.log.access";
 
     /** 是否启用全量访问日志切面，默认关闭（与 @Log 注解版互补，按需开启） */
     private boolean enabled = false;

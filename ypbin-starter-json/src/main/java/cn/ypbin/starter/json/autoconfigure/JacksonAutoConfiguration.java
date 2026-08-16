@@ -104,6 +104,7 @@ public class JacksonAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public Jackson2ObjectMapperBuilderCustomizer ypbinJacksonCustomizer(JacksonProperties properties) {
         log.debug("[ypbin-starter] jackson customizer applied.");
         return builder -> {

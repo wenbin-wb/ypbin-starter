@@ -29,8 +29,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.security")
+@ConfigurationProperties(prefix = SecurityProperties.PREFIX)
 public class SecurityProperties {
+
+    public static final String PREFIX = "ypbin.security";
 
     /** 是否启用安全模块，默认开启 */
     private boolean enabled = true;

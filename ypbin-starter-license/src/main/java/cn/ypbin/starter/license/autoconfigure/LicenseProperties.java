@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-08-05
  */
-@ConfigurationProperties(prefix = "ypbin.license")
+@ConfigurationProperties(prefix = LicenseProperties.PREFIX)
 public class LicenseProperties {
+
+    public static final String PREFIX = "ypbin.license";
 
     /** 是否启用授权校验，默认开启 */
     private boolean enabled = true;
