@@ -30,7 +30,8 @@ import org.springframework.context.i18n.LocaleContextHolder;
  */
 public final class I18nUtil {
 
-    private static MessageSource messageSource;
+    /** volatile：装配时机与读取可能跨线程（如异步请求），保证可见性 */
+    private static volatile MessageSource messageSource;
 
     private I18nUtil() {
     }
