@@ -17,6 +17,7 @@ package cn.ypbin.starter.ai.autoconfigure.chat;
 
 import cn.ypbin.starter.ai.autoconfigure.memory.AiMemoryAutoConfiguration;
 import cn.ypbin.starter.ai.chat.AiChatService;
+import cn.ypbin.starter.ai.chat.AiModelConfigResolver;
 import cn.ypbin.starter.ai.chat.DefaultAiChatService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,17 +73,24 @@ public class AiChatAutoConfiguration {
             .build();
     }
 
-    /** 装配 {@link AiChatService}，admin 层注入此接口，不直接依赖 Spring AI。 */
+    /**
+     * 装配 {@link AiChatService}，admin 层注入此接口，不直接依赖 Spring AI。
+     *
+     * <p>条件放宽为「存在 ChatMemory 且（存在 ChatModel 或业务方提供了动态模型解析器）」：
+     * 未在 yml 配置模型 starter 时，通过 {@link AiModelConfigResolver} 动态构建 OpenAI 兼容模型。</p>
+     */
     @Bean
     @ConditionalOnMissingBean(AiChatService.class)
-    @ConditionalOnBean({ChatMemory.class, ChatModel.class})
-    public AiChatService aiChatService(ChatClient chatClient, ChatMemory chatMemory,
-            ObjectProvider<VectorStore> vectorStoreProvider, AiChatProperties props) {
+    @ConditionalOnBean(ChatMemory.class)
+    public AiChatService aiChatService(ObjectProvider<ChatClient> chatClientProvider, ChatMemory chatMemory,
+            ObjectProvider<VectorStore> vectorStoreProvider, ObjectProvider<AiModelConfigResolver> modelResolverProvider,
+            AiChatProperties props) {
         VectorStore vectorStore = vectorStoreProvider.getIfAvailable();
         if (vectorStore != null && props.isRagEnabled()) {
             log.debug("[ypbin-ai] VectorStore detected, global RAG enabled");
         }
-        return new DefaultAiChatService(chatClient, chatMemory, vectorStore,
+        return new DefaultAiChatService(chatClientProvider.getIfAvailable(), chatMemory, vectorStore,
+            modelResolverProvider.getIfAvailable(), props.getDefaultSystemPrompt(),
             props.isRagEnabled(), props.getStreamTimeoutMs());
     }
 }
