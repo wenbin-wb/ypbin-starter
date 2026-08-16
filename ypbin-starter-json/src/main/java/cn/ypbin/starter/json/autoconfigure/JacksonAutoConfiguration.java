@@ -57,6 +57,7 @@ import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomize
 import org.springframework.boot.jackson2.autoconfigure.Jackson2AutoConfiguration;
 import org.springframework.boot.jackson2.autoconfigure.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 import tools.jackson.databind.module.SimpleModule;
 
 /**
@@ -193,7 +194,7 @@ public class JacksonAutoConfiguration {
      */
     @AutoConfiguration
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-    @ConditionalOnClass(org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice.class)
+    @ConditionalOnClass(ResponseBodyAdvice.class)
     @ConditionalOnProperty(prefix = "ypbin.json.ref-text", name = "auto-resolve", havingValue = "true",
         matchIfMissing = true)
     static class RefTextWebConfiguration {

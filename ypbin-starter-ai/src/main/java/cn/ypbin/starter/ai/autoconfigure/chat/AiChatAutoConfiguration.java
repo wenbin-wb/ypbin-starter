@@ -66,11 +66,14 @@ public class AiChatAutoConfiguration {
     @ConditionalOnMissingBean(ChatClient.class)
     @ConditionalOnBean(ChatModel.class)
     public ChatClient chatClient(ChatModel chatModel, AiChatProperties props) {
+        String systemPrompt = props.getDefaultSystemPrompt();
         log.debug("[ypbin-ai] chatClient configured, systemPrompt length={}",
-            props.getDefaultSystemPrompt().length());
-        return ChatClient.builder(chatModel)
-            .defaultSystem(props.getDefaultSystemPrompt())
-            .build();
+            systemPrompt == null ? 0 : systemPrompt.length());
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            builder.defaultSystem(systemPrompt);
+        }
+        return builder.build();
     }
 
     /**

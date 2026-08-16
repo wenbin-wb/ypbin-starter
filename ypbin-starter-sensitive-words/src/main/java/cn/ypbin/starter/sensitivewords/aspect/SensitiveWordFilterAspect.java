@@ -22,6 +22,8 @@ import java.lang.reflect.Field;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 敏感词过滤切面。
@@ -36,7 +38,7 @@ import org.aspectj.lang.annotation.Aspect;
  *   <li>只处理第一层字段，不递归深层对象</li>
  *   <li>字段值为 {@code null} 或空字符串时跳过</li>
  *   <li>非 {@code String} 类型的标注字段忽略（不报错）</li>
- *   <li>反射访问异常静默跳过该字段，不影响整体流程</li>
+ *   <li>反射访问异常记录 warn 日志后跳过该字段，不影响整体流程</li>
  * </ul>
  *
  * <p>不标注 {@code @Component}，由 {@link cn.ypbin.starter.sensitivewords.autoconfigure.SensitiveWordAutoConfiguration}
@@ -47,6 +49,8 @@ import org.aspectj.lang.annotation.Aspect;
  */
 @Aspect
 public class SensitiveWordFilterAspect {
+
+    private static final Logger log = LoggerFactory.getLogger(SensitiveWordFilterAspect.class);
 
     private final SensitiveWordService sensitiveWordService;
     private final SensitiveWordProperties properties;
@@ -97,8 +101,9 @@ public class SensitiveWordFilterAspect {
                 if (value != null && !value.isEmpty()) {
                     field.set(obj, sensitiveWordService.filter(value, replacement));
                 }
-            } catch (IllegalAccessException ignored) {
-                // 反射访问失败，静默跳过该字段
+            } catch (IllegalAccessException e) {
+                log.warn("[ypbin] 敏感词过滤反射访问失败：字段={}#{}", clazz.getSimpleName(),
+                    field.getName(), e);
             }
         }
     }

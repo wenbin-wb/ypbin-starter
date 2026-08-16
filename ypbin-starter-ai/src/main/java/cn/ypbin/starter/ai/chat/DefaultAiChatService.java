@@ -86,8 +86,9 @@ public class DefaultAiChatService implements AiChatService {
             return chatClient;
         }
         AiModelConfigResolver.AiModelInfo info = modelResolver == null ? null : modelResolver.resolve();
-        if (info == null || info.baseUrl() == null || info.baseUrl().isBlank()) {
-            throw new IllegalStateException("未配置可用的模型，请在 AI 配置中新增并设为默认模型");
+        if (info == null || info.baseUrl() == null || info.baseUrl().isBlank()
+                || info.apiKey() == null || info.apiKey().isBlank()) {
+            throw new IllegalStateException("未配置可用的模型（缺少接口地址或 API Key），请在 AI 配置中新增并设为默认模型");
         }
         // 传输层客户端必须按请求独立创建：Spring AI 流式调用结束后会关闭持有的
         // OpenAI 客户端（连带关闭底层连接池），共享实例会导致后续请求被拒绝
@@ -132,13 +133,25 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public String chat(String conversationId, String userMessage) {
         log.debug("[ypbin-ai] chat: conversationId={}", conversationId);
-        return resolveClient().prompt()
+        // 同步路径同样受 streamTimeoutMs 保护，避免上游挂起时无限占用线程
+        Flux<String> flux = resolveClient().prompt()
             .advisors(spec -> spec
                 .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
-            .call()
+            .stream()
             .content();
+        List<String> tokens = withTimeout(flux)
+            .collectList()
+            .block(Duration.ofMillis(streamTimeoutMs()));
+        return tokens == null ? "" : String.join("", tokens);
+    }
+
+    /**
+     * 同步阻塞等待上限：与流式超时一致（0 时回退 60 秒，避免无限等待）。
+     */
+    private long streamTimeoutMs() {
+        return streamTimeoutMs > 0 ? streamTimeoutMs : 60_000L;
     }
 
     @Override
