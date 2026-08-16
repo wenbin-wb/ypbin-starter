@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.mqtt")
+@ConfigurationProperties(prefix = MqttProperties.PREFIX)
 public class MqttProperties {
+
+    public static final String PREFIX = "ypbin.mqtt";
 
     /** 是否启用 MQTT，默认关闭（需显式开启） */
     private boolean enabled = false;

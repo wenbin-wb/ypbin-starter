@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.log")
+@ConfigurationProperties(prefix = LogProperties.PREFIX)
 public class LogProperties {
+
+    public static final String PREFIX = "ypbin.log";
 
     /** 是否启用操作日志，默认开启 */
     private boolean enabled = true;

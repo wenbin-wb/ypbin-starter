@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.api-crypto")
+@ConfigurationProperties(prefix = ApiCryptoProperties.PREFIX)
 public class ApiCryptoProperties {
+
+    public static final String PREFIX = "ypbin.api-crypto";
 
     /** 是否启用接口加解密，默认开启（仍需方法上标注 @ApiEncrypt 才生效） */
     private boolean enabled = true;

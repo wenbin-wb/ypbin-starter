@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.gateway")
+@ConfigurationProperties(prefix = GatewayProperties.PREFIX)
 public class GatewayProperties {
+
+    public static final String PREFIX = "ypbin.gateway";
 
     /** 是否启用网关增强，默认开启 */
     private boolean enabled = true;

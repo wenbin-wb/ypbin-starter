@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.websocket")
+@ConfigurationProperties(prefix = WebSocketProperties.PREFIX)
 public class WebSocketProperties {
+
+    public static final String PREFIX = "ypbin.websocket";
 
     /** 是否启用 WebSocket，默认关闭（需显式开启） */
     private boolean enabled = false;

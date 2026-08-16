@@ -28,8 +28,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.storage")
+@ConfigurationProperties(prefix = StorageProperties.PREFIX)
 public class StorageProperties {
+
+    public static final String PREFIX = "ypbin.storage";
 
     /** 是否启用存储模块，默认开启 */
     private boolean enabled = true;

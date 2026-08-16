@@ -23,8 +23,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-31
  */
-@ConfigurationProperties(prefix = "ypbin.sse")
+@ConfigurationProperties(prefix = SseProperties.PREFIX)
 public class SseProperties {
+
+    public static final String PREFIX = "ypbin.sse";
 
     /** 是否启用 SSE，默认关闭（需显式开启） */
     private boolean enabled = false;

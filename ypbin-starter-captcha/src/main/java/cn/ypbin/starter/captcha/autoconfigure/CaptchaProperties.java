@@ -25,8 +25,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-08-07
  */
-@ConfigurationProperties(prefix = "ypbin.captcha")
+@ConfigurationProperties(prefix = CaptchaProperties.PREFIX)
 public class CaptchaProperties {
+
+    public static final String PREFIX = "ypbin.captcha";
 
     /** 是否启用验证码自动配置 */
     private boolean enabled = true;

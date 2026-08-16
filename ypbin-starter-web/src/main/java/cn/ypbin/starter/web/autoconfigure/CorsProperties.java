@@ -27,8 +27,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-07-30
  */
-@ConfigurationProperties(prefix = "ypbin.web.cors")
+@ConfigurationProperties(prefix = CorsProperties.PREFIX)
 public class CorsProperties {
+
+    public static final String PREFIX = "ypbin.web.cors";
 
     /** 是否启用跨域，默认关闭 */
     private boolean enabled = false;
