@@ -18,6 +18,9 @@ package cn.ypbin.starter.security.satoken;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.ypbin.starter.security.autoconfigure.SecurityProperties;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -71,7 +74,20 @@ public class SaTokenWebConfigurer implements WebMvcConfigurer {
                 excludes.addAll(paths);
             }
         }
-        registry.addInterceptor(new SaInterceptor(handle -> StpUtil.checkLogin()))
+        registry.addInterceptor(new SaInterceptor(handle -> StpUtil.checkLogin()) {
+            /**
+             * 非 REQUEST 分发（ERROR/ASYNC）直接放行：异步流（如 SSE）出错后的错误分发
+             * 不在请求线程上，Sa-Token 上下文未初始化，二次登录校验会误报并掩盖真实错误。
+             */
+            @Override
+            public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
+                    Object handler) throws Exception {
+                if (request.getDispatcherType() != DispatcherType.REQUEST) {
+                    return true;
+                }
+                return super.preHandle(request, response, handler);
+            }
+        })
             .addPathPatterns(properties.getIncludes())
             .excludePathPatterns(excludes);
     }
