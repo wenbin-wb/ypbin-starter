@@ -53,9 +53,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.boot.jackson2.autoconfigure.Jackson2AutoConfiguration;
 import org.springframework.boot.jackson2.autoconfigure.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.module.SimpleModule;
 
 /**
  * Jackson 统一序列化自动配置。
@@ -80,6 +82,25 @@ import org.springframework.context.annotation.Bean;
 public class JacksonAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(JacksonAutoConfiguration.class);
+
+    /**
+     * Jackson 3（SB4 主序列化器）定制：与 Jackson 2 customizer 等效，
+     * 确保大数字转字符串、日期格式在 {@code tools.jackson.*} ObjectMapper 上同样生效。
+     */
+    @Bean
+    @ConditionalOnClass(JsonMapperBuilderCustomizer.class)
+    public JsonMapperBuilderCustomizer ypbinJackson3Customizer(JacksonProperties properties) {
+        return builder -> {
+            if (properties.isWriteBigNumberAsString()) {
+                SimpleModule module = new SimpleModule("ypbin-big-number-as-string");
+                module.addSerializer(Long.class, tools.jackson.databind.ser.std.ToStringSerializer.instance);
+                module.addSerializer(Long.TYPE, tools.jackson.databind.ser.std.ToStringSerializer.instance);
+                module.addSerializer(BigInteger.class, tools.jackson.databind.ser.std.ToStringSerializer.instance);
+                module.addSerializer(BigDecimal.class, tools.jackson.databind.ser.std.ToStringSerializer.instance);
+                builder.addModule(module);
+            }
+        };
+    }
 
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer ypbinJacksonCustomizer(JacksonProperties properties) {
