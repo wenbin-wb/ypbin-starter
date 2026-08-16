@@ -55,8 +55,27 @@ public final class DocumentLoader {
      */
     public static List<Document> loadAndChunk(byte[] bytes, String filename,
             Map<String, Object> metadata) {
+        return loadAndChunk(bytes, filename, metadata, null);
+    }
+
+    /**
+     * 解析文件字节并按可配置 chunk 大小切片。
+     *
+     * @param bytes     文件字节
+     * @param filename  文件名（用于判断类型和填充 metadata）
+     * @param metadata  额外 metadata（如 knowledgeBaseId、documentId）
+     * @param chunkSize token 块大小（null 用默认值），仅正数生效，保持向后兼容
+     * @return 切片后的文档列表
+     */
+    public static List<Document> loadAndChunk(byte[] bytes, String filename,
+            Map<String, Object> metadata, Integer chunkSize) {
         List<Document> rawDocs = parseRaw(bytes, filename);
-        List<Document> chunks = TokenTextSplitter.builder().build().apply(rawDocs);
+        var splitterBuilder = TokenTextSplitter.builder();
+        // 仅当 chunkSize 为正数时覆盖默认值，保持向后兼容
+        if (chunkSize != null && chunkSize > 0) {
+            splitterBuilder.withChunkSize(chunkSize);
+        }
+        List<Document> chunks = splitterBuilder.build().apply(rawDocs);
         // 注入 metadata
         return chunks.stream()
             .map(c -> {
