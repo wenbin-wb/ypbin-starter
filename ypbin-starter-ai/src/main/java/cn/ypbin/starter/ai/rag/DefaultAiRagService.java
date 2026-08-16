@@ -17,9 +17,13 @@ package cn.ypbin.starter.ai.rag;
 
 import cn.ypbin.starter.ai.autoconfigure.rag.AiRagProperties;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -129,5 +133,85 @@ public class DefaultAiRagService implements AiRagService {
         ).build();
         vectorStore.delete(filter);
         log.debug("[ypbin-ai] deleted document vectors: kb={}, doc={}", knowledgeBaseId, documentId);
+    }
+
+    @Override
+    public List<Document> searchMultiple(List<String> knowledgeBaseIds, String query,
+            int topKPerKb, int maxTotal) {
+        if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
+            return List.of();
+        }
+        int per = topKPerKb > 0 ? topKPerKb : 5;
+        // 各库独立召回，保留原始顺序（RRF 排序用）
+        List<List<Document>> perRankings = new ArrayList<>(knowledgeBaseIds.size());
+        for (String kbId : knowledgeBaseIds) {
+            perRankings.add(search(kbId, query, per));
+        }
+        // Reciprocal Rank Fusion：跨库文档按 RRF 综合排序
+        Map<String, Document> byId = new LinkedHashMap<>();
+        Map<String, Double> rrfScore = new HashMap<>();
+        for (List<Document> ranking : perRankings) {
+            int rank = 1;
+            for (Document doc : ranking) {
+                byId.putIfAbsent(doc.getId(), doc);
+                rrfScore.merge(doc.getId(), 1.0 / (60 + rank), Double::sum);
+                rank++;
+            }
+        }
+        List<String> orderedIds = byId.keySet().stream()
+            .sorted(Comparator.comparingDouble((String id) -> rrfScore.getOrDefault(id, 0.0)).reversed())
+            .toList();
+        int total = maxTotal > 0 ? maxTotal : orderedIds.size();
+        return orderedIds.subList(0, Math.min(total, orderedIds.size())).stream()
+            .map(byId::get)
+            .toList();
+    }
+
+    @Override
+    public List<Document> searchWithRerank(String knowledgeBaseId, String query, int topK) {
+        int k = topK > 0 ? topK : 5;
+        // 放大召回（取 3 倍候选），再做关键词重叠精排，避免初筛后候选不足
+        List<Document> candidates = search(knowledgeBaseId, query, k * 3);
+        if (candidates.size() <= 1) {
+            return candidates;
+        }
+        Set<String> queryTokens = tokenize(query);
+        return candidates.stream()
+            .sorted(Comparator.comparingDouble((Document d) ->
+                overlapScore(queryTokens, d.getText())).reversed())
+            .limit(k)
+            .toList();
+    }
+
+    /**
+     * 轻量关键词重叠重排分数：查询命中词数 + 命中词占比加权。
+     */
+    private double overlapScore(Set<String> queryTokens, String text) {
+        if (queryTokens.isEmpty() || text == null || text.isBlank()) {
+            return 0.0;
+        }
+        Set<String> docTokens = tokenize(text);
+        long hit = queryTokens.stream().filter(docTokens::contains).count();
+        if (hit == 0) {
+            return 0.0;
+        }
+        return hit + (double) hit / queryTokens.size();
+    }
+
+    /**
+     * 将文本规范为小写词元集合（去标点、按非字母数字切分）。
+     */
+    private static Set<String> tokenize(String text) {
+        if (text == null || text.isBlank()) {
+            return Set.of();
+        }
+        String[] tokens = text.split("[\\p{Punct}\\s，。；：！？、（）【】《》“”‘’]+");
+        Set<String> set = new HashSet<>();
+        for (String t : tokens) {
+            if (!t.isBlank()) {
+                set.add(t);
+            }
+        }
+        return set;
     }
 }
