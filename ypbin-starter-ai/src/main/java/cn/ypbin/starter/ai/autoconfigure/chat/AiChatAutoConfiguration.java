@@ -35,6 +35,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import reactor.core.publisher.Hooks;
 
 /**
  * AI 对话自动配置。
@@ -89,6 +90,9 @@ public class AiChatAutoConfiguration {
     public AiChatService aiChatService(ObjectProvider<ChatClient> chatClientProvider, ChatMemory chatMemory,
             ObjectProvider<VectorStore> vectorStoreProvider, ObjectProvider<AiModelConfigResolver> modelResolverProvider,
             ObjectProvider<ToolCallbackProvider> toolCallbackProvider, AiChatProperties props) {
+        // 开启 Reactor 自动 ThreadLocal 传播：配合 ThreadLocalAccessor 在每次 Scheduler
+        // 切换时自动快照并还原 ThreadLocal（幂等，重复调用安全）
+        Hooks.enableAutomaticContextPropagation();
         VectorStore vectorStore = vectorStoreProvider.getIfAvailable();
         if (vectorStore != null && props.isRagEnabled()) {
             log.debug("[ypbin-ai] VectorStore detected, global RAG enabled");
