@@ -63,6 +63,20 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- 文档解析：docx / xlsx（Apache POI 5.4.x，兼容 JDK21）-->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.1</version>
+        </dependency>
+
+        <!-- 文档解析：html（jsoup 抽取正文文本）-->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
+        </dependency>
+
         <!-- 模型：DeepSeek（首选，V4-Flash/Pro，OpenAI 兼容协议）-->
         <dependency>
             <groupId>org.springframework.ai</groupId>
