@@ -53,14 +53,14 @@ public class LazySimpleVectorStore implements VectorStore {
 
     private final AiEmbeddingConfigResolver embeddingResolver;
     private final String storePath;
-    private volatile VectorStore delegate;
+    private volatile SimpleVectorStore delegate;
 
     public LazySimpleVectorStore(AiEmbeddingConfigResolver embeddingResolver, String storePath) {
         this.embeddingResolver = embeddingResolver;
         this.storePath = storePath;
     }
 
-    private VectorStore delegate() {
+    private SimpleVectorStore delegate() {
         if (delegate == null) {
             synchronized (this) {
                 if (delegate == null) {
@@ -71,7 +71,7 @@ public class LazySimpleVectorStore implements VectorStore {
         return delegate;
     }
 
-    private VectorStore build() {
+    private SimpleVectorStore build() {
         AiEmbeddingConfigResolver.AiModelInfo info = embeddingResolver.resolve();
         if (info == null || info.baseUrl() == null || info.baseUrl().isBlank()
                 || info.apiKey() == null || info.apiKey().isBlank()
@@ -111,9 +111,32 @@ public class LazySimpleVectorStore implements VectorStore {
         return normalized;
     }
 
+    /**
+     * 将向量数据序列化到配置的路径：目录不存在时自动创建，
+     * 保证重启后向量不丢失（与启动时 load 对称）。
+     */
+    private void persist() {
+        if (storePath == null || storePath.isBlank()) {
+            return;
+        }
+        try {
+            File file = new File(storePath);
+            File parent = file.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                log.warn("[ypbin-ai] 无法创建向量持久化目录: {}", parent);
+            }
+            delegate().save(file);
+            log.debug("[ypbin-ai] SimpleVectorStore saved to {}", storePath);
+        } catch (RuntimeException e) {
+            // 序列化失败不阻断本次会话的向量检索，仅记录日志（持久化是尽力而为）
+            log.warn("[ypbin-ai] 向量持久化失败（不影响本次会话检索）: {}", e.getMessage());
+        }
+    }
+
     @Override
     public void add(List<Document> documents) {
         delegate().add(documents);
+        persist();
     }
 
     @Override
