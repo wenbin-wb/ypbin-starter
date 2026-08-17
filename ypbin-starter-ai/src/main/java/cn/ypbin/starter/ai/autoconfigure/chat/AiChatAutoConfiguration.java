@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -87,13 +88,13 @@ public class AiChatAutoConfiguration {
     @ConditionalOnBean(ChatMemory.class)
     public AiChatService aiChatService(ObjectProvider<ChatClient> chatClientProvider, ChatMemory chatMemory,
             ObjectProvider<VectorStore> vectorStoreProvider, ObjectProvider<AiModelConfigResolver> modelResolverProvider,
-            AiChatProperties props) {
+            ObjectProvider<ToolCallbackProvider> toolCallbackProvider, AiChatProperties props) {
         VectorStore vectorStore = vectorStoreProvider.getIfAvailable();
         if (vectorStore != null && props.isRagEnabled()) {
             log.debug("[ypbin-ai] VectorStore detected, global RAG enabled");
         }
         return new DefaultAiChatService(chatClientProvider.getIfAvailable(), chatMemory, vectorStore,
             modelResolverProvider.getIfAvailable(), props.getDefaultSystemPrompt(),
-            props.isRagEnabled(), props.getStreamTimeoutMs());
+            props.isRagEnabled(), props.getStreamTimeoutMs(), toolCallbackProvider.getIfAvailable());
     }
 }

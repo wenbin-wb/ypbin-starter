@@ -36,6 +36,7 @@ import org.springframework.ai.openai.http.okhttp.SpringAiOpenAiHttpClient;
 import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import reactor.core.publisher.Flux;
@@ -64,10 +65,12 @@ public class DefaultAiChatService implements AiChatService {
     private final String defaultSystemPrompt;
     private final boolean ragEnabled;
     private final long streamTimeoutMs;
+    /** @Tool 工具回调提供者（可空：无工具时动态 ChatClient 不注册工具） */
+    private final ToolCallbackProvider toolCallbackProvider;
 
     public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
             AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
-            long streamTimeoutMs) {
+            long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider) {
         this.chatClient = chatClient;
         this.chatMemory = chatMemory;
         this.vectorStore = vectorStore;
@@ -75,6 +78,7 @@ public class DefaultAiChatService implements AiChatService {
         this.defaultSystemPrompt = defaultSystemPrompt;
         this.ragEnabled = ragEnabled;
         this.streamTimeoutMs = streamTimeoutMs;
+        this.toolCallbackProvider = toolCallbackProvider;
     }
 
     /**
@@ -107,6 +111,10 @@ public class DefaultAiChatService implements AiChatService {
         ChatClient.Builder builder = ChatClient.builder(chatModel);
         if (defaultSystemPrompt != null && !defaultSystemPrompt.isBlank()) {
             builder.defaultSystem(defaultSystemPrompt);
+        }
+        if (toolCallbackProvider != null) {
+            builder.defaultTools(toolCallbackProvider);
+            log.debug("[ypbin-ai] @Tool 已注册到动态 ChatClient");
         }
         log.debug("[ypbin-ai] dynamic ChatClient built: baseUrl={}, model={}", info.baseUrl(), info.modelName());
         return builder.build();
