@@ -21,9 +21,11 @@ import cn.ypbin.starter.tenant.aspect.TenantIgnoreAspect;
 import cn.ypbin.starter.tenant.core.TenantContext;
 import cn.ypbin.starter.tenant.core.TenantContextPropagator;
 import cn.ypbin.starter.tenant.core.TenantProvider;
+import cn.ypbin.starter.tenant.core.TenantThreadLocalAccessor;
 import cn.ypbin.starter.tenant.handler.DefaultTenantLineHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
+import io.micrometer.context.ThreadLocalAccessor;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,5 +95,18 @@ public class TenantAutoConfiguration {
     @ConditionalOnMissingBean
     public ContextPropagator<TenantContext.ContextSnapshot> tenantContextPropagator() {
         return new TenantContextPropagator();
+    }
+
+    /**
+     * Reactor 跨线程租户传播：实现 {@link ThreadLocalAccessor} 并注册为 Bean，
+     * Spring Boot 4 的 ObservationAutoConfiguration 自动将其加入全局 ContextRegistry，
+     * Reactor 3.5+ 在每次线程切换时自动快照/还原租户上下文，保持隔离。
+     * 仅在 context-propagation 在 classpath 时生效。
+     */
+    @Bean
+    @ConditionalOnClass(ThreadLocalAccessor.class)
+    @ConditionalOnMissingBean(TenantThreadLocalAccessor.class)
+    public TenantThreadLocalAccessor tenantThreadLocalAccessor() {
+        return new TenantThreadLocalAccessor();
     }
 }
