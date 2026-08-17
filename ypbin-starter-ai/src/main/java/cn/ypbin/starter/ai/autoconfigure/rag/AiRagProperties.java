@@ -40,6 +40,17 @@ public class AiRagProperties {
     /** 最大 context 长度（字符数），防止超出模型上下文窗口 */
     private int maxContextLength = 8000;
 
+    /** SimpleVectorStore 序列化文件路径；配置后重启不丢向量（自动加载/保存） */
+    private String simpleStorePath;
+
+    public String getSimpleStorePath() {
+        return simpleStorePath;
+    }
+
+    public void setSimpleStorePath(String simpleStorePath) {
+        this.simpleStorePath = simpleStorePath;
+    }
+
     public boolean isEnabled() {
         return enabled;
     }
