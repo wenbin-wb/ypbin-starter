@@ -25,6 +25,7 @@ import cn.ypbin.starter.tenant.core.TenantThreadLocalAccessor;
 import cn.ypbin.starter.tenant.handler.DefaultTenantLineHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
+import io.micrometer.context.ContextRegistry;
 import io.micrometer.context.ThreadLocalAccessor;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -107,6 +108,11 @@ public class TenantAutoConfiguration {
     @ConditionalOnClass(ThreadLocalAccessor.class)
     @ConditionalOnMissingBean(TenantThreadLocalAccessor.class)
     public TenantThreadLocalAccessor tenantThreadLocalAccessor() {
-        return new TenantThreadLocalAccessor();
+        TenantThreadLocalAccessor accessor = new TenantThreadLocalAccessor();
+        // 显式注册到全局 ContextRegistry，不依赖 ObservationAutoConfiguration 的执行顺序；
+        // ContextRegistry 支持重复注册同一 key（幂等）
+        ContextRegistry.getInstance().registerThreadLocalAccessor(accessor);
+        log.debug("[ypbin-tenant] TenantThreadLocalAccessor registered to ContextRegistry");
+        return accessor;
     }
 }
