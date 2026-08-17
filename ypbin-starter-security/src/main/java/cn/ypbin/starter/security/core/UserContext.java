@@ -15,7 +15,6 @@
  */
 package cn.ypbin.starter.security.core;
 
-import cn.dev33.satoken.exception.SaTokenException;
 import cn.dev33.satoken.stp.StpUtil;
 import java.util.Optional;
 
@@ -146,9 +145,10 @@ public final class UserContext {
             }
             Object value = StpUtil.getSession().get(key);
             return value == null ? Optional.empty() : Optional.of((T) value);
-        } catch (SaTokenException e) {
-            // 无 Sa-Token 上下文（异步线程、定时任务等）：安全返回空，
-            // 使 getLoginUser/getUsername/getTenantId 等在无上下文线程中不抛异常。
+        } catch (Exception e) {
+            // 无 Sa-Token 上下文（异步线程、定时任务等）：安全返回空。
+            // SaTokenContextException extends InvalidContextException，不是 SaTokenException
+            // 子类，因此 catch Exception 覆盖所有 Sa-Token 上下文缺失场景。
             return Optional.empty();
         }
     }
