@@ -19,6 +19,7 @@ import cn.ypbin.starter.ai.autoconfigure.memory.AiMemoryAutoConfiguration;
 import cn.ypbin.starter.ai.chat.AiChatService;
 import cn.ypbin.starter.ai.chat.AiModelConfigResolver;
 import cn.ypbin.starter.ai.chat.DefaultAiChatService;
+import cn.ypbin.starter.ai.chat.usage.AiUsageListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -89,7 +90,9 @@ public class AiChatAutoConfiguration {
     @ConditionalOnBean(ChatMemory.class)
     public AiChatService aiChatService(ObjectProvider<ChatClient> chatClientProvider, ChatMemory chatMemory,
             ObjectProvider<VectorStore> vectorStoreProvider, ObjectProvider<AiModelConfigResolver> modelResolverProvider,
-            ObjectProvider<ToolCallbackProvider> toolCallbackProvider, AiChatProperties props) {
+            ObjectProvider<ToolCallbackProvider> toolCallbackProvider,
+            ObjectProvider<AiUsageListener> usageListenersProvider,
+            AiChatProperties props) {
         // 开启 Reactor 自动 ThreadLocal 传播：配合 ThreadLocalAccessor 在每次 Scheduler
         // 切换时自动快照并还原 ThreadLocal（幂等，重复调用安全）
         Hooks.enableAutomaticContextPropagation();
@@ -99,6 +102,7 @@ public class AiChatAutoConfiguration {
         }
         return new DefaultAiChatService(chatClientProvider.getIfAvailable(), chatMemory, vectorStore,
             modelResolverProvider.getIfAvailable(), props.getDefaultSystemPrompt(),
-            props.isRagEnabled(), props.getStreamTimeoutMs(), toolCallbackProvider.getIfAvailable());
+            props.isRagEnabled(), props.getStreamTimeoutMs(), toolCallbackProvider.getIfAvailable(),
+            usageListenersProvider.orderedStream().toList());
     }
 }
