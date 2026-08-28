@@ -30,7 +30,7 @@ jobs:
 
       - name: 归档 JaCoCo 覆盖率报告
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-coverage-reports
           path: "**/target/site/jacoco/"
