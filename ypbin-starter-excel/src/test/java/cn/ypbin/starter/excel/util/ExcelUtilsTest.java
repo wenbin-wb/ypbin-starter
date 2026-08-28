@@ -17,10 +17,10 @@ package cn.ypbin.starter.excel.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import cn.idev.excel.annotation.ExcelProperty;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
+import org.apache.fesod.sheet.annotation.ExcelProperty;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -86,5 +86,23 @@ class ExcelUtilsTest {
         assertThat(out.size()).isPositive();
         List<Row> read = ExcelUtils.read(new ByteArrayInputStream(out.toByteArray()), Row.class);
         assertThat(read).isEmpty();
+    }
+
+    @Test
+    void readInBatch_streamsSuccessfully() {
+        List<Row> data = List.of(
+            new Row("user1", 21),
+            new Row("user2", 22),
+            new Row("user3", 23)
+        );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ExcelUtils.write(out, "批处理用户", Row.class, data);
+        assertThat(out.size()).isPositive();
+
+        java.util.ArrayList<Row> aggregated = new java.util.ArrayList<>();
+        ExcelUtils.readInBatch(new ByteArrayInputStream(out.toByteArray()), Row.class, 2, aggregated::addAll);
+        assertThat(aggregated).hasSize(3);
+        assertThat(aggregated.get(0).getUsername()).isEqualTo("user1");
+        assertThat(aggregated.get(2).getUsername()).isEqualTo("user3");
     }
 }

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -208,7 +209,7 @@ public final class DocumentLoader {
         return List.of(new Document(text, Map.of("source", filename != null ? filename : "")));
     }
 
-    private static String numericCellValue(org.apache.poi.ss.usermodel.Cell cell) {
+    private static String numericCellValue(Cell cell) {
         double v = cell.getNumericCellValue();
         if (v == Math.floor(v) && !Double.isInfinite(v)) {
             return String.valueOf((long) v);
@@ -221,9 +222,9 @@ public final class DocumentLoader {
      */
     private static List<Document> parseHtml(byte[] bytes, String filename) {
         String html = new String(bytes, StandardCharsets.UTF_8);
-        org.jsoup.nodes.Document doc = Jsoup.parse(html);
+        Element doc = Jsoup.parse(html);
         Element main = doc.selectFirst("article,main,[role=main]");
-        String text = (main != null ? main : doc.body()).text();
+        String text = (main != null ? main : doc.ownerDocument().body()).text();
         return List.of(new Document(text, Map.of("source", filename != null ? filename : "")));
     }
 }

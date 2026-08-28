@@ -15,10 +15,6 @@
  */
 package cn.ypbin.starter.excel.util;
 
-import cn.idev.excel.ExcelWriter;
-import cn.idev.excel.FastExcel;
-import cn.idev.excel.read.listener.PageReadListener;
-import cn.idev.excel.write.metadata.WriteSheet;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,13 +24,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import org.apache.fesod.sheet.ExcelWriter;
+import org.apache.fesod.sheet.FesodSheet;
+import org.apache.fesod.sheet.read.listener.PageReadListener;
+import org.apache.fesod.sheet.write.metadata.WriteSheet;
+import org.apache.fesod.sheet.write.style.column.LongestMatchColumnWidthStyleStrategy;
 
 /**
  * Excel 读写工具。
  *
- * <p>基于 FastExcel 的注解驱动读写：实体字段用 {@code @ExcelProperty} 标注列名。覆盖常见场景——
- * 同步读 / 指定 sheet 与表头行读 / 大文件分批流式读；单 sheet 写 / 指定 sheet 写 / 多 sheet 写；
- * 导出到 HTTP 响应（单 sheet / 多 sheet），并自动处理文件名编码与响应头。</p>
+ * <p>基于 Apache Fesod 2.0+ 的注解驱动读写：实体字段用 {@code @ExcelProperty} 标注列名。覆盖常见场景——
+ * 同步读 / 指定 sheet 与表头行读 / 大文件分批流式读；单 sheet 写 / 自适应列宽写 / 多 sheet 写；
+ * 导出到 HTTP 响应（数据导出 / 空模板导出），并自动处理文件名编码与响应头。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -60,7 +61,7 @@ public final class ExcelUtils {
      * @return 数据列表
      */
     public static <T> List<T> read(InputStream inputStream, Class<T> clazz) {
-        return FastExcel.read(inputStream).head(clazz).sheet().doReadSync();
+        return FesodSheet.read(inputStream).head(clazz).sheet().doReadSync();
     }
 
     /**
@@ -73,7 +74,7 @@ public final class ExcelUtils {
      * @return 数据列表
      */
     public static <T> List<T> read(InputStream inputStream, Class<T> clazz, int sheetNo) {
-        return FastExcel.read(inputStream).head(clazz).sheet(sheetNo).doReadSync();
+        return FesodSheet.read(inputStream).head(clazz).sheet(sheetNo).doReadSync();
     }
 
     /**
@@ -87,7 +88,7 @@ public final class ExcelUtils {
      * @return 数据列表
      */
     public static <T> List<T> read(InputStream inputStream, Class<T> clazz, int sheetNo, int headRowNumber) {
-        return FastExcel.read(inputStream).head(clazz).sheet(sheetNo).headRowNumber(headRowNumber).doReadSync();
+        return FesodSheet.read(inputStream).head(clazz).sheet(sheetNo).headRowNumber(headRowNumber).doReadSync();
     }
 
     /**
@@ -101,13 +102,13 @@ public final class ExcelUtils {
      */
     public static <T> void readInBatch(InputStream inputStream, Class<T> clazz, int batchSize,
                                        Consumer<List<T>> batchConsumer) {
-        FastExcel.read(inputStream, clazz, new PageReadListener<T>(batchConsumer, batchSize)).sheet().doRead();
+        FesodSheet.read(inputStream, clazz, new PageReadListener<T>(batchConsumer, batchSize)).sheet().doRead();
     }
 
     // ------------------------------------------------------------------ 写
 
     /**
-     * 将数据列表写入输出流的单个 sheet。
+     * 将数据列表写入输出流的单个 sheet（默认开启中英文自适应列宽策略）。
      *
      * @param outputStream 输出流
      * @param sheetName    工作表名
@@ -116,7 +117,10 @@ public final class ExcelUtils {
      * @param <T>          类型
      */
     public static <T> void write(OutputStream outputStream, String sheetName, Class<T> clazz, List<T> data) {
-        FastExcel.write(outputStream, clazz).sheet(sheetName).doWrite(data);
+        FesodSheet.write(outputStream, clazz)
+            .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+            .sheet(sheetName)
+            .doWrite(data);
     }
 
     /**
@@ -131,8 +135,11 @@ public final class ExcelUtils {
      */
     public static <T> void writeIncludeColumns(OutputStream outputStream, String sheetName, Class<T> clazz,
                                                List<T> data, Collection<String> includeColumns) {
-        FastExcel.write(outputStream, clazz).includeColumnFieldNames(includeColumns)
-            .sheet(sheetName).doWrite(data);
+        FesodSheet.write(outputStream, clazz)
+            .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+            .includeColumnFieldNames(includeColumns)
+            .sheet(sheetName)
+            .doWrite(data);
     }
 
     /**
@@ -147,8 +154,11 @@ public final class ExcelUtils {
      */
     public static <T> void writeExcludeColumns(OutputStream outputStream, String sheetName, Class<T> clazz,
                                                List<T> data, Collection<String> excludeColumns) {
-        FastExcel.write(outputStream, clazz).excludeColumnFieldNames(excludeColumns)
-            .sheet(sheetName).doWrite(data);
+        FesodSheet.write(outputStream, clazz)
+            .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+            .excludeColumnFieldNames(excludeColumns)
+            .sheet(sheetName)
+            .doWrite(data);
     }
 
     /**
@@ -158,10 +168,12 @@ public final class ExcelUtils {
      * @param sheets       多个 sheet 的数据描述
      */
     public static void writeMultiSheet(OutputStream outputStream, List<SheetData<?>> sheets) {
-        try (ExcelWriter writer = FastExcel.write(outputStream).build()) {
+        try (ExcelWriter writer = FesodSheet.write(outputStream)
+            .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+            .build()) {
             int index = 0;
             for (SheetData<?> sheet : sheets) {
-                WriteSheet writeSheet = FastExcel.writerSheet(index++, sheet.sheetName())
+                WriteSheet writeSheet = FesodSheet.writerSheet(index++, sheet.sheetName())
                     .head(sheet.clazz()).build();
                 writer.write(sheet.data(), writeSheet);
             }
@@ -186,6 +198,18 @@ public final class ExcelUtils {
         } catch (IOException e) {
             throw new IllegalStateException("Excel 导出失败：" + fileName, e);
         }
+    }
+
+    /**
+     * 导出 Excel 导入空模板到 HTTP 响应（仅输出标准表头，供用户下载后填写导入）。
+     *
+     * @param response HTTP 响应
+     * @param fileName 模板文件名（不含扩展名）
+     * @param clazz    数据类型
+     * @param <T>      类型
+     */
+    public static <T> void exportTemplate(HttpServletResponse response, String fileName, Class<T> clazz) {
+        export(response, fileName, clazz, List.of());
     }
 
     /**

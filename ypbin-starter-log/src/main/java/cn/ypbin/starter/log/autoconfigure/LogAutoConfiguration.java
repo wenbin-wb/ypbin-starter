@@ -27,6 +27,7 @@ import cn.ypbin.starter.log.support.LogCollector;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import java.util.Set;
+import org.aspectj.lang.ProceedingJoinPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -49,7 +50,7 @@ import org.springframework.context.annotation.Bean;
  * @since 2026-07-30
  */
 @AutoConfiguration
-@ConditionalOnClass(org.aspectj.lang.ProceedingJoinPoint.class)
+@ConditionalOnClass(ProceedingJoinPoint.class)
 @ConditionalOnProperty(prefix = "ypbin.log", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(LogProperties.class)
 public class LogAutoConfiguration {

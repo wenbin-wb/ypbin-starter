@@ -14,7 +14,7 @@
     <artifactId>ypbin-starter-excel</artifactId>
 
     <name>${project.artifactId}</name>
-    <description>Excel 导入导出：基于 FastExcel 的注解驱动读写与 HTTP 导出封装</description>
+    <description>Excel 导入导出：基于 Apache Fesod 2.0+ 的注解驱动读写与 HTTP 导出封装</description>
 
     <dependencies>
         <dependency>
@@ -23,8 +23,8 @@
         </dependency>
 
         <dependency>
-            <groupId>cn.idev.excel</groupId>
-            <artifactId>fastexcel</artifactId>
+            <groupId>org.apache.fesod</groupId>
+            <artifactId>fesod-sheet</artifactId>
         </dependency>
         <!-- 导出到 HTTP 响应需要 Servlet API，可选：也支持写入任意 OutputStream -->
         <dependency>
