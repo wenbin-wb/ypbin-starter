@@ -37,9 +37,9 @@
         <paho-mqtt.version>1.2.5</paho-mqtt.version>
         <sms4j.version>3.3.5</sms4j.version>
 
-        <!-- Spring AI 版本 -->
         <spring-ai.version>2.0.0</spring-ai.version>
         <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
     </properties>
@@ -418,6 +418,27 @@
                         <phase>process-test-classes</phase>
                         <goals>
                             <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- JaCoCo 代码覆盖率统计 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-initialize</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>
