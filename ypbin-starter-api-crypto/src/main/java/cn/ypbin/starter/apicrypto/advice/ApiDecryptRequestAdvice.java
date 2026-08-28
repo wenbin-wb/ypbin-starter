@@ -18,6 +18,7 @@ package cn.ypbin.starter.apicrypto.advice;
 import cn.ypbin.starter.apicrypto.annotation.ApiEncrypt;
 import cn.ypbin.starter.apicrypto.core.ApiCryptoProvider;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -29,13 +30,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdvice;
 
 /**
- * 请求体解密 Advice。
- *
- * <p>对标注 {@link ApiEncrypt} 且 {@code requestDecrypt=true} 的接口，在 Jackson 解析前
- * 把请求体（视为 Base64 密文）解密为明文 JSON，再交给下游转换器，对 Controller 透明。</p>
+ * 请求解密切面。
  *
  * @author wenbin
- * @since 2026-07-30
+ * @since 2026-08-01
  */
 @RestControllerAdvice
 public class ApiDecryptRequestAdvice implements RequestBodyAdvice {
@@ -55,7 +53,7 @@ public class ApiDecryptRequestAdvice implements RequestBodyAdvice {
 
     @Override
     public HttpInputMessage beforeBodyRead(HttpInputMessage inputMessage, MethodParameter parameter,
-        Type targetType, Class<? extends HttpMessageConverter<?>> converterType) throws java.io.IOException {
+        Type targetType, Class<? extends HttpMessageConverter<?>> converterType) throws IOException {
         String cipher = new String(inputMessage.getBody().readAllBytes(), StandardCharsets.UTF_8).trim();
         if (cipher.isEmpty()) {
             return inputMessage;
