@@ -1,0 +1,52 @@
+name: "🐛 Bug 报告"
+description: 发现缺陷或异常行为？请通过此模板提交。
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢提交 Bug 反馈！在提交前请先确认该问题是否已被提出或已在最新版本修复。
+  - type: dropdown
+    id: module
+    attributes:
+      label: 涉及模块
+      description: 请选择产生问题的 starter 模块。
+      options:
+        - "ypbin-starter-ai"
+        - "ypbin-starter-security"
+        - "ypbin-starter-data"
+        - "ypbin-starter-cache"
+        - "ypbin-starter-log"
+        - "ypbin-starter-tools"
+        - "ypbin-starter-excel"
+        - "ypbin-starter-messaging"
+        - "ypbin-starter-captcha"
+        - "ypbin-starter-sensitive-words"
+        - "ypbin-starter-license"
+        - "ypbin-starter-cloud-*"
+        - "其他模块"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 组件版本
+      description: 例如 1.4.0、JDK 21、Spring Boot 4.1.0
+      placeholder: "ypbin-starter: 1.4.0, JDK: 21, Spring Boot: 4.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤与行为描述
+      description: 请详细描述问题出现的上下文、复现代码片段或配置。
+      placeholder: "1. 配置了 ...\n2. 调用方法 ...\n3. 抛出异常 ..."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 异常堆栈与日志
+      description: 请粘贴完整的报错堆栈信息（如有）。
+      render: shell

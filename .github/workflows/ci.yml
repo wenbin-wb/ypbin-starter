@@ -22,5 +22,16 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: 编译、代码风格校验与测试
-        run: mvn -B clean install
+      - name: 编译、代码风格校验与全量单元测试
+        run: mvn -B clean test
+
+      - name: 本地打包与安装
+        run: mvn -B install -DskipTests
+
+      - name: 归档 JaCoCo 覆盖率报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-reports
+          path: "**/target/site/jacoco/"
+          if-no-files-found: ignore
