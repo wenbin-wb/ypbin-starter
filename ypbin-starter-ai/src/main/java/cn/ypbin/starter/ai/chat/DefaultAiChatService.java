@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.ai.chat;
 
+import cn.ypbin.starter.ai.chat.usage.AiUsageInfo;
+import cn.ypbin.starter.ai.chat.usage.AiUsageListener;
 import com.openai.client.OpenAIClient;
 import com.openai.client.OpenAIClientAsync;
 import com.openai.client.OpenAIClientAsyncImpl;
@@ -22,6 +24,7 @@ import com.openai.client.OpenAIClientImpl;
 import com.openai.core.ClientOptions;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,10 +70,18 @@ public class DefaultAiChatService implements AiChatService {
     private final long streamTimeoutMs;
     /** @Tool 工具回调提供者（可空：无工具时动态 ChatClient 不注册工具） */
     private final ToolCallbackProvider toolCallbackProvider;
+    private final List<AiUsageListener> usageListeners;
 
     public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
             AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
             long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider) {
+        this(chatClient, chatMemory, vectorStore, modelResolver, defaultSystemPrompt, ragEnabled, streamTimeoutMs,
+                toolCallbackProvider, Collections.emptyList());
+    }
+
+    public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
+            AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
+            long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners) {
         this.chatClient = chatClient;
         this.chatMemory = chatMemory;
         this.vectorStore = vectorStore;
@@ -79,6 +90,7 @@ public class DefaultAiChatService implements AiChatService {
         this.ragEnabled = ragEnabled;
         this.streamTimeoutMs = streamTimeoutMs;
         this.toolCallbackProvider = toolCallbackProvider;
+        this.usageListeners = usageListeners != null ? usageListeners : Collections.emptyList();
     }
 
     /**
@@ -141,6 +153,7 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public String chat(String conversationId, String userMessage) {
         log.debug("[ypbin-ai] chat: conversationId={}", conversationId);
+        long start = System.currentTimeMillis();
         // 同步路径同样受 streamTimeoutMs 保护，避免上游挂起时无限占用线程
         Flux<String> flux = resolveClient().prompt()
             .advisors(spec -> spec
@@ -152,7 +165,23 @@ public class DefaultAiChatService implements AiChatService {
         List<String> tokens = withTimeout(flux)
             .collectList()
             .block(Duration.ofMillis(streamTimeoutMs()));
+        long duration = System.currentTimeMillis() - start;
+        notifyUsage(null, conversationId, duration);
         return tokens == null ? "" : String.join("", tokens);
+    }
+
+    private void notifyUsage(String model, String conversationId, long durationMs) {
+        if (usageListeners.isEmpty()) {
+            return;
+        }
+        AiUsageInfo info = AiUsageInfo.of(model != null ? model : "default", conversationId, 0, 0, 0, durationMs);
+        for (AiUsageListener listener : usageListeners) {
+            try {
+                listener.onUsage(info);
+            } catch (Exception ex) {
+                log.warn("[ypbin-ai] AiUsageListener error: {}", ex.getMessage(), ex);
+            }
+        }
     }
 
     /**

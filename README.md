@@ -7,6 +7,7 @@
 让业务团队从第一行代码起就站在生产就绪的地基上 · 单体与微服务同源 · 约定优于配置 · 可覆盖可扩展
 
 [![CI](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-JaCoCo%20Verified-brightgreen.svg)](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/cn.ypbin/ypbin-starter-bom?label=Maven%20Central&color=blue)](https://central.sonatype.com/artifact/cn.ypbin/ypbin-starter-bom)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
