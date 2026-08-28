@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.ai.autoconfigure.chat;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -41,6 +42,9 @@ public class AiChatProperties {
 
     /** 流式响应超时（毫秒），0 表示不超时 */
     private long streamTimeoutMs = 0L;
+
+    /** 动态构建 OpenAI 兼容客户端时的传输层超时（连接 + 读写），默认 60s */
+    private Duration clientTimeout = Duration.ofSeconds(60);
 
     public boolean isEnabled() {
         return enabled;
@@ -72,5 +76,13 @@ public class AiChatProperties {
 
     public void setStreamTimeoutMs(long streamTimeoutMs) {
         this.streamTimeoutMs = streamTimeoutMs;
+    }
+
+    public Duration getClientTimeout() {
+        return clientTimeout;
+    }
+
+    public void setClientTimeout(Duration clientTimeout) {
+        this.clientTimeout = clientTimeout;
     }
 }

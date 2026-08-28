@@ -54,7 +54,8 @@ public class AiVectorStoreAutoConfiguration {
     @ConditionalOnMissingBean(VectorStore.class)
     public VectorStore simpleVectorStore(AiRagProperties props,
             AiEmbeddingConfigResolver embeddingResolver) {
-        VectorStore store = new LazySimpleVectorStore(embeddingResolver, props.getSimpleStorePath());
+        VectorStore store = new LazySimpleVectorStore(embeddingResolver, props.getSimpleStorePath(),
+            props.getClientTimeout());
         log.debug("[ypbin-ai] LazySimpleVectorStore configured (delegate built on first use)");
         return store;
     }

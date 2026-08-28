@@ -68,6 +68,8 @@ public class DefaultAiChatService implements AiChatService {
     private final String defaultSystemPrompt;
     private final boolean ragEnabled;
     private final long streamTimeoutMs;
+    /** 动态构建 OpenAI 兼容客户端时的传输层超时（连接 + 读写） */
+    private final Duration clientTimeout;
     /** @Tool 工具回调提供者（可空：无工具时动态 ChatClient 不注册工具） */
     private final ToolCallbackProvider toolCallbackProvider;
     private final List<AiUsageListener> usageListeners;
@@ -82,6 +84,14 @@ public class DefaultAiChatService implements AiChatService {
     public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
             AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
             long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners) {
+        this(chatClient, chatMemory, vectorStore, modelResolver, defaultSystemPrompt, ragEnabled, streamTimeoutMs,
+                toolCallbackProvider, usageListeners, Duration.ofSeconds(60));
+    }
+
+    public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
+            AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
+            long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners,
+            Duration clientTimeout) {
         this.chatClient = chatClient;
         this.chatMemory = chatMemory;
         this.vectorStore = vectorStore;
@@ -91,6 +101,7 @@ public class DefaultAiChatService implements AiChatService {
         this.streamTimeoutMs = streamTimeoutMs;
         this.toolCallbackProvider = toolCallbackProvider;
         this.usageListeners = usageListeners != null ? usageListeners : Collections.emptyList();
+        this.clientTimeout = clientTimeout != null ? clientTimeout : Duration.ofSeconds(60);
     }
 
     /**
@@ -111,7 +122,9 @@ public class DefaultAiChatService implements AiChatService {
         ClientOptions options = ClientOptions.builder()
             .apiKey(info.apiKey())
             .baseUrl(normalizeBaseUrl(info.baseUrl()))
-            .httpClient(SpringAiOpenAiHttpClient.builder().build())
+            .httpClient(SpringAiOpenAiHttpClient.builder()
+                .timeout(clientTimeout)
+                .build())
             .build();
         OpenAIClient client = new OpenAIClientImpl(options);
         OpenAIClientAsync asyncClient = new OpenAIClientAsyncImpl(options);

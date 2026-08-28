@@ -148,8 +148,9 @@ public class LogCollector {
                 .getRequestAttributes() instanceof ServletRequestAttributes attrs) {
                 return attrs.getRequest();
             }
-        } catch (Exception ignored) {
-            // 无 Web 上下文，安全降级
+        } catch (Exception e) {
+            // 无 Web 上下文时记录调试日志，便于排查日志采集链路异常
+            log.debug("[ypbin-starter] 当前线程不存在请求上下文，跳过请求信息采集: {}", e.getMessage());
         }
         return null;
     }
