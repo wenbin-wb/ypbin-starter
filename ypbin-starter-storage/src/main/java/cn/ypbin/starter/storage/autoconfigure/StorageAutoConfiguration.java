@@ -41,6 +41,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * 存储模块自动配置。
@@ -144,7 +145,7 @@ public class StorageAutoConfiguration {
      * 对象存储装配（仅当 AWS SDK 存在时生效）。
      */
     @AutoConfiguration
-    @ConditionalOnClass(software.amazon.awssdk.services.s3.S3Client.class)
+    @ConditionalOnClass(S3Client.class)
     static class OssStorageConfiguration {
 
         @Bean

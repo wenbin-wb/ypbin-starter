@@ -22,10 +22,12 @@ import cn.ypbin.starter.messaging.mqtt.MqttPublisher;
 import cn.ypbin.starter.messaging.mqtt.MqttSubscriber;
 import java.util.List;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 import org.springframework.beans.factory.DisposableBean;
@@ -109,12 +111,12 @@ public class MqttAutoConfiguration {
             }
 
             @Override
-            public void messageArrived(String topic, org.eclipse.paho.client.mqttv3.MqttMessage message) {
+            public void messageArrived(String topic, MqttMessage message) {
                 // 具体主题回调由 subscribe(...) 时注册的 IMqttMessageListener 处理，此处不用兜底
             }
 
             @Override
-            public void deliveryComplete(org.eclipse.paho.client.mqttv3.IMqttDeliveryToken token) {
+            public void deliveryComplete(IMqttDeliveryToken token) {
                 // 发布确认，无需处理
             }
         });

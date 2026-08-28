@@ -19,6 +19,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.Security;
 import java.util.HexFormat;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
@@ -78,8 +80,8 @@ public final class Sm3Utils {
      */
     public static String hmacHex(String data, byte[] key) {
         try {
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance(HMAC_ALGORITHM, BouncyCastleProvider.PROVIDER_NAME);
-            mac.init(new javax.crypto.spec.SecretKeySpec(key, HMAC_ALGORITHM));
+            Mac mac = Mac.getInstance(HMAC_ALGORITHM, BouncyCastleProvider.PROVIDER_NAME);
+            mac.init(new SecretKeySpec(key, HMAC_ALGORITHM));
             return HexFormat.of().formatHex(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             throw new IllegalStateException("HMAC-SM3 计算失败", e);

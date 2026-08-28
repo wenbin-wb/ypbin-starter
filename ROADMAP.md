@@ -256,10 +256,10 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ BaseEntity（去泛型，id 固定 Long）：主键 id（`@TableId(type=ASSIGN_ID)` 雪花 + `@JsonSerialize(ToStringSerializer)` 序列化为字符串防精度丢失）+ 审计字段 + 逻辑删除 `isDeleted`（列 `is_deleted`，`@TableLogic` 默认规则开箱生效）。data 补 jackson-databind optional 依赖。
 - ✅ 租户实体基类 `TenantBaseEntity extends BaseEntity` 放 tenant 模块（不污染基础 BaseEntity）：多一个 `tenantId` 字段，隔离仍由行拦截器自动追加 SQL 条件。
 - ✅ security 新增 `UserContext` 当前用户门面 + `LoginUser` 值对象：登录时 `setLoginUser` 存 Sa-Token 会话，`getLoginUser/getUserId/getUsername/getTenantId/getAttribute` 任意层读取；LoginHelper 仍只管 ID。
-- 决策（用户定）：实体去泛型、id 锁定 Long（对齐 blade/continew，覆盖 99% 场景，最简洁）；逻辑删除列名 `is_deleted`；id 单独序列化为字符串；补完整 LoginUser 而非逐字段散取。
+- 决策（用户定）：实体去泛型、id 锁定 Long（覆盖 99% 场景，最简洁）；逻辑删除列名 `is_deleted`；id 单独序列化为字符串；补完整 LoginUser 而非逐字段散取。
 
-### 控制器基类分层 + 实体状态字段（用户：BaseController 太复杂、参考 blade/continew 取舍）
-- ✅ 控制器拆两层：`BaseController` 轻量辅助基类（request/header/param/ip/file、当前用户、ok/data/success/fail/status，不声明路由，对齐 BladeController 定位）；`CrudController` 承担标准 CRUD 路由（get/list/page/save/update/delete）。
+### 控制器基类分层 + 实体状态字段（用户：BaseController 太复杂、按架构分层取舍）
+- ✅ 控制器拆两层：`BaseController` 轻量辅助基类（request/header/param/ip/file、当前用户、ok/data/success/fail/status，不声明路由）；`CrudController` 承担标准 CRUD 路由（get/list/page/save/update/delete）。
 - ✅ BaseController 当前用户方法（userId/username/tenantId/isLogin）用反射弱耦合读取 security 的 UserContext，未引 security 或未登录返回空，不强依赖。extension-crud 补 servlet-api optional。
 - ✅ BaseEntity 增 `status` 业务状态字段（默认 1 正常、0 禁用），与 `isDeleted` 逻辑删除分离不混用。
 - 决策（用户定）：BaseController 做通用辅助而非重 CRUD 父类，大胆重构；标准且轻量用 CrudController，业务重/端点特殊继承 BaseController 自写。
@@ -278,14 +278,14 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 边界：starter 只做签名运行时 + 配置默认实现，不内置 sys_app 表/页面/AK-SK 生成；生成/重置密钥、到期管理归 admin。SignCheckerTest 5（provider/禁用/过期/错误密钥/正常）。
 
 ### 密码安全策略：复杂度校验 + 错误锁定（用户提问：密码错误锁定阈值/锁定时长/密码有效期）
-- ✅ 厘清分工：continew 把密码策略全放 admin（绑 sys_option 表），我们比它多下沉一层——能力+扩展点进 starter，配置项管理和登录编排留 admin。
+- ✅ 厘清分工：能力+扩展点进 starter，配置项管理和登录编排留 admin。
 - ✅ security 新增 password.policy 包：`PasswordPolicy`（minLength/maxLength/requireDigit/Letter/Uppercase/Lowercase/Symbol/allowContainUsername/errorLockCount/lockMinutes/expirationDays/expirationWarningDays/historyCount）+ `PasswordPolicyProvider` 扩展点 + `DefaultPasswordPolicyProvider`（读 ypbin.security.password）+ `PasswordValidator` 复杂度校验器 + `PasswordCheckResult`。
 - ✅ security 新增 password.lock 包：`PasswordAttemptLimiter`（按 账号:IP 维度计数，达阈值抛 AccountLockedException）+ `PasswordAttemptStore` 扩展点，Redis（Lua 原子 INCR + 首次 EXPIRE）/ 内存两实现，锁定时长即计数键 TTL、到期自动解锁，参照 sign 的 NonceStore 双实现模式。
 - ✅ SecurityProperties 复用 PasswordPolicy 作为 password 配置块；SecurityAutoConfiguration 装配 policyProvider/validator/expiration/attemptStore/attemptLimiter（均 ConditionalOnMissingBean，Redis 存在时用 Redis store）。security pom 补 spring-boot-starter-data-redis optional。
 - ✅ 复盘补强 6 点（用户追问实时生效/解锁/遗漏）：①`unlock(identifier)` 按账号解锁全部维度（store 加 resetByPrefix，Redis 用 SCAN 非 KEYS）②`getLockStatus`/`isLocked` 锁定状态查询（LockStatus 记录）③账号标识小写归一，防大小写绕过 ④`recordFailure` 用递增返回值判定、达阈值本次即抛，消除读写分离竞态 ⑤新增 `PasswordExpiration` 密码有效期判定工具（isExpired/shouldWarn/remainingDays）⑥`PasswordValidator` 大小写要求已覆盖时不再冗余报"必须含字母"。策略每次实时读取，provider 走 DB 时后台改配置即时生效。
 - ✅ 边界：starter 只做复杂度校验 + 错误锁定运行时 + 有效期判定 + 策略值；配置项落表/后台可改、密码有效期强制改密登录拦截编排、历史密码表归 admin。测试：PasswordValidatorTest 8 + PasswordAttemptLimiterTest 9 + PasswordExpirationTest 7，security 模块共 30 绿。
 
-### 邮件配置动态化：从写死配置文件改为可后台配置（用户提问：邮件能不能像 continew 那样前端可配置）
+### 邮件配置动态化：从写死配置文件改为可后台配置（用户提问：邮件能不能前端可配置）
 - ✅ 厘清现状：原 MailAutoConfiguration 依赖 Spring 启动时按 spring.mail.* 构建的固定 JavaMailSender，改配置必须重启，前端改不了。
 - ✅ messaging 新增 mail 配置能力：`MailConfig` 值对象（host/port/username/password/from/fromName/protocol/ssl/starttls/encoding/timeout + isConfigured/resolveFrom/fingerprint）+ `MailConfigProvider` 扩展点 + `DefaultMailConfigProvider`（绑 ypbin.mail.*）。
 - ✅ MailService 改造：不再固定持有 sender，改为按 MailConfigProvider 动态构建 JavaMailSenderImpl，按配置指纹缓存、配置变化重建（缓存+刷新，非每次重建）；发件人取当前配置；新增 sendTest(to) 测试发送 + isConfigured()。
@@ -293,15 +293,15 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - ✅ 边界（用户定 key 前缀 ypbin.mail、缓存+刷新、内置 test）：starter 给能力+扩展点+配置文件默认实现；SMTP 配置存表、后台页面、改完即时生效由 admin 实现 MailConfigProvider 从 DB 读接管。MailServiceTest 5，messaging 模块共 22 绿。
 
 ### 能力盘点后补齐四项（用户：全项目盘点缺什么，补短信/存储动态化/数据字典/在线用户）
-- 盘点结论：ypbin 32 模块横比 continew-starter(22) 更全（多 cloud 全家桶/sign/social/sensitive-words/api-crypto）；缺的多为 admin 业务层。选定 starter 该补的 4 项通用运行时。
+- 盘点结论：选定 starter 该补的 4 项通用运行时。
 - ✅ 在线用户（security.online）：`OnlineUser` + `OnlineUserService`（基于 Sa-Token searchTokenValue 枚举，截 key 前缀取真实 token、过滤冻结、list/关键字过滤/按 userId/按 token 强制下线）+ `DefaultOnlineUserService` + `OnlineUserHelper`（登录时记录 IP/浏览器/OS 到 Token-Session 供列表展示）。表/页面归 admin。
 - ✅ 存储动态化（storage.engine）：新增 `StorageConfigProvider` 扩展点 + `DefaultStorageConfigProvider`（读 ypbin.storage.*）+ `StorageStrategyRebuilder.rebuild()`；`StorageRouter` 加 `rebuild()` 原子全量刷新（retainAll+putAll，默认平台失效兜底）；两个 registrar 改从 provider 取配置。admin 存表实现 provider 后调 rebuild 即时增删源。StorageRouterTest 4。
 - ✅ 数据字典（json.dict，放 json 与 @Sensitive 同款 ContextualSerializer 模式）：`DictItem`/`DictProvider` 扩展点/`DictCache`(本地缓存可刷新)/`@DictText`+`DictTextSerializer`(保留原字段原值、额外输出 xxxText 派生字段，严守 no-field-mapping)/`DictUtils` 静态门面。DictCache 仅当业务方提供 DictProvider 时装配。DictTextTest 4。
 - ✅ 短信（messaging.sms）：选定用 sms4j 聚合框架（一库统一阿里云/腾讯云等十几家）。`SmsService`(send/sendByTemplate/sendByConfig/sendBatch/isConfigured) + `DefaultSmsService`(委托 SmsFactory.getSmsBlend) + `SmsUtils` 静态门面 + `SmsAutoConfiguration`(@ConditionalOnClass SmsFactory)。dependencies 纳管 sms4j 3.3.5，messaging 加 sms4j optional 依赖。关键决策：动态配置直接用 sms4j 原生 SmsReadConfig 钩子（admin 实现从 DB 读），不再包平行 provider，避免配置翻译。messaging 模块共 22 绿。
-- 分层一致：四项均 starter 给运行时+扩展点+默认实现，表/页面/DB 配置源归 admin。同时清理 .m2 中 45 个 continew 风格残留细分模块坐标。
+- 分层一致：四项均 starter 给运行时+扩展点+默认实现，表/页面/DB 配置源归 admin。
 
 ### 引用翻译 @RefText：存 ID 展示中文名（用户提问：创建人 id 展前端中文名，注意批量翻译效率/缓存）
-- 定位：对标 crane4j/easy-trans 的数据翻译，但不引重框架——复用已有 @DictText 同款机制泛化一层。@DictText 翻固定字典枚举、@RefText 翻动态实体引用（用户/部门表）。
+- 定位：对标通用数据翻译，但不引重框架——复用已有 @DictText 同款机制泛化一层。@DictText 翻固定字典枚举、@RefText 翻动态实体引用（用户/部门表）。
 - ✅ json.ref 包：`@RefText`(value+suffix) + `RefTextProvider`(**强制批量**扩展点 getNames(ids)→Map，从根源避 N+1) + `RefTextCache`(TTL+容量上限+空值哨兵防穿透+惰性清理) + `RefTextManager`(translate 走缓存/preload 未命中按类型合并一次批量回源/refresh) + `RefTextUtils` 静态门面 + `RefTextSerializer`(保留原值+额外输出 xxxName，严守 no-field-mapping) + `RefTextResolver`(反射扫描列表/分页/嵌套对象图，按类型分组批量预热，IdentityHashMap 防环+限深+字段元数据按类缓存)。
 - ✅ 效率核心：列表序列化前调 refTextResolver.preload(list)，把整表 N 行 M 类型压成最多 M 次批量查询，序列化时全命中缓存零回源。测试实证 100 行 3 个创建人仅查 1 次。
 - ✅ JacksonProperties 加 ref-text 配置(ttl-seconds 默认 300/max-size 默认 1万)；仅当业务方提供 RefTextProvider 时装配 RefTextManager+RefTextResolver 并 bind RefTextUtils，未接入安全退化不输出名称字段。RefTextTest 7（缓存命中/批量一次/100行零N+1/空值哨兵/刷新/退化）。
@@ -314,7 +314,7 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 - 安全默认：受保护资源覆盖 permissionPrefix 一次搞定，杜绝逐端点挂注解漏挂越权。
 
 ### 定时任务 ypbin-starter-job（用户：admin 要定时任务，决定在 starter 做而非 admin 自拼）
-- 调研结论：blade 无开源实现，continew 用 SnailJob（要独立部署 server 进程，重型）。选轻量自研：Spring TaskScheduler + 自维护 ScheduledFuture 注册表（不用 ScheduledTaskRegistrar，动态增删 API 太弱）+ 已有分布式锁防重。
+- 选轻量自研：Spring TaskScheduler + 自维护 ScheduledFuture 注册表（不用 ScheduledTaskRegistrar，动态增删 API 太弱）+ 已有分布式锁防重。
 - ✅ 新增第 33 个模块 job（注册进根 pom/dependencies/bom，async 后、app-web 前）。核心：`JobHandler`+`@YpbinJob(name)` 执行体（按名路由）、`JobContext`、`JobDefinition`(id/name/executor/cron或fixedRate/args/timeout/concurrentGuard)、`JobManager`(register/unregister/triggerNow/改cron重建，TaskScheduler+ScheduledFuture 注册表)、`JobExecutionListener`(onStart/Success/Error/Skip 回调扩展点，admin 落 sys_job_log)、`JobProperties`。
 - ✅ 多实例防重：执行入口抢分布式锁（锁键带触发时间片 withNano(0)，避免长任务持锁挡下次触发；ttl=超时+5 或默认 3600），只有抢到的节点执行、其余回调 onSkip。`JobLockFactory` 反射桥接 tools 的 LockService（tools optional），无 tools 退化单机无锁。
 - ✅ 边界：starter 只做内存调度运行时+执行体路由+防重+回调，**不持久化**；sys_job/sys_job_log 表、CRUD、页面由 admin 实现，通过 JobManager 同步内存调度。JobManagerTest 5（固定间隔触发+回调/立即执行/防重跳过/执行器缺失 onError/重复注册替换）。

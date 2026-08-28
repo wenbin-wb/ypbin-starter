@@ -16,11 +16,13 @@
 package cn.ypbin.starter.tools.crypto;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.security.Security;
 import java.util.Base64;
 import java.util.HexFormat;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -44,7 +46,7 @@ public final class Sm4Utils {
     private static final int KEY_SIZE = 128;
     private static final int GCM_TAG_BITS = 128;
 
-    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     static {
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
@@ -163,7 +165,7 @@ public final class Sm4Utils {
             RANDOM.nextBytes(iv);
             Cipher cipher = Cipher.getInstance(GCM, BouncyCastleProvider.PROVIDER_NAME);
             cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, ALGORITHM),
-                new javax.crypto.spec.GCMParameterSpec(GCM_TAG_BITS, iv));
+                new GCMParameterSpec(GCM_TAG_BITS, iv));
             byte[] ct = cipher.doFinal(plain);
             byte[] combined = new byte[iv.length + ct.length];
             System.arraycopy(iv, 0, combined, 0, iv.length);
@@ -187,7 +189,7 @@ public final class Sm4Utils {
             System.arraycopy(combined, 0, iv, 0, 12);
             Cipher cipher = Cipher.getInstance(GCM, BouncyCastleProvider.PROVIDER_NAME);
             cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, ALGORITHM),
-                new javax.crypto.spec.GCMParameterSpec(GCM_TAG_BITS, iv));
+                new GCMParameterSpec(GCM_TAG_BITS, iv));
             return cipher.doFinal(combined, 12, combined.length - 12);
         } catch (Exception e) {
             throw new IllegalStateException("SM4-GCM 解密失败", e);

@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.crud.controller;
 
+import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.ErrorCode;
 import cn.ypbin.starter.core.model.R;
 import jakarta.servlet.http.HttpServletRequest;
@@ -207,6 +208,15 @@ public abstract class BaseController {
     }
 
     /**
+     * 当前登录用户 ID，未登录时抛出业务异常。
+     *
+     * @return 用户 ID
+     */
+    protected Long currentUserId() {
+        return userId().orElseThrow(() -> new BusinessException("当前用户未登录"));
+    }
+
+    /**
      * 当前登录用户名。未登录、未写入登录用户或未引入 security 模块时为空。
      *
      * @return 用户名
@@ -216,12 +226,30 @@ public abstract class BaseController {
     }
 
     /**
+     * 当前登录用户名，未登录时抛出业务异常。
+     *
+     * @return 用户名
+     */
+    protected String currentUsername() {
+        return username().orElseThrow(() -> new BusinessException("当前用户未登录"));
+    }
+
+    /**
      * 当前登录用户所属租户 ID。未登录、未写入登录用户或未引入 security 模块时为空。
      *
      * @return 租户 ID
      */
     protected Optional<Long> tenantId() {
         return invokeUserContextOptional("getTenantId", Long.class);
+    }
+
+    /**
+     * 当前登录用户所属租户 ID，未指定租户时抛出业务异常。
+     *
+     * @return 租户 ID
+     */
+    protected Long currentTenantId() {
+        return tenantId().orElseThrow(() -> new BusinessException("无法确定当前租户"));
     }
 
     /**
