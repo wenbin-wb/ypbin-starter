@@ -21,6 +21,7 @@ import com.openai.client.OpenAIClient;
 import com.openai.client.OpenAIClientImpl;
 import com.openai.core.ClientOptions;
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,11 +54,18 @@ public class LazySimpleVectorStore implements VectorStore {
 
     private final AiEmbeddingConfigResolver embeddingResolver;
     private final String storePath;
+    private final Duration clientTimeout;
     private volatile SimpleVectorStore delegate;
 
     public LazySimpleVectorStore(AiEmbeddingConfigResolver embeddingResolver, String storePath) {
+        this(embeddingResolver, storePath, Duration.ofSeconds(60));
+    }
+
+    public LazySimpleVectorStore(AiEmbeddingConfigResolver embeddingResolver, String storePath,
+            Duration clientTimeout) {
         this.embeddingResolver = embeddingResolver;
         this.storePath = storePath;
+        this.clientTimeout = clientTimeout != null ? clientTimeout : Duration.ofSeconds(60);
     }
 
     private SimpleVectorStore delegate() {
@@ -82,7 +90,9 @@ public class LazySimpleVectorStore implements VectorStore {
         ClientOptions options = ClientOptions.builder()
             .apiKey(info.apiKey())
             .baseUrl(normalizeBaseUrl(info.baseUrl()))
-            .httpClient(SpringAiOpenAiHttpClient.builder().build())
+            .httpClient(SpringAiOpenAiHttpClient.builder()
+                .timeout(clientTimeout)
+                .build())
             .build();
         OpenAIClient client = new OpenAIClientImpl(options);
         OpenAiEmbeddingModel embeddingModel = OpenAiEmbeddingModel.builder()

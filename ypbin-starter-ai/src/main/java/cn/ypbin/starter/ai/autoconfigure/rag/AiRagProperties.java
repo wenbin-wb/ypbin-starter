@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.ai.autoconfigure.rag;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -42,6 +43,17 @@ public class AiRagProperties {
 
     /** SimpleVectorStore 序列化文件路径；配置后重启不丢向量（自动加载/保存） */
     private String simpleStorePath;
+
+    /** 动态构建 embedding 客户端时的传输层超时（连接 + 读写），默认 60s */
+    private Duration clientTimeout = Duration.ofSeconds(60);
+
+    public Duration getClientTimeout() {
+        return clientTimeout;
+    }
+
+    public void setClientTimeout(Duration clientTimeout) {
+        this.clientTimeout = clientTimeout;
+    }
 
     public String getSimpleStorePath() {
         return simpleStorePath;
