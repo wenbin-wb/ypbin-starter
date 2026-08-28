@@ -39,11 +39,11 @@
 
 ## 3. 坐标与命名约定
 
-- groupId：`cn.ypbin.starter`
+- groupId：`cn.ypbin`
 - 根包：`cn.ypbin.starter`
 - 版本：`1.0.0-SNAPSHOT`（`${revision}` 管理）
 - 模块 artifactId 前缀：`ypbin-starter-`
-- 配置前缀：`ypbin.<模块>.<子项>`，集中在 core 的 `PropertiesConstants`
+- 配置前缀：`ypbin.<模块>.<子项>`，各模块 `@ConfigurationProperties` 自带 `PREFIX` 常量（如 `ypbin.cache.multi-level`）
 - 类名：**不强制品牌前缀**，保持中性命名（如 `R`、`GlobalExceptionHandler`），仅在易冲突处酌情加 `Ypbin`
 
 ## 4. 模块蓝图
@@ -469,7 +469,7 @@ MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度�
 
 ## 7. 已确认决策
 
-- ✅ groupId / 根包：`cn.ypbin.starter`
+- ✅ groupId：`cn.ypbin`；根包：`cn.ypbin.starter`
 - ✅ 开源协议：Apache-2.0
 - ✅ 范围已扩展到 M10 全部完成 + M5.1~M5.13 Cloud 全面补强 + M6 工程化收尾（spotless 前移根治）
 - ✅ 微服务层 L3：Cloud 企业级治理（Gateway 横切 + 启动增强 + 灰度负载均衡 + Feign 容错 + API 文档增强/聚合 + Nacos 动态路由 + 可观测性 + Sentinel 流量防护）已完成；其中 Gateway/Nacos/Feign/Sentinel 已真机验证

@@ -17,7 +17,6 @@ package cn.ypbin.starter.gateway.handler;
 
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
@@ -27,6 +26,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -49,7 +49,12 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
     private final ObjectMapper objectMapper;
 
     public GatewayExceptionHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        if (objectMapper != null) {
+            this.objectMapper = objectMapper;
+            this.objectMapper.findAndRegisterModules();
+        } else {
+            this.objectMapper = new ObjectMapper().findAndRegisterModules();
+        }
     }
 
     @Override
@@ -71,20 +76,39 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
     }
 
     R<Void> resolveBody(Throwable ex) {
-        if (ex instanceof ResponseStatusException statusException) {
-            int statusCode = statusException.getStatusCode().value();
-            if (statusCode == 404) {
-                return R.fail(GlobalErrorCode.NOT_FOUND.getCode(), "接口不存在");
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof ResponseStatusException statusException) {
+                return resolveByStatusCode(statusException.getStatusCode().value(), statusException.getReason());
             }
-            if (statusCode == 401) {
-                return R.fail(GlobalErrorCode.UNAUTHORIZED);
+            if (current instanceof ErrorResponse errorResponse) {
+                String reason = errorResponse.getBody() != null ? errorResponse.getBody().getDetail() : null;
+                return resolveByStatusCode(errorResponse.getStatusCode().value(), reason);
             }
-            if (statusCode == 403) {
-                return R.fail(GlobalErrorCode.FORBIDDEN);
+            if (current.getCause() == null || current.getCause() == current) {
+                break;
             }
-            if (statusCode >= 400 && statusCode < 500) {
-                return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(), statusException.getReason());
-            }
+            current = current.getCause();
+        }
+        String msg = ex.getMessage();
+        if (msg != null && (msg.contains("404 NOT_FOUND") || msg.contains("No static resource") || msg.contains("Not Found"))) {
+            return R.fail(GlobalErrorCode.NOT_FOUND.getCode(), "接口不存在");
+        }
+        return R.fail(GlobalErrorCode.INTERNAL_ERROR);
+    }
+
+    private R<Void> resolveByStatusCode(int statusCode, String reason) {
+        if (statusCode == 404) {
+            return R.fail(GlobalErrorCode.NOT_FOUND.getCode(), "接口不存在");
+        }
+        if (statusCode == 401) {
+            return R.fail(GlobalErrorCode.UNAUTHORIZED);
+        }
+        if (statusCode == 403) {
+            return R.fail(GlobalErrorCode.FORBIDDEN);
+        }
+        if (statusCode >= 400 && statusCode < 500) {
+            return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(), reason != null ? reason : "请求参数错误");
         }
         return R.fail(GlobalErrorCode.INTERNAL_ERROR);
     }
@@ -92,8 +116,11 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
     private byte[] toJsonBytes(R<Void> body) {
         try {
             return objectMapper.writeValueAsBytes(body);
-        } catch (JsonProcessingException e) {
-            return "{\"code\":500,\"message\":\"系统内部错误，请稍后重试\",\"success\":false}".getBytes(StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.error("[网关异常] 响应序列化异常", e);
+            String json = String.format("{\"code\":%d,\"message\":\"%s\",\"success\":%s}",
+                body.getCode(), body.getMessage() != null ? body.getMessage() : "系统内部错误", body.isSuccess());
+            return json.getBytes(StandardCharsets.UTF_8);
         }
     }
 }

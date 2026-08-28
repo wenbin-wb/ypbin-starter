@@ -23,6 +23,7 @@ import cn.ypbin.starter.data.crypto.FieldEncryptorHolder;
 import cn.ypbin.starter.data.handler.DefaultMetaObjectHandler;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +67,7 @@ public class DataAutoConfiguration {
     public InnerInterceptorProvider paginationInnerInterceptorProvider(DataProperties properties) {
         return new InnerInterceptorProvider() {
             @Override
-            public com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor getInnerInterceptor() {
+            public InnerInterceptor getInnerInterceptor() {
                 PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(properties.getDbType());
                 pagination.setMaxLimit(properties.getMaxLimit());
                 pagination.setOverflow(properties.isOverflow());

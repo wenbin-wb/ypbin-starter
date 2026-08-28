@@ -18,6 +18,7 @@ package cn.ypbin.starter.storage.core;
 import cn.ypbin.starter.storage.engine.StorageRouter;
 import cn.ypbin.starter.storage.model.FileInfo;
 import cn.ypbin.starter.storage.model.UploadContext;
+import cn.ypbin.starter.storage.model.UploadProgressListener;
 import cn.ypbin.starter.storage.processor.FileProcessor;
 import cn.ypbin.starter.storage.service.FileRecorder;
 import cn.ypbin.starter.storage.strategy.StorageStrategy;
@@ -171,7 +172,7 @@ public class FileStorageService {
             return this;
         }
 
-        public UploadBuilder onProgress(cn.ypbin.starter.storage.model.UploadProgressListener listener) {
+        public UploadBuilder onProgress(UploadProgressListener listener) {
             context.setProgressListener(listener);
             return this;
         }

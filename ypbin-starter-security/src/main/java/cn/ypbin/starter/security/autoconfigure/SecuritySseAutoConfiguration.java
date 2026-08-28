@@ -69,13 +69,14 @@ public class SecuritySseAutoConfiguration {
      * ——换票靠登录态签发票据，必须保留拦截。仅在 {@code ypbin.sse.enabled=true} 时贡献。</p>
      *
      * <p>用 {@code @Value} 直接读环境属性而非注入 {@link SseProperties}：本配置 {@code @AutoConfigureBefore}
-     * 于 messaging，此刻 {@code SseProperties} Bean 尚未注册，但属性值始终可读，默认值与 {@code SseProperties} 一致。</p>
+     * 于 messaging，此刻 {@code SseProperties} Bean 尚未注册，但属性值始终可读；默认值引用
+     * {@link SseProperties#DEFAULT_PATH} 常量，与 {@code SseProperties} 保持单一来源。</p>
      */
     @Bean
     @ConditionalOnBean(SseUserIdResolver.class)
     @ConditionalOnProperty(prefix = "ypbin.sse", name = "enabled", havingValue = "true")
     public SecurityExcludePathProvider sseSubscribeExcludePathProvider(
-        @Value("${ypbin.sse.path:/ypbin/sse/subscribe}") String subscribePath) {
+        @Value("${ypbin.sse.path:" + SseProperties.DEFAULT_PATH + "}") String subscribePath) {
         return () -> List.of(subscribePath);
     }
 }

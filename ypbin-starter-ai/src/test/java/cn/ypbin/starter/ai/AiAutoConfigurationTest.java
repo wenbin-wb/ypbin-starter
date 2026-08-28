@@ -23,6 +23,7 @@ import cn.ypbin.starter.ai.autoconfigure.rag.AiRagAutoConfiguration;
 import cn.ypbin.starter.ai.chat.AiChatService;
 import cn.ypbin.starter.ai.rag.AiRagService;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -62,11 +63,10 @@ class AiAutoConfigurationTest {
 
     @Test
     void inMemoryChatMemoryLoadedByDefault() {
-        // 无 ChatModel 时不装配 AiChatService，但 Memory 可以独立验证
         runner.run(ctx -> {
             // ChatMemory 应在 Memory 配置中默认装配（InMemory）
-            // 此处只验证配置类本身可被加载（无 ChatModel 则不创建 AiChatService）
-            assertThat(ctx).doesNotHaveBean(AiChatService.class);
+            assertThat(ctx).hasSingleBean(ChatMemory.class);
+            assertThat(ctx).hasSingleBean(AiChatService.class);
         });
     }
 }

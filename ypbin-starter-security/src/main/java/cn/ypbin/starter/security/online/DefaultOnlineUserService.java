@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 基于 Sa-Token 的在线用户服务默认实现。
@@ -38,6 +40,8 @@ import java.util.Locale;
  * @since 2026-08-01
  */
 public class DefaultOnlineUserService implements OnlineUserService {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultOnlineUserService.class);
 
     @Override
     public List<OnlineUser> list() {
@@ -147,8 +151,9 @@ public class DefaultOnlineUserService implements OnlineUserService {
         try {
             online.setDeviceType(StpUtil.getStpLogic().getTerminalInfoByToken(token) == null
                 ? null : StpUtil.getStpLogic().getTerminalInfoByToken(token).getDeviceType());
-        } catch (Exception ignored) {
-            // 终端信息不可用时忽略
+        } catch (Exception e) {
+            // 终端信息不可用时跳过该字段，但记录日志便于排查
+            log.debug("[ypbin-starter] 在线用户终端信息读取失败，token 已脱敏", e);
         }
 
         // IP/浏览器/OS/登录时间：来自 OnlineUserHelper 记录的终端扩展信息
@@ -175,6 +180,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
             Object value = session.get(UserContext.KEY_LOGIN_USER);
             return (value instanceof LoginUser user) ? user : null;
         } catch (Exception e) {
+            log.debug("[ypbin-starter] 在线用户会话读取失败，loginId={}", loginId, e);
             return null;
         }
     }
@@ -183,6 +189,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
         try {
             return OnlineUserHelper.getByToken(token);
         } catch (Exception e) {
+            log.debug("[ypbin-starter] 在线用户终端扩展信息读取失败，token 已脱敏", e);
             return null;
         }
     }
@@ -194,8 +201,9 @@ public class DefaultOnlineUserService implements OnlineUserService {
             if (createTime > 0) {
                 return Instant.ofEpochMilli(createTime).atZone(ZoneId.systemDefault()).toLocalDateTime();
             }
-        } catch (Exception ignored) {
-            // 无法取创建时间时返回 null
+        } catch (Exception e) {
+            // 无法取创建时间时返回 null，记录日志便于排查
+            log.debug("[ypbin-starter] 在线用户 token 创建时间读取失败，token 已脱敏", e);
         }
         return null;
     }
