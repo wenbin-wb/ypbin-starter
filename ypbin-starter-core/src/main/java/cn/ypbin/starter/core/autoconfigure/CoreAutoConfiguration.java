@@ -17,15 +17,20 @@ package cn.ypbin.starter.core.autoconfigure;
 
 import cn.ypbin.starter.core.context.ContextAwareTaskDecorator;
 import cn.ypbin.starter.core.context.ContextPropagator;
+import cn.ypbin.starter.core.diagnostic.StarterDiagnosticEndpoint;
 import cn.ypbin.starter.core.util.SpringUtils;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Role;
 import org.springframework.core.task.TaskDecorator;
 
@@ -71,5 +76,19 @@ public class CoreAutoConfiguration {
 
     public CoreAutoConfiguration() {
         log.debug("[ypbin-starter] core auto-configuration initialized.");
+    }
+
+    /**
+     * Actuator 自诊断端点配置。
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(Endpoint.class)
+    static class ActuatorDiagnosticConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public StarterDiagnosticEndpoint starterDiagnosticEndpoint(ApplicationContext applicationContext) {
+            return new StarterDiagnosticEndpoint(applicationContext);
+        }
     }
 }

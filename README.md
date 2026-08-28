@@ -56,14 +56,15 @@
 |---|---|
 | JDK | 21 |
 | Spring Boot | 4.1.0 |
-| 认证 | Sa-Token 1.45.0 |
+| AI 框架 | Spring AI 2.0.0 |
+| 认证 | Sa-Token 1.46.0 |
 | ORM | MyBatis-Plus 3.5.17 |
-| 缓存 | Redis（Spring Data Redis） |
+| 缓存 | Redis（Spring Data Redis）+ Caffeine 多级缓存 |
 | 对象存储 | AWS SDK v2（S3 兼容） |
 | API 文档 | SpringDoc OpenAPI 3.1.0 |
-| Excel | FastExcel 1.3.0 |
+| Excel | Apache Fesod 2.0.2-incubating |
 | 验证码 | tianai-captcha 1.5.5（滑块/旋转/点选/拼接） |
-| 加解密 | AES-GCM / 国密 SM2·SM4（BouncyCastle 1.85） |
+| 加解密 | AES-GCM / 国密 SM2·SM3·SM4（BouncyCastle 1.85.2） |
 | 邮件 | Spring Mail（配置可动态化） |
 | 微服务 | Spring Cloud 2025.1.2 + Gateway / OpenFeign / LoadBalancer |
 | 注册配置 | Nacos（spring-cloud-alibaba 2025.1.0.0） |
@@ -82,7 +83,7 @@
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-bom</artifactId>
-            <version>1.3.0</version>
+            <version>1.4.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
