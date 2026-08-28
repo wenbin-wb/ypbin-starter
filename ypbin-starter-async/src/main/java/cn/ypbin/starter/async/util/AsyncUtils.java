@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -152,7 +153,7 @@ public final class AsyncUtils {
      * @return 合并后的 future
      */
     public static <A, B, R> CompletableFuture<R> combine(CompletableFuture<A> first, CompletableFuture<B> second,
-            java.util.function.BiFunction<? super A, ? super B, ? extends R> fn) {
+            BiFunction<? super A, ? super B, ? extends R> fn) {
         return first.thenCombineAsync(second, fn, executor());
     }
 

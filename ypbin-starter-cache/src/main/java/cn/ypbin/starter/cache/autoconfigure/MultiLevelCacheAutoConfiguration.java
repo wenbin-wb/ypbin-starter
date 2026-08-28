@@ -26,6 +26,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -94,7 +95,7 @@ public class MultiLevelCacheAutoConfiguration {
     @ConditionalOnMissingBean(MultiLevelCacheService.class)
     public MultiLevelCacheService cacheService(RedisTemplate<String, Object> redisTemplate,
             Cache<String, Object> l1Cache,
-            org.springframework.beans.factory.ObjectProvider<CacheInvalidationPublisher> publisher) {
+            ObjectProvider<CacheInvalidationPublisher> publisher) {
         CacheService l2 = new RedisCacheService(redisTemplate);
         return new MultiLevelCacheService(l2, l1Cache, publisher.getIfAvailable());
     }
