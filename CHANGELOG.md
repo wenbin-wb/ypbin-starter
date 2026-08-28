@@ -7,14 +7,22 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [未发布]
+## [1.4.0] - 2026-08-28
 
-### 新增
-- **AI 对话模块**（`ypbin-starter-ai`）：基于 Spring AI 2.0 的对话能力封装——流式/非流式对话（`AiChatService`）、多轮记忆（内存 / JDBC 持久化）、可选 RAG 检索增强。核心设计为**模型配置表驱动**：新增 `AiModelConfigResolver` 扩展点，业务方从配置表读取默认模型，starter 动态构建 OpenAI 兼容客户端（`OpenAIClientImpl` + `OpenAIClientAsyncImpl`），模型地址/密钥/型号全部运行时下发、无需在 yml 配置模型 starter。已适配 Spring AI 2.0 关闭客户端的行为（传输层按请求独立创建）与 OpenAI 兼容 baseUrl 规范（`/v1` 后缀）
-- **`@SensitiveWordFilter` 注解驱动过滤**（`ypbin-starter-sensitive-words`）：新增 `@SensitiveWordFilter` 双目标注解（FIELD + METHOD）与 `SensitiveWordFilterAspect` AOP 切面。字段上标注声明哪些 `String` 字段需要过滤，方法上标注触发切面在执行前自动遍历入参并替换命中词；替换字符取 `ypbin.sensitive-words.replacement` 配置，彻底替代手动注入 `SensitiveWordService` 的侵入式写法
+全线升级至 Spring Boot 4.1.0 + JDK 21 基线，新增企业级 AI 对话与 RAG 模块，全面迁移至 Apache Fesod 2.0.2 孵化器新架构并加固多项组件。共 36 个模块。
 
-### 修复
-- **登录拦截器误伤异步错误分发**（`ypbin-starter-security`）：Sa-Token 拦截器对 ERROR/ASYNC 分发（如 SSE 流失败后的错误分发）二次执行登录校验，此时 Sa-Token 上下文未初始化，抛 `SaTokenContextException` 掩盖真实错误；改为非 REQUEST 分发直接放行
+### 核心升级
+- **基线升级**：全面升级至 **Spring Boot 4.1.0** + **JDK 21**，引入虚拟线程与现代 Java 语言特性
+- **AI 对话与 RAG 模块**（`ypbin-starter-ai`）：基于 Spring AI 2.0 的配置驱动动态多模型运行时。支持多模型动态切换（`AiModelConfigResolver`）、多轮会话记忆（内存 / JDBC 持久化）、流式 SSE（`Flux<String>`）与 RAG 检索增强（`AiRagService`、`DocumentLoader`、`LazySimpleVectorStore`）
+- **Excel 引擎全面升级**（`ypbin-starter-excel`）：FastExcel 迁移至官方新坐标 **Apache Fesod 2.0.2-incubating**（`org.apache.fesod:fesod-sheet`），修复底层 SSRF 漏洞（CVE-2026-49328），写操作默认装配 `LongestMatchColumnWidthStyleStrategy` 自适应列宽，新增 `exportTemplate()` 纯表头模板导出
+- **`@SensitiveWordFilter` 注解驱动过滤**（`ypbin-starter-sensitive-words`）：新增 `@SensitiveWordFilter` 双目标注解（FIELD + METHOD）与 AOP 切面，自动遍历入参替换命中敏感词
+- **`@Idempotent` 幂等防重提交组件**（`ypbin-starter-tools`）：支持分布式 Redis 与本地内存双引擎，支持参数表达式与 Token 防重
+- **依赖与安全升级**：Sa-Token 升级至 `1.46.0`，Bouncy Castle 升级至 `1.85.2`
+
+### 修复与优化
+- **登录拦截器误伤异步错误分发**（`ypbin-starter-security`）：非 REQUEST 分发直接放行，避免 SSE 错误分发时上下文缺失引发异常
+- **代码规范治理**：全量消除所有内联 FQCN 引用，移除子模块冗余依赖声明，统一由根 POM / BOM 治理
+- **单元测试与 CI**：覆盖 AI、Excel、SensitiveWords 等核心模块，36 模块全量构建通过
 
 ## [1.3.0] - 2026-08-14
 
@@ -76,8 +84,9 @@
 - 新增 GitHub Actions CI（push/PR 自动编译、代码风格校验与测试）
 - README 首页重写（徽章、设计取舍章、发布坐标修正），模块文档拆至 `docs/MODULES.md`
 
-[1.2.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.2.0
+[1.4.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.4.0
 [1.3.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.3.0
+[1.2.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.2.0
 [1.1.0]: https://github.com/wenbin-wb/ypbin-starter/releases/tag/v1.1.0
 
 > 已发布至 Maven Central（`cn.ypbin`）。发布过程中修复了无 parent 的三个聚合 POM
