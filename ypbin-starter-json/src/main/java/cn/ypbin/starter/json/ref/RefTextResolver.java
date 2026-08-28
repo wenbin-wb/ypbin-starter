@@ -17,14 +17,17 @@ package cn.ypbin.starter.json.ref;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -220,12 +223,12 @@ public class RefTextResolver {
     /** 该类全部字段（含父类），按类缓存 */
     private Field[] allFields(Class<?> type) {
         return REF_FIELD_CACHE.computeIfAbsent(type, clazz -> {
-            java.util.List<Field> fields = new java.util.ArrayList<>();
+            List<Field> fields = new ArrayList<>();
             Class<?> current = clazz;
             while (current != null && current != Object.class) {
                 for (Field f : current.getDeclaredFields()) {
                     int mod = f.getModifiers();
-                    if (java.lang.reflect.Modifier.isStatic(mod) || java.lang.reflect.Modifier.isTransient(mod)) {
+                    if (Modifier.isStatic(mod) || Modifier.isTransient(mod)) {
                         continue;
                     }
                     f.setAccessible(true);

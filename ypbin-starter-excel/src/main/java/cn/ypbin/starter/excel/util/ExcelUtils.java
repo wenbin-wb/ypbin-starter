@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -129,7 +130,7 @@ public final class ExcelUtils {
      * @param <T>            类型
      */
     public static <T> void writeIncludeColumns(OutputStream outputStream, String sheetName, Class<T> clazz,
-                                               List<T> data, java.util.Collection<String> includeColumns) {
+                                               List<T> data, Collection<String> includeColumns) {
         FastExcel.write(outputStream, clazz).includeColumnFieldNames(includeColumns)
             .sheet(sheetName).doWrite(data);
     }
@@ -145,7 +146,7 @@ public final class ExcelUtils {
      * @param <T>            类型
      */
     public static <T> void writeExcludeColumns(OutputStream outputStream, String sheetName, Class<T> clazz,
-                                               List<T> data, java.util.Collection<String> excludeColumns) {
+                                               List<T> data, Collection<String> excludeColumns) {
         FastExcel.write(outputStream, clazz).excludeColumnFieldNames(excludeColumns)
             .sheet(sheetName).doWrite(data);
     }

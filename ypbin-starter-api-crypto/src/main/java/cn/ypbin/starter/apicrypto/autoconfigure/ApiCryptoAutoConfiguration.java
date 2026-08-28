@@ -54,12 +54,14 @@ public class ApiCryptoAutoConfiguration {
 
     @Bean
     @ConditionalOnBean(ApiCryptoProvider.class)
+    @ConditionalOnMissingBean(ApiDecryptRequestAdvice.class)
     public ApiDecryptRequestAdvice apiDecryptRequestAdvice(ApiCryptoProvider provider) {
         return new ApiDecryptRequestAdvice(provider);
     }
 
     @Bean
     @ConditionalOnBean(ApiCryptoProvider.class)
+    @ConditionalOnMissingBean(ApiEncryptResponseAdvice.class)
     public ApiEncryptResponseAdvice apiEncryptResponseAdvice(ApiCryptoProvider provider,
         ObjectMapper objectMapper) {
         return new ApiEncryptResponseAdvice(provider, objectMapper);

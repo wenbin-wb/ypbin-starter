@@ -28,6 +28,9 @@ public class SseProperties {
 
     public static final String PREFIX = "ypbin.sse";
 
+    /** 内置订阅端点默认路径 */
+    public static final String DEFAULT_PATH = "/ypbin/sse/subscribe";
+
     /** 是否启用 SSE，默认关闭（需显式开启） */
     private boolean enabled = false;
 
@@ -35,7 +38,7 @@ public class SseProperties {
     private boolean registerEndpoint = true;
 
     /** 内置订阅端点路径 */
-    private String path = "/ypbin/sse/subscribe";
+    private String path = DEFAULT_PATH;
 
     /** 一次性订阅票据签发端点路径（Header 令牌鉴权场景：先换票再用 ticket 订阅） */
     private String ticketPath = "/ypbin/sse/ticket";

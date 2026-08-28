@@ -76,7 +76,7 @@ public class SensitiveWordFilterAspect {
     }
 
     /**
-     * 遍历对象的第一层字段，将标注了 {@link SensitiveWordFilter} 的 String 字段做敏感词替换。
+     * 遍历对象的字段（含父类继承字段），将标注了 {@link SensitiveWordFilter} 的 String 字段做敏感词替换。
      */
     private void filterObject(Object obj) {
         if (obj == null) {
@@ -88,23 +88,27 @@ public class SensitiveWordFilterAspect {
             return;
         }
         char replacement = properties.getReplacement();
-        for (Field field : clazz.getDeclaredFields()) {
-            if (!field.isAnnotationPresent(SensitiveWordFilter.class)) {
-                continue;
-            }
-            if (!String.class.equals(field.getType())) {
-                continue;
-            }
-            try {
-                field.setAccessible(true);
-                String value = (String) field.get(obj);
-                if (value != null && !value.isEmpty()) {
-                    field.set(obj, sensitiveWordService.filter(value, replacement));
+        Class<?> current = clazz;
+        while (current != null && current != Object.class && !current.getName().startsWith("java.")) {
+            for (Field field : current.getDeclaredFields()) {
+                if (!field.isAnnotationPresent(SensitiveWordFilter.class)) {
+                    continue;
                 }
-            } catch (IllegalAccessException e) {
-                log.warn("[ypbin] 敏感词过滤反射访问失败：字段={}#{}", clazz.getSimpleName(),
-                    field.getName(), e);
+                if (!String.class.equals(field.getType())) {
+                    continue;
+                }
+                try {
+                    field.setAccessible(true);
+                    String value = (String) field.get(obj);
+                    if (value != null && !value.isEmpty()) {
+                        field.set(obj, sensitiveWordService.filter(value, replacement));
+                    }
+                } catch (IllegalAccessException e) {
+                    log.warn("[ypbin] 敏感词过滤反射访问失败：字段={}#{}", current.getSimpleName(),
+                        field.getName(), e);
+                }
             }
+            current = current.getSuperclass();
         }
     }
 }

@@ -22,6 +22,7 @@ import cn.ypbin.starter.crud.service.BaseService;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import jakarta.validation.Valid;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -175,7 +176,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
             method.invoke(null, prefix + ":" + action);
         } catch (ClassNotFoundException | NoSuchMethodException ignored) {
             // 未引入 sa-token：不做权限校验（仅受全局登录拦截约束）
-        } catch (java.lang.reflect.InvocationTargetException e) {
+        } catch (InvocationTargetException e) {
             // Sa-Token 抛出的鉴权异常（无权限）需向上传播，交全局异常处理器转 403
             Throwable cause = e.getCause();
             if (cause instanceof RuntimeException runtimeException) {

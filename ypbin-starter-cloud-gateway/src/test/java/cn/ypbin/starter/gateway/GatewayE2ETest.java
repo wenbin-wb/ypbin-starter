@@ -26,11 +26,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 /**
@@ -63,8 +64,17 @@ class GatewayE2ETest {
     /** 下游收到的最近一次请求头快照，供断言透传/清洗行为 */
     private static final Map<String, String> RECEIVED_HEADERS = new ConcurrentHashMap<>();
 
-    @Autowired
+    @LocalServerPort
+    private int port;
+
     private WebTestClient webTestClient;
+
+    @BeforeEach
+    void setUp() {
+        this.webTestClient = WebTestClient.bindToServer()
+            .baseUrl("http://localhost:" + port)
+            .build();
+    }
 
     @BeforeAll
     static void startDownstream() throws IOException {

@@ -39,8 +39,8 @@ public class StorageProperties {
     /** 默认存储平台标识 */
     private String defaultPlatform;
 
-    /** 单次上传默认最大字节数，-1 不限制 */
-    private long maxFileSize = -1L;
+    /** 单次上传默认最大字节数，默认 100MB；-1 表示不限制 */
+    private long maxFileSize = 100L * 1024 * 1024;
 
     /** 本地存储源列表 */
     private List<LocalConfig> local = new ArrayList<>();

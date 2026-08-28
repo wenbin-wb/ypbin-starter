@@ -22,6 +22,7 @@ import cn.ypbin.starter.messaging.mail.MailService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -34,13 +35,14 @@ import org.springframework.mail.javamail.JavaMailSender;
  * {@link MailService} 按配置指纹缓存并按需重建底层 sender。</p>
  *
  * <p>仅需类路径存在 {@link JavaMailSender}（引入 spring-boot-starter-mail 即满足），不再要求业务方
- * 预先配置 {@code spring.mail.*} 生成 sender Bean。</p>
+ * 预先配置 {@code spring.mail.*} 生成 sender Bean。可通过 {@code ypbin.mail.enabled=false} 关停。</p>
  *
  * @author wenbin
  * @since 2026-07-30
  */
 @AutoConfiguration
 @ConditionalOnClass(JavaMailSender.class)
+@ConditionalOnProperty(prefix = "ypbin.mail", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class MailAutoConfiguration {
 
     /**

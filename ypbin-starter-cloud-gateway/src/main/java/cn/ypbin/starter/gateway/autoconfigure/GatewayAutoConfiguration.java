@@ -21,7 +21,9 @@ import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
 import cn.ypbin.starter.gateway.filter.RequestIdGlobalFilter;
 import cn.ypbin.starter.gateway.handler.GatewayExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -46,6 +48,7 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
  * @since 2026-07-30
  */
 @AutoConfiguration
+@AutoConfigureAfter(name = "org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration")
 @ConditionalOnClass(GlobalFilter.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 @ConditionalOnProperty(prefix = "ypbin.gateway", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -70,8 +73,11 @@ public class GatewayAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "ypbin.gateway.auth", name = "enabled", havingValue = "true")
     public GatewayAuthGlobalFilter gatewayAuthGlobalFilter(
-        GatewayAuthProvider authProvider, ObjectMapper objectMapper, GatewayProperties properties) {
-        return new GatewayAuthGlobalFilter(authProvider, objectMapper, properties.getAuth().getExcludePaths());
+        GatewayAuthProvider authProvider,
+        ObjectProvider<ObjectMapper> objectMapperProvider,
+        GatewayProperties properties) {
+        ObjectMapper mapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        return new GatewayAuthGlobalFilter(authProvider, mapper, properties.getAuth().getExcludePaths());
     }
 
     @Bean
@@ -94,7 +100,7 @@ public class GatewayAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public GatewayExceptionHandler gatewayExceptionHandler(ObjectMapper objectMapper) {
-        return new GatewayExceptionHandler(objectMapper);
+    public GatewayExceptionHandler gatewayExceptionHandler(ObjectProvider<ObjectMapper> objectMapperProvider) {
+        return new GatewayExceptionHandler(objectMapperProvider.getIfAvailable(ObjectMapper::new));
     }
 }
