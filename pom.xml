@@ -90,6 +90,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+        <!-- 显式指定 compiler 插件版本：老 Maven（3.8.x）默认 3.1 不支持 <release>，会按 Java 5 编译报错 -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
     </properties>
 
     <build>
@@ -98,6 +100,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
                         <parameters>true</parameters>
