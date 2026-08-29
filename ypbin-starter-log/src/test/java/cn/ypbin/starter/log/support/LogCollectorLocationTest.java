@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import cn.ypbin.starter.log.core.IpLocationResolver;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.model.LogRecord;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.EnumSet;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -28,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link LogCollector} IP 归属地采集测试。

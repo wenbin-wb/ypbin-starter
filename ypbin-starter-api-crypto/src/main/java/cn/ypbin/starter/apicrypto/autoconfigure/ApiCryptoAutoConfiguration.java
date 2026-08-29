@@ -19,7 +19,6 @@ import cn.ypbin.starter.apicrypto.advice.ApiDecryptRequestAdvice;
 import cn.ypbin.starter.apicrypto.advice.ApiEncryptResponseAdvice;
 import cn.ypbin.starter.apicrypto.core.AesApiCryptoProvider;
 import cn.ypbin.starter.apicrypto.core.ApiCryptoProvider;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -27,6 +26,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 接口加解密自动配置。

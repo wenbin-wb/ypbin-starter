@@ -32,9 +32,14 @@
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
         </dependency>
-        <!-- 序列化请求/响应体为 JSON -->
+        <!-- 序列化请求/响应体为 JSON：Jackson 2 供日志专用掩码 ObjectMapper（LogMaskModule）使用 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- Jackson 3（SB4 主序列化器）：LogCollector/AccessLogAspect 注入容器 ObjectMapper 用 -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <!-- 采集请求信息需要 Servlet API，可选 -->

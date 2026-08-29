@@ -21,10 +21,10 @@ import cn.ypbin.starter.log.core.LogClientProvider;
 import cn.ypbin.starter.log.core.LogClientProvider.LogClientInfo;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.model.LogRecord;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.EnumSet;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link LogCollector} 客户端信息采集测试。

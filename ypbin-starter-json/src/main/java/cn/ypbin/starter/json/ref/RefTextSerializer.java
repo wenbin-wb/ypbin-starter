@@ -15,47 +15,30 @@
  */
 package cn.ypbin.starter.json.ref;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.BeanProperty;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.ser.ContextualSerializer;
-import java.io.IOException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.BeanProperty;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
 
 /**
- * 引用翻译序列化器。
+ * 引用翻译序列化器（Jackson 3）。
  *
- * <p>{@link ContextualSerializer} 读取字段上的 {@link RefText} 注解：原字段原值照常输出（字段名不变），
+ * <p>通过 {@link #createContextual} 读取字段上的 {@link RefText} 注解：原字段原值照常输出（字段名不变），
  * 并额外写出展示名称字段（{@code 原字段名 + suffix}）。名称经 {@link RefTextUtils} 走缓存获取——列表场景
  * 若已由 {@link RefTextResolver} 预加载，此处全部命中缓存，无逐行回源。未接入引用翻译时不输出名称字段。</p>
  *
  * @author wenbin
  * @since 2026-08-01
  */
-public class RefTextSerializer extends JsonSerializer<Object> implements ContextualSerializer {
+public class RefTextSerializer extends ValueSerializer<Object> {
 
     private String refType;
     private String nameFieldName;
 
     @Override
-    public void serialize(Object value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        // 原字段原值照常输出，字段名不变（Long 交由默认序列化，保持大数转字符串等既有行为）
-        serializers.defaultSerializeValue(value, gen);
-        // 额外输出派生展示字段
-        if (nameFieldName != null && value != null) {
-            String name = RefTextUtils.translate(refType, value);
-            if (name != null) {
-                gen.writeStringField(nameFieldName, name);
-            }
-        }
-    }
-
-    @Override
-    public JsonSerializer<?> createContextual(SerializerProvider prov, BeanProperty property)
-        throws JsonMappingException {
+    public ValueSerializer<?> createContextual(SerializationContext ctxt, BeanProperty property) {
         if (property == null) {
-            return prov.findNullValueSerializer(null);
+            return ctxt.findNullValueSerializer(property);
         }
         RefText annotation = property.getAnnotation(RefText.class);
         if (annotation == null) {
@@ -67,6 +50,19 @@ public class RefTextSerializer extends JsonSerializer<Object> implements Context
             serializer.nameFieldName = property.getName() + annotation.suffix();
             return serializer;
         }
-        return prov.findValueSerializer(property.getType(), property);
+        return ctxt.findValueSerializer(property.getType());
+    }
+
+    @Override
+    public void serialize(Object value, JsonGenerator gen, SerializationContext ctxt) {
+        // 原字段原值照常输出，字段名不变（Long 交由默认序列化，保持大数转字符串等既有行为）
+        ctxt.writeValue(gen, value);
+        // 额外输出派生展示字段
+        if (nameFieldName != null && value != null) {
+            String name = RefTextUtils.translate(refType, value);
+            if (name != null) {
+                gen.writeStringProperty(nameFieldName, name);
+            }
+        }
     }
 }

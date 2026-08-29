@@ -25,7 +25,6 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cn.ypbin.starter.log.autoconfigure.AccessLogProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -37,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link AccessLogAspect} 单元测试：分块日志格式、敏感头掩码、异常块、排除路径、参数序列化。
@@ -296,8 +296,9 @@ class AccessLogAspectTest {
         body.password = "s3cret";
         when(point.proceed()).thenReturn(body);
 
-        ObjectMapper maskingMapper = new ObjectMapper()
-            .registerModule(new cn.ypbin.starter.log.support.LogMaskModule());
+        ObjectMapper maskingMapper = new ObjectMapper().rebuild()
+            .addModule(new cn.ypbin.starter.log.support.LogMaskModule())
+            .build();
         new AccessLogAspect(maskingMapper, new AccessLogProperties()).around(point);
 
         assertThat(capturedLog()).contains("\"password\":\"******\"");
