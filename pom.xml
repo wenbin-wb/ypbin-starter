@@ -132,27 +132,28 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Central Portal 发布插件：根聚合 pom 无 parent 继承不到，需独立声明 -->
-            <plugin>
-                <groupId>org.sonatype.central</groupId>
-                <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.8.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <publishingServerId>central</publishingServerId>
-                    <autoPublish>true</autoPublish>
-                    <waitUntil>uploaded</waitUntil>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 
     <profiles>
-        <!-- 发布 profile：根聚合 pom 无 parent，需自带 GPG 签名（否则上传的 .pom 缺 .asc 校验失败） -->
+        <!-- 发布 profile：根聚合 pom 无 parent，需自带 GPG 签名与 Central 发布插件
+             （两者仅在 deploy 到 Maven Central 时需要；放 profile 内避免普通构建解析失败） -->
         <profile>
             <id>release</id>
             <build>
                 <plugins>
+                    <!-- Central Portal 发布插件：根聚合 pom 无 parent 继承不到，需独立声明 -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.8.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>uploaded</waitUntil>
+                        </configuration>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
