@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.json.autoconfigure;
 
+import static tools.jackson.databind.ser.std.ToStringSerializer.instance;
+
 import cn.ypbin.starter.json.dict.DictCache;
 import cn.ypbin.starter.json.dict.DictProvider;
 import cn.ypbin.starter.json.dict.DictUtils;
@@ -29,12 +31,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
-import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
-import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
-import com.fasterxml.jackson.datatype.jsr310.deser.LocalTimeDeserializer;
-import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
-import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
-import com.fasterxml.jackson.datatype.jsr310.ser.LocalTimeSerializer;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -58,6 +54,12 @@ import org.springframework.boot.jackson2.autoconfigure.Jackson2AutoConfiguration
 import org.springframework.boot.jackson2.autoconfigure.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+import tools.jackson.databind.ext.javatime.deser.LocalDateDeserializer;
+import tools.jackson.databind.ext.javatime.deser.LocalDateTimeDeserializer;
+import tools.jackson.databind.ext.javatime.deser.LocalTimeDeserializer;
+import tools.jackson.databind.ext.javatime.ser.LocalDateSerializer;
+import tools.jackson.databind.ext.javatime.ser.LocalDateTimeSerializer;
+import tools.jackson.databind.ext.javatime.ser.LocalTimeSerializer;
 import tools.jackson.databind.module.SimpleModule;
 
 /**
@@ -94,12 +96,31 @@ public class JacksonAutoConfiguration {
         return builder -> {
             if (properties.isWriteBigNumberAsString()) {
                 SimpleModule module = new SimpleModule("ypbin-big-number-as-string");
-                module.addSerializer(Long.class, tools.jackson.databind.ser.std.ToStringSerializer.instance);
-                module.addSerializer(Long.TYPE, tools.jackson.databind.ser.std.ToStringSerializer.instance);
-                module.addSerializer(BigInteger.class, tools.jackson.databind.ser.std.ToStringSerializer.instance);
-                module.addSerializer(BigDecimal.class, tools.jackson.databind.ser.std.ToStringSerializer.instance);
+                module.addSerializer(Long.class, instance);
+                module.addSerializer(Long.TYPE, instance);
+                module.addSerializer(BigInteger.class, instance);
+                module.addSerializer(BigDecimal.class, instance);
                 builder.addModule(module);
             }
+            // Jackson 3 内置 JavaTime 序列化器默认输出 ISO 格式（带 T），此处统一为
+            // yyyy-MM-dd HH:mm:ss / yyyy-MM-dd / HH:mm:ss，与 Jackson 2 customizer 行为一致。
+            SimpleModule javaTimeModule = new SimpleModule("ypbin-java-time-format");
+            DateTimeFormatter dateTime = DateTimeFormatter.ofPattern(properties.getDateTimeFormat());
+            DateTimeFormatter date = DateTimeFormatter.ofPattern(properties.getDateFormat());
+            DateTimeFormatter time = DateTimeFormatter.ofPattern(properties.getTimeFormat());
+            javaTimeModule.addSerializer(LocalDateTime.class,
+                new LocalDateTimeSerializer(dateTime));
+            javaTimeModule.addDeserializer(LocalDateTime.class,
+                new LocalDateTimeDeserializer(dateTime));
+            javaTimeModule.addSerializer(LocalDate.class,
+                new LocalDateSerializer(date));
+            javaTimeModule.addDeserializer(LocalDate.class,
+                new LocalDateDeserializer(date));
+            javaTimeModule.addSerializer(LocalTime.class,
+                new LocalTimeSerializer(time));
+            javaTimeModule.addDeserializer(LocalTime.class,
+                new LocalTimeDeserializer(time));
+            builder.addModule(javaTimeModule);
         };
     }
 
@@ -119,12 +140,20 @@ public class JacksonAutoConfiguration {
             DateTimeFormatter date = DateTimeFormatter.ofPattern(properties.getDateFormat());
             DateTimeFormatter time = DateTimeFormatter.ofPattern(properties.getTimeFormat());
 
-            builder.serializerByType(LocalDateTime.class, new LocalDateTimeSerializer(dateTime));
-            builder.deserializerByType(LocalDateTime.class, new LocalDateTimeDeserializer(dateTime));
-            builder.serializerByType(LocalDate.class, new LocalDateSerializer(date));
-            builder.deserializerByType(LocalDate.class, new LocalDateDeserializer(date));
-            builder.serializerByType(LocalTime.class, new LocalTimeSerializer(time));
-            builder.deserializerByType(LocalTime.class, new LocalTimeDeserializer(time));
+            // Jackson 2（spring-boot-jackson2 兼容层）JavaTime 格式统一；SB4 主序列化器走
+            // {@link #ypbinJackson3Customizer}。两套类名同源不同包，此处按兼容层内联引用。
+            builder.serializerByType(LocalDateTime.class,
+                new com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer(dateTime));
+            builder.deserializerByType(LocalDateTime.class,
+                new com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer(dateTime));
+            builder.serializerByType(LocalDate.class,
+                new com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer(date));
+            builder.deserializerByType(LocalDate.class,
+                new com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer(date));
+            builder.serializerByType(LocalTime.class,
+                new com.fasterxml.jackson.datatype.jsr310.ser.LocalTimeSerializer(time));
+            builder.deserializerByType(LocalTime.class,
+                new com.fasterxml.jackson.datatype.jsr310.deser.LocalTimeDeserializer(time));
 
             // 大数字转字符串，规避 JS Number 精度丢失
             if (properties.isWriteBigNumberAsString()) {

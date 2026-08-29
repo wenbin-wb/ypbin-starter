@@ -20,7 +20,6 @@ import cn.ypbin.starter.sign.annotation.ApiSign;
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
 import cn.ypbin.starter.sign.core.SignChecker;
 import cn.ypbin.starter.sign.core.SignResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +30,7 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.util.PathMatcher;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 签名校验拦截器。

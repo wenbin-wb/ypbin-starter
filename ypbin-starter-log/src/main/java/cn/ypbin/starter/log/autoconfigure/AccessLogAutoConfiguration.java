@@ -17,7 +17,6 @@ package cn.ypbin.starter.log.autoconfigure;
 
 import cn.ypbin.starter.log.aspect.AccessLogAspect;
 import cn.ypbin.starter.log.support.LogMaskModule;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -27,6 +26,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 全量访问日志自动配置。
@@ -50,9 +50,11 @@ public class AccessLogAutoConfiguration {
     public AccessLogAspect accessLogAspect(
         ObjectProvider<ObjectMapper> mapperProvider, AccessLogProperties properties) {
         // 复用容器中的 ObjectMapper 配置（继承 json 模块），无则退化为默认实例；
-        // copy() 隔离出日志专用实例再注册掩码模块，不影响业务接口的正常序列化
-        ObjectMapper objectMapper = mapperProvider.getIfAvailable(ObjectMapper::new).copy();
-        objectMapper.registerModule(new LogMaskModule());
+        // rebuild() 隔离出日志专用实例再注册掩码模块，不影响业务接口的正常序列化
+        ObjectMapper base = mapperProvider.getIfAvailable(ObjectMapper::new);
+        ObjectMapper objectMapper = base.rebuild()
+            .addModule(new LogMaskModule())
+            .build();
         return new AccessLogAspect(objectMapper, properties);
     }
 }

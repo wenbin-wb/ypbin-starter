@@ -24,7 +24,6 @@ import cn.ypbin.starter.log.dao.LogDao;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.event.LogEventListener;
 import cn.ypbin.starter.log.support.LogCollector;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import java.util.Set;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -38,6 +37,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 操作日志自动配置。

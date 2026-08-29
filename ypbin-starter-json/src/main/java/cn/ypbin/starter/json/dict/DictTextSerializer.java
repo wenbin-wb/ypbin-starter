@@ -15,43 +15,30 @@
  */
 package cn.ypbin.starter.json.dict;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.BeanProperty;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.ser.ContextualSerializer;
-import java.io.IOException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.BeanProperty;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
 
 /**
- * 字典文本序列化器。
+ * 字典文本序列化器（Jackson 3）。
  *
- * <p>{@link ContextualSerializer} 读取字段上的 {@link DictText} 注解：原字段原值照常输出，并额外写出一个
- * 展示文本字段（{@code 原字段名 + suffix}）。翻译经 {@link DictUtils} 走缓存；未接入字典时展示文本回退为原值。</p>
+ * <p>通过 {@link #createContextual} 读取字段上的 {@link DictText} 注解：原字段原值照常输出，
+ * 并额外写出一个展示文本字段（{@code 原字段名 + suffix}）。翻译经 {@link DictUtils} 走缓存；
+ * 未接入字典时展示文本回退为原值。</p>
  *
  * @author wenbin
  * @since 2026-08-01
  */
-public class DictTextSerializer extends JsonSerializer<Object> implements ContextualSerializer {
+public class DictTextSerializer extends ValueSerializer<Object> {
 
     private String dictType;
     private String textFieldName;
 
     @Override
-    public void serialize(Object value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        // 原字段原值照常输出，字段名与类型不变（Integer/Long/String 等交由默认序列化）
-        serializers.defaultSerializeValue(value, gen);
-        // 额外输出派生展示字段：字典值统一按字符串 code 翻译
-        if (textFieldName != null && value != null) {
-            gen.writeStringField(textFieldName, DictUtils.translate(dictType, String.valueOf(value)));
-        }
-    }
-
-    @Override
-    public JsonSerializer<?> createContextual(SerializerProvider prov, BeanProperty property)
-        throws JsonMappingException {
+    public ValueSerializer<?> createContextual(SerializationContext ctxt, BeanProperty property) {
         if (property == null) {
-            return prov.findNullValueSerializer(null);
+            return ctxt.findNullValueSerializer(property);
         }
         DictText annotation = property.getAnnotation(DictText.class);
         if (annotation == null) {
@@ -65,6 +52,16 @@ public class DictTextSerializer extends JsonSerializer<Object> implements Contex
             return serializer;
         }
         // 非目标字段：回退到原始类型的默认序列化器，切勿写死 String.class（否则非 String 字段强转崩溃）
-        return prov.findValueSerializer(property.getType(), property);
+        return ctxt.findValueSerializer(property.getType());
+    }
+
+    @Override
+    public void serialize(Object value, JsonGenerator gen, SerializationContext ctxt) {
+        // 原字段原值照常输出，字段名与类型不变（Integer/Long/String 等交由默认序列化）
+        ctxt.writeValue(gen, value);
+        // 额外输出派生展示字段：字典值统一按字符串 code 翻译
+        if (textFieldName != null && value != null) {
+            gen.writeStringProperty(textFieldName, DictUtils.translate(dictType, String.valueOf(value)));
+        }
     }
 }

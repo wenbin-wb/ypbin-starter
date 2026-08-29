@@ -18,7 +18,6 @@ package cn.ypbin.starter.apicrypto.advice;
 import cn.ypbin.starter.apicrypto.annotation.ApiEncrypt;
 import cn.ypbin.starter.apicrypto.core.ApiCryptoProvider;
 import cn.ypbin.starter.core.model.R;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -26,6 +25,7 @@ import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 响应体加密 Advice。

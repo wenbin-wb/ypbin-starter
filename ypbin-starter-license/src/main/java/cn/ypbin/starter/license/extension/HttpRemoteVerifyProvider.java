@@ -20,8 +20,6 @@ import cn.ypbin.starter.license.exception.LicenseErrorCode;
 import cn.ypbin.starter.license.exception.LicenseException;
 import cn.ypbin.starter.sign.core.SignAlgorithm;
 import cn.ypbin.starter.sign.core.SignClient;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -33,6 +31,8 @@ import java.time.Duration;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 基于 HTTP 的联机校验参考实现。

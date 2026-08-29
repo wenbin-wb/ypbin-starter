@@ -15,43 +15,30 @@
  */
 package cn.ypbin.starter.json.sensitive;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.BeanProperty;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.ser.ContextualSerializer;
-import java.io.IOException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.BeanProperty;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
 
 /**
- * 脱敏序列化器。
+ * 脱敏序列化器（Jackson 3）。
  *
- * <p>{@link ContextualSerializer} 让序列化器能读取字段上的 {@link Sensitive} 注解，
- * 从而按不同字段的脱敏类型分别处理。无注解时退化为原样输出。</p>
+ * <p>通过 {@link #createContextual} 读取字段上的 {@link Sensitive} 注解，按不同字段的脱敏类型
+ * 分别处理；无注解时退化为原样输出。</p>
  *
  * @author wenbin
  * @since 2026-07-30
  */
-public class SensitiveSerializer extends JsonSerializer<String> implements ContextualSerializer {
+public class SensitiveSerializer extends ValueSerializer<String> {
 
     private SensitiveType type;
     private int prefixKeep;
     private int suffixKeep;
 
     @Override
-    public void serialize(String value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        if (type == null) {
-            gen.writeString(value);
-            return;
-        }
-        gen.writeString(type.apply(value, prefixKeep, suffixKeep));
-    }
-
-    @Override
-    public JsonSerializer<?> createContextual(SerializerProvider prov, BeanProperty property)
-        throws JsonMappingException {
+    public ValueSerializer<?> createContextual(SerializationContext ctxt, BeanProperty property) {
         if (property == null) {
-            return prov.findNullValueSerializer(null);
+            return ctxt.findNullValueSerializer(property);
         }
         Sensitive annotation = property.getAnnotation(Sensitive.class);
         if (annotation == null) {
@@ -65,6 +52,15 @@ public class SensitiveSerializer extends JsonSerializer<String> implements Conte
             return serializer;
         }
         // 非目标字段：回退到默认 String 序列化
-        return prov.findValueSerializer(String.class, property);
+        return ctxt.findValueSerializer(String.class);
+    }
+
+    @Override
+    public void serialize(String value, JsonGenerator gen, SerializationContext ctxt) {
+        if (type == null) {
+            gen.writeString(value);
+            return;
+        }
+        gen.writeString(type.apply(value, prefixKeep, suffixKeep));
     }
 }

@@ -57,7 +57,7 @@
         <!-- 授权载体序列化/反序列化：Jackson 原生支持 record，jsr310 处理 LocalDateTime。
              签发时对序列化后的载荷字节签名并连同载荷原样封装，验签直接基于存储字节，规避重序列化的字段顺序问题。 -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
+            <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>

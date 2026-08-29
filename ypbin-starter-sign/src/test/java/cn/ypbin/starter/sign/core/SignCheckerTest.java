@@ -18,7 +18,6 @@ package cn.ypbin.starter.sign.core;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link SignChecker} 应用来源与状态校验测试。

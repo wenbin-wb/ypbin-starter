@@ -24,7 +24,6 @@ import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.event.LogEvent;
 import cn.ypbin.starter.log.model.LogRecord;
 import cn.ypbin.starter.log.support.LogCollector;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +34,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.event.EventListener;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link LogAspect} 真实 AOP 代理织入测试。

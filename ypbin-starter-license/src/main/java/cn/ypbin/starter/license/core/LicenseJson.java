@@ -15,16 +15,15 @@
  */
 package cn.ypbin.starter.license.core;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * License 模块内部 JSON 编解码。
  *
- * <p>持有一个自包含、与 Web 层无关的 {@link ObjectMapper}，关闭时间戳序列化以固定 {@code LocalDateTime}
- * 的 ISO 文本表示，忽略未知字段以便向后兼容授权文件格式演进。授权载荷的签发与解析共用同一配置，
+ * <p>持有一个自包含、与 Web 层无关的 {@link ObjectMapper}，关闭时间戳序列化以固定
+ * {@code LocalDateTime} 的 ISO 文本表示（Jackson 3 内置 JavaTime 支持，无需单独注册模块），
+ * 忽略未知字段以便向后兼容授权文件格式演进。授权载荷的签发与解析共用同一配置，
  * 保证签名侧与校验侧行为一致。</p>
  *
  * @author wenbin
@@ -33,9 +32,9 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 final class LicenseJson {
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
-        .registerModule(new JavaTimeModule())
-        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        .rebuild()
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        .build();
 
     private LicenseJson() {
     }

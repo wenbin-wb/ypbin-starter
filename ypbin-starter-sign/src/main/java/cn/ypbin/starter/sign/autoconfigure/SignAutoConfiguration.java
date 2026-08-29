@@ -22,7 +22,6 @@ import cn.ypbin.starter.sign.core.RedisNonceStore;
 import cn.ypbin.starter.sign.core.SignAppProvider;
 import cn.ypbin.starter.sign.core.SignChecker;
 import cn.ypbin.starter.sign.interceptor.SignInterceptor;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -37,6 +36,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 接口签名自动配置。

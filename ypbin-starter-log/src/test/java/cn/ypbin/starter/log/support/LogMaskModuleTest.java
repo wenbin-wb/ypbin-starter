@@ -18,8 +18,8 @@ package cn.ypbin.starter.log.support;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.log.annotation.LogMask;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link LogMaskModule} 单元测试：标注 {@link LogMask} 的字段序列化为固定掩码，未标注字段不受影响。
@@ -35,7 +35,9 @@ class LogMaskModuleTest {
         public String password;
     }
 
-    private final ObjectMapper mapper = new ObjectMapper().registerModule(new LogMaskModule());
+    private final ObjectMapper mapper = new ObjectMapper().rebuild()
+        .addModule(new LogMaskModule())
+        .build();
 
     @Test
     void serialize_shouldMaskAnnotatedField() throws Exception {
