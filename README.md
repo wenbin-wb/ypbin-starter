@@ -250,6 +250,8 @@
 
 ## 🤝 贡献与许可证
 
+欢迎提交 Issue 与 Pull Request，贡献规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ### 本地构建
 
 ```bash
