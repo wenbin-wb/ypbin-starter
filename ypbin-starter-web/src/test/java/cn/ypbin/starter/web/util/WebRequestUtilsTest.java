@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.crud.controller;
+package cn.ypbin.starter.web.util;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -33,84 +33,67 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * {@link BaseController} 辅助方法测试。
+ * {@link WebRequestUtils} 请求上下文读取测试。
  *
  * @author wenbin
- * @since 2026-08-01
+ * @since 2026-08-31
  */
-class BaseControllerHelperTest {
+class WebRequestUtilsTest {
 
     @RestController
-    @RequestMapping("/helpers")
-    static class HelperController extends BaseController {
+    @RequestMapping("/request-utils")
+    static class ProbeController {
 
         @GetMapping
-        R<Map<String, Object>> helper() {
-            return data(Map.of(
-                "path", path(),
-                "method", method(),
-                "header", header("X-Test"),
-                "param", param("q"),
-                "ip", ip(),
-                "login", isLogin(),
-                "userIdPresent", userId().isPresent()
+        R<Map<String, Object>> probe() {
+            return R.ok(Map.of(
+                "path", WebRequestUtils.path(),
+                "method", WebRequestUtils.method(),
+                "header", WebRequestUtils.header("X-Test"),
+                "headerWithDefault", WebRequestUtils.header("X-Missing", "fallback"),
+                "param", WebRequestUtils.param("q"),
+                "paramWithDefault", WebRequestUtils.param("empty", "dft"),
+                "ip", WebRequestUtils.ip()
             ));
         }
 
         @PostMapping("/file")
         R<Map<String, Object>> upload() {
-            MultipartFile file = file("file");
-            return ok(Map.of(
+            MultipartFile file = WebRequestUtils.file("file");
+            return R.ok(Map.of(
                 "fileName", file == null ? "" : file.getOriginalFilename(),
-                "count", files("file").size()
+                "count", WebRequestUtils.files("file").size()
             ));
-        }
-
-        @GetMapping("/status")
-        R<Void> statusResult() {
-            return status(Boolean.parseBoolean(param("ok", "false")));
         }
     }
 
     @Test
-    void helperShouldReadRequestAndReturnData() throws Exception {
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new HelperController()).build();
+    void shouldReadRequestContext() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ProbeController()).build();
 
-        mockMvc.perform(get("/helpers?q=abc")
+        mockMvc.perform(get("/request-utils?q=abc")
                 .header("X-Test", "yes")
                 .header("X-Forwarded-For", "10.0.0.1, 10.0.0.2"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
-            .andExpect(jsonPath("$.data.path").value("/helpers"))
+            .andExpect(jsonPath("$.data.path").value("/request-utils"))
             .andExpect(jsonPath("$.data.method").value("GET"))
             .andExpect(jsonPath("$.data.header").value("yes"))
+            .andExpect(jsonPath("$.data.headerWithDefault").value("fallback"))
             .andExpect(jsonPath("$.data.param").value("abc"))
-            .andExpect(jsonPath("$.data.ip").value("10.0.0.1"))
-            .andExpect(jsonPath("$.data.login").value(false))
-            .andExpect(jsonPath("$.data.userIdPresent").value(false));
+            .andExpect(jsonPath("$.data.paramWithDefault").value("dft"))
+            .andExpect(jsonPath("$.data.ip").value("10.0.0.1"));
     }
 
     @Test
-    void helperShouldReadMultipartFiles() throws Exception {
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new HelperController()).build();
+    void shouldReadMultipartFiles() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ProbeController()).build();
         MockMultipartFile file = new MockMultipartFile("file", "a.txt", "text/plain", "hello".getBytes());
 
-        mockMvc.perform(multipart("/helpers/file").file(file))
+        mockMvc.perform(multipart("/request-utils/file").file(file))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.fileName").value("a.txt"))
             .andExpect(jsonPath("$.data.count").value(1));
-    }
-
-    @Test
-    void statusShouldReturnSuccessOrFailure() throws Exception {
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new HelperController()).build();
-
-        mockMvc.perform(get("/helpers/status?ok=true"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.success").value(true));
-        mockMvc.perform(get("/helpers/status?ok=false"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.success").value(false));
     }
 }

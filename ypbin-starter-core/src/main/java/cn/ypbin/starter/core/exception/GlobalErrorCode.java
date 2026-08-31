@@ -40,6 +40,9 @@ public enum GlobalErrorCode implements ErrorCode {
     /** 资源不存在 */
     NOT_FOUND(404, "请求的资源不存在"),
 
+    /** 请求方法不支持 */
+    METHOD_NOT_ALLOWED(405, "不支持的请求方法"),
+
     /** 业务校验失败 */
     BUSINESS_ERROR(409, "业务处理失败"),
 

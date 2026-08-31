@@ -69,18 +69,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * {@code @RequestBody} 参数校验失败。
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public R<Void> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
-        String msg = e.getBindingResult().getFieldErrors().stream()
-            .map(GlobalExceptionHandler::formatFieldError)
-            .collect(Collectors.joining("; "));
-        return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(), msg);
-    }
-
-    /**
-     * 表单/普通对象绑定校验失败。
+     * 参数校验失败（{@code @RequestBody} 校验与表单/普通对象绑定校验共用此入口，
+     * {@link MethodArgumentNotValidException} 本身是 {@link BindException} 的子类）。
      */
     @ExceptionHandler(BindException.class)
     public R<Void> handleBindException(BindException e) {
@@ -95,7 +85,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public R<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
-        return R.fail(405, "不支持的请求方法：" + e.getMethod());
+        return R.fail(GlobalErrorCode.METHOD_NOT_ALLOWED, "不支持的请求方法：" + e.getMethod());
     }
 
     /**
