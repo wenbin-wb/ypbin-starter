@@ -58,5 +58,12 @@
             <artifactId>spring-boot-actuator-autoconfigure</artifactId>
             <optional>true</optional>
         </dependency>
+
+        <!-- 测试依赖：JUnit 5 / AssertJ / Spring Boot Test（SpringUtils 集成测试需要容器） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

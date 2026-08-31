@@ -38,6 +38,74 @@ import org.springframework.data.redis.core.script.RedisScript;
 class RedisCacheServiceTest {
 
     @Test
+    void setShouldDelegateToValueOperations() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        RedisCacheService service = new RedisCacheService(redisTemplate);
+
+        service.set("k", "v");
+
+        verify(valueOperations).set("k", "v");
+    }
+
+    @Test
+    void setWithTimeoutShouldDelegate() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        RedisCacheService service = new RedisCacheService(redisTemplate);
+
+        service.set("k", "v", Duration.ofSeconds(10));
+
+        verify(valueOperations).set("k", "v", Duration.ofSeconds(10));
+    }
+
+    @Test
+    void getShouldReturnTypedValue() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("k")).thenReturn("value");
+        RedisCacheService service = new RedisCacheService(redisTemplate);
+
+        assertThat(service.get("k", String.class)).isEqualTo("value");
+    }
+
+    @Test
+    void deleteShouldReturnBoolean() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        when(redisTemplate.delete("k")).thenReturn(true);
+        RedisCacheService service = new RedisCacheService(redisTemplate);
+
+        assertThat(service.delete("k")).isTrue();
+    }
+
+    @Test
+    void existsShouldDelegate() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.hasKey("k")).thenReturn(true);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("k")).thenReturn("value");
+        RedisCacheService service = new RedisCacheService(redisTemplate);
+
+        assertThat(service.exists("k")).isTrue();
+    }
+
+    @Test
+    void existsShouldBeFalseForSentinel() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.hasKey("k")).thenReturn(true);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("k")).thenReturn("__YPBIN_NULL__");
+        RedisCacheService service = new RedisCacheService(redisTemplate);
+
+        assertThat(service.exists("k")).isFalse();
+    }
+
+    @Test
     void setIfAbsentShouldDelegateAtomicallyWithTimeout() {
         RedisTemplate<String, Object> redisTemplate = redisTemplate();
         ValueOperations<String, Object> valueOperations = valueOperations();

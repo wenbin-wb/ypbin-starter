@@ -59,8 +59,7 @@ class WebAutoConfigurationTest {
             .run(context -> {
                 assertThat(context).hasSingleBean(GlobalExceptionHandler.class);
                 assertThat(context.getBean(GlobalExceptionHandler.class))
-                    .isInstanceOf(CustomExceptionHandler.class);
-            });
+                    .isInstanceOf(CustomExceptionHandler.class);            });
     }
 
     @Test
@@ -68,6 +67,14 @@ class WebAutoConfigurationTest {
         new ReactiveWebApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(WebAutoConfiguration.class))
             .run(context -> assertThat(context).doesNotHaveBean(GlobalExceptionHandler.class));
+    }
+
+    @Test
+    void xssPropertiesShouldExposeDefaults() {
+        XssProperties props = new XssProperties();
+        assertThat(props.isEnabled()).isFalse();
+        assertThat(props.getExcludes()).isEmpty();
+        assertThat(XssProperties.PREFIX).isEqualTo("ypbin.web.xss");
     }
 
     @Configuration(proxyBeanMethods = false)
