@@ -7,6 +7,36 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.0.0] - 2026-08-31
+
+**破坏性变更版本**：删除控制器基类 `BaseController`，公开 API 与继承结构发生不兼容调整，详见下方「迁移指南」。共 36 个模块。
+
+### 破坏性变更（迁移指南）
+- **`BaseController` 已删除**：原 38 个 protected 辅助方法按职责迁移至静态工具/既有 API，业务控制器一律改为普通 `@RestController`：
+  - 请求上下文（`request()/path()/method()/header()/param()/ip()/file()/files()`）→ `cn.ypbin.starter.web.util.WebRequestUtils`（静态方法同名调用）
+  - 当前用户（`isLogin()/userId()/username()/tenantId()`）→ `cn.ypbin.starter.security.core.UserContext`（静态方法）
+  - 响应包装（`ok()/data()/success()/fail()/status()`）→ `cn.ypbin.starter.core.model.R` 静态工厂（`R.ok()/R.fail()`）
+- **`CrudController` 不再继承 `BaseController`**：继承 `CrudController` 的标准 CRUD 控制器不受影响（其内部已改直接用 `R.ok()`）；但若子类曾直接调用基类辅助方法，需按上表迁移
+- **`GlobalExceptionHandler` 参数校验入口合并**：`MethodArgumentNotValidException` 与 `BindException` 两 handler 合并为 `BindException` 单入口（前者是其子类），行为不变
+- **`GlobalErrorCode` 新增 `METHOD_NOT_ALLOWED(405)`**：405 由裸数字改为枚举常量
+
+### 新增
+- **`EntityStatus` 枚举**（`ypbin-starter-data`）：`ENABLED(1)/DISABLED(0)`，`BaseEntity.status` 默认值改引枚举，业务侧禁止裸写 `0/1`
+- **`WebRequestUtils` 静态工具**（`ypbin-starter-web`）：HTTP 请求上下文读取的统一入口，替代原基类辅助方法
+- **deploy 环境变量化**：`deploy/docker-compose.yml` 弱口令改为 `${VAR:?}` 强制从 `.env` 注入（新增 `deploy/.env.example`），sentinel Dockerfile 移除内嵌默认密码
+
+### 修复与优化
+- 双参数校验 handler 冗余消除；405 魔法数字清零
+- 控制器层彻底组合优于继承，业务代码不再被迫继承"工具箱"基类
+
+## [1.4.1] - 2026-08-29
+
+修复与微调，共 36 个模块。
+
+### 修复
+- **构建兼容**：显式指定 `maven-compiler-plugin 3.13.0`，修复老 Maven（3.8.x）默认 3.1 不支持 `release` 属性导致的编译失败
+- **README 与文档**：快速开始 BOM 版本同步至 1.4.1，README 升级为专业大厂风格排版
+
 ## [1.4.0] - 2026-08-28
 
 全线升级至 Spring Boot 4.1.0 + JDK 21 基线，新增企业级 AI 对话与 RAG 模块，全面迁移至 Apache Fesod 2.0.2 孵化器新架构并加固多项组件。共 36 个模块。
