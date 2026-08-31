@@ -17,9 +17,7 @@ ARG DASHBOARD_JAR_URL=https://github.com/alibaba/Sentinel/releases/download/${SE
 WORKDIR /app
 ADD ${DASHBOARD_JAR_URL} /app/sentinel-dashboard.jar
 
-ENV AUTH_USERNAME=sentinel \
-    AUTH_PASSWORD=sentinel \
-    SERVER_PORT=8858
+ENV SERVER_PORT=8858
 
 EXPOSE 8858
 

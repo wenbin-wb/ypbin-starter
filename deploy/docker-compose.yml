@@ -8,7 +8,8 @@
 #   停止：docker compose -f deploy/docker-compose.yml down
 #   连带数据卷清理：docker compose -f deploy/docker-compose.yml down -v
 #
-# 说明：仅用于本地开发自测，未做生产加固（弱口令、单机模式），请勿用于生产。
+# 说明：仅用于本地开发自测，未做生产加固（单机模式），请勿用于生产。
+# 账号密码一律从同目录 .env 注入（缺失时 compose 直接报错），参考 .env.example。
 
 services:
   nacos:
@@ -49,9 +50,9 @@ services:
     image: ypbin/sentinel-dashboard:1.8.8
     container_name: ypbin-sentinel-dashboard
     environment:
-      # 控制台登录账号密码
-      AUTH_USERNAME: sentinel
-      AUTH_PASSWORD: sentinel
+      # 控制台登录账号密码（必须从 .env 注入）
+      AUTH_USERNAME: ${SENTINEL_AUTH_USERNAME:?请在 .env 设置 SENTINEL_AUTH_USERNAME}
+      AUTH_PASSWORD: ${SENTINEL_AUTH_PASSWORD:?请在 .env 设置 SENTINEL_AUTH_PASSWORD}
     ports:
       - "8858:8858"   # 控制台 UI；服务端通过 spring.cloud.sentinel.transport.dashboard=localhost:8858 上报
     healthcheck:
@@ -64,14 +65,14 @@ services:
     image: mysql:8.4
     container_name: ypbin-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 设置 MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ypbin
     ports:
       - "3306:3306"
     volumes:
       - ypbin-mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123456"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -40,8 +40,8 @@ import org.springframework.web.bind.annotation.RequestBody;
  * 标准 CRUD 控制器抽象类。
  *
  * <p>本类面向「接口形态稳定、业务逻辑较轻」的资源，提供 get/list/page/save/update/delete
- * 六个标准端点。复杂业务、非标准端点或需要精细编排鉴权的控制器，建议继承 {@link BaseController}
- * 后自行声明路由。</p>
+ * 六个标准端点。复杂业务、非标准端点或需要精细编排鉴权的控制器，直接声明普通 Controller 即可，
+ * 请求上下文读取用 {@code WebRequestUtils}，响应包装直接使用 {@link R} 静态工厂。</p>
  *
  * <p>为规避 Over-Posting（过度提交）风险，接口层严格区分三类模型：</p>
  * <ul>
@@ -69,8 +69,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * @author wenbin
  * @since 2026-08-01
  */
-public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q extends PageQuery>
-    extends BaseController {
+public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q extends PageQuery> {
 
     /** 泛型参数解析结果缓存，避免每次请求都反射解析 */
     private static final Map<Class<?>, Class<?>[]> TYPE_ARG_CACHE = new ConcurrentHashMap<>();
@@ -94,13 +93,13 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
     @GetMapping("/{id}")
     public R<RESP> get(@PathVariable ID id) {
         checkPermission(ACTION_LIST);
-        return ok(toResp(getBaseService().getById(id)));
+        return R.ok(toResp(getBaseService().getById(id)));
     }
 
     @GetMapping("/list")
     public R<List<RESP>> list() {
         checkPermission(ACTION_LIST);
-        return ok(getBaseService().list().stream().map(this::toResp).toList());
+        return R.ok(getBaseService().list().stream().map(this::toResp).toList());
     }
 
     @GetMapping
@@ -110,7 +109,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
         PageResult<RESP> view = PageResult.of(
             source.getItems().stream().map(this::toResp).toList(),
             source.getTotal(), source.getPage(), source.getPageSize());
-        return ok(view);
+        return R.ok(view);
     }
 
     @PostMapping
@@ -120,7 +119,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
         beforeSave(req, entity);
         getBaseService().save(entity);
         afterSave(req, entity);
-        return ok();
+        return R.ok();
     }
 
     @PutMapping("/{id}")
@@ -130,7 +129,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
         beforeUpdate(id, req, entity);
         getBaseService().updateById(entity);
         afterUpdate(id, req, entity);
-        return ok();
+        return R.ok();
     }
 
     @DeleteMapping("/{id}")
@@ -139,7 +138,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
         beforeDelete(id);
         getBaseService().removeById(id);
         afterDelete(id);
-        return ok();
+        return R.ok();
     }
 
     /**

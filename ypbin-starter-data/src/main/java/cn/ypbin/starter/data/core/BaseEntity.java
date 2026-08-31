@@ -68,9 +68,9 @@ public abstract class BaseEntity implements Serializable {
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
-    /** 业务状态：1 正常、0 禁用 */
+    /** 业务状态：1 正常、0 禁用，取值见 {@link EntityStatus} */
     @TableField(value = "status")
-    private Integer status = 1;
+    private Integer status = EntityStatus.ENABLED.getCode();
 
     /** 逻辑删除标记：0 未删除、1 已删除 */
     @TableLogic

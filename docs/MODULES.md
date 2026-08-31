@@ -769,10 +769,11 @@ boolean ok  = Sm2Utils.verify("data", sign, kp.publicKey());   // 验签
 
 ### extension-crud — 通用 CRUD
 
-基类库，消除增删改查样板。控制器拆成两层，避免一个基类同时承担「通用辅助」和「标准 CRUD 路由」导致不灵活：
+基类库，消除增删改查样板。标准 CRUD 路由由 `CrudController` 一层承担；请求上下文与响应包装以静态工具提供，避免为工具方法而继承基类：
 
-- `BaseController`：轻量辅助基类，封装 `request()`、`path()`、`method()`、`header()`、`param()`、`ip()`、`file()/files()`、`isLogin()`、`userId()`、`username()`、`tenantId()`、`ok()/data()/success()/fail()/status()`，不声明任何路由。复杂业务、非标准端点直接继承它。
 - `CrudController`：标准 CRUD 抽象控制器，声明 `GET /{id}`、`GET /list`、`GET /` 分页、`POST /`、`PUT /{id}`、`DELETE /{id}`。适合接口形态稳定、业务逻辑较轻的实体。
+- `WebRequestUtils`（web 模块）：请求上下文静态工具，封装 `request()`、`path()`、`method()`、`header()`、`param()`、`ip()`、`file()/files()`。
+- 响应包装直接使用 `R` 静态工厂（`R.ok()/R.fail()`），当前用户读取直接使用 `UserContext`（security 模块）。
 
 ```java
 // 服务层：继承 BaseServiceImpl，自动拥有 CRUD + 分页
@@ -791,15 +792,15 @@ public class ArticleController extends CrudController<Article, Long, ArticleReq,
 
 `save/update` 收 `REQ`、查询返回 `RESP`，实体永不直接暴露。简单场景可将 REQ/RESP 直接指定为实体类型；需精细控制时覆盖 `toEntity` / `toResp`（接 MapStruct 等）。分页用 `PageQuery` / `PageResult`，请求参数为 `page/pageSize`，响应数据为 `items/total/page/pageSize/pages`。
 
-**复杂控制器**：直接继承 `BaseController`，手写端点，保留统一响应辅助：
+**复杂控制器**：直接声明普通 `@RestController`，响应包装用 `R` 静态工厂，请求上下文用 `WebRequestUtils`：
 
 ```java
 @RestController
 @RequestMapping("/articles")
-public class ArticleController extends BaseController {
+public class ArticleController {
     @GetMapping("/{id}/publish-info")
     public R<ArticlePublishInfo> publishInfo(@PathVariable Long id) {
-        return ok(articleService.getPublishInfo(id));
+        return R.ok(articleService.getPublishInfo(id));
     }
 }
 ```
@@ -858,7 +859,7 @@ protected void beforeSave(UserReq req, User entity) {
 }
 ```
 
-> 定位：标准且轻量的资源用 `CrudController`；业务规则多、端点形态特殊、鉴权编排复杂的资源继承 `BaseController` 自写。
+> 定位：标准且轻量的资源用 `CrudController`；业务规则多、端点形态特殊、鉴权编排复杂的资源直接手写普通控制器。
 
 ### extension-tenant — 多租户
 
