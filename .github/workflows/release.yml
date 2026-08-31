@@ -28,6 +28,34 @@ jobs:
       - name: 全量测试与构建校验
         run: mvn -B clean test
 
+      - name: 提取版本号（去 v 前缀）
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 校验 pom revision 与 tag 一致
+        run: |
+          POM_VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive org.codehaus.mojo:exec-maven-plugin:3.1.0:exec)
+          echo "pom=$POM_VERSION tag=${{ steps.version.outputs.VERSION }}"
+          [ "$POM_VERSION" = "${{ steps.version.outputs.VERSION }}" ] || { echo "版本不一致，拒绝发布"; exit 1; }
+
+      - name: 同步文档与下游依赖版本（BOM 引用、README、site 版本戳、admin 依赖）
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # README 快速开始 BOM 版本
+          sed -i "s|<version>1\.[0-9]*\.[0-9]*</version>|<version>${VERSION}</version>|g" README.md
+          # admin 依赖版本（仅当存在且不同）
+          ADMIN_POM=../ypbin-admin/pom.xml
+          if [ -f "$ADMIN_POM" ]; then
+            sed -i "s|<ypbin-starter.version>[^<]*</ypbin-starter.version>|<ypbin-starter.version>${VERSION}</ypbin-starter.version>|" "$ADMIN_POM"
+          fi
+          # site 版本戳（如存在）
+          if [ -f ../ypbin-site/docs/releases.json ]; then
+            node -e "const fs=require('fs');const p='../ypbin-site/docs/releases.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.starter='${VERSION}';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+          fi
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(release): 同步 v${VERSION} 文档与下游版本" || echo "无变更需提交"
+          git push
+
       - name: 提取 Release Notes 并发布 Release
         uses: softprops/action-gh-release@v2
         with:
