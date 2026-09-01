@@ -139,6 +139,45 @@ class RedisCacheServiceTest {
         assertThat(cache.compareAndDelete("k", "wrong")).isFalse();
     }
 
+    @Test
+    void getOrLoadWithNullTtlShouldSetWithoutExpiration() {
+        // 永久缓存：ttl=null 时 set(key, loaded) 不带过期时间（主动失效模式）
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("k")).thenReturn(null);
+        // 抢回源锁成功
+        when(valueOperations.setIfAbsent(eq("k:ypbin:load-lock"), any(), any(Duration.class)))
+            .thenReturn(true);
+        RedisCacheService cache = new RedisCacheService(redisTemplate);
+
+        String loaded = cache.getOrLoad("k", String.class, () -> "loaded", null);
+
+        assertThat(loaded).isEqualTo("loaded");
+        // ttl=null：调用 2 参 set（无过期时间），不调 3 参 set
+        verify(valueOperations).set("k", "loaded");
+        // 释放锁
+        verify(redisTemplate).execute(any(RedisScript.class), eq(List.of("k:ypbin:load-lock")), any());
+    }
+
+    @Test
+    void getOrLoadWithTtlShouldSetWithExpiration() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("k")).thenReturn(null);
+        when(valueOperations.setIfAbsent(eq("k:ypbin:load-lock"), any(), any(Duration.class)))
+            .thenReturn(true);
+        RedisCacheService cache = new RedisCacheService(redisTemplate);
+
+        Duration ttl = Duration.ofMinutes(5);
+        String loaded = cache.getOrLoad("k", String.class, () -> "loaded", ttl);
+
+        assertThat(loaded).isEqualTo("loaded");
+        // 非 null ttl：3 参 set（带 jitter 后的过期时间）
+        verify(valueOperations).set(eq("k"), eq("loaded"), any(Duration.class));
+    }
+
     @SuppressWarnings("unchecked")
     private ValueOperations<String, Object> valueOperations() {
         return mock(ValueOperations.class);

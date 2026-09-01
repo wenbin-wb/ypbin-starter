@@ -146,8 +146,12 @@ public class RedisCacheService implements CacheService {
                     // 防穿透：数据源无数据，缓存空值哨兵短时
                     redisTemplate.opsForValue().set(key, NULL_SENTINEL, NULL_TTL);
                 } else {
-                    // 防雪崩：TTL 叠加随机扰动
-                    redisTemplate.opsForValue().set(key, loaded, jitter(ttl));
+                    // 防雪崩：TTL 叠加随机扰动（ttl 为 null 表示永久缓存，靠主动失效清理，不过期）
+                    if (ttl == null) {
+                        redisTemplate.opsForValue().set(key, loaded);
+                    } else {
+                        redisTemplate.opsForValue().set(key, loaded, jitter(ttl));
+                    }
                 }
                 return loaded;
             } finally {

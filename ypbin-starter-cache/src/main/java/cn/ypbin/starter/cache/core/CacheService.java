@@ -125,10 +125,13 @@ public interface CacheService {
      * 防穿透（回源结果为 {@code null} 时缓存空值标记短时，避免不存在的 key 反复打到数据源）、
      * 防雪崩（TTL 叠加随机扰动，避免大量 key 同一时刻集中过期）。</p>
      *
+     * <p>ttl 传 {@code null} 表示永久缓存（不过期）：适用于「主动失效」模式——数据变更由业务方
+     * 显式 {@link #delete(String)} 清理，缓存一致性由主动失效保证，无需时间兜底。</p>
+     *
      * @param key    键
      * @param type   期望类型
      * @param loader 回源加载函数（缓存未命中时调用；返回 {@code null} 表示数据源无此数据）
-     * @param ttl    缓存过期时长
+     * @param ttl    缓存过期时长，{@code null} 表示永久（靠主动失效清理）
      * @param <T>    泛型
      * @return 缓存值或回源结果，数据源也无数据时返回 {@code null}
      */
