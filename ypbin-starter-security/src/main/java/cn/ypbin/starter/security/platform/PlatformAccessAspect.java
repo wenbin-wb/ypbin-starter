@@ -18,6 +18,7 @@ package cn.ypbin.starter.security.platform;
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.security.identity.IdentityContext;
+import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 
@@ -45,7 +46,7 @@ public class PlatformAccessAspect {
 
     @Before("@within(cn.ypbin.starter.security.platform.PlatformAccess)"
         + " || @annotation(cn.ypbin.starter.security.platform.PlatformAccess)")
-    public void guard(org.aspectj.lang.JoinPoint joinPoint) {
+    public void guard(JoinPoint joinPoint) {
         checkPlatformAccess();
     }
 
