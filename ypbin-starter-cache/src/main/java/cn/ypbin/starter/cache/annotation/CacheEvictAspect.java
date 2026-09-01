@@ -18,6 +18,7 @@ package cn.ypbin.starter.cache.annotation;
 import cn.ypbin.starter.cache.util.CacheUtils;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
@@ -31,6 +32,8 @@ import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * {@link CacheEvict} 缓存失效切面。
@@ -54,7 +57,18 @@ public class CacheEvictAspect {
     @AfterReturning("@annotation(cacheEvict)")
     public void evict(JoinPoint joinPoint, CacheEvict cacheEvict) {
         List<String> keys = resolveKeys(joinPoint, cacheEvict);
-        if (!keys.isEmpty()) {
+        if (keys.isEmpty()) {
+            return;
+        }
+        // 事务场景：等事务提交后再删缓存，避免并发读在事务提交前回源到旧数据并永久缓存
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    CacheUtils.delete(keys);
+                }
+            });
+        } else {
             CacheUtils.delete(keys);
         }
     }
@@ -81,7 +95,7 @@ public class CacheEvictAspect {
             } catch (RuntimeException e) {
                 // 表达式解析失败：暴露问题，不静默吞（铁律：错误要暴露）
                 log.error("[ypbin-starter] @CacheEvict SpEL 解析失败: method={}, expression={}, args={}, cause={}",
-                    method.getName(), expression, java.util.Arrays.toString(args), e.getMessage(), e);
+                    method.getName(), expression, Arrays.toString(args), e.getMessage(), e);
             }
         }
         return keys;

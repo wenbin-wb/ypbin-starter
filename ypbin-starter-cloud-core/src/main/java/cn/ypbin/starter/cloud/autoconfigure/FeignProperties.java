@@ -41,9 +41,12 @@ public class FeignProperties {
 
     /**
      * 需要透传到下游服务的请求头名单（大小写不敏感）。
-     * 默认只透传认证与链路追踪相关头；用户、租户等身份头应由可信网关清洗/签发后再显式加入。
+     * 默认透传认证、链路追踪与身份头（身份头由可信网关统一清洗/签发，二次 RPC 时保证
+     * 下游仍能识别调用者身份；若需自定义可在配置中覆盖）。
      */
-    private List<String> propagateHeaders = new ArrayList<>(List.of("Authorization", "X-Request-Id", "X-Trace-Id"));
+    private List<String> propagateHeaders = new ArrayList<>(List.of(
+        "Authorization", "X-Request-Id", "X-Trace-Id",
+        "X-User-Id", "X-User-Name", "X-Tenant-Id", "X-Dept-Id", "X-Roles"));
 
     public boolean isEnabled() {
         return enabled;

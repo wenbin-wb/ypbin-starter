@@ -36,6 +36,9 @@ class FeignSupportTest {
         assertThat(props.isErrorDecoderEnabled()).isTrue();
         assertThat(props.isCircuitbreakerEnabled()).isTrue();
         assertThat(props.getPropagateHeaders()).contains("Authorization");
+        // 身份头默认透传（二次 RPC 保下游识别调用者身份）
+        assertThat(props.getPropagateHeaders())
+            .contains("X-User-Id", "X-User-Name", "X-Tenant-Id", "X-Dept-Id", "X-Roles");
     }
 
     @Test

@@ -16,17 +16,19 @@
 package cn.ypbin.starter.security.core;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.ypbin.starter.security.identity.IdentityContext;
 import java.util.Optional;
 
 /**
- * 当前登录用户上下文门面。
+ * 当前登录用户上下文门面（统一自适应单体/微服务）。
  *
  * <p>在 {@link LoginHelper} 只提供用户 ID 的基础上，进一步提供用户名、租户、扩展属性等常用信息，
  * 供业务在任意层静态读取当前登录人，免去到处写 {@code StpUtil} 与手动取会话。</p>
  *
- * <p>登录用户信息来自登录会话（Sa-Token Session）：登录成功后由业务方通过 {@link #setLoginUser} 存入
- * {@link LoginUser}，本类据此读取用户名、租户等；starter 不假设具体用户模型，业务自有字段用
- * {@link #setAttribute}/{@link #getAttribute} 另存自取。</p>
+ * <p><strong>双模式自适应</strong>：读取当前用户时优先取微服务身份头上下文
+ * {@link IdentityContext}（网关签发身份头，下游服务经 {@code IdentityHeaderFilter} 写入）；
+ * 无身份头时回退 Sa-Token 会话（单体模式，登录时由业务方 {@link #setLoginUser} 存入）。
+ * 业务代码无需感知底层是单体还是微服务，一套代码通用。</p>
  *
  * @author wenbin
  * @since 2026-07-31
@@ -40,12 +42,12 @@ public final class UserContext {
     }
 
     /**
-     * 当前登录用户 ID。
+     * 当前登录用户 ID（未登录返回 null，不抛异常）。优先微服务身份头，回退 Sa-Token 会话。
      *
-     * @return 用户 ID
+     * @return 用户 ID，未登录为 null
      */
     public static Long getUserId() {
-        return LoginHelper.getUserId();
+        return getUserIdSafely().orElse(null);
     }
 
     /**
@@ -54,25 +56,52 @@ public final class UserContext {
      * @return 用户 ID 的 Optional
      */
     public static Optional<Long> getUserIdSafely() {
-        return LoginHelper.getUserIdSafely();
+        // 微服务身份头模式优先；无身份头时回退单体 Sa-Token 会话（未登录返回空）
+        if (IdentityContext.isLogin()) {
+            return IdentityContext.getUserId();
+        }
+        try {
+            return LoginHelper.getUserIdSafely();
+        } catch (Exception e) {
+            // 无 Web 上下文或会话异常：按未登录处理
+            return Optional.empty();
+        }
     }
 
     /**
-     * 是否已登录。
+     * 是否已登录。微服务看身份头，单体看 Sa-Token 会话。
      *
      * @return 登录状态
      */
     public static boolean isLogin() {
-        return LoginHelper.isLogin();
+        if (IdentityContext.isLogin()) {
+            return true;
+        }
+        try {
+            return LoginHelper.isLogin();
+        } catch (Exception e) {
+            // 无 Web 上下文或会话异常：按未登录处理
+            return false;
+        }
     }
 
     /**
-     * 获取当前登录用户完整信息。登录时未写入则为空。
+     * 获取当前登录用户完整信息。优先微服务身份头（IdentityContext），回退单体 Sa-Token 会话。
      *
      * @return {@link LoginUser} 的 Optional
      */
     public static Optional<LoginUser> getLoginUser() {
-        return getAttribute(KEY_LOGIN_USER, LoginUser.class);
+        // 微服务身份头模式：网关签发身份头，IdentityHeaderFilter 已写入 IdentityContext
+        if (IdentityContext.isLogin()) {
+            return IdentityContext.getLoginUser();
+        }
+        // 单体模式：sa-token 会话（登录时 setLoginUser 写入）
+        try {
+            return getAttribute(KEY_LOGIN_USER, LoginUser.class);
+        } catch (Exception e) {
+            // 无会话上下文：按未登录处理
+            return Optional.empty();
+        }
     }
 
     /**

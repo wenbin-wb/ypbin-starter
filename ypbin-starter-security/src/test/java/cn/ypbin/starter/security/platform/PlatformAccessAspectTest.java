@@ -40,7 +40,7 @@ class PlatformAccessAspectTest {
     @Test
     void shouldRejectWhenNotLoggedInAndCheckerStrict() {
         PlatformAccessAspect strict = new PlatformAccessAspect(new StrictChecker());
-        assertThatThrownBy(() -> strict.guardClass(marker()))
+        assertThatThrownBy(() -> strict.guard(joinPoint()))
             .isInstanceOf(BusinessException.class)
             .hasMessageContaining("仅平台用户可访问");
     }
@@ -49,7 +49,7 @@ class PlatformAccessAspectTest {
     void shouldRejectWhenCheckerRejects() {
         IdentityContext.setLoginUser(user(99L));
         PlatformAccessAspect aspect = new PlatformAccessAspect(new RejectChecker());
-        assertThatThrownBy(() -> aspect.guardClass(marker()))
+        assertThatThrownBy(() -> aspect.guard(joinPoint()))
             .isInstanceOf(BusinessException.class);
     }
 
@@ -57,15 +57,15 @@ class PlatformAccessAspectTest {
     void shouldPassWhenUserPresentAndCheckerAccepts() {
         IdentityContext.setLoginUser(user(1L));
         PlatformAccessAspect aspect = new PlatformAccessAspect(new AcceptChecker());
-        aspect.guardClass(marker());
-        aspect.guardMethod(marker());
+        aspect.guard(joinPoint());
+        aspect.guard(joinPoint());
     }
 
     @Test
     void shouldPassWhenNotLoggedInAndCheckerDefault() {
         PlatformAccessAspect aspect = new PlatformAccessAspect(new PlatformUserChecker() {
         });
-        aspect.guardClass(marker());
+        aspect.guard(joinPoint());
     }
 
     @Test
@@ -78,6 +78,10 @@ class PlatformAccessAspectTest {
         LoginUser user = new LoginUser();
         user.setId(id);
         return user;
+    }
+
+    private org.aspectj.lang.JoinPoint joinPoint() {
+        return org.mockito.Mockito.mock(org.aspectj.lang.JoinPoint.class);
     }
 
     private PlatformAccess marker() {
