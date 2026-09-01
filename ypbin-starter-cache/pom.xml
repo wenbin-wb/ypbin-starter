@@ -26,6 +26,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- @CacheEvict 声明式缓存失效切面需要 AOP；Spring Boot 4.x 已移除 spring-boot-starter-aop，直接声明 aspectjweaver -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+        </dependency>
         <!-- GenericJackson2JsonRedisSerializer 需要 jackson-databind，data-redis 中为 optional 不传递，显式引入 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

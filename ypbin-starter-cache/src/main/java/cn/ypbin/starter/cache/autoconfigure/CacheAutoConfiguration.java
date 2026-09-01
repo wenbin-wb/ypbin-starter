@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.cache.autoconfigure;
 
+import cn.ypbin.starter.cache.annotation.CacheEvictAspect;
 import cn.ypbin.starter.cache.core.CacheService;
 import cn.ypbin.starter.cache.redis.RedisCacheService;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -22,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import org.aspectj.lang.JoinPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -106,5 +108,15 @@ public class CacheAutoConfiguration {
     @ConditionalOnMissingBean
     public CacheService cacheService(RedisTemplate<String, Object> redisTemplate) {
         return new RedisCacheService(redisTemplate);
+    }
+
+    /**
+     * {@link CacheEvict} 声明式缓存失效切面（有 aspectj 时生效，可被宿主覆盖）。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(JoinPoint.class)
+    public CacheEvictAspect cacheEvictAspect() {
+        return new CacheEvictAspect();
     }
 }
