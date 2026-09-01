@@ -2,3 +2,4 @@ cn.ypbin.starter.security.autoconfigure.SecurityAutoConfiguration
 cn.ypbin.starter.security.autoconfigure.SecurityAuditorAutoConfiguration
 cn.ypbin.starter.security.autoconfigure.SecurityLogClientAutoConfiguration
 cn.ypbin.starter.security.autoconfigure.SecuritySseAutoConfiguration
+cn.ypbin.starter.security.identity.IdentityAutoConfiguration
