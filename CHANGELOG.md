@@ -7,6 +7,22 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.1.0] - 2026-09-01
+
+**微服务增强版本**：新增微服务身份头上下文、平台访问控制、声明式缓存失效与永久缓存支持（配合 ypbin-admin 微服务版使用）。
+
+### 新增
+- **`IdentityContext`/`IdentityHeaderFilter`/`IdentityHeaders`**（security）：微服务身份头模式——网关校验 token 后签发 `X-User-Id` 等可信头，下游服务经过滤器构建当前用户；开关 `ypbin.security.identity.enabled`。
+- **`@PlatformAccess`/`PlatformUserChecker`/`PlatformAccessAspect`**（security）：平台用户访问守卫（注解 + SPI 判定 + AOP 切面）；开关 `ypbin.security.platform.enabled`。
+- **`@CacheEvict`**（cache）：声明式缓存失效注解 + AOP 切面——写操作方法标注后成功后自动删缓存键（SpEL 表达式，支持事务提交后执行）。
+- **`CacheService.getOrLoad` 支持 `ttl=null` 永久缓存**：配合主动失效（`@CacheEvict`/手动 delete）实现「数据未变更永远命中缓存」。
+- **`UserContext` 门面化**：自适应 IdentityContext（微服务身份头）优先、Sa-Token 会话回退（单体），业务代码无需感知部署形态。
+- **`FeignProperties` 默认透传身份头**：二次 RPC 自动透传 `X-User-Id`/`X-Tenant-Id`/`X-Roles` 等，下游识别调用者身份。
+
+### 修复
+- 微服务身份头模式下 `UserContext.getTenantId()` 必崩/租户击穿（门面化根治）。
+- `@CacheEvict` 事务提交前删缓存的并发脏读竞态（改 `afterCommit` 执行）。
+
 ## [2.0.0] - 2026-08-31
 
 **破坏性变更版本**：删除控制器基类 `BaseController`，公开 API 与继承结构发生不兼容调整，详见下方「迁移指南」。共 36 个模块。
