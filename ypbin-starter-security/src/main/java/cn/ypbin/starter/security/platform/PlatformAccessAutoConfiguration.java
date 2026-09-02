@@ -18,6 +18,7 @@ package cn.ypbin.starter.security.platform;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -33,6 +34,8 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration
 @ConditionalOnProperty(prefix = "ypbin.security.platform", name = "enabled", havingValue = "true",
     matchIfMissing = true)
+// Servlet 专属（平台访问切面拦截 Controller）：WebFlux 应用（网关）不装配
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class PlatformAccessAutoConfiguration {
 
     @Bean

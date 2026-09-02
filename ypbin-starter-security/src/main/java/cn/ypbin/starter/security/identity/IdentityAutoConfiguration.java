@@ -17,6 +17,7 @@ package cn.ypbin.starter.security.identity;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
@@ -34,6 +35,9 @@ import org.springframework.core.Ordered;
 @AutoConfiguration
 @ConditionalOnProperty(prefix = "ypbin.security.identity", name = "enabled", havingValue = "true",
     matchIfMissing = true)
+// Servlet 专属（IdentityHeaderFilter 是 Servlet Filter）：WebFlux 应用（网关）由
+// SaTokenGatewayAuthProvider 完成鉴权与身份头签发，不装配本过滤器
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class IdentityAutoConfiguration {
 
     @Bean
