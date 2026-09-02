@@ -47,6 +47,9 @@ public class FeignDefaultsEnvironmentPostProcessor implements EnvironmentPostPro
         }
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("spring.cloud.openfeign.circuitbreaker.enabled", "true");
+        // Spring Cloud 2025.1.2 起官方支持 Spring Boot 4.1.x（官网兼容表），
+        // 但内置 CompatibilityVerifier 元数据滞后仍报 4.0.x-only，属误报，禁用该检查
+        defaults.put("spring.cloud.compatibility-verifier.enabled", "false");
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
     }
 
