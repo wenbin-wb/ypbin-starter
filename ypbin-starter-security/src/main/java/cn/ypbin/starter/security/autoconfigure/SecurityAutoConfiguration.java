@@ -70,6 +70,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @AutoConfiguration
 @ConditionalOnClass(StpInterface.class)
 @ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
+// Servlet 专属（登录拦截器/SaInterceptor/WebMvcConfigurer）：WebFlux 应用（如网关）不装配，
+// 避免无 spring-webmvc 时类加载 NoClassDefFoundError；网关只需 UserContext/IdentityContext 等静态核心类
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableConfigurationProperties(SecurityProperties.class)
 @Import(SecurityAutoConfiguration.RedisAttemptStoreConfiguration.class)
 public class SecurityAutoConfiguration {
