@@ -47,6 +47,8 @@ class FeignSupportTest {
         StandardEnvironment env = new StandardEnvironment();
         processor.postProcessEnvironment(env, null);
         assertThat(env.getProperty("spring.cloud.openfeign.circuitbreaker.enabled")).isNotNull();
+        // Spring Cloud 2025.1.2+ 官方支持 Boot 4.1.x，禁用滞后的兼容性检查（误报）
+        assertThat(env.getProperty("spring.cloud.compatibility-verifier.enabled")).isEqualTo("false");
     }
 
     @Test
