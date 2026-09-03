@@ -20,7 +20,6 @@ import cn.ypbin.starter.gateway.filter.GatewayAuthGlobalFilter;
 import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
 import cn.ypbin.starter.gateway.filter.RequestIdGlobalFilter;
 import cn.ypbin.starter.gateway.handler.GatewayExceptionHandler;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -34,6 +33,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 网关自动配置。

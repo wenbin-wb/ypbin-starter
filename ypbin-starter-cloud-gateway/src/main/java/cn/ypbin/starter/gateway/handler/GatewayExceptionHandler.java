@@ -17,7 +17,6 @@ package cn.ypbin.starter.gateway.handler;
 
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +29,7 @@ import org.springframework.web.ErrorResponse;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 网关统一异常处理器。
@@ -49,12 +49,7 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
     private final ObjectMapper objectMapper;
 
     public GatewayExceptionHandler(ObjectMapper objectMapper) {
-        if (objectMapper != null) {
-            this.objectMapper = objectMapper;
-            this.objectMapper.findAndRegisterModules();
-        } else {
-            this.objectMapper = new ObjectMapper().findAndRegisterModules();
-        }
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }
 
     @Override

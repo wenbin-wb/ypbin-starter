@@ -17,9 +17,6 @@ package cn.ypbin.starter.gateway.route;
 
 import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.config.listener.Listener;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
@@ -34,6 +31,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Nacos 动态路由初始化器。
@@ -154,7 +154,7 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
     private List<RouteDefinition> parseRoutes(String config) {
         try {
             return objectMapper.readValue(config, ROUTE_LIST_TYPE);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             return null;
         }
     }

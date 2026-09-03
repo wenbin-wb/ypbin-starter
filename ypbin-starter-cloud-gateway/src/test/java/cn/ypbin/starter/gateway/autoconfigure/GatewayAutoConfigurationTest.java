@@ -20,11 +20,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
 import cn.ypbin.starter.gateway.filter.RequestIdGlobalFilter;
 import cn.ypbin.starter.gateway.handler.GatewayExceptionHandler;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
 import org.springframework.web.cors.reactive.CorsWebFilter;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link GatewayAutoConfiguration} 自动配置装配测试。

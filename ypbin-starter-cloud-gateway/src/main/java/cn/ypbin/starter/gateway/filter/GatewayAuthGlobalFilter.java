@@ -19,8 +19,6 @@ import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import cn.ypbin.starter.gateway.auth.GatewayAuthProvider;
 import cn.ypbin.starter.gateway.auth.GatewayAuthResult;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -33,6 +31,8 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 网关统一认证过滤器。
@@ -98,7 +98,7 @@ public class GatewayAuthGlobalFilter implements GlobalFilter, Ordered {
     private byte[] toJsonBytes(R<Void> body) {
         try {
             return objectMapper.writeValueAsBytes(body);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return "{\"code\":401,\"message\":\"登录状态已过期，请重新登录\",\"success\":false}".getBytes(StandardCharsets.UTF_8);
         }
     }
