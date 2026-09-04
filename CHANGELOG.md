@@ -7,6 +7,23 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.1.1] - 2026-09-04
+
+**微服务修复版本**：网关/云模块时间序列化对齐 Jackson 3、Feign 统一响应解析、WebFlux 网关装配修复，并修复 Release 自动发布流水线（tag 触发时 detached HEAD 无法 push）。
+
+### 新增
+- **`FeignResponses`**（cloud-core）：Feign 调用统一解析 `R<T>` 响应——`dataOrThrow(resp, msg)` 校验远程业务成功、失败抛 `BusinessException`（禁止静默降级），`dataOrDefault` 兜底可选值。
+
+### 修复
+- **网关错误响应时间戳序列化错误**（cloud-gateway）：Jackson 2 → Jackson 3（`tools.jackson` ObjectMapper），修复错误响应 `timestamp` 序列化为数组/ISO 而非 `yyyy-MM-dd HH:mm:ss`。
+- **Sa-Token 共享会话 JSON 反序列化失败**（security）：注册 `LoginUser` 到 Sa-Token JSON 反序列化白名单（`META-INF/satoken/sa-json-type.list`）。
+- **WebFlux 网关装配误载**（security）：`SecurityAutoConfiguration`/`IdentityAutoConfiguration`/`PlatformAccessAutoConfiguration` 增加 Servlet Web 条件，WebFlux（Spring Cloud Gateway）环境下不再错误装配。
+- **Spring Cloud 兼容性检查误报**（cloud）：禁用 compatibility-verifier 对官方支持 Boot 4.1.x 的误报（显式断言跳过）。
+
+### 工程
+- Release 流水线修复：tag 触发的 checkout 处于 detached HEAD，`git push` 改用显式 refspec `git push origin HEAD:master`（此前 v2.1.0 因该缺陷 Release 未建成，latest 卡在 v2.0.0）。
+- CHANGELOG 模块数口径修正 36 → 35（v1.4.0 起实为 35 个模块）。
+
 ## [2.1.0] - 2026-09-01
 
 **微服务增强版本**：新增微服务身份头上下文、平台访问控制、声明式缓存失效与永久缓存支持（配合 ypbin-admin 微服务版使用）。
