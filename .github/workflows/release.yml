@@ -44,7 +44,8 @@ jobs:
           sed -i "s|<version>[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*</version>|<version>${VERSION}</version>|g" README.md
           git add -A
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(release): 同步 README BOM 版本至 v${VERSION}" || echo "无变更需提交"
-          git push
+          # tag 触发的 checkout 处于 detached HEAD，push 必须显式指定 refspec
+          git push origin HEAD:master
 
       - name: 提取 Release Notes 并发布 Release
         uses: softprops/action-gh-release@v2
