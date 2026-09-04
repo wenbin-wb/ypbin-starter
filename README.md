@@ -113,7 +113,7 @@
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-bom</artifactId>
-            <version>1.4.1</version>
+            <version>2.1.1</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
