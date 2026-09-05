@@ -7,6 +7,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.2.0] - 2026-09-05
+
+**任务调度中心化**：新增 XXL-JOB 执行器接入壳（ypbin-starter-xxljob），业务侧定时任务由自研轻量调度迁移至 XXL-JOB 分布式调度中心统一管理（admin 的 main/boot 已随迁）。
+
+### 新增
+- **`ypbin-starter-xxljob`**：XXL-JOB v3.4.2 执行器自动装配——`XxlJobSpringExecutor` + `ypbin.xxl-job.*` 配置绑定（admin-addresses/appname/port/accessToken/logPath 等），业务方法标注 `@XxlJob("handler")` 即注册为可调度任务。默认 `enabled=false`，业务侧显式开启；配置缺失（admin 地址/执行器名）启动即抛错暴露，禁静默降级。xxl-job-core 3.4.2 无 javax 依赖，兼容 Boot 4.1 / JDK 21。
+
 ## [2.1.1] - 2026-09-04
 
 **微服务修复版本**：网关/云模块时间序列化对齐 Jackson 3、Feign 统一响应解析、WebFlux 网关装配修复，并修复 Release 自动发布流水线（tag 触发时 detached HEAD 无法 push）。
