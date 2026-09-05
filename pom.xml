@@ -77,6 +77,7 @@
         <module>ypbin-starter-cloud-gateway</module>
         <module>ypbin-starter-async</module>
         <module>ypbin-starter-job</module>
+        <module>ypbin-starter-xxljob</module>
         <module>ypbin-starter-license</module>
         <module>ypbin-starter-app-web</module>
         <module>ypbin-starter-app-cloud</module>

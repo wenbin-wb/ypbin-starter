@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.ypbin</groupId>
+        <artifactId>ypbin-starter-dependencies</artifactId>
+        <version>${revision}</version>
+        <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ypbin-starter-xxljob</artifactId>
+
+    <name>${project.artifactId}</name>
+    <description>XXL-JOB 分布式任务调度执行器接入壳：XxlJobSpringExecutor 自动装配与配置绑定（@XxlJob 方法即任务）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-core</artifactId>
+        </dependency>
+
+        <!-- XXL-JOB 执行器核心（3.x 无 javax，通讯走内嵌 Netty，兼容 Boot 4.1 / JDK 21） -->
+        <dependency>
+            <groupId>com.xuxueli</groupId>
+            <artifactId>xxl-job-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

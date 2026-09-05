@@ -38,6 +38,7 @@
         <sms4j.version>3.3.5</sms4j.version>
 
         <spring-ai.version>2.0.0</spring-ai.version>
+        <xxl-job.version>3.4.2</xxl-job.version>
         <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
@@ -121,6 +122,13 @@
                 <groupId>cn.dev33</groupId>
                 <artifactId>sa-token-redis-jackson</artifactId>
                 <version>${sa-token.version}</version>
+            </dependency>
+
+            <!-- XXL-JOB 执行器核心（分布式任务调度） -->
+            <dependency>
+                <groupId>com.xuxueli</groupId>
+                <artifactId>xxl-job-core</artifactId>
+                <version>${xxl-job.version}</version>
             </dependency>
 
             <!-- MyBatis-Plus -->
