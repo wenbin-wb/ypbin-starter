@@ -19,6 +19,7 @@ import cn.ypbin.starter.messaging.autoconfigure.SseAutoConfiguration;
 import cn.ypbin.starter.messaging.sse.SseProperties;
 import cn.ypbin.starter.messaging.sse.SseUserIdResolver;
 import cn.ypbin.starter.security.core.LoginHelper;
+import cn.ypbin.starter.security.identity.IdentityContext;
 import cn.ypbin.starter.security.satoken.SecurityExcludePathProvider;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,10 +34,9 @@ import org.springframework.context.annotation.Bean;
 /**
  * 安全 - SSE 订阅用户解析桥接自动配置。
  *
- * <p>仅当 messaging 模块存在于 classpath 时生效，为内置 SSE 订阅端点提供基于登录态的用户解析：
- * 端点据此用<strong>当前登录用户</strong>建立连接，而非信任前端传参，杜绝越权订阅。</p>
- *
- * <p>用 {@link LoginHelper#getUserIdSafely()} 取值（无上下文线程安全），与操作日志、审计填充的取值方式一致。
+ * <p>仅当 messaging 模块存在于 classpath 时生效，为内置 SSE 订阅端点提供基于当前登录态的用户解析：
+ * 微服务下游走 {@link IdentityContext}（网关身份头），单体走 {@link LoginHelper}（Sa-Token 会话）；
+ * 端点据此用<strong>当前登录用户</strong>建立连接，而非信任前端传参，杜绝越权订阅。
  * {@code @ConditionalOnMissingBean}，业务方可覆盖。</p>
  *
  * <p>{@code @AutoConfigureBefore(SseAutoConfiguration.class)}：messaging 的订阅/换票端点以
@@ -53,12 +53,21 @@ import org.springframework.context.annotation.Bean;
 public class SecuritySseAutoConfiguration {
 
     /**
-     * 基于 Sa-Token 登录态的 SSE 订阅用户解析：用当前登录用户 ID 作为订阅标识。
+     * 基于当前登录态（微服务身份头或单体会话）的 SSE 订阅用户解析。
+     *
+     * <p>兼容两种部署形态：微服务下游（网关签发 {@code X-User-Id} 身份头）优先经
+     * {@link IdentityContext} 取值——此类服务关闭本地 Sa-Token 会话，旧实现只认
+     * {@link LoginHelper} 导致换票端点误报未登录；单体/网关注入会话的服务回退
+     * {@link LoginHelper#getUserIdSafely()}。两者均取不到时返回空（未登录）。</p>
+     *
+     * <p>{@code @ConditionalOnMissingBean}，业务方可覆盖。</p>
      */
     @Bean
     @ConditionalOnMissingBean
     public SseUserIdResolver securitySseUserIdResolver() {
-        return () -> LoginHelper.getUserIdSafely().map(String::valueOf);
+        return () -> IdentityContext.getUserId()
+            .map(String::valueOf)
+            .or(() -> LoginHelper.getUserIdSafely().map(String::valueOf));
     }
 
     /**
