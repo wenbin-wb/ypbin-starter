@@ -7,6 +7,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.2.1] - 2026-09-07
+
+**微服务 SSE 修复**：SSE 订阅/换票端点用户解析兼容网关身份头形态——此前仅认 Sa-Token 会话，微服务下游（关闭本地会话、身份在 `X-User-Id` 头）调用换票端点误报"登录状态已过期"。
+
+### 修复
+- **SSE 用户解析双形态**（security）：`SecuritySseUserIdResolver` 改为 `IdentityContext`（网关身份头，微服务下游）优先、`LoginHelper.getUserIdSafely()`（Sa-Token 会话，单体/网关侧）兜底——ypbin-admin 微服务版的站内信实时推送可正常取票订阅。
+
 ## [2.2.0] - 2026-09-05
 
 **任务调度中心化**：新增 XXL-JOB 执行器接入壳（ypbin-starter-xxljob），业务侧定时任务由自研轻量调度迁移至 XXL-JOB 分布式调度中心统一管理（admin 的 main/boot 已随迁）。
