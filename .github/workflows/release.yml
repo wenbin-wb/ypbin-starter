@@ -53,3 +53,24 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+
+      - name: 通知下游同步版本（admin + site 的 sync-starter-version）
+        # 跨仓库 dispatch 需对下游有写权限的 PAT（默认 GITHUB_TOKEN 仅限本仓库）。
+        # 在 starter 仓库 Settings → Secrets 配 YPBIN_DISPATCH_TOKEN（对 wenbin-wb 全仓库有写权限的 PAT）。
+        # 下游同步失败不阻塞本次发布，仅告警。
+        continue-on-error: true
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          TOKEN="${YPBIN_DISPATCH_TOKEN:-${{ secrets.YPBIN_DISPATCH_TOKEN }}}"
+          if [ -z "$TOKEN" ]; then
+            echo "未配置 YPBIN_DISPATCH_TOKEN，跳过下游同步（可手动在 admin/site 跑 workflow_dispatch）"
+            exit 0
+          fi
+          for REPO in wenbin-wb/ypbin-admin wenbin-wb/ypbin-site; do
+            curl -fsS -X POST "https://api.github.com/repos/${REPO}/dispatches" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              -d "{\"event_type\":\"starter-release\",\"client_payload\":{\"version\":\"${VERSION}\"}}" \
+              && echo "已通知 ${REPO} 同步 v${VERSION}" || echo "通知 ${REPO} 失败（忽略）"
+          done
