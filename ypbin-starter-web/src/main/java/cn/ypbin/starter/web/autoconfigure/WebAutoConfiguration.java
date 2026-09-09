@@ -21,6 +21,7 @@ import cn.ypbin.starter.web.xss.XssFilter;
 import jakarta.servlet.DispatcherType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,6 +33,7 @@ import org.springframework.core.Ordered;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Web 层自动配置。
@@ -98,9 +100,10 @@ public class WebAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "ypbin.web.repeatable-read", name = "enabled", havingValue = "true")
     public FilterRegistrationBean<RepeatableReadRequestFilter> repeatableReadRequestFilterRegistration(
-        RepeatableReadProperties properties) {
+        RepeatableReadProperties properties, ObjectProvider<ObjectMapper> objectMapperProvider) {
         FilterRegistrationBean<RepeatableReadRequestFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new RepeatableReadRequestFilter(properties.getMaxBodyBytes()));
+        registration.setFilter(new RepeatableReadRequestFilter(properties.getMaxBodyBytes(),
+            objectMapperProvider.getIfAvailable(ObjectMapper::new)));
         registration.addUrlPatterns("/*");
         registration.setDispatcherTypes(DispatcherType.REQUEST);
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);

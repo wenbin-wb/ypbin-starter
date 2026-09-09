@@ -17,7 +17,7 @@ package cn.ypbin.starter.security.platform;
 
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
-import cn.ypbin.starter.security.identity.IdentityContext;
+import cn.ypbin.starter.security.core.UserContext;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -25,9 +25,9 @@ import org.aspectj.lang.annotation.Before;
 /**
  * 平台用户访问守卫切面。
  *
- * <p>拦截标注 {@link PlatformAccess} 的类或方法，校验当前登录用户（来自
- * {@link IdentityContext}）是否为平台用户；未登录（拿不到 userId）或非平台用户抛出
- * {@link BusinessException}（403）。</p>
+ * <p>拦截标注 {@link PlatformAccess} 的类或方法，校验当前登录用户（经 {@link UserContext}
+ * 双形态取值：微服务身份头优先、Sa-Token 会话回退）是否为平台用户；未登录（拿不到 userId）
+ * 或非平台用户抛出 {@link BusinessException}（403）。</p>
  *
  * <p><strong>fail-closed：</strong>业务方未提供 {@link PlatformUserChecker} 实现时，默认判定
  * 为"非平台用户"，标注资源一律拒绝（见 {@link PlatformUserChecker#isPlatformUser}）。</p>
@@ -54,7 +54,9 @@ public class PlatformAccessAspect {
     }
 
     private void checkPlatformAccess() {
-        Long userId = IdentityContext.getUserId().orElse(null);
+        // 双形态取当前用户：微服务（网关身份头）与单体（sa-token 会话）都能拿到真实 userId，
+        // 仅真正未登录时为空 —— 避免身份头默认关闭后单体形态的平台资源被误拒
+        Long userId = UserContext.getUserId();
         if (userId == null) {
             // 未登录/身份缺失：直接拒绝，不把 null 交给判定器（避免默认实现误放行）
             throw new BusinessException(GlobalErrorCode.FORBIDDEN, "未登录，禁止访问平台资源");

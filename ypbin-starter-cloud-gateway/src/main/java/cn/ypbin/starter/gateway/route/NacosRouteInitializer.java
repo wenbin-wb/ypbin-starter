@@ -17,6 +17,7 @@ package cn.ypbin.starter.gateway.route;
 
 import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.config.listener.Listener;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
@@ -51,6 +52,9 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
     private static final Logger log = LoggerFactory.getLogger(NacosRouteInitializer.class);
 
     private static final TypeReference<List<RouteDefinition>> ROUTE_LIST_TYPE = new TypeReference<>() {};
+
+    /** 单批路由应用（delete-all→save-all）的超时上限（秒），防止路由存储挂起时无限阻塞 */
+    private static final long ROUTE_APPLY_TIMEOUT_SECONDS = 10L;
 
     private final ConfigService configService;
 
@@ -156,18 +160,22 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
             return;
         }
         try {
-            // block() 等整条 delete-all→save-all 流水线完成后再返回，保证与下一批应用互斥且不交错
+            // block(Duration) 等整条 delete-all→save-all 流水线完成后再返回，保证与下一批应用互斥
+            // 且不交错；带超时避免路由存储实现挂起时无限阻塞启动/监听线程
             routeDefinitionLocator.getRouteDefinitions()
                 .flatMap(rd -> routeDefinitionWriter.delete(Mono.just(rd.getId())))
                 .collectList()
                 .flatMapMany(unused -> Flux.fromIterable(newRoutes))
                 .flatMap(rd -> routeDefinitionWriter.save(Mono.just(rd)))
                 .collectList()
-                .block();
+                .block(Duration.ofSeconds(ROUTE_APPLY_TIMEOUT_SECONDS));
             eventPublisher.publishEvent(new RefreshRoutesEvent(this));
             log.info("[ypbin-starter] Nacos dynamic routes refreshed: {} routes.", newRoutes.size());
         } catch (Exception e) {
-            log.error("[ypbin-starter] Failed to apply Nacos routes, keeping current routes.", e);
+            // delete-all→save-all 非原子：中途失败时旧路由可能已被部分/全部删除，日志如实描述，
+            // 提示检查路由存储状态，等待下一次配置推送或人工恢复，不做"仍在生效"的误导性声明
+            log.error("[ypbin-starter] Failed to apply Nacos routes (may be partially applied/cleared). "
+                + "Check route storage and Nacos config. routes={}", newRoutes.size(), e);
         }
     }
 

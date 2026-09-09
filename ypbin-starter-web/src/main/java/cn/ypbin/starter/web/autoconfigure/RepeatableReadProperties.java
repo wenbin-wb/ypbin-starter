@@ -35,6 +35,9 @@ public class RepeatableReadProperties {
     /** 单请求可缓存请求体的最大字节数，默认 10MB；超限请求体拒绝缓存并中止读取（防止超大请求体占满内存） */
     private long maxBodyBytes = RepeatableReadRequestWrapper.DEFAULT_MAX_BODY_BYTES;
 
+    /** 可缓存请求体上限的最大允许值（64MB），防止误配过大使探测溢出或内存无界 */
+    public static final long MAX_BODY_BYTES_LIMIT = 64L * 1024 * 1024;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -47,7 +50,17 @@ public class RepeatableReadProperties {
         return maxBodyBytes;
     }
 
+    /**
+     * 装配期校验缓存上限：非法配置在启动即失败（fail-fast），避免运行期首次请求才暴露，
+     * 或上限逼近 {@code Long.MAX_VALUE} 时探测长度溢出导致请求体被静默读空。
+     *
+     * @param maxBodyBytes 允许缓存的最大字节数（(0, {@link #MAX_BODY_BYTES_LIMIT}]）
+     */
     public void setMaxBodyBytes(long maxBodyBytes) {
+        if (maxBodyBytes <= 0 || maxBodyBytes > MAX_BODY_BYTES_LIMIT) {
+            throw new IllegalArgumentException("ypbin.web.repeatable-read.max-body-bytes 必须在 (0, "
+                + MAX_BODY_BYTES_LIMIT + "] 字节范围内，当前为 " + maxBodyBytes);
+        }
         this.maxBodyBytes = maxBodyBytes;
     }
 }

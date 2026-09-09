@@ -117,8 +117,13 @@ public class MultiLevelCacheService implements CacheService {
     @Override
     public boolean expire(String key, Duration timeout) {
         boolean expired = l2.expire(key, timeout);
-        // 重设 TTL 等同一次写操作：失效本地 L1 并广播，避免各实例按原 L1 TTL 继续返回旧值
-        invalidateLocalAndBroadcast(key);
+        if (expired) {
+            // 重设 TTL 等同一次写操作：失效本地 L1 并广播，避免各实例按原 L1 TTL 继续返回旧值
+            invalidateLocalAndBroadcast(key);
+        } else {
+            // key 在 L2 不存在：无需广播其它实例，仅清理本机 L1 可能残留的过期值
+            l1.invalidate(key);
+        }
         return expired;
     }
 

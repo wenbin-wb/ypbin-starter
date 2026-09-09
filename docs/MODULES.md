@@ -704,7 +704,9 @@ public void sendSms(Long userId) { ... }
 ```
 
 - `key` 支持 SpEL，可按用户等业务维度限流；留空则用方法全限定名。
-- `byIp = true`（默认）时把客户端 IP 纳入限流键。
+- `byIp = true`（默认）时把客户端 IP 纳入限流键。v2.2.2 起 IP 默认取**真实对端地址**
+  （`request.getRemoteAddr()`），不信任转发头——若服务位于可信反向代理之后且需按真实客户端 IP 限流，
+  请显式开启 `ypbin.tools.rate-limit.trust-forwarded=true`（否则所有客户端共享代理出口 IP 一个限流桶）。
 - 分布式版基于 `StringRedisTemplate` + Lua 脚本，多节点共享窗口。
 
 **幂等** `@Idempotent`（防重复提交，有 Redis 用 Redis+Lua，否则内存）：
