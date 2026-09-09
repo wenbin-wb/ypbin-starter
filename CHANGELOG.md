@@ -7,6 +7,34 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.2.2] - 2026-09-09
+
+**全仓体检安全加固与健壮性修复**（基于 ypbin 四仓 2026-09-08 审计结论，详见 ypbin 母仓 `AUDIT-2026-09-08.md`）。
+
+### 安全
+- **身份头信任默认关闭**（security）：`ypbin.security.identity.enabled` 由默认开启改显式开启（`matchIfMissing=false`），未位于可信网关之后的宿主默认不信任外部 `X-User-Id/X-Roles` 头；装配状态有启动日志。⚠️ 微服务宿主需显式配置开启。
+- **审计人双形态**（security）：`SecurityAuditorAutoConfiguration` 委托 `UserContext`（身份头优先、Sa-Token 会话回退），修复微服务形态下审计字段恒空的缺陷。
+- **`@PlatformAccess` 默认拒绝**（security）：`PlatformUserChecker` 默认实现改为拒绝（fail-closed），未登录直接拒绝，杜绝"看似受保护实则放行"。
+- **密码错误锁定升级**（security）：失败计数叠加账号全局维度（防轮换 IP 绕过），账号维锁定时长更长；`getLockStatus` 账号维优先反映。
+- **登录回验失败回收会话**（security）：回验异常时先注销刚建立的 token 再抛，杜绝幽灵登录态。
+- **身份头解析容错**（security）：畸形 `Long` 头按无有效身份处理，不中断请求。
+
+### 健壮性
+- **可重复读请求体上限**（web）：新增 `ypbin.web.repeatable-read.max-body-bytes`（默认 10MB），超限拒绝读取（413 语义），防无界内存占用；补覆盖率测试。
+- **方法级参数校验异常**（web）：补齐 `ConstraintViolationException`/`HandlerMethodValidationException` 处理，参数错误不再误报系统异常。
+- **网关路由保护**（gateway）：Nacos 路由配置为合法空列表 `[]` 时保留现网不清空；`applyRoutes` 串行化防并发交错。
+- **任务防双跑**（job）：任务级内存互斥，慢执行跨触发间隔不再单节点双跑（多节点防重仍由分布式 per-slice 锁承担）。
+- **Feign 默认超时/熔断**（cloud-core）：注入 resilience4j 默认配置（TimeLimiter 10s、滑动窗口 20、失败率 50% 等），替换库内建 1s 硬超时，业务可逐项覆盖。
+- **License 过期即时性**（license）：断言路径 5s 节流本地时钟过期快查，不依赖业务手工调度定期任务。
+- **多级缓存过期语义**（cache）：`expire()` 与 set/delete 一致失效本地 L1 并广播；失效广播改长度前缀定界（key 可含任意字符）。
+- **幂等失败即释放**（tools）：业务方法异常路径删除占位键允许立即重试；`IdempotentStore` 增默认 `release()` 扩展点。
+- **IP 限流防伪造**（tools）：新增 `ypbin.tools.rate-limit.trust-forwarded`（默认 false 取真实对端地址），反代部署需显式开启。
+- **AES 密钥校验前移**（tools/data）：字符串密钥长度 16/24/32 字节入口/装配期校验（fail-fast）。
+- **XSS 过滤边界说明**（web）：明确黑名单删除式清洗局限与 JSON 请求体不在本过滤器范围，防注释误导。
+
+### 其它
+- 签名算法 MD5 标废弃（引导 HMAC-SHA256）；`@ApiEncrypt` 失败路径响应格式契约化说明；SSE 配置元数据默认值与代码一致；`JobDefinition.timeoutSeconds` 语义注释修正。
+
 ## [2.2.1] - 2026-09-07
 
 **微服务 SSE 修复**：SSE 订阅/换票端点用户解析兼容网关身份头形态——此前仅认 Sa-Token 会话，微服务下游（关闭本地会话、身份在 `X-User-Id` 头）调用换票端点误报"登录状态已过期"。
