@@ -65,4 +65,9 @@ public class InMemoryIdempotentStore implements IdempotentStore {
         }
         keys.entrySet().removeIf(entry -> now >= entry.getValue());
     }
+
+    @Override
+    public void release(String key) {
+        keys.remove(key);
+    }
 }

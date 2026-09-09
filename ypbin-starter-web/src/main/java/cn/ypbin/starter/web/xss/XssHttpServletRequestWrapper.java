@@ -23,9 +23,14 @@ import java.util.Map;
 /**
  * XSS 请求包装器。
  *
- * <p>对请求参数（Query / 表单）逐一做 HTML 转义，拦截 {@code <script>} 等注入脚本。
- * 转义而非删除，尽量保留原始语义，避免误伤正常内容。JSON 请求体的清洗由 Jackson
- * 反序列化层的转义策略负责，此处专注 Servlet 参数。</p>
+ * <p>对请求参数（Query / 表单）与请求头逐一调用 {@link XssCleaner#clean}：按危险片段黑名单
+ * <strong>删除</strong>{@code <script>}、{@code javascript:}、事件属性等内容（并非整体 HTML 转义）。
+ * 未覆盖的方法（如 {@code getInputStream}/{@code getReader}）保持透传。</p>
+ *
+ * <p><strong>范围边界：JSON 请求体不在本过滤器清洗范围。</strong>本包装器不读取/改写请求体；
+ * Jackson 反序列化层也未接入字符串清洗器——JSON body 中的脚本内容会原样进入业务层。需要清洗
+ * JSON 字符串字段时，请接入自定义的 Jackson {@code String} 反序列化清洗器（本模块当前未内置），
+ * 或由业务层对字段做白名单校验。</p>
  *
  * @author wenbin
  * @since 2026-07-30

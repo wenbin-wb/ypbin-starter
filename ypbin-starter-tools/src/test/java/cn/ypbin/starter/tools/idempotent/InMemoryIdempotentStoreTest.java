@@ -76,4 +76,13 @@ class InMemoryIdempotentStoreTest {
         // 并发下有且只有一个线程占位成功
         assertThat(successCount.get()).isEqualTo(1);
     }
+
+    @Test
+    void afterRelease_canAcquireAgain() {
+        String key = "order:release";
+        assertThat(store.tryAcquire(key, Duration.ofSeconds(30))).isTrue();
+        // 业务失败路径显式释放占位后，可立即重试（不等窗口自然过期）
+        store.release(key);
+        assertThat(store.tryAcquire(key, Duration.ofSeconds(30))).isTrue();
+    }
 }

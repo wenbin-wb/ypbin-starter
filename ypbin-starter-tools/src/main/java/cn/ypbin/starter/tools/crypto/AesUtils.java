@@ -127,9 +127,10 @@ public final class AesUtils {
      * @param plainText 明文
      * @param key       字符串密钥
      * @return Base64 密文
+     * @throws IllegalArgumentException 字符串密钥 UTF-8 字节长度非 16/24/32 时抛出（尽早暴露配置错误）
      */
     public static String encrypt(String plainText, String key) {
-        return encrypt(plainText, key.getBytes(StandardCharsets.UTF_8));
+        return encrypt(plainText, toKeyBytes(key));
     }
 
     /**
@@ -138,9 +139,20 @@ public final class AesUtils {
      * @param cipherText Base64 密文
      * @param key        字符串密钥
      * @return 明文
+     * @throws IllegalArgumentException 字符串密钥 UTF-8 字节长度非 16/24/32 时抛出（尽早暴露配置错误）
      */
     public static String decrypt(String cipherText, String key) {
-        return decrypt(cipherText, key.getBytes(StandardCharsets.UTF_8));
+        return decrypt(cipherText, toKeyBytes(key));
+    }
+
+    /** 字符串密钥转 UTF-8 字节并校验长度（AES 密钥仅支持 128/192/256 位，即 16/24/32 字节） */
+    private static byte[] toKeyBytes(String key) {
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length != 16 && keyBytes.length != 24 && keyBytes.length != 32) {
+            throw new IllegalArgumentException("AES 字符串密钥 UTF-8 字节长度必须为 16/24/32 字节，当前为 "
+                + keyBytes.length + " 字节，请检查密钥配置");
+        }
+        return keyBytes;
     }
 
     // ------------------------------------------------------------------ 密钥工具

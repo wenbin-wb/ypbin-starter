@@ -20,9 +20,11 @@ import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -78,6 +81,32 @@ public class GlobalExceptionHandler {
             .map(GlobalExceptionHandler::formatFieldError)
             .collect(Collectors.joining("; "));
         return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(), msg);
+    }
+
+    /**
+     * 方法级校验失败（{@code @Validated} 方法参数约束，如 Service/Controller 方法上
+     * {@code @Valid @NotNull} 等，由 MethodValidationPostProcessor 抛出）。
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public R<Void> handleConstraintViolation(ConstraintViolationException e) {
+        String msg = e.getConstraintViolations().stream()
+            .map(v -> v.getPropertyPath() + " " + v.getMessage())
+            .collect(Collectors.joining("; "));
+        return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(), msg);
+    }
+
+    /**
+     * Spring 6.1+（本框架 Spring 7）控制器方法参数校验失败新异常
+     * （{@code @Validated} 标注在 Controller 方法参数上，由参数校验器抛出）。
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public R<Void> handleHandlerMethodValidation(HandlerMethodValidationException e) {
+        String msg = e.getAllErrors().stream()
+            .map(MessageSourceResolvable::getDefaultMessage)
+            .filter(m -> m != null && !m.isBlank())
+            .collect(Collectors.joining("; "));
+        return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(),
+            msg.isBlank() ? "请求参数校验失败" : msg);
     }
 
     /**

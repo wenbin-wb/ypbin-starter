@@ -36,6 +36,10 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
  * 超限抛出 {@link RateLimitException}。限流键支持 SpEL 表达式，可按方法入参（如用户 ID）
  * 动态生成。</p>
  *
+ * <p><strong>{@code byIp} 限流的 IP 取值：</strong>默认只取真实对端地址
+ * （{@code request.getRemoteAddr()}），不信任可伪造的 X-Forwarded-For 等转发头；确经可信
+ * 反向代理清洗过转发头时，通过 {@code ypbin.tools.rate-limit.trust-forwarded=true} 开启。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
@@ -43,11 +47,21 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
 public class RateLimitAspect {
 
     private final RateLimiterStore store;
+    private final boolean trustForwarded;
     private final ExpressionParser expressionParser = new SpelExpressionParser();
     private final ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
 
     public RateLimitAspect(RateLimiterStore store) {
+        this(store, false);
+    }
+
+    /**
+     * @param store          限流计数存储
+     * @param trustForwarded {@code byIp} 限流是否信任转发头（false 时只取真实对端地址，防伪造绕过）
+     */
+    public RateLimitAspect(RateLimiterStore store, boolean trustForwarded) {
         this.store = store;
+        this.trustForwarded = trustForwarded;
     }
 
     @Around("@annotation(rateLimit)")
@@ -74,7 +88,7 @@ public class RateLimitAspect {
         }
         StringBuilder sb = new StringBuilder("ypbin:rate:").append(prefix);
         if (rateLimit.byIp()) {
-            sb.append(':').append(RequestUtils.getClientIp());
+            sb.append(':').append(RequestUtils.getClientIp(trustForwarded));
         }
         return sb.toString();
     }

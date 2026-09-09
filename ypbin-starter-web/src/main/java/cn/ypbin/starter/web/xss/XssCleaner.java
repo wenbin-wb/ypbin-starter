@@ -20,9 +20,13 @@ import java.util.regex.Pattern;
 /**
  * XSS 内容清洗工具。
  *
- * <p>移除脚本注入相关的危险内容（{@code <script>}、{@code javascript:}、事件属性等），
- * 保留正常文本。采用"移除危险片段"而非"整体 HTML 转义"，避免把正常内容中的
- * {@code < >} 也转义掉造成误伤。</p>
+ * <p>按危险片段黑名单移除脚本注入相关内容（{@code <script>}、{@code javascript:}、事件属性等），
+ * 保留其余文本；采用"移除危险片段"而非"整体 HTML 转义"，避免把正常内容中的 {@code < >}
+ * 也转义掉造成误伤。</p>
+ *
+ * <p><strong>局限性：</strong>删除式黑名单可被变体写法重组绕过（如大小写、编码、拼接、SVG/MathML
+ * 命名空间标签等），只适用于请求参数/头的轻量过滤；它不是完整的 XSS 纵深防御，输出侧（前端渲染）
+ * 的转义与白名单校验仍是最终防线。JSON 请求体的清洗见 {@link XssHttpServletRequestWrapper} 的范围说明。</p>
  *
  * @author wenbin
  * @since 2026-07-30

@@ -23,7 +23,12 @@ package cn.ypbin.starter.sign.core;
  */
 public enum SignAlgorithm {
 
-    /** MD5（拼接 secretKey 后摘要，兼容旧系统） */
+    /**
+     * MD5（拼接 secretKey 后摘要，兼容旧系统）。
+     *
+     * @deprecated 仅兼容旧系统保留；新系统请使用 {@link #HMAC_SHA256}
+     */
+    @Deprecated
     MD5,
 
     /** HMAC-SHA256（以 secretKey 为密钥，防长度扩展攻击，推荐） */

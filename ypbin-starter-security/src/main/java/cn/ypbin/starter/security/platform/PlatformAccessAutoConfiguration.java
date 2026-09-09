@@ -24,8 +24,8 @@ import org.springframework.context.annotation.Bean;
 /**
  * 平台访问控制自动配置。
  *
- * <p>默认放行的 {@link PlatformUserChecker}（业务方实现后自动覆盖），并装配
- * {@link PlatformAccessAspect} 切面。可通过 {@code ypbin.security.platform.enabled}
+ * <p>默认装配 fail-closed 的 {@link PlatformUserChecker}（判定恒为否，业务方实现后自动覆盖），
+ * 并装配 {@link PlatformAccessAspect} 切面。可通过 {@code ypbin.security.platform.enabled}
  * 关闭（默认开启）。</p>
  *
  * @author wenbin

@@ -42,7 +42,12 @@ public class AesFieldEncryptor implements FieldEncryptor {
     private final byte[] key;
 
     public AesFieldEncryptor(String key) {
-        this.key = key.getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length != 16 && keyBytes.length != 24 && keyBytes.length != 32) {
+            throw new IllegalArgumentException("AES 密钥 UTF-8 字节长度必须为 16/24/32 字节，当前为 "
+                + keyBytes.length + " 字节，请检查密钥配置");
+        }
+        this.key = keyBytes;
     }
 
     @Override

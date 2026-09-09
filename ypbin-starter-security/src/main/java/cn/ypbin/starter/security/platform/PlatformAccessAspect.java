@@ -26,8 +26,11 @@ import org.aspectj.lang.annotation.Before;
  * 平台用户访问守卫切面。
  *
  * <p>拦截标注 {@link PlatformAccess} 的类或方法，校验当前登录用户（来自
- * {@link IdentityContext}）是否为平台用户；非平台用户抛出
+ * {@link IdentityContext}）是否为平台用户；未登录（拿不到 userId）或非平台用户抛出
  * {@link BusinessException}（403）。</p>
+ *
+ * <p><strong>fail-closed：</strong>业务方未提供 {@link PlatformUserChecker} 实现时，默认判定
+ * 为"非平台用户"，标注资源一律拒绝（见 {@link PlatformUserChecker#isPlatformUser}）。</p>
  *
  * <p>本切面由 {@link PlatformAccessAutoConfiguration} 注册为 Bean（starter 类不在宿主组件扫描范围，
  * 不使用 {@code @Component}）。切点合并类级与方法级标注，类与方法都标注时只执行一次校验。</p>
@@ -52,6 +55,10 @@ public class PlatformAccessAspect {
 
     private void checkPlatformAccess() {
         Long userId = IdentityContext.getUserId().orElse(null);
+        if (userId == null) {
+            // 未登录/身份缺失：直接拒绝，不把 null 交给判定器（避免默认实现误放行）
+            throw new BusinessException(GlobalErrorCode.FORBIDDEN, "未登录，禁止访问平台资源");
+        }
         if (!checker.isPlatformUser(userId)) {
             throw new BusinessException(GlobalErrorCode.FORBIDDEN, "仅平台用户可访问");
         }

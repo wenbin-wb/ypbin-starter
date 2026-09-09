@@ -7,6 +7,12 @@
       "defaultValue": true
     },
     {
+      "name": "ypbin.tools.rate-limit.trust-forwarded",
+      "type": "java.lang.Boolean",
+      "description": "byIp 限流是否信任转发头（X-Forwarded-For/X-Real-IP 等）解析客户端 IP。默认 false：只取真实对端地址（request.getRemoteAddr()），防伪造转发头绕过限流；确经可信反向代理清洗转发头时置 true。",
+      "defaultValue": false
+    },
+    {
       "name": "ypbin.tools.rate-limit.distributed",
       "type": "java.lang.Boolean",
       "description": "限流存储是否优先使用 Redis 分布式实现（存在 StringRedisTemplate 时生效），否则使用内存兜底。",

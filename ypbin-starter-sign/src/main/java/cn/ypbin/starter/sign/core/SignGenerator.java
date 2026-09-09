@@ -35,6 +35,9 @@ import javax.crypto.spec.SecretKeySpec;
  * </ul>
  * 空值参数不参与签名，保证与客户端一致。</p>
  *
+ * <p><strong>新系统请使用 {@link SignAlgorithm#HMAC_SHA256}</strong>（密钥不参与串接、防长度扩展攻击）；
+ * {@link SignAlgorithm#MD5} 已标记废弃，仅为兼容旧系统保留。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
@@ -51,6 +54,7 @@ public final class SignGenerator {
      * @param algorithm 算法
      * @return 大写十六进制签名
      */
+    @SuppressWarnings("deprecation") // 兼容旧系统保留 MD5 分支，新系统请使用 HMAC_SHA256
     public static String generate(Map<String, String> params, String secretKey, SignAlgorithm algorithm) {
         String canonical = canonicalize(params);
         return switch (algorithm) {

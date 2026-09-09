@@ -62,14 +62,29 @@ public final class RequestUtils {
     }
 
     /**
-     * 获取客户端 IP。
+     * 获取客户端 IP（默认信任反向代理注入的转发头，取首个非 unknown 条目）。
      *
      * @return 客户端 IP，无上下文时返回 {@code unknown}
      */
     public static String getClientIp() {
+        return getClientIp(true);
+    }
+
+    /**
+     * 获取客户端 IP。
+     *
+     * @param trustForwarded 是否信任转发头（X-Forwarded-For/X-Real-IP 等）。限流等安全敏感场景应传
+     *                       {@code false} 只取真实对端地址（{@link HttpServletRequest#getRemoteAddr()}），
+     *                       避免客户端伪造转发头绕过；确经可信代理清洗后再开启
+     * @return 客户端 IP，无上下文时返回 {@code unknown}
+     */
+    public static String getClientIp(boolean trustForwarded) {
         HttpServletRequest request = getRequest();
         if (request == null) {
             return UNKNOWN;
+        }
+        if (!trustForwarded) {
+            return request.getRemoteAddr();
         }
         for (String header : IP_HEADERS) {
             String value = request.getHeader(header);

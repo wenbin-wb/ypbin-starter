@@ -66,4 +66,17 @@ class RequestUtilsTest {
 
         assertThat(RequestUtils.getClientIp()).isEqualTo("10.0.0.9");
     }
+
+    @Test
+    void shouldUseRemoteAddrWhenNotTrustingForwarded() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("10.0.0.1");
+        request.addHeader("X-Forwarded-For", "1.2.3.4, 5.6.7.8");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        // 不信任转发头时取真实对端地址，防伪造 XFF 绕过限流
+        assertThat(RequestUtils.getClientIp(false)).isEqualTo("10.0.0.1");
+        // 显式信任转发头时保持转发头优先（与无参重载一致）
+        assertThat(RequestUtils.getClientIp(true)).isEqualTo("1.2.3.4");
+    }
 }

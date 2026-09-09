@@ -19,8 +19,8 @@ package cn.ypbin.starter.security.platform;
  * 平台用户判定扩展点。
  *
  * <p>业务方实现本接口，定义"平台用户"的判定规则（如按用户类型/角色/租户归属）。
- * 未提供实现时默认放行（{@link #isPlatformUser} 返回 {@code true}），
- * 即 {@code @PlatformAccess} 不生效，由业务方决定是否启用平台隔离。</p>
+ * 未提供实现时默认拒绝（{@link #isPlatformUser} 返回 {@code false}，fail-closed）：
+ * {@code @PlatformAccess} 标注的资源在无判定实现时一律不可达，避免默认放行造成的越权。</p>
  *
  * @author wenbin
  * @since 2026-09-01
@@ -30,10 +30,10 @@ public interface PlatformUserChecker {
     /**
      * 判定指定用户是否为平台用户。
      *
-     * @param userId 用户 ID
+     * @param userId 用户 ID（未登录/身份缺失时为 {@code null}，应由调用方在调用前拒绝，本方法不负责判空）
      * @return 是平台用户返回 {@code true}
      */
     default boolean isPlatformUser(Long userId) {
-        return true;
+        return false;
     }
 }

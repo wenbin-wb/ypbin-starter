@@ -40,8 +40,10 @@ public class RedisCacheInvalidationPublisher implements CacheInvalidationPublish
 
     @Override
     public void publish(String key) {
-        // 消息格式：实例标识|key，订阅方据此忽略自身消息
-        redisTemplate.convertAndSend(channel, instanceId + '|' + key);
+        // 消息格式：<instanceId 长度>:<instanceId><key>。用长度前缀为 instanceId 定界，key 取定界后的剩余
+        // 全部内容，业务 key 可含任意字符（含 ':'/多个 '|'），不会像旧版 'instanceId|key' 拼接那样产生歧义。
+        // 长度前缀解析失败的消息按非法消息忽略，滚动升级窗口内的旧格式消息会短暂丢弃属预期。
+        redisTemplate.convertAndSend(channel, instanceId.length() + ":" + instanceId + key);
     }
 
     public String getChannel() {

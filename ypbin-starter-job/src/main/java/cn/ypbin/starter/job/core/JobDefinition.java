@@ -46,7 +46,11 @@ public class JobDefinition {
     /** 执行参数（业务自定义，透传给 {@link JobContext#getArgs()}） */
     private String args;
 
-    /** 执行超时秒数，<=0 不限制 */
+    /**
+     * 锁 TTL 放大依据（秒），非执行超时：仅用于放大集群防重分布式锁的 TTL
+     * （乐观估计执行时长，防止长任务持锁期间锁被提前释放导致双跑）。当前未实现真实执行超时——
+     * 任务的超时中断/强制回收需在执行器（{@link YpbinJob}）或宿主侧自行处理，<=0 时锁 TTL 取默认值。
+     */
     private long timeoutSeconds;
 
     /** 是否启用集群防重（多实例只跑一个），默认 true */

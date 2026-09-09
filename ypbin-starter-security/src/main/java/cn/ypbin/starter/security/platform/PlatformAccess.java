@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
  *
  * <p>标注在 Controller 类或方法上，配合 {@link PlatformAccessAspect} 限制仅平台用户
  * （而非租户用户）可访问。是否平台用户由业务方实现的 {@link PlatformUserChecker}
- * 判定，starter 不假设具体用户模型。</p>
+ * 判定，starter 不假设具体用户模型；业务方未提供判定实现时默认拒绝（fail-closed）。</p>
  *
  * @author wenbin
  * @since 2026-09-01

@@ -16,6 +16,7 @@
 package cn.ypbin.starter.tools.crypto;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
@@ -60,6 +61,22 @@ class AesUtilsTest {
 
         String cipher = AesUtils.encrypt("data", key);
         assertThat(AesUtils.decrypt(cipher, key)).isEqualTo("data");
+    }
+
+    @Test
+    void stringKeyRoundTrip_shouldRecoverPlainText() {
+        // 16 字节字符串密钥走字符串入口加解密
+        String cipher = AesUtils.encrypt("hello 中文", "1234567890123456");
+        assertThat(AesUtils.decrypt(cipher, "1234567890123456")).isEqualTo("hello 中文");
+    }
+
+    @Test
+    void stringKeyWithInvalidLength_shouldRejectEarly() {
+        // 非法长度字符串密钥在入口即抛，避免配置错误延迟到业务首用才暴露
+        assertThatThrownBy(() -> AesUtils.encrypt("data", "too-short"))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> AesUtils.decrypt("abc", "too-short"))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

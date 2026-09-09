@@ -38,11 +38,12 @@ class PlatformAccessAspectTest {
     }
 
     @Test
-    void shouldRejectWhenNotLoggedInAndCheckerStrict() {
+    void shouldRejectWhenNotLoggedIn() {
+        // 未登录（无身份上下文）：fail-closed 直接拒绝，不把 null 交给判定器
         PlatformAccessAspect strict = new PlatformAccessAspect(new StrictChecker());
         assertThatThrownBy(() -> strict.guard(joinPoint()))
             .isInstanceOf(BusinessException.class)
-            .hasMessageContaining("仅平台用户可访问");
+            .hasMessageContaining("未登录");
     }
 
     @Test
@@ -62,16 +63,20 @@ class PlatformAccessAspectTest {
     }
 
     @Test
-    void shouldPassWhenNotLoggedInAndCheckerDefault() {
+    void shouldRejectWhenNotLoggedInEvenWithDefaultChecker() {
+        // 未登录 + 默认判定器：仍拒绝（fail-closed，原“默认放行”语义已废弃）
         PlatformAccessAspect aspect = new PlatformAccessAspect(new PlatformUserChecker() {
         });
-        aspect.guard(joinPoint());
+        assertThatThrownBy(() -> aspect.guard(joinPoint()))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("未登录");
     }
 
     @Test
-    void defaultCheckerAllowsAll() {
+    void defaultCheckerRejectsByDefault() {
+        // 未提供业务判定实现时默认拒绝（fail-closed）
         assertThat(new PlatformUserChecker() {
-        }.isPlatformUser(42L)).isTrue();
+        }.isPlatformUser(42L)).isFalse();
     }
 
     private LoginUser user(long id) {

@@ -21,6 +21,7 @@ import cn.ypbin.starter.tools.idempotent.InMemoryIdempotentStore;
 import cn.ypbin.starter.tools.idempotent.RedisIdempotentStore;
 import cn.ypbin.starter.tools.limiter.InMemoryRateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RateLimitAspect;
+import cn.ypbin.starter.tools.limiter.RateLimitProperties;
 import cn.ypbin.starter.tools.limiter.RateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RedisRateLimiterStore;
 import cn.ypbin.starter.tools.lock.DistributedLockAspect;
@@ -33,6 +34,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -61,6 +63,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @AutoConfiguration
 @ConditionalOnClass(ProceedingJoinPoint.class)
 @Import(ToolsAutoConfiguration.RedisStoreConfiguration.class)
+@EnableConfigurationProperties(RateLimitProperties.class)
 public class ToolsAutoConfiguration {
 
     /**
@@ -75,9 +78,9 @@ public class ToolsAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.tools.rate-limit", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public RateLimitAspect rateLimitAspect(RateLimiterStore store) {
-        return new RateLimitAspect(store);
+    @ConditionalOnProperty(prefix = RateLimitProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+    public RateLimitAspect rateLimitAspect(RateLimiterStore store, RateLimitProperties properties) {
+        return new RateLimitAspect(store, properties.isTrustForwarded());
     }
 
     /**

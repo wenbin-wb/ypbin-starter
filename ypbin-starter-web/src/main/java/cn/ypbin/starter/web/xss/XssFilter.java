@@ -28,8 +28,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * XSS 过滤器。
  *
- * <p>对进入的请求包装为 {@link XssHttpServletRequestWrapper}，使下游读取参数时自动清洗。
+ * <p>对进入的请求包装为 {@link XssHttpServletRequestWrapper}，使下游读取参数/请求头时自动清洗。
  * 命中排除路径的请求直接放行，不做包装。</p>
+ *
+ * <p><strong>范围：</strong>仅覆盖 Query/表单参数与请求头；请求体（含 JSON body）不在清洗范围，
+ * 详见 {@link XssHttpServletRequestWrapper} 说明。</p>
  *
  * @author wenbin
  * @since 2026-07-30

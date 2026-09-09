@@ -51,4 +51,9 @@ public class RedisIdempotentStore implements IdempotentStore {
             String.valueOf(expire.toSeconds()));
         return result != null && result == 1L;
     }
+
+    @Override
+    public void release(String key) {
+        redisTemplate.delete(key);
+    }
 }

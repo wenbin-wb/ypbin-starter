@@ -101,7 +101,7 @@ class PasswordAttemptLimiterTest {
         limiter.recordFailure("tom", "1.1.1.1");
         assertThatThrownBy(() -> limiter.recordFailure("tom", "1.1.1.1"))
             .isInstanceOf(AccountLockedException.class);
-        limiter.recordFailure("tom", "2.2.2.2");
+        // 账号维度已达阈值（防轮换 IP 绕过）：换 IP 首次失败即被全局锁定
         assertThatThrownBy(() -> limiter.recordFailure("tom", "2.2.2.2"))
             .isInstanceOf(AccountLockedException.class);
 
@@ -155,14 +155,16 @@ class PasswordAttemptLimiterTest {
     }
 
     @Test
-    void differentScopeCountedSeparately() {
+    void failuresAcrossScopesAccumulateToAccountLock() {
         PasswordAttemptLimiter limiter = limiter(policy(2, 15));
 
         limiter.recordFailure("tom", "1.1.1.1");
         assertThatThrownBy(() -> limiter.recordFailure("tom", "1.1.1.1"))
             .isInstanceOf(AccountLockedException.class);
 
-        // 另一个 IP 维度独立计数，不受影响
-        limiter.checkLocked("tom", "2.2.2.2");
+        // 账号全局维度计数随每次失败叠加：单 IP 两次失败后账号已被全局锁定，
+        // 换 IP（2.2.2.2）同样被拦——原“不同 scope 各自独立计数”语义由账号维度兜底
+        assertThatThrownBy(() -> limiter.checkLocked("tom", "2.2.2.2"))
+            .isInstanceOf(AccountLockedException.class);
     }
 }

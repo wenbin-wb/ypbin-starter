@@ -288,6 +288,8 @@ public class JobManager {
             boolean locked = false;
             if (guarded) {
                 lockKey = "ypbin:job:" + definition.getId() + ":" + context.getTriggerTime().withNano(0);
+                // timeoutSeconds 仅作锁 TTL 放大依据（非执行超时）：长任务按「timeoutSeconds + 5」秒持锁，
+                // 确保执行完成前锁不过期、其它节点不抢跑；未配置时取 1 小时兜底。任务不会被该值强制中断
                 Duration ttl = Duration.ofSeconds(definition.getTimeoutSeconds() > 0
                     ? definition.getTimeoutSeconds() + 5 : 3600);
                 locked = jobLock.tryLock(lockKey, nodeId, ttl);

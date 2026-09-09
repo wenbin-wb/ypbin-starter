@@ -21,8 +21,8 @@
     {
       "name": "ypbin.sse.timeout",
       "type": "java.lang.Long",
-      "description": "SSE 连接超时（毫秒），到期后客户端自动重连。",
-      "defaultValue": 300000
+      "description": "SSE 连接总超时（毫秒），默认 0 表示不设总超时，由心跳负责保活与死连接检测；配有限值作为安全网，到期由容器回收连接（客户端自动重连）。",
+      "defaultValue": 0
     }
   ]
 }

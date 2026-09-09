@@ -37,4 +37,17 @@ public interface IdempotentStore {
      * @return {@code true} 表示占位成功（首次调用）；{@code false} 表示键已存在（重复调用）
      */
     boolean tryAcquire(String key, Duration expire);
+
+    /**
+     * 释放占位键。
+     *
+     * <p>业务方法执行异常后由幂等切面调用，删除占位使客户端可立即重试，而不必等到
+     * {@link #tryAcquire} 的有效期自然过期。默认空实现保持向后兼容：未覆盖本方法的
+     * 宿主存储不会释放占位（失败后仍需等待窗口过期才能重试）。</p>
+     *
+     * @param key 幂等键
+     */
+    default void release(String key) {
+        // 默认不释放，兼容仅实现 tryAcquire 的历史宿主存储
+    }
 }
