@@ -16,7 +16,10 @@
 package cn.ypbin.starter.web.request;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import cn.ypbin.starter.core.exception.BusinessException;
+import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.web.xss.XssHttpServletRequestWrapper;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -72,6 +75,38 @@ class RequestWrapperTest {
 
         RepeatableReadRequestWrapper wrapper = new RepeatableReadRequestWrapper(request);
         assertThat(wrapper.getBodyAsString()).isEmpty();
+    }
+
+    @Test
+    void repeatableReadShouldRejectBodyOverConfiguredLimit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api");
+        request.setContentType("application/json");
+        request.setContent("{\"key\":\"value\"}".getBytes());
+
+        // 超过缓存上限（5 字节）时拒绝读取并抛 413 语义业务异常
+        assertThatThrownBy(() -> new RepeatableReadRequestWrapper(request, 5L))
+            .isInstanceOf(BusinessException.class)
+            .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                .isEqualTo(GlobalErrorCode.PAYLOAD_TOO_LARGE.getCode()));
+    }
+
+    @Test
+    void repeatableReadShouldAcceptBodyWithinConfiguredLimit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api");
+        request.setContentType("application/json");
+        request.setContent("ok".getBytes());
+
+        RepeatableReadRequestWrapper wrapper = new RepeatableReadRequestWrapper(request, 16L);
+        assertThat(wrapper.getBodyAsString()).isEqualTo("ok");
+    }
+
+    @Test
+    void repeatableReadShouldRejectNonPositiveLimit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api");
+        request.setContent("ok".getBytes());
+
+        assertThatThrownBy(() -> new RepeatableReadRequestWrapper(request, 0L))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

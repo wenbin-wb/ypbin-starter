@@ -18,10 +18,13 @@ package cn.ypbin.starter.web.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.web.handler.GlobalExceptionHandler;
+import cn.ypbin.starter.web.request.RepeatableReadRequestFilter;
+import cn.ypbin.starter.web.request.RepeatableReadRequestWrapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.filter.CorsFilter;
@@ -75,6 +78,44 @@ class WebAutoConfigurationTest {
         assertThat(props.isEnabled()).isFalse();
         assertThat(props.getExcludes()).isEmpty();
         assertThat(XssProperties.PREFIX).isEqualTo("ypbin.web.xss");
+    }
+
+    @Test
+    void repeatableReadPropertiesShouldExposeDefaults() {
+        RepeatableReadProperties props = new RepeatableReadProperties();
+        assertThat(RepeatableReadProperties.PREFIX).isEqualTo("ypbin.web.repeatable-read");
+        assertThat(props.isEnabled()).isFalse();
+        assertThat(props.getMaxBodyBytes())
+            .isEqualTo(RepeatableReadRequestWrapper.DEFAULT_MAX_BODY_BYTES);
+    }
+
+    @Test
+    void shouldNotRegisterRepeatableReadFilterByDefault() {
+        runner.run(context -> {
+            var filters = context.getBeansOfType(FilterRegistrationBean.class).values();
+            assertThat(filters).noneSatisfy(
+                frb -> assertThat(frb.getFilter()).isInstanceOf(RepeatableReadRequestFilter.class));
+        });
+    }
+
+    @Test
+    void shouldRegisterRepeatableReadFilterWhenEnabled() {
+        runner.withPropertyValues("ypbin.web.repeatable-read.enabled=true")
+            .run(context -> {
+                var filters = context.getBeansOfType(FilterRegistrationBean.class).values();
+                assertThat(filters).anySatisfy(
+                    frb -> assertThat(frb.getFilter()).isInstanceOf(RepeatableReadRequestFilter.class));
+                assertThat(context).hasSingleBean(RepeatableReadProperties.class);
+            });
+    }
+
+    @Test
+    void shouldBindRepeatableReadMaxBodyBytesFromProperty() {
+        runner.withPropertyValues(
+                "ypbin.web.repeatable-read.enabled=true",
+                "ypbin.web.repeatable-read.max-body-bytes=2048")
+            .run(context -> assertThat(context.getBean(RepeatableReadProperties.class).getMaxBodyBytes())
+                .isEqualTo(2048L));
     }
 
     @Configuration(proxyBeanMethods = false)

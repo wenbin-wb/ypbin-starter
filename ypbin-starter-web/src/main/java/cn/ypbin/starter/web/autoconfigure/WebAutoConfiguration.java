@@ -44,7 +44,11 @@ import org.springframework.web.filter.CorsFilter;
  */
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@EnableConfigurationProperties({CorsProperties.class, XssProperties.class})
+@EnableConfigurationProperties({
+    CorsProperties.class,
+    RepeatableReadProperties.class,
+    XssProperties.class
+})
 public class WebAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(WebAutoConfiguration.class);
@@ -86,18 +90,23 @@ public class WebAutoConfiguration {
      * <p>以最高优先级排在其它过滤器之前，把带 body 的请求包装为可重复读，供 XSS、签名、
      * 日志等下游复用同一份缓存请求，避免各自包装与 body 读取冲突。签名等模块需要读 body 时
      * 应开启本项。</p>
+     *
+     * <p>缓存上限默认 10MB（{@link RepeatableReadProperties#getMaxBodyBytes()}，配置项
+     * {@code ypbin.web.repeatable-read.max-body-bytes}），超限请求在包装阶段即被拒绝读取。</p>
      */
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "ypbin.web.repeatable-read", name = "enabled", havingValue = "true")
-    public FilterRegistrationBean<RepeatableReadRequestFilter> repeatableReadRequestFilterRegistration() {
+    public FilterRegistrationBean<RepeatableReadRequestFilter> repeatableReadRequestFilterRegistration(
+        RepeatableReadProperties properties) {
         FilterRegistrationBean<RepeatableReadRequestFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new RepeatableReadRequestFilter());
+        registration.setFilter(new RepeatableReadRequestFilter(properties.getMaxBodyBytes()));
         registration.addUrlPatterns("/*");
         registration.setDispatcherTypes(DispatcherType.REQUEST);
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         registration.setName("ypbinRepeatableReadRequestFilter");
-        log.debug("[ypbin-starter] repeatable-read request filter enabled.");
+        log.debug("[ypbin-starter] repeatable-read request filter enabled, max-body-bytes={}.",
+            properties.getMaxBodyBytes());
         return registration;
     }
 

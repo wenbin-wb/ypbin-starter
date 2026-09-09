@@ -32,6 +32,11 @@ import org.slf4j.LoggerFactory;
  * 时钟回拨检测基于进程内单调递增的「最近校验时刻」，一旦发现系统时间早于该时刻超过容差，即判定被篡改。
  * 跨重启的持久化留待联机阶段的存储扩展点补齐，此处不做静默兜底。</p>
  *
+ * <p>除定期任务外，{@link #assertUsable()} 断言路径还带一层<strong>轻量过期快查</strong>（内部
+ * {@code evaluateIfNeeded()}）：按本地时钟判定授权是否已过宽限期并直接切换状态，避免依赖业务手工调度
+ * 定期任务而出现"授权已过期但仍可用"的窗口；快查有 5s 缓存且不做完整签名重验。边界说明：时钟回拨检测等
+ * 全量重算仍走 {@link #evaluate()} 与定时任务，本快查不替代。</p>
+ *
  * @author wenbin
  * @since 2026-08-05
  */
@@ -42,6 +47,9 @@ public class LicenseManager {
     /** 时钟回拨容差（秒）：小于此幅度的回退视为正常抖动 */
     private static final long CLOCK_TOLERANCE_SECONDS = 300L;
 
+    /** 断言路径过期快查的最小间隔（毫秒）：5s 内不重复重算，避免每个请求都做状态判定 */
+    private static final long EXPIRY_QUICK_CHECK_INTERVAL_MILLIS = 5000L;
+
     private final String sm2PublicKey;
     private final String sm4Key;
     private final boolean fingerprintEnabled;
@@ -50,6 +58,9 @@ public class LicenseManager {
     private volatile LicenseStatus status = LicenseStatus.ILLEGAL;
     private volatile String reason = "尚未加载授权";
     private volatile LocalDateTime lastSeenTime;
+
+    /** 最近一次过期快查的时刻（毫秒时间戳，用于 5s 内不重算的节流） */
+    private volatile long lastQuickCheckMillis;
 
     /**
      * @param sm2PublicKey       Base64 SM2 公钥（验签）
@@ -146,9 +157,14 @@ public class LicenseManager {
     /**
      * 断言当前授权可用（合法或宽限期内），否则抛出。
      *
+     * <p>断言前先做基于本地时钟的轻量过期快查（见 {@link #evaluateIfNeeded()}），使授权跨入过期后
+     * 即使定期任务尚未触发也能及时切换为不可用。</p>
+     *
      * @throws LicenseException 授权不可用时抛出
      */
     public void assertUsable() {
+        // 过期快查：仅按本地时钟判定是否已过宽限期，5s 内不重算；完整重算（含时钟回拨检测）仍走 evaluate
+        evaluateIfNeeded();
         if (!status.isUsable()) {
             throw new LicenseException(LicenseErrorCode.LICENSE_EXPIRED, reason);
         }
@@ -181,6 +197,44 @@ public class LicenseManager {
         if (limit != null && current > limit) {
             throw new LicenseException(LicenseErrorCode.LICENSE_QUOTA_EXCEEDED,
                 "已达授权额度上限[" + key + "]：" + current + "/" + limit);
+        }
+    }
+
+    /**
+     * 轻量过期快查（断言路径使用）。
+     *
+     * <p>只按本地时钟判定「授权是否已过宽限期」，是则直接把状态切换为不可用，使过期即时生效、
+     * 不依赖业务手工调度定期任务。5s 节流避免每请求重算，且不做完整签名重验（成本考虑）。
+     * 边界：本快查是纯本地时钟的过期判定，不含时钟回拨检测——时钟异常场景的全量重算仍由
+     * {@link #evaluate()} / 定时任务负责。未加载授权或已处于不可用时不切换，恢复路径由
+     * {@link #load(String)} / {@link #evaluate()} 主导。</p>
+     */
+    private void evaluateIfNeeded() {
+        long now = System.currentTimeMillis();
+        if (now - lastQuickCheckMillis < EXPIRY_QUICK_CHECK_INTERVAL_MILLIS) {
+            return;
+        }
+        synchronized (this) {
+            // 双重检查：并发请求只允许一个线程进入重算，其余请求直接读取已缓存结论
+            long recheck = System.currentTimeMillis();
+            if (recheck - lastQuickCheckMillis < EXPIRY_QUICK_CHECK_INTERVAL_MILLIS) {
+                return;
+            }
+            lastQuickCheckMillis = recheck;
+            LicenseContent current = content;
+            if (current == null || !status.isUsable()) {
+                return;
+            }
+            LocalDateTime expireAt = current.expireAt();
+            if (expireAt == null) {
+                return; // 永久授权，无过期判定
+            }
+            LocalDateTime wallNow = LocalDateTime.now();
+            LocalDateTime graceEnd = expireAt.plusDays(Math.max(0, current.graceDays()));
+            if (wallNow.isAfter(graceEnd)) {
+                // 已过宽限期：直接切不可用（合法期与宽限期内均可用，无需切换）
+                transit(LicenseStatus.ILLEGAL, "授权已过期：" + expireAt);
+            }
         }
     }
 

@@ -36,7 +36,11 @@ public class FeignProperties {
     /** 是否启用统一错误解码，默认开启 */
     private boolean errorDecoderEnabled = true;
 
-    /** 是否默认开启 OpenFeign circuitbreaker，默认开启 */
+    /**
+     * 是否默认开启 OpenFeign circuitbreaker，默认开启。
+     * 开启时同时注入 resilience4j 默认熔断/超时参数（见 {@code FeignDefaultsEnvironmentPostProcessor}：
+     * TimeLimiter 10s、20 次滑动窗口、50% 失败率阈值等），业务可通过 resilience4j.* 配置整体或逐项覆盖。
+     */
     private boolean circuitbreakerEnabled = true;
 
     /**

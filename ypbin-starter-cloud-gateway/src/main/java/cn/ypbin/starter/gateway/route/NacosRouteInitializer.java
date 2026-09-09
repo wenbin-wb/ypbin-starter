@@ -40,7 +40,8 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>应用启动时从 Nacos 配置中心加载 Gateway 路由定义（JSON 数组格式），并注册配置变更监听器。
  * 当 Nacos 配置变更时自动清理旧路由、写入新路由并发布 {@link RefreshRoutesEvent}。
- * Json 解析失败时保留当前路由不回退任何路由，避免因配置错误打挂网关。</p>
+ * Json 解析失败、配置为空或为合法空列表 {@code []} 时均保留当前路由（仅告警），避免因配置错误或
+ * 误配把网关路由全量打空；多来源并发应用由内部串行化保证不交错。</p>
  *
  * @author wenbin
  * @since 2026-07-31
@@ -129,26 +130,45 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
         }
     }
 
-    void applyRoutes(String config) {
+    /**
+     * 应用一批 Nacos 路由：先全量删除旧路由，再写入新路由，最后发布 {@link RefreshRoutesEvent}。
+     *
+     * <p><strong>串行化取舍</strong>：启动 {@link #run(ApplicationArguments)} 与 Nacos 监听回调可能并发触发，
+     * 若两批 delete-all→save-all 异步交错会互相覆盖导致路由状态不一致。此处用 {@code synchronized} 包住
+     * 整条流水线并阻塞等待其完成（路由写库为本地内存/Redis 操作，耗时可控），使每次应用严格串行、最终
+     * 状态收敛到最后一次进入的配置；比「版本号丢弃过期批次」更简单——版本号方案仍须解决异步链间串行，
+     * 复杂度不降反升。</p>
+     *
+     * <p>合法空列表（如 {@code []}）视为"清空意图不明确"，与 blank/解析失败策略一致：保留当前路由并告警，
+     * 避免运维误配或中间态空配置导致网关路由全量丢失。需要显式清空全部路由的场景另行提供专门的清空入口。</p>
+     *
+     * @param config Nacos 配置内容（JSON 路由数组）
+     */
+    private synchronized void applyRoutes(String config) {
         List<RouteDefinition> newRoutes = parseRoutes(config);
         if (newRoutes == null) {
             log.error("[ypbin-starter] Nacos route config JSON parse failed, keeping current routes.");
             return;
         }
-        // 先删旧路由再写入新路由，最后 publish RefreshRoutesEvent
-        routeDefinitionLocator.getRouteDefinitions()
-            .flatMap(rd -> routeDefinitionWriter.delete(Mono.just(rd.getId())))
-            .collectList()
-            .flatMapMany(unused -> Flux.fromIterable(newRoutes))
-            .flatMap(rd -> routeDefinitionWriter.save(Mono.just(rd)))
-            .collectList()
-            .subscribe(
-                result -> {
-                    eventPublisher.publishEvent(new RefreshRoutesEvent(this));
-                    log.info("[ypbin-starter] Nacos dynamic routes refreshed: {} routes.", newRoutes.size());
-                },
-                error -> log.error("[ypbin-starter] Failed to apply Nacos routes, keeping current routes.", error)
-            );
+        if (newRoutes.isEmpty()) {
+            // 空列表不清空：与 blank/解析失败一致保留当前路由，仅告警（防误清全量路由）
+            log.warn("[ypbin-starter] Nacos route config is an empty list, keeping current routes.");
+            return;
+        }
+        try {
+            // block() 等整条 delete-all→save-all 流水线完成后再返回，保证与下一批应用互斥且不交错
+            routeDefinitionLocator.getRouteDefinitions()
+                .flatMap(rd -> routeDefinitionWriter.delete(Mono.just(rd.getId())))
+                .collectList()
+                .flatMapMany(unused -> Flux.fromIterable(newRoutes))
+                .flatMap(rd -> routeDefinitionWriter.save(Mono.just(rd)))
+                .collectList()
+                .block();
+            eventPublisher.publishEvent(new RefreshRoutesEvent(this));
+            log.info("[ypbin-starter] Nacos dynamic routes refreshed: {} routes.", newRoutes.size());
+        } catch (Exception e) {
+            log.error("[ypbin-starter] Failed to apply Nacos routes, keeping current routes.", e);
+        }
     }
 
     private List<RouteDefinition> parseRoutes(String config) {

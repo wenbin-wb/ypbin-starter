@@ -29,16 +29,36 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * 使下游（签名校验、日志、Controller 等）都能重复读取 body。文件上传（multipart）不缓存，
  * 避免大文件占用内存。已是包装类型时跳过，防止重复包装。</p>
  *
+ * <p>包装时携带可配的缓存字节上限（默认 {@link RepeatableReadRequestWrapper#DEFAULT_MAX_BODY_BYTES}
+ * 10MB，见 {@code ypbin.web.repeatable-read.max-body-bytes}），超限请求在包装阶段即被拒绝读取。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
 public class RepeatableReadRequestFilter extends OncePerRequestFilter {
 
+    private final long maxBodyBytes;
+
+    /** 以默认缓存上限（10MB）构造。 */
+    public RepeatableReadRequestFilter() {
+        this(RepeatableReadRequestWrapper.DEFAULT_MAX_BODY_BYTES);
+    }
+
+    /**
+     * 以指定缓存上限构造。
+     *
+     * @param maxBodyBytes 允许缓存的最大字节数，超过上限的请求体拒绝读取（见包装器注释）
+     */
+    public RepeatableReadRequestFilter(long maxBodyBytes) {
+        this.maxBodyBytes = maxBodyBytes;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
         throws ServletException, IOException {
         if (shouldWrap(request)) {
-            chain.doFilter(new RepeatableReadRequestWrapper(request), response);
+            chain.doFilter(new RepeatableReadRequestWrapper(request, maxBodyBytes),
+                response);
         } else {
             chain.doFilter(request, response);
         }

@@ -34,8 +34,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * 可信身份头。各业务服务装配本过滤器，从这些头构建 {@link LoginUser}
  * 写入 {@link IdentityContext}，供业务代码无感知读取当前用户——服务自身不再校验 token。</p>
  *
- * <p>安全前提：服务只暴露在网关内网，外部请求无法直达（若需直连请自行加白名单或改为
- * 服务间签名校验）。</p>
+ * <p><strong>默认关闭</strong>：本过滤器仅在 {@code ypbin.security.identity.enabled=true} 时由
+ * {@link IdentityAutoConfiguration} 装配。仅当服务位于可信网关之后、且网关负责清洗外部
+ * {@code X-User-Id/X-Roles} 等头并签发内部身份头时才应显式开启；若服务可被外部直接访问，
+ * 严禁开启（否则外部请求可伪造身份头冒充已认证用户）。</p>
  *
  * @author wenbin
  * @since 2026-09-01

@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
@@ -35,8 +36,12 @@ import org.springframework.scheduling.support.PeriodicTrigger;
  * 定时任务调度管理器。
  *
  * <p>基于 Spring {@link TaskScheduler} + 自维护 {@link ScheduledFuture} 注册表实现运行时动态调度：
- * 注册/启停/改 cron/立即执行一次，均不需重启。多实例下每个节点各自持有调度器，同一任务到点会各自触发，
- * 故执行入口用分布式锁抢占（锁键带触发时间片），只有抢到的节点真正执行，实现集群防重。</p>
+ * 注册/启停/改 cron/立即执行一次，均不需重启。多实例下每个节点各自持有调度器，同一任务到点会各自触发。</p>
+ *
+ * <p><strong>防重双保险</strong>：执行入口先做<em>任务级内存互斥</em>（同一节点上同任务绝不同时执行，
+ * 慢执行跨触发间隔不会在本节点双跑），再做<em>per-slice 分布式锁</em>抢占（多节点只有一个实例真正执行，
+ * 锁键带触发时间片，长任务不会持锁挡住下一次触发）。内存互斥仅单节点生效；跨节点同一触发时刻仍可能
+ * 双双执行（各节点各自持片锁），彻底防重需再叠加任务级分布式锁，由宿主按需引入。</p>
  *
  * <p>本类不持久化任务；任务的存储/CRUD/页面由业务方实现，通过本类的方法把内存调度与任务表同步。</p>
  *
@@ -58,6 +63,14 @@ public class JobManager {
 
     /** jobId -> 运行时调度句柄 */
     private final Map<Long, Scheduled> registry = new ConcurrentHashMap<>();
+
+    /**
+     * jobId -> 该任务是否正在执行（任务级内存互斥标志）。
+     *
+     * <p>entry 常驻不随任务注销移除：避免删除操作与并发 CAS 竞争导致「新触发已置位却被清掉」；
+     * 数量与历史 jobId 规模相当、量级很小，无内存风险。</p>
+     */
+    private final Map<Long, AtomicBoolean> runningJobs = new ConcurrentHashMap<>();
 
     private record Scheduled(JobDefinition definition, ScheduledFuture<?> future, Object activationToken) {
     }
@@ -246,7 +259,7 @@ public class JobManager {
     }
 
     /**
-     * 执行入口：集群防重抢锁 → 找执行体 → 回调监听 → 执行。
+     * 执行入口：任务级内存互斥 → per-slice 分布式抢锁 → 找执行体 → 回调监听 → 执行。
      */
     private void runWithGuard(JobDefinition definition, boolean manual) {
         JobContext context = new JobContext(definition.getId(), definition.getName(), definition.getExecutor(),
@@ -260,32 +273,71 @@ public class JobManager {
             return;
         }
 
-        // 集群防重：锁键带触发时间片，避免长任务持锁挡住下一次正常触发
-        String lockKey = null;
-        boolean locked = false;
-        if (definition.isConcurrentGuard()) {
-            lockKey = "ypbin:job:" + definition.getId() + ":" + context.getTriggerTime().withNano(0);
-            Duration ttl = Duration.ofSeconds(definition.getTimeoutSeconds() > 0
-                ? definition.getTimeoutSeconds() + 5 : 3600);
-            locked = jobLock.tryLock(lockKey, nodeId, ttl);
-            if (!locked) {
-                listener.onSkip(context);
-                return;
+        boolean guarded = definition.isConcurrentGuard();
+        // 任务级内存互斥：单节点上同任务绝不同时执行（慢执行跨触发间隔时，本次触发直接按防重跳过，
+        // 不会双跑）；未开启防重的任务（concurrentGuard=false）不参与互斥，保持按调度逐个触发
+        if (guarded && !markRunning(definition.getId())) {
+            log.debug("[ypbin-starter] job skipped by local running guard: name={}", definition.getName());
+            listener.onSkip(context);
+            return;
+        }
+        try {
+            // 集群防重：锁键带触发时间片，避免长任务持锁挡住下一次正常触发；
+            // 内存互斥已消除单节点并发，分布式锁在此承担多节点抢跑仲裁
+            String lockKey = null;
+            boolean locked = false;
+            if (guarded) {
+                lockKey = "ypbin:job:" + definition.getId() + ":" + context.getTriggerTime().withNano(0);
+                Duration ttl = Duration.ofSeconds(definition.getTimeoutSeconds() > 0
+                    ? definition.getTimeoutSeconds() + 5 : 3600);
+                locked = jobLock.tryLock(lockKey, nodeId, ttl);
+                if (!locked) {
+                    listener.onSkip(context);
+                    return;
+                }
+            }
+
+            long start = System.currentTimeMillis();
+            try {
+                listener.onStart(context);
+                handler.execute(context);
+                listener.onSuccess(context, System.currentTimeMillis() - start);
+            } catch (Throwable e) {
+                log.warn("[ypbin-starter] job execute failed: name={}, err={}", definition.getName(), e.getMessage());
+                listener.onError(context, System.currentTimeMillis() - start, e);
+            } finally {
+                if (locked) {
+                    jobLock.unlock(lockKey, nodeId);
+                }
+            }
+        } finally {
+            // 无论执行成功/失败/未抢到分布式锁，都要释放内存互斥标志，保证下一次触发可正常进入
+            if (guarded) {
+                releaseRunning(definition.getId());
             }
         }
+    }
 
-        long start = System.currentTimeMillis();
-        try {
-            listener.onStart(context);
-            handler.execute(context);
-            listener.onSuccess(context, System.currentTimeMillis() - start);
-        } catch (Throwable e) {
-            log.warn("[ypbin-starter] job execute failed: name={}, err={}", definition.getName(), e.getMessage());
-            listener.onError(context, System.currentTimeMillis() - start, e);
-        } finally {
-            if (locked) {
-                jobLock.unlock(lockKey, nodeId);
-            }
+    /**
+     * CAS 置位"该任务执行中"，成功表示本节点此前无同任务在执行。
+     *
+     * @param jobId 任务 ID
+     * @return 是否成功抢占（false 表示同任务已在执行，本次应跳过）
+     */
+    private boolean markRunning(Long jobId) {
+        AtomicBoolean flag = runningJobs.computeIfAbsent(jobId, id -> new AtomicBoolean(false));
+        return flag.compareAndSet(false, true);
+    }
+
+    /**
+     * 清除"该任务执行中"标志，供执行结束后的 finally 调用。
+     *
+     * @param jobId 任务 ID
+     */
+    private void releaseRunning(Long jobId) {
+        AtomicBoolean flag = runningJobs.get(jobId);
+        if (flag != null) {
+            flag.set(false);
         }
     }
 
