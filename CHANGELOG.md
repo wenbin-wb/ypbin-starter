@@ -29,8 +29,19 @@
   - 禁裸 `java.util.Date`（时间字段统一 `LocalDateTime`）；
   - Controller 单文件 ≤400 行且不得含私有方法；
   - 实体 `equals/hashCode` 必须且仅基于主键 id（禁未限定 `onlyExplicitlyIncluded` 的
-    `@EqualsAndHashCode`、禁手写实现）。
+    `@EqualsAndHashCode`、禁手写实现）；
+  - 集合返回类型的方法不得返回 `null`（查无数据须返回空集合；语义是「无结果」时改用 `Optional`）。
   源码级规则均附带「正则应命中/不命中」的有效性自检。
+
+### 变更
+- **集合返回 null 消除**（cloud-gateway）：`NacosRouteInitializer#parseRoutes` 原以 `null` 表达
+  「配置解析失败 → 保留现有路由」，与「集合不得返回 null」冲突；改用 `Optional<List<RouteDefinition>>`
+  表达同一语义（调用方仍为「空即保留现有路由」，防止误清全量路由的安全性语义不变）。
+- **发布反应堆排除纯测试模块**：`ypbin-starter-architecture-tests` 改由 `activeByDefault` profile 提供，
+  `-Prelease` 激活 release profile 后该 profile 失效，模块不再进入发布反应堆；
+  同时把 release profile 的 `excludeArtifacts` 修正为**只用 artifactId**（插件实现是
+  `excludeArtifacts.contains(artifact.getArtifactId())`，写成 `groupId:artifactId` 不会匹配）。
+  `-Psbom` 显式带回该模块，保证只有 release 会排除它。
 
 ## [3.0.0] - 2026-09-13
 

@@ -83,7 +83,6 @@
         <module>ypbin-starter-app-cloud</module>
         <module>ypbin-starter-ai</module>
         <module>ypbin-starter-test</module>
-        <module>ypbin-starter-architecture-tests</module>
     </modules>
 
     <properties>
@@ -142,10 +141,31 @@
     </build>
 
     <profiles>
+        <!--
+          架构约束测试模块（纯测试、不发布）：由 activeByDefault 提供，使默认构建包含它，
+          而 `-Prelease` 激活 release profile 后本 profile 失效 → 该模块不进入发布反应堆。
+          这样它的空 jar（无签名、无 sources/javadoc）绝不会被 staged 进 Central 上传包。
+        -->
+        <profile>
+            <id>arch-tests</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>ypbin-starter-architecture-tests</module>
+            </modules>
+        </profile>
+
         <!-- 供应链合规 profile：生成 CycloneDX SBOM（软件物料清单），供下游做依赖审计与漏洞排查。
              运行：mvn -Psbom verify  →  各模块 target/bom.json 与聚合 target/bom.json -->
         <profile>
             <id>sbom</id>
+            <!-- 显式带回架构约束测试模块：它是 activeByDefault profile 提供的，
+                 任何显式激活的 profile（如本 profile）都会使其失效，故此处补回，
+                 保证只有 release 会排除它（SBOM 仍覆盖全部模块）。 -->
+            <modules>
+                <module>ypbin-starter-architecture-tests</module>
+            </modules>
             <build>
                 <plugins>
                     <plugin>
@@ -198,7 +218,7 @@
                                  空 jar 一并打进 bundle——而它 gpg.skip=true 无签名、也没有
                                  sources/javadoc，会让整个 deployment 校验失败。故在此显式排除。 -->
                             <excludeArtifacts>
-                                <artifact>cn.ypbin:ypbin-starter-architecture-tests</artifact>
+                                <artifact>ypbin-starter-architecture-tests</artifact>
                             </excludeArtifacts>
                         </configuration>
                     </plugin>

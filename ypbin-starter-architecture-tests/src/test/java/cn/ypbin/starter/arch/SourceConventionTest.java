@@ -468,6 +468,92 @@ class SourceConventionTest {
         assertThat(HANDWRITTEN_EQUALS.matcher("public int hashCode() {").find()).isTrue();
     }
 
+    /** 集合返回类型的方法签名；group(1)=返回类型，group(2)=方法名 */
+    private static final Pattern COLLECTION_METHOD_SIGNATURE = Pattern.compile(
+        "^[ \\t]*(?:public|protected|private)[ \\t]+(?:static[ \\t]+)?(?:final[ \\t]+)?(?:synchronized[ \\t]+)*"
+            + "([^;{}=\\n]*?)[ \\t]+(\\w+)[ \\t]*\\(",
+        Pattern.MULTILINE);
+
+    /** 返回类型中出现集合类型（含泛型与嵌套泛型） */
+    private static final Pattern COLLECTION_RETURN_TYPE = Pattern.compile(
+        "\\b(?:List|Set|Map|Collection|Iterable|Queue|Deque)\\s*<");
+
+    /** 方法体内的 return null */
+    private static final Pattern RETURN_NULL = Pattern.compile("\\breturn\\s+null\\s*;");
+
+    @Test
+    @DisplayName("集合返回类型的方法不得返回 null（查无数据须返回空集合）")
+    void collectionReturningMethodsShouldNotReturnNull() throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path file : mainSources()) {
+            String code = stripCommentsAndLiterals(Files.readString(file, StandardCharsets.UTF_8));
+            // 排除 Object 的 equals(Object) 之类的非集合返回：由返回类型正则保证
+            for (int line : collectionMethodsReturningNull(code)) {
+                violations.add(repoRoot.relativize(file) + ":" + line);
+            }
+        }
+        assertThat(violations)
+            .as("返回 List/Set/Map 的方法查到空数据时一律返回 List.of()/Map.of()/Set.of()；"
+                + "若语义是「无结果/解析失败」而非「空集合」，请改用 Optional 表达（调用方也更难漏判）")
+            .isEmpty();
+    }
+
+    @Test
+    @DisplayName("集合返回 null 检测应能命中/放过预期样例（规则有效性自检）")
+    void collectionReturnNullDetectionShouldBeAccurate() {
+        String violation = "public List<String> list() {\n    try {\n        return read();\n    } catch (Exception e) {\n"
+            + "        return null;\n    }\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(violation))).hasSize(1);
+
+        // Optional 表达「无结果」不应被判违规
+        String optional = "public Optional<List<String>> list() {\n    return Optional.empty();\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(optional))).isEmpty();
+
+        // 非集合返回类型不参与判定
+        String scalar = "private String name() {\n    return null;\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(scalar))).isEmpty();
+
+        // 注释与字符串里的 return null 不应误判
+        String inComment = "public List<String> list() {\n    // return null;\n    return List.of();\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(inComment))).isEmpty();
+    }
+
+    /** 返回「集合返回类型且方法体内出现 return null」所在行号（1-based） */
+    static List<Integer> collectionMethodsReturningNull(String code) {
+        List<Integer> lines = new ArrayList<>();
+        Matcher signature = COLLECTION_METHOD_SIGNATURE.matcher(code);
+        while (signature.find()) {
+            if (!COLLECTION_RETURN_TYPE.matcher(signature.group(1)).find()) {
+                continue;
+            }
+            int brace = code.indexOf('{', signature.end());
+            if (brace < 0) {
+                continue; // 接口/抽象方法：无方法体
+            }
+            int depth = 0;
+            int end = -1;
+            for (int i = brace; i < code.length(); i++) {
+                char ch = code.charAt(i);
+                if (ch == '{') {
+                    depth++;
+                } else if (ch == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        end = i;
+                        break;
+                    }
+                }
+            }
+            if (end < 0) {
+                continue;
+            }
+            if (RETURN_NULL.matcher(code.substring(brace, end + 1)).find()) {
+                lines.add((int) code.substring(0, signature.start()).chars().filter(ch -> ch == '\n').count() + 1);
+            }
+        }
+        return lines;
+    }
+
     /** 从源码文件回溯所属模块目录（repo/<module>/src/main/java/...） */
     private static Path moduleRootOf(Path file) {
         Path current = file;

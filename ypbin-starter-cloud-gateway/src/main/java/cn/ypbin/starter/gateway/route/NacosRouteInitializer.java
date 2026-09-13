@@ -19,6 +19,7 @@ import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.config.listener.Listener;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +100,7 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
                 applyRoutes(config);
                 lastValidConfig = config;
                 log.info("[ypbin-starter] Nacos dynamic routes loaded from {} (group={}), {} routes applied.",
-                    dataId, group, parseRoutes(config).size());
+                    dataId, group, parseRoutes(config).map(List::size).orElse(0));
             } else {
                 log.info("[ypbin-starter] Nacos config {} (group={}) is empty, keeping default routes.", dataId, group);
             }
@@ -149,11 +150,12 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
      * @param config Nacos 配置内容（JSON 路由数组）
      */
     private synchronized void applyRoutes(String config) {
-        List<RouteDefinition> newRoutes = parseRoutes(config);
-        if (newRoutes == null) {
+        Optional<List<RouteDefinition>> parsed = parseRoutes(config);
+        if (parsed.isEmpty()) {
             log.error("[ypbin-starter] Nacos route config JSON parse failed, keeping current routes.");
             return;
         }
+        List<RouteDefinition> newRoutes = parsed.get();
         if (newRoutes.isEmpty()) {
             // 空列表不清空：与 blank/解析失败一致保留当前路由，仅告警（防误清全量路由）
             log.warn("[ypbin-starter] Nacos route config is an empty list, keeping current routes.");
@@ -179,11 +181,21 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
         }
     }
 
-    private List<RouteDefinition> parseRoutes(String config) {
+    /**
+     * 解析路由 JSON。
+     *
+     * <p>解析失败（含 JSON 字面量 {@code null}）返回 {@link Optional#empty()} 而非 {@code null}：
+     * 集合返回类型不得用 {@code null} 表达「无结果」（铁律），而这里的语义恰恰是「没解析出来 → 保留现有路由」，
+     * 用 {@code Optional} 表达既满足规范又不动安全性语义。</p>
+     *
+     * @param config Nacos 配置内容（JSON 路由数组）
+     * @return 解析出的路由；解析失败为空
+     */
+    private Optional<List<RouteDefinition>> parseRoutes(String config) {
         try {
-            return objectMapper.readValue(config, ROUTE_LIST_TYPE);
+            return Optional.ofNullable(objectMapper.readValue(config, ROUTE_LIST_TYPE));
         } catch (JacksonException e) {
-            return null;
+            return Optional.empty();
         }
     }
 
