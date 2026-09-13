@@ -7,9 +7,11 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [未发布]
+## [3.0.0] - 2026-09-13
 
-**Jackson 3 全面对齐、Spring Boot 4.1 / Spring Framework 7 新特性落地，以及租户 fail-closed 等安全加固。**
+**重大版本：Jackson 3 全面对齐、Spring Boot 4.1 / Spring Framework 7 新特性落地、脚手架工程化能力，
+以及租户 fail-closed 等安全加固。升级前请先读下方「破坏性变更与迁移」，并参考站点
+`guide/starter/migration-2x-to-3x`。**
 
 ### ⚠️ 破坏性变更与迁移
 
