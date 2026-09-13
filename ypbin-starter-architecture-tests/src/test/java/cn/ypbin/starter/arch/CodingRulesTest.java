@@ -24,16 +24,25 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaFieldAccess;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -209,5 +218,79 @@ class CodingRulesTest {
         assertThat(violations)
             .as("字段注入不可测且隐藏依赖关系，统一改构造器注入（@RequiredArgsConstructor + final 字段）")
             .isEmpty();
+    }
+
+    @Test
+    @DisplayName("@Transactional 只能标注在 public 方法/类上（非 public 不被 AOP 代理，静默失效）")
+    void transactionalShouldOnlyBeDeclaredOnPublicMembers() {
+        String transactionalType = "org.springframework.transaction.annotation.Transactional";
+        List<String> violations = new ArrayList<>();
+        for (JavaClass clazz : classes) {
+            boolean classAnnotated = clazz.getAnnotations().stream()
+                .anyMatch(annotation -> annotation.getRawType().getName().equals(transactionalType));
+            if (classAnnotated && !clazz.getModifiers().contains(JavaModifier.PUBLIC)) {
+                violations.add(clazz.getName() + "（类级注解，但类非 public）");
+            }
+            for (JavaMethod method : clazz.getMethods()) {
+                boolean annotated = method.getAnnotations().stream()
+                    .anyMatch(annotation -> annotation.getRawType().getName().equals(transactionalType));
+                if (annotated && !method.getModifiers().contains(JavaModifier.PUBLIC)) {
+                    violations.add(clazz.getName() + "#" + method.getName());
+                }
+            }
+        }
+        assertThat(violations)
+            .as("Spring AOP 只代理 public 成员：非 public 上的 @Transactional 不会生效，事务「看起来加了其实没加」")
+            .isEmpty();
+    }
+
+    /**
+     * 配置元数据资源位置（各模块由 spring-boot-configuration-processor 生成）。
+     */
+    private static final String CONFIG_METADATA_RESOURCE = "META-INF/spring-configuration-metadata.json";
+
+    @Test
+    @DisplayName("每个 @ConfigurationProperties 前缀都必须有配置元数据（缺 processor 会静默失去 IDE 提示）")
+    void configurationPropertiesShouldHaveMetadata() throws IOException {
+        Set<String> known = new TreeSet<>();
+        Enumeration<URL> resources =
+            Thread.currentThread().getContextClassLoader().getResources(CONFIG_METADATA_RESOURCE);
+        while (resources.hasMoreElements()) {
+            URL url = resources.nextElement();
+            try (InputStream in = url.openStream()) {
+                String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                // 不引入 JSON 依赖：元数据里 group 与 property 的 name 都以 "name" 键出现，
+                // 收集全部 name 即可覆盖「前缀本身」与「前缀下的属性」两种形态。
+                Matcher matcher = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"").matcher(text);
+                while (matcher.find()) {
+                    known.add(matcher.group(1));
+                }
+            }
+        }
+
+        Set<String> missing = new TreeSet<>();
+        for (JavaClass clazz : classes) {
+            clazz.tryGetAnnotationOfType(ConfigurationProperties.class)
+                .ifPresent(annotation -> collectMissingPrefix(annotation.prefix(), clazz.getName(), known, missing));
+            for (JavaMethod method : clazz.getMethods()) {
+                method.tryGetAnnotationOfType(ConfigurationProperties.class)
+                    .ifPresent(annotation -> collectMissingPrefix(
+                        annotation.prefix(), clazz.getName() + "#" + method.getName(), known, missing));
+            }
+        }
+        assertThat(missing)
+            .as("这些 @ConfigurationProperties 前缀没有任何配置元数据：模块缺少 spring-boot-configuration-processor 依赖，"
+                + "接入方将失去 IDE 提示与配置校验（修复方式：该模块 pom 加 spring-boot-configuration-processor，optional=true）")
+            .isEmpty();
+    }
+
+    private static void collectMissingPrefix(String prefix, String owner, Set<String> known, Set<String> missing) {
+        if (prefix == null || prefix.isBlank()) {
+            return;
+        }
+        boolean covered = known.stream().anyMatch(name -> name.equals(prefix) || name.startsWith(prefix + "."));
+        if (!covered) {
+            missing.add(prefix + "  ←  " + owner);
+        }
     }
 }

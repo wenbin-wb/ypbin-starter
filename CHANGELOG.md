@@ -7,6 +7,31 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [未发布]
+
+### 修复
+- **发布包混入非发布模块**（构建配置）：`ypbin-starter-architecture-tests` 仅设了 `maven.deploy.skip=true`，
+  但 Central 发布插件以 `extensions=true` 接管 deploy 生命周期、不读取该属性，导致它的空 jar 被一并打进
+  上传包；而该模块 `gpg.skip=true`（无 `.asc` 签名）且没有 sources/javadoc，会让整个 deployment 校验失败。
+  已在 release profile 用插件的 `excludeArtifacts` 显式排除。
+- **CRUD 反射辅助跨包访问失效**（extension-crud）：`CrudController` 的泛型解析/实例化/主键写入等私有方法
+  下沉到 `crud.support.CrudReflectSupport` 后，与原实现同包时可访问的**包级私有** DTO/实体变为
+  `IllegalAccessException`；已在 `instantiate` 与 `writeId` 中对不可访问的构造器/setter 调用
+  `setAccessible(true)`，行为既恢复兼容又比原来更宽（宿主把模型声明为包级私有同样可用）。
+
+### 变更
+- **Controller 极薄落地**（extension-crud）：`CrudController` 的 4 个私有反射方法（泛型解析、实例化、
+  主键写入、setter 解析）下沉至新增的 `CrudReflectSupport`，主类 364 → 289 行，不再含私有方法。
+- **架构门禁新增 5 条规则**（`ypbin-starter-architecture-tests`，20 → 28 项断言）：
+  - `@Transactional` 只能标注在 public 方法/类上（Spring AOP 只代理 public，非 public 会静默失效）；
+  - 每个 `@ConfigurationProperties` 前缀必须有配置元数据（缺 `spring-boot-configuration-processor`
+    会让接入方失去 IDE 提示与配置校验）；
+  - 禁裸 `java.util.Date`（时间字段统一 `LocalDateTime`）；
+  - Controller 单文件 ≤400 行且不得含私有方法；
+  - 实体 `equals/hashCode` 必须且仅基于主键 id（禁未限定 `onlyExplicitlyIncluded` 的
+    `@EqualsAndHashCode`、禁手写实现）。
+  源码级规则均附带「正则应命中/不命中」的有效性自检。
+
 ## [3.0.0] - 2026-09-13
 
 **重大版本：Jackson 3 全面对齐、Spring Boot 4.1 / Spring Framework 7 新特性落地、脚手架工程化能力，

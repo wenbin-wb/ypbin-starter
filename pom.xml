@@ -193,6 +193,13 @@
                             <publishingServerId>central</publishingServerId>
                             <autoPublish>true</autoPublish>
                             <waitUntil>uploaded</waitUntil>
+                            <!-- 纯测试模块不得进入发布包：该模块只设了 maven.deploy.skip=true，
+                                 但本插件以 extensions=true 接管 deploy，不读取该属性，会把它的
+                                 空 jar 一并打进 bundle——而它 gpg.skip=true 无签名、也没有
+                                 sources/javadoc，会让整个 deployment 校验失败。故在此显式排除。 -->
+                            <excludeArtifacts>
+                                <artifact>cn.ypbin:ypbin-starter-architecture-tests</artifact>
+                            </excludeArtifacts>
                         </configuration>
                     </plugin>
                     <plugin>

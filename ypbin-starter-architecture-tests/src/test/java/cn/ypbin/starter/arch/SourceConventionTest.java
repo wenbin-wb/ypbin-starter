@@ -35,11 +35,16 @@ import org.junit.jupiter.api.Test;
 /**
  * 源码级规范约束测试。
  *
- * <p>补齐字节码不可见的三类铁律：</p>
+ * <p>补齐字节码不可见或更易在源码层判定的铁律：</p>
  * <ul>
  *   <li><b>禁内联全限定类名</b>——FQCN 在编译后不再出现，ArchUnit 无法校验；</li>
  *   <li><b>{@code @Data} 边界</b>——Lombok {@code @Data} 为 SOURCE 保留，编译后注解不存在；</li>
- *   <li><b>自动配置注册</b>——{@code @AutoConfiguration} 必须登记在其模块的 imports 文件中，否则永不生效。</li>
+ *   <li><b>自动配置注册</b>——{@code @AutoConfiguration} 必须登记在其模块的 imports 文件中，否则永不生效；</li>
+ *   <li><b>环境后置处理器注册</b>——接口与 spring.factories 注册键必须同时为新版，否则默认值静默失效；</li>
+ *   <li><b>集合字面量工厂</b>——统一 {@code List.of()/Map.of()/Set.of()}，禁用 Collections 旧工厂；</li>
+ *   <li><b>禁裸 {@code java.util.Date}</b>——时间字段统一 {@code LocalDateTime}；</li>
+ *   <li><b>Controller 极薄</b>——单文件 ≤400 行且不得含私有方法；</li>
+ *   <li><b>实体等值语义</b>——{@code equals/hashCode} 必须且仅基于主键 id。</li>
  * </ul>
  *
  * <p>扫描前会剥离注释与字符串字面量，避免把 Javadoc 里的示例、{@code Class.forName("cn.ypbin...")}
@@ -336,6 +341,131 @@ class SourceConventionTest {
             }
         }
         assertThat(violations).isEmpty();
+    }
+
+    /** 禁止的裸日期类型（时间字段统一 LocalDateTime + 全局 yyyy-MM-dd HH:mm:ss） */
+    private static final Pattern BARE_DATE_TYPE = Pattern.compile(
+        "\\bjava\\.util\\.Date\\b|^\\s*import\\s+java\\.util\\.Date\\s*;", Pattern.MULTILINE);
+
+    @Test
+    @DisplayName("禁止裸 java.util.Date（时间字段统一 LocalDateTime）")
+    void shouldNotUseBareJavaUtilDate() throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path file : mainSources()) {
+            String code = stripCommentsAndLiterals(Files.readString(file, StandardCharsets.UTF_8));
+            Matcher matcher = BARE_DATE_TYPE.matcher(code);
+            while (matcher.find()) {
+                int line = (int) code.substring(0, matcher.start()).chars().filter(ch -> ch == '\n').count() + 1;
+                violations.add(repoRoot.relativize(file) + ":" + line);
+            }
+        }
+        assertThat(violations)
+            .as("裸 java.util.Date 缺时区语义、序列化格式无法统一；请用 LocalDateTime（必要时 Instant 表达时刻）")
+            .isEmpty();
+    }
+
+    @Test
+    @DisplayName("裸 Date 检测正则应能命中违规（规则有效性自检）")
+    void bareDatePatternShouldCatchViolation() {
+        assertThat(BARE_DATE_TYPE.matcher("import java.util.Date;").find()).isTrue();
+        assertThat(BARE_DATE_TYPE.matcher("private java.util.Date createdAt;").find()).isTrue();
+        // 非目标：LocalDateTime、java.sql.Date、注释里的说明
+        assertThat(BARE_DATE_TYPE.matcher("import java.time.LocalDateTime;").find()).isFalse();
+        assertThat(BARE_DATE_TYPE.matcher("private LocalDateTime createdAt;").find()).isFalse();
+    }
+
+    /** Controller 单文件行数上限（铁律：Controller 极薄，单类严禁超 400 行） */
+    private static final int CONTROLLER_MAX_LINES = 400;
+
+    /** Controller 中的私有方法声明（铁律：严禁私有长方法，逻辑应下沉到 Service） */
+    private static final Pattern PRIVATE_METHOD = Pattern.compile(
+        "^\\s*private\\s+(?!static\\s+final\\b)[\\w<>,.\\[\\]\\s]*\\s+\\w+\\s*\\(", Pattern.MULTILINE);
+
+    @Test
+    @DisplayName("Controller 必须极薄：单文件 ≤400 行且不得有私有方法")
+    void controllersShouldBeThin() throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path file : mainSources()) {
+            if (!file.getFileName().toString().endsWith("Controller.java")) {
+                continue;
+            }
+            String raw = Files.readString(file, StandardCharsets.UTF_8);
+            long lines = raw.lines().count();
+            if (lines > CONTROLLER_MAX_LINES) {
+                violations.add(repoRoot.relativize(file) + " → " + lines + " 行（上限 " + CONTROLLER_MAX_LINES + "）");
+            }
+            String code = stripCommentsAndLiterals(raw);
+            Matcher matcher = PRIVATE_METHOD.matcher(code);
+            while (matcher.find()) {
+                int line = (int) code.substring(0, matcher.start()).chars().filter(ch -> ch == '\n').count() + 1;
+                violations.add(repoRoot.relativize(file) + ":" + line + " → Controller 内私有方法");
+            }
+        }
+        assertThat(violations)
+            .as("Controller 只做路由分发与 Service 编排：超长或含私有方法说明业务逻辑没下沉到 Service")
+            .isEmpty();
+    }
+
+    @Test
+    @DisplayName("Controller 私有方法检测正则应能命中违规（规则有效性自检）")
+    void privateMethodPatternShouldCatchViolation() {
+        assertThat(PRIVATE_METHOD.matcher("    private String buildKey(Long id) {").find()).isTrue();
+        assertThat(PRIVATE_METHOD.matcher("private void check() throws Exception {").find()).isTrue();
+        // 非目标：public 方法、常量字段（无括号）
+        assertThat(PRIVATE_METHOD.matcher("    public R<Void> save() {").find()).isFalse();
+        assertThat(PRIVATE_METHOD.matcher("    private static final String PREFIX = \"x\";").find()).isFalse();
+    }
+
+    /** 实体判定：继承实体基类、标注 @TableName、或类名以 Entity 结尾 */
+    private static final Pattern ENTITY_DECLARATION = Pattern.compile(
+        "\\bclass\\s+(\\w*Entity\\w*)\\b|\\bextends\\s+\\w*BaseEntity\\b|@TableName\\b");
+
+    /** 未经约束的 Lombok 等值注解（未声明 onlyExplicitlyIncluded 时默认纳入全部字段） */
+    private static final Pattern UNCONSTRAINED_EQUALS_ANNOTATION = Pattern.compile(
+        "@EqualsAndHashCode\\s*(?!\\()|@EqualsAndHashCode\\s*\\((?![^)]*onlyExplicitlyIncluded\\s*=\\s*true)");
+
+    /** 手写 equals/hashCode */
+    private static final Pattern HANDWRITTEN_EQUALS = Pattern.compile(
+        "\\bpublic\\s+boolean\\s+equals\\s*\\(|\\bpublic\\s+int\\s+hashCode\\s*\\(\\s*\\)");
+
+    @Test
+    @DisplayName("实体 equals/hashCode 必须仅基于主键 id（禁默认全字段、禁手写）")
+    void entityEqualsShouldBeBasedOnIdOnly() throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path file : mainSources()) {
+            String raw = Files.readString(file, StandardCharsets.UTF_8);
+            String code = stripCommentsAndLiterals(raw);
+            if (!ENTITY_DECLARATION.matcher(code).find()) {
+                continue;
+            }
+            if (UNCONSTRAINED_EQUALS_ANNOTATION.matcher(code).find()) {
+                violations.add(repoRoot.relativize(file)
+                    + " → @EqualsAndHashCode 未声明 onlyExplicitlyIncluded = true（会纳入集合/关联/非表字段）");
+            }
+            Matcher handwritten = HANDWRITTEN_EQUALS.matcher(code);
+            while (handwritten.find()) {
+                int line = (int) code.substring(0, handwritten.start()).chars().filter(ch -> ch == '\n').count() + 1;
+                violations.add(repoRoot.relativize(file) + ":" + line + " → 手写 equals/hashCode");
+            }
+        }
+        assertThat(violations)
+            .as("实体等值必须且仅基于主键 id：@EqualsAndHashCode(onlyExplicitlyIncluded = true) + 仅 id 标 @Include，"
+                + "且不得手写 equals/hashCode（易纳入集合或 @TableField(exist = false) 字段）")
+            .isEmpty();
+    }
+
+    @Test
+    @DisplayName("实体等值检测正则应能命中违规（规则有效性自检）")
+    void entityEqualsPatternShouldCatchViolation() {
+        assertThat(ENTITY_DECLARATION.matcher("public class DemoEntity extends BaseEntity {").find()).isTrue();
+        assertThat(ENTITY_DECLARATION.matcher("@TableName(\"sys_user\")\nclass SysUser {").find()).isTrue();
+        assertThat(UNCONSTRAINED_EQUALS_ANNOTATION.matcher("@EqualsAndHashCode\nclass A {}").find()).isTrue();
+        assertThat(UNCONSTRAINED_EQUALS_ANNOTATION.matcher("@EqualsAndHashCode(callSuper = true)").find()).isTrue();
+        // 非目标：显式限定只纳入 Include 字段
+        assertThat(UNCONSTRAINED_EQUALS_ANNOTATION
+            .matcher("@EqualsAndHashCode(onlyExplicitlyIncluded = true)").find()).isFalse();
+        assertThat(HANDWRITTEN_EQUALS.matcher("public boolean equals(Object o) {").find()).isTrue();
+        assertThat(HANDWRITTEN_EQUALS.matcher("public int hashCode() {").find()).isTrue();
     }
 
     /** 从源码文件回溯所属模块目录（repo/<module>/src/main/java/...） */
