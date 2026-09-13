@@ -18,11 +18,7 @@ package cn.ypbin.starter.cache.autoconfigure;
 import cn.ypbin.starter.cache.annotation.CacheEvictAspect;
 import cn.ypbin.starter.cache.core.CacheService;
 import cn.ypbin.starter.cache.redis.RedisCacheService;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import cn.ypbin.starter.cache.redis.RedisJsonSerializerFactory;
 import org.aspectj.lang.JoinPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,9 +31,9 @@ import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfigurat
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 缓存自动配置。
@@ -46,9 +42,10 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * {@link CacheService}。声明在 Spring Boot {@link RedisAutoConfiguration} 之前，
  * 以便自定义的 RedisTemplate 优先生效；所有 Bean 均可被业务方覆盖。</p>
  *
- * <p>Redis 值序列化器复用容器中的 {@link ObjectMapper}（继承 json 模块的时间/大数字规则），
- * 但使用其 {@link ObjectMapper#copy() 副本} 并在副本上开启多态类型信息（default typing），
- * 从而保证反序列化时能还原具体类型，且不污染 Spring MVC 使用的共享 ObjectMapper。</p>
+ * <p>Redis 值序列化器以容器 {@link JsonMapper} 的构建器副本为基底（继承 json 模块的时间/大数字规则），
+ * 多态类型信息由 {@link RedisJsonSerializerFactory} 统一交给序列化器自身管理——不可在传入的 mapper 上
+ * 再次 {@code activateDefaultTyping}，否则读写两侧类型标识形态不一致会导致集合类缓存值反序列化失败。
+ * 配置落在独立 mapper 上，不会污染 Spring MVC 使用的共享 JsonMapper。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -64,18 +61,18 @@ public class CacheAutoConfiguration {
      * 定制化 RedisTemplate：键用 String，值用 JSON，便于跨语言可读与调试。
      *
      * @param connectionFactory Redis 连接工厂
-     * @param objectMapperProvider 容器中的 ObjectMapper（可能不存在，做兜底）
+     * @param jsonMapperProvider 容器中的 Jackson 3 JsonMapper（可能不存在，做兜底）
      */
     @Bean
     @ConditionalOnMissingBean(name = "redisTemplate")
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory,
-                                                       ObjectProvider<ObjectMapper> objectMapperProvider) {
+                                                       ObjectProvider<JsonMapper> jsonMapperProvider) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
         RedisSerializer<String> keySerializer = new StringRedisSerializer();
-        GenericJackson2JsonRedisSerializer valueSerializer =
-            new GenericJackson2JsonRedisSerializer(buildRedisObjectMapper(objectMapperProvider));
+        RedisSerializer<Object> valueSerializer =
+            RedisJsonSerializerFactory.create(jsonMapperProvider.getIfAvailable());
 
         template.setKeySerializer(keySerializer);
         template.setHashKeySerializer(keySerializer);
@@ -84,24 +81,6 @@ public class CacheAutoConfiguration {
         template.afterPropertiesSet();
         log.debug("[ypbin-starter] redisTemplate (string key / json value) configured.");
         return template;
-    }
-
-    /**
-     * 构建 Redis 专用 ObjectMapper：优先复用容器共享实例的副本，开启多态类型信息。
-     *
-     * <p>使用副本 + 独立开启 default typing，避免影响 MVC 的 JSON 输出（否则 HTTP
-     * 响应会混入 {@code @class} 类型字段）。多态校验器仅信任所有类型以支持任意缓存对象，
-     * 由于缓存内容由服务端自身写入，不存在反序列化外部不可信数据的风险。</p>
-     */
-    private ObjectMapper buildRedisObjectMapper(ObjectProvider<ObjectMapper> objectMapperProvider) {
-        ObjectMapper shared = objectMapperProvider.getIfAvailable();
-        ObjectMapper redisMapper = (shared != null) ? shared.copy() : new ObjectMapper();
-        redisMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        redisMapper.activateDefaultTyping(
-            BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
-            ObjectMapper.DefaultTyping.NON_FINAL,
-            JsonTypeInfo.As.PROPERTY);
-        return redisMapper;
     }
 
     @Bean

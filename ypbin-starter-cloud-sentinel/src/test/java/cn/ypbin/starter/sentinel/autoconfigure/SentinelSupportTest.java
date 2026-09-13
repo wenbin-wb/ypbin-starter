@@ -19,6 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.sentinel.handler.RBlockExceptionHandler;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Sentinel 配置与装配测试。
@@ -41,8 +43,10 @@ class SentinelSupportTest {
     void autoConfigurationShouldBuildHandler() {
         SentinelAutoConfiguration config = new SentinelAutoConfiguration();
         SentinelProperties props = new SentinelProperties();
+        // 空 BeanFactory：验证缺 Jackson 序列化器 Bean 时走默认兜底而不抛异常
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         assertThat(config.blockExceptionHandler(
-            new com.fasterxml.jackson.databind.ObjectMapper(), props))
+            beanFactory.getBeanProvider(ObjectMapper.class), props))
             .isInstanceOf(RBlockExceptionHandler.class);
     }
 }

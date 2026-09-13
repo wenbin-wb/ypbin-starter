@@ -34,6 +34,10 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
  * <p>环绕拦截 {@link LicenseCheck} 标注的方法：合并类级与方法级注解（方法级优先），进入方法前
  * 依次执行基础可用性校验、可选的模块级校验、可选的联机回验，任一不通过即抛出授权异常阻断调用。</p>
  *
+ * <p>切点表达式中的注解类型名为字面量：{@code @Around} 的属性要求编译期常量，
+ * 不能用 {@code LicenseCheck.class.getName()} 拼接，属「禁内联全限定类名」规则的合理例外
+ * （此处是注解属性值而非 Java 代码标识符）。</p>
+ *
  * @author wenbin
  * @since 2026-08-05
  */

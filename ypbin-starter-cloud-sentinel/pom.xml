@@ -33,10 +33,10 @@
             <artifactId>sentinel-datasource-nacos</artifactId>
         </dependency>
 
-        <!-- 统一 R 响应需要读取当前请求上下文；Web 环境由消费方提供 -->
+        <!-- 统一 R 响应序列化走 Jackson 3（Boot 4.x 主序列化器），显式引入其自动配置模块 -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson</artifactId>
         </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
@@ -67,12 +67,7 @@
             <artifactId>spring-web</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- 测试序列化 R.timestamp（LocalDateTime）需要 jsr310 模块 -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- 测试序列化 R.timestamp（LocalDateTime）由 Jackson 3 内置 JavaTime 支持，无需额外模块 -->
     </dependencies>
 
     <build>

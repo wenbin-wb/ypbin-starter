@@ -60,6 +60,15 @@ public class LoadBalancerProperties {
     /** 是否把当前服务版本写入 Nacos discovery metadata */
     private boolean registerNacosMetadata = true;
 
+    /**
+     * 允许通过请求头指定的灰度版本白名单。
+     *
+     * <p>请求头由客户端可控，若不加限制，外部调用方可任意指定版本把流量导向灰度/未加固实例。
+     * 配置本白名单后，只有枚举内的版本值才会被采纳，其余一律忽略并按正式实例路由。
+     * 留空表示不限制（兼容既有行为），生产环境建议显式枚举可对外暴露的灰度版本。</p>
+     */
+    private List<String> allowedVersions = new ArrayList<>();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -138,5 +147,13 @@ public class LoadBalancerProperties {
 
     public void setRegisterNacosMetadata(boolean registerNacosMetadata) {
         this.registerNacosMetadata = registerNacosMetadata;
+    }
+
+    public List<String> getAllowedVersions() {
+        return allowedVersions;
+    }
+
+    public void setAllowedVersions(List<String> allowedVersions) {
+        this.allowedVersions = allowedVersions;
     }
 }

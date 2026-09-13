@@ -34,6 +34,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.beans.factory.DisposableBean;
 
 /**
  * 懒加载 {@link SimpleVectorStore} 代理。
@@ -48,24 +49,41 @@ import org.springframework.ai.vectorstore.filter.Filter;
  * @author wenbin
  * @since 2026-08-17
  */
-public class LazySimpleVectorStore implements VectorStore {
+public class LazySimpleVectorStore implements VectorStore, DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(LazySimpleVectorStore.class);
 
     private final AiEmbeddingConfigResolver embeddingResolver;
     private final String storePath;
     private final Duration clientTimeout;
+
+    /** 落盘协调器：合并突发写入并原子替换文件，消除逐次全量落盘的 O(N²) */
+    private final PersistCoordinator persistCoordinator;
+
     private volatile SimpleVectorStore delegate;
 
     public LazySimpleVectorStore(AiEmbeddingConfigResolver embeddingResolver, String storePath) {
-        this(embeddingResolver, storePath, Duration.ofSeconds(60));
+        this(embeddingResolver, storePath, Duration.ofSeconds(60), 0);
     }
 
     public LazySimpleVectorStore(AiEmbeddingConfigResolver embeddingResolver, String storePath,
             Duration clientTimeout) {
+        this(embeddingResolver, storePath, clientTimeout, 0);
+    }
+
+    /**
+     * @param embeddingResolver   向量化模型解析器
+     * @param storePath           持久化文件路径（空表示不持久化）
+     * @param clientTimeout       模型客户端超时
+     * @param persistDebounceMs   落盘防抖间隔（毫秒），0 表示写透
+     */
+    public LazySimpleVectorStore(AiEmbeddingConfigResolver embeddingResolver, String storePath,
+            Duration clientTimeout, long persistDebounceMs) {
         this.embeddingResolver = embeddingResolver;
         this.storePath = storePath;
         this.clientTimeout = clientTimeout != null ? clientTimeout : Duration.ofSeconds(60);
+        this.persistCoordinator = new PersistCoordinator(storePath, persistDebounceMs,
+            file -> delegate().save(file));
     }
 
     private SimpleVectorStore delegate() {
@@ -122,25 +140,24 @@ public class LazySimpleVectorStore implements VectorStore {
     }
 
     /**
-     * 将向量数据序列化到配置的路径：目录不存在时自动创建，
-     * 保证重启后向量不丢失（与启动时 load 对称）。
+     * 触发落盘：交给 {@link PersistCoordinator} 合并突发写入并原子替换文件。
+     *
+     * <p>写透模式（默认）下返回即已落盘；防抖模式下由协调器在静默期后合并写一次，
+     * 正常关闭时由 {@link #destroy()} 强制落盘。</p>
      */
     private void persist() {
-        if (storePath == null || storePath.isBlank()) {
-            return;
-        }
-        try {
-            File file = new File(storePath);
-            File parent = file.getParentFile();
-            if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                log.warn("[ypbin-ai] 无法创建向量持久化目录: {}", parent);
-            }
-            delegate().save(file);
-            log.debug("[ypbin-ai] SimpleVectorStore saved to {}", storePath);
-        } catch (RuntimeException e) {
-            // 序列化失败不阻断本次会话的向量检索，仅记录日志（持久化是尽力而为）
-            log.warn("[ypbin-ai] 向量持久化失败（不影响本次会话检索）: {}", e.getMessage());
-        }
+        persistCoordinator.markDirty();
+    }
+
+    /**
+     * 销毁时强制落盘：防抖模式下把尚未写出的变更落盘，避免正常关闭丢失数据。
+     *
+     * @throws Exception 容器关闭过程中不抛出（仅为满足接口签名）
+     */
+    @Override
+    public void destroy() {
+        persistCoordinator.flush();
+        persistCoordinator.close();
     }
 
     @Override

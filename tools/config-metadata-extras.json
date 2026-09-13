@@ -1,0 +1,1457 @@
+{
+  "schemaVersion": 1,
+  "description": "Spring 元数据无法表达的补充信息：启用条件、生产注意，以及宿主标准（Spring/第三方）配置项。由人工维护。",
+  "enablement": {
+    "ypbin.ai.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.ai.chat.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.ai.memory.type": "配置值为 jdbc 时装配 JDBC 持久化记忆实现。",
+    "ypbin.ai.rag.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.api-crypto.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.api-crypto.key": "配置项存在时满足该自动装配条件。",
+    "ypbin.api-doc.default-group-enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.api-doc.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.api-doc.order-enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.async.enable-annotation": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.async.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.cache.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.cache.multi-level.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.cache.multi-level.invalidation-broadcast": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.captcha.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.cloud.feign.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.cloud.feign.error-decoder-enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.gateway.auth.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.gateway.cors.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.gateway.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.gateway.header-sanitize.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.gateway.route.nacos.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.gateway.swagger.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.cloud.loadbalancer.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.cloud.nacos.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.observability.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.cloud.sentinel.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.data.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.data.encrypt.key": "配置项存在时满足该自动装配条件。",
+    "ypbin.data-permission.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.tenant.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.tenant.fail-on-missing-tenant": "ypbin.tenant.enabled=true 时生效。",
+    "ypbin.i18n.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.job.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.json.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.json.ref-text.auto-resolve": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.license.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.license.online.base-url": "配置项存在时满足该自动装配条件。",
+    "ypbin.log.access.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.log.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.mqtt.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.sse.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.sse.register-endpoint": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.websocket.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.security.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.security.interceptor": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.sensitive-words.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.sign.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.social.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.storage.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.tools.idempotent.distributed": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.tools.idempotent.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.tools.lock.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.tools.rate-limit.distributed": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.tools.rate-limit.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.web.api-version.enabled": "配置为 true 时注册版本化 WebMvc 配置（仅 Servlet Web 应用）。",
+    "ypbin.web.cors.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.web.repeatable-read.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.web.xss.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.resilience.enabled": "缺省开启（matchIfMissing=true）；配置为 false 时关闭，注解不再生效。",
+    "ypbin.xxl-job.enabled": "配置值为 true 时满足该自动装配条件；未配置时默认关闭。",
+    "ypbin.xxl-job.admin-addresses": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.access-token": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.appname": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.address": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.ip": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.port": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.log-path": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.log-retention-days": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。"
+  },
+  "safetyNotes": {
+    "ypbin.api-crypto.key": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.api-doc.disable-in-prod": [
+      "生产环境应关闭或严格限制文档端点。"
+    ],
+    "ypbin.api-doc.enabled": [
+      "生产环境应关闭或严格限制文档端点。"
+    ],
+    "ypbin.cache.multi-level.invalidation-broadcast": [
+      "多副本部署应开启跨实例失效广播；强一致数据不应依赖本地 L1。"
+    ],
+    "ypbin.cloud.feign.identity-headers": [
+      "未配置 trusted-source-token 时身份头不做来源校验直接透传（保持兼容），启动时会打印 WARN 提示。"
+    ],
+    "ypbin.cloud.feign.trusted-source-token": [
+      "为空时身份头透传不做来源校验；服务可被外部直连时存在身份伪造放大风险，建议配置。"
+    ],
+    "ypbin.gateway.auth.exclude-paths": [
+      "如需暴露更多 actuator 端点请显式声明，建议仅放行 health/info。"
+    ],
+    "ypbin.gateway.cors.allowed-origin-patterns": [
+      "生产环境避免通配跨域来源；启用凭证时必须使用受控来源。"
+    ],
+    "ypbin.cloud.loadbalancer.allowed-versions": [
+      "留空即不限制，外部调用方可任意指定版本把流量导向灰度/未加固实例；生产建议显式枚举。"
+    ],
+    "ypbin.data.encrypt.key": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.tenant.fail-on-missing-tenant": [
+      "默认 true（fail-closed）。上线后若出现「缺少租户上下文」错误，说明该路径漏了显式忽略声明，应补 @TenantIgnore / executeIgnore，而非关闭本开关。"
+    ],
+    "ypbin.license.allow-startup-without-license": [
+      "开启后无授权也可启动，但受保护能力仍不可用；必须确保保护注解覆盖完整。"
+    ],
+    "ypbin.license.online.access-key": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.license.online.failure-policy": [
+      "FAIL_OPEN_WITH_WARNING 会在联机服务异常时临时放行，必须配套监控告警。"
+    ],
+    "ypbin.license.online.secret-key": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.license.public-key": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.license.secret-key": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.log.access.enabled": [
+      "请求体、响应体和请求头可能包含凭据或个人信息，生产环境需掩码并控制留存。"
+    ],
+    "ypbin.log.includes": [
+      "请求体、响应体和请求头可能包含凭据或个人信息，生产环境需掩码并控制留存。"
+    ],
+    "ypbin.mail.password": [
+      "使用环境变量或密钥服务，禁止提交明文。",
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.mqtt.clean-session": [
+      "可靠投递需结合 clean-session=false、QoS 1/2、持久化目录和 Broker 会话策略。"
+    ],
+    "ypbin.mqtt.password": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.websocket.allowed-origin-patterns": [
+      "默认 * 适合开发，生产环境应收敛为可信域名。"
+    ],
+    "ypbin.security.clients[].client-secret": [
+      "不要提交明文密钥；使用环境变量或密钥管理服务。",
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.allow-contain-username": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.error-lock-count": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.expiration-days": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.expiration-warning-days": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.history-count": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.lock-minutes": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.max-length": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.min-length": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.require-digit": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.require-letter": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.require-lowercase": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.require-symbol": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.security.password.require-uppercase": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.sign.apps[].access-key": [
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.sign.apps[].secret-key": [
+      "必须保密，建议加密存储并支持轮换。",
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.storage.local[].base-path": [
+      "目录需限制操作系统权限，避免暴露敏感文件。"
+    ],
+    "ypbin.storage.oss[].access-key": [
+      "通过环境变量或密钥管理服务注入。",
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.storage.oss[].secret-key": [
+      "禁止写入仓库或日志。",
+      "敏感配置不得提交到版本库或打印到日志，生产环境应使用环境变量或密钥管理服务。"
+    ],
+    "ypbin.web.cors.allowed-origin-patterns": [
+      "生产环境避免通配跨域来源；启用凭证时必须使用受控来源。"
+    ],
+    "ypbin.resilience.enabled": [
+      "与所有 Spring AOP 能力一致：同类内部自调用不经过代理，弹性注解不生效，须跨 Bean 调用。"
+    ],
+    "ypbin.xxl-job.admin-addresses": [
+      "缺失时启动即抛错暴露，禁止静默降级"
+    ],
+    "ypbin.xxl-job.appname": [
+      "缺失时启动即抛错暴露，禁止静默降级"
+    ]
+  },
+  "standardHostProperties": {
+    "ypbin-starter-api-doc": [
+      {
+        "module": "ypbin-starter-api-doc",
+        "key": "springdoc.api-docs.enabled",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": true,
+        "required": false,
+        "requiredWhen": null,
+        "description": "SpringDoc OpenAPI JSON 端点开关；prod 且 disable-in-prod=true 时 starter 低优先级设为 false。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocDefaultsEnvironmentPostProcessor.java",
+            "line": 54
+          }
+        ],
+        "default": true,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocDefaultsEnvironmentPostProcessor.java",
+            "line": 54
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-api-doc",
+        "key": "springdoc.swagger-ui.enabled",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": true,
+        "required": false,
+        "requiredWhen": null,
+        "description": "SpringDoc Swagger UI 开关；prod 且 disable-in-prod=true 时 starter 低优先级设为 false。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocDefaultsEnvironmentPostProcessor.java",
+            "line": 55
+          }
+        ],
+        "default": true,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocDefaultsEnvironmentPostProcessor.java",
+            "line": 55
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-cache": [
+      {
+        "module": "ypbin-starter-cache",
+        "key": "spring.data.redis.host",
+        "type": "java.lang.String",
+        "defaultDefined": true,
+        "defaultValue": "localhost",
+        "required": false,
+        "requiredWhen": null,
+        "description": "Redis 主机；缓存、多级缓存和分布式存储使用。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/autoconfigure/CacheAutoConfiguration.java",
+            "line": 55
+          }
+        ],
+        "default": "localhost",
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/autoconfigure/CacheAutoConfiguration.java",
+            "line": 55
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cache",
+        "key": "spring.data.redis.port",
+        "type": "java.lang.Integer",
+        "defaultDefined": true,
+        "defaultValue": 6379,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Redis 端口。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/autoconfigure/CacheAutoConfiguration.java",
+            "line": 55
+          }
+        ],
+        "default": 6379,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/autoconfigure/CacheAutoConfiguration.java",
+            "line": 55
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cache",
+        "key": "spring.data.redis.password",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Redis 密码。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/autoconfigure/CacheAutoConfiguration.java",
+            "line": 55
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/autoconfigure/CacheAutoConfiguration.java",
+            "line": 55
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-cloud-core": [
+      {
+        "module": "ypbin-starter-cloud-core",
+        "key": "spring.cloud.openfeign.circuitbreaker.enabled",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": true,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Feign CircuitBreaker 标准开关；由 ypbin.cloud.feign.circuitbreaker-enabled 低优先级映射。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignDefaultsEnvironmentPostProcessor.java",
+            "line": 49
+          }
+        ],
+        "default": true,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignDefaultsEnvironmentPostProcessor.java",
+            "line": 49
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-cloud-gateway": [
+      {
+        "module": "ypbin-starter-cloud-gateway",
+        "key": "spring.cloud.gateway.routes[]",
+        "type": "java.util.List<org.springframework.cloud.gateway.route.RouteDefinition>",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "静态网关路由列表；starter 不预设业务路由。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1641
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1641
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-cloud-loadbalancer": [
+      {
+        "module": "ypbin-starter-cloud-loadbalancer",
+        "key": "spring.cloud.nacos.discovery.metadata.<metadata-key>",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "当前服务版本写入 Nacos metadata 的动态标准键。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerEnvironmentPostProcessor.java",
+            "line": 56
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerEnvironmentPostProcessor.java",
+            "line": 56
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-cloud-nacos": [
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.application.name",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "服务名；影响 Nacos 注册和应用级配置 DataId。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 48
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 48
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.profiles.active",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "显式激活的环境 profile。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 50
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 50
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.profiles.default",
+        "type": "java.lang.String",
+        "defaultDefined": true,
+        "defaultValue": "dev",
+        "required": false,
+        "requiredWhen": null,
+        "description": "无 active profile 时的默认环境；可由 ypbin.cloud.nacos.default-profile 控制。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 52
+          }
+        ],
+        "default": "dev",
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 52
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.config.import",
+        "type": "java.lang.String",
+        "defaultDefined": true,
+        "defaultValue": "自动生成 optional:nacos:...",
+        "required": false,
+        "requiredWhen": null,
+        "description": "ConfigData 导入列表；宿主显式配置时优先。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 46
+          }
+        ],
+        "default": "自动生成 optional:nacos:...",
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 46
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.cloud.nacos.discovery.server-addr",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Nacos 注册发现服务地址。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1558
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1558
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.cloud.nacos.config.server-addr",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Nacos 配置中心服务地址。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1558
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1558
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.cloud.nacos.config.import-check.enabled",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": false,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Nacos ConfigData import 检查开关。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 54
+          }
+        ],
+        "default": false,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 54
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "nacos.logging.default.config.enabled",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": false,
+        "required": false,
+        "requiredWhen": null,
+        "description": "是否启用 Nacos 默认日志配置。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 70
+          }
+        ],
+        "default": false,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 70
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "management.info.process.enabled",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": true,
+        "required": false,
+        "requiredWhen": null,
+        "description": "是否暴露 Actuator process info。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 72
+          }
+        ],
+        "default": true,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 72
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "spring.main.allow-bean-definition-overriding",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": false,
+        "required": false,
+        "requiredWhen": null,
+        "description": "是否允许同名 Bean 覆盖。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 74
+          }
+        ],
+        "default": false,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 74
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "info.desc",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Actuator 应用描述，可由 ypbin.cloud.nacos.application-description 注入。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 101
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 101
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-nacos",
+        "key": "info.version",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Actuator 服务版本，可由 ypbin.cloud.nacos.service-version 注入。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 105
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosEnvironmentPostProcessor.java",
+            "line": 105
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-cloud-observability": [
+      {
+        "module": "ypbin-starter-cloud-observability",
+        "key": "logging.pattern.level",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "日志级别 pattern；可引用 MDC requestId。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1734
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1734
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-observability",
+        "key": "management.tracing.sampling.probability",
+        "type": "java.lang.Double",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "分布式追踪采样概率，范围 0.0 到 1.0。",
+        "allowedValues": [
+          "0.0..1.0"
+        ],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1763
+          }
+        ],
+        "default": null,
+        "values": [
+          "0.0..1.0"
+        ],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1763
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-observability",
+        "key": "management.otlp.tracing.endpoint",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "OTLP trace 上报端点。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1766
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1766
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-cloud-sentinel": [
+      {
+        "module": "ypbin-starter-cloud-sentinel",
+        "key": "spring.cloud.sentinel.transport.dashboard",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Sentinel Dashboard 地址。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1793
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1793
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-cloud-sentinel",
+        "key": "spring.cloud.sentinel.datasource.<name>.nacos.*",
+        "type": "java.lang.Object",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Sentinel Nacos 规则源：server-addr、data-id、group-id、rule-type。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1795
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1795
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-data": [
+      {
+        "module": "ypbin-starter-data",
+        "key": "spring.datasource.url",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "JDBC 数据源连接地址；数据模块执行数据库访问时由宿主配置。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/pom.xml",
+            "line": 1
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/pom.xml",
+            "line": 1
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-data",
+        "key": "spring.datasource.username",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "JDBC 数据库用户名。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/pom.xml",
+            "line": 1
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/pom.xml",
+            "line": 1
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-data",
+        "key": "spring.datasource.password",
+        "type": "java.lang.String",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "JDBC 数据库密码。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/pom.xml",
+            "line": 1
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/pom.xml",
+            "line": 1
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-data",
+        "key": "mybatis-plus.global-config.banner",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": false,
+        "required": false,
+        "requiredWhen": null,
+        "description": "是否打印 MyBatis-Plus banner；starter 低优先级关闭。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataDefaultsEnvironmentPostProcessor.java",
+            "line": 47
+          }
+        ],
+        "default": false,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataDefaultsEnvironmentPostProcessor.java",
+            "line": 47
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-data",
+        "key": "mybatis-plus.global-config.db-config.id-type",
+        "type": "com.baomidou.mybatisplus.annotation.IdType",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "宿主需要覆盖默认雪花 ID 策略时配置。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 86
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 86
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-i18n": [
+      {
+        "module": "ypbin-starter-i18n",
+        "key": "spring.messages.basename",
+        "type": "java.lang.String",
+        "defaultDefined": true,
+        "defaultValue": "messages",
+        "required": false,
+        "requiredWhen": null,
+        "description": "国际化资源 basename。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1375
+          }
+        ],
+        "default": "messages",
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1375
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-messaging": [
+      {
+        "module": "ypbin-starter-messaging",
+        "key": "sms.is-print",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": false,
+        "required": false,
+        "requiredWhen": null,
+        "description": "sms4j 是否仅打印短信而不真实发送；starter 默认关闭打印模式。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/autoconfigure/SmsDefaultsEnvironmentPostProcessor.java",
+            "line": 47
+          }
+        ],
+        "default": false,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/autoconfigure/SmsDefaultsEnvironmentPostProcessor.java",
+            "line": 47
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-messaging",
+        "key": "sms.blends.<config-id>.*",
+        "type": "java.lang.Object",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "sms4j 厂商配置：supplier、access-key-id、access-key-secret、signature、template-id 等。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1173
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 1173
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-security": [
+      {
+        "module": "ypbin-starter-security",
+        "key": "sa-token.timeout",
+        "type": "java.lang.Long",
+        "defaultDefined": true,
+        "defaultValue": 2592000,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Sa-Token 固定有效期秒数。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 345
+          }
+        ],
+        "default": 2592000,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 345
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-security",
+        "key": "sa-token.active-timeout",
+        "type": "java.lang.Long",
+        "defaultDefined": true,
+        "defaultValue": 1800,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Sa-Token 活跃超时秒数。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 346
+          }
+        ],
+        "default": 1800,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 346
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-security",
+        "key": "sa-token.auto-renew",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": true,
+        "required": false,
+        "requiredWhen": null,
+        "description": "是否自动续签活跃 Token。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 347
+          }
+        ],
+        "default": true,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 347
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-storage": [
+      {
+        "module": "ypbin-starter-storage",
+        "key": "spring.servlet.multipart.max-file-size",
+        "type": "org.springframework.util.unit.DataSize",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Servlet 单文件上传上限；应与 ypbin.storage.max-file-size 协同。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 579
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 579
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-storage",
+        "key": "spring.servlet.multipart.max-request-size",
+        "type": "org.springframework.util.unit.DataSize",
+        "defaultDefined": false,
+        "defaultValue": null,
+        "required": false,
+        "requiredWhen": null,
+        "description": "Servlet 单请求 multipart 总大小上限。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 579
+          }
+        ],
+        "default": null,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "docs/MODULES.md",
+            "line": 579
+          }
+        ]
+      }
+    ],
+    "ypbin-starter-web": [
+      {
+        "module": "ypbin-starter-web",
+        "key": "spring.mvc.throw-exception-if-no-handler-found",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": true,
+        "required": false,
+        "requiredWhen": null,
+        "description": "未匹配处理器时抛出异常，以便统一输出 JSON 404。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebDefaultsEnvironmentPostProcessor.java",
+            "line": 48
+          }
+        ],
+        "default": true,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebDefaultsEnvironmentPostProcessor.java",
+            "line": 48
+          }
+        ]
+      },
+      {
+        "module": "ypbin-starter-web",
+        "key": "spring.web.resources.add-mappings",
+        "type": "java.lang.Boolean",
+        "defaultDefined": true,
+        "defaultValue": false,
+        "required": false,
+        "requiredWhen": null,
+        "description": "是否启用默认静态资源映射；starter 默认关闭以确保未知路径进入统一 404。",
+        "allowedValues": [],
+        "enablement": "由宿主 Spring/第三方组件读取；starter 可能注入低优先级默认值。",
+        "safetyNotes": [],
+        "sources": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebDefaultsEnvironmentPostProcessor.java",
+            "line": 50
+          }
+        ],
+        "default": false,
+        "values": [],
+        "notes": [],
+        "source": [
+          {
+            "kind": "spring-standard-or-third-party",
+            "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebDefaultsEnvironmentPostProcessor.java",
+            "line": 50
+          }
+        ]
+      }
+    ]
+  }
+}

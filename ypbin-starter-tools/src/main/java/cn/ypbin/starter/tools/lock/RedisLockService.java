@@ -16,7 +16,7 @@
 package cn.ypbin.starter.tools.lock;
 
 import java.time.Duration;
-import java.util.Collections;
+import java.util.List;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -52,7 +52,7 @@ public class RedisLockService implements LockService {
 
     @Override
     public boolean unlock(String key, String owner) {
-        Long released = redisTemplate.execute(releaseScript, Collections.singletonList(key), owner);
+        Long released = redisTemplate.execute(releaseScript, List.of(key), owner);
         return released != null && released > 0;
     }
 }

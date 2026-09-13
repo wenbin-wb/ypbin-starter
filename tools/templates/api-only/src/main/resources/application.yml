@@ -1,0 +1,13 @@
+server:
+  port: __PORT__
+
+spring:
+  application:
+    name: __ARTIFACT_ID__
+
+ypbin:
+  json:
+    date-time-format: yyyy-MM-dd HH:mm:ss
+    write-big-number-as-string: true
+  api-doc:
+    enabled: true

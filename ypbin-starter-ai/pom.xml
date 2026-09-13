@@ -137,6 +137,12 @@
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-web</artifactId>
         </dependency>
+        <!-- 生成 spring-configuration-metadata.json：供 IDE 配置提示与站点配置参考自动生成 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <!-- 测试 -->
         <dependency>

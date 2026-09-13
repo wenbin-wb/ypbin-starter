@@ -67,7 +67,9 @@ class SignGeneratorTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     void md5AndHmac_produceDifferentSign() {
+        // 刻意覆盖已废弃的 MD5 算法：旧系统仍在使用该分支对接，需要锁定其行为未随重构改变
         assertThat(SignGenerator.generate(params(), "secret", SignAlgorithm.MD5))
             .isNotEqualTo(SignGenerator.generate(params(), "secret", SignAlgorithm.HMAC_SHA256));
     }

@@ -75,7 +75,8 @@ public class GatewayAutoConfiguration {
         ObjectProvider<ObjectMapper> objectMapperProvider,
         GatewayProperties properties) {
         ObjectMapper mapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
-        return new GatewayAuthGlobalFilter(authProvider, mapper, properties.getAuth().getExcludePaths());
+        return new GatewayAuthGlobalFilter(authProvider, mapper, properties.getAuth().getExcludePaths(),
+            properties.getAuth().getTrustedSourceHeader(), properties.getAuth().getTrustedSourceToken());
     }
 
     @Bean

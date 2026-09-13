@@ -1,2 +1,2 @@
-org.springframework.boot.env.EnvironmentPostProcessor=\
+org.springframework.boot.EnvironmentPostProcessor=\
 cn.ypbin.starter.messaging.autoconfigure.SmsDefaultsEnvironmentPostProcessor

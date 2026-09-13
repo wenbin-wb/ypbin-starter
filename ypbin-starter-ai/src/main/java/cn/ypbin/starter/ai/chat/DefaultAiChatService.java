@@ -24,7 +24,6 @@ import com.openai.client.OpenAIClientImpl;
 import com.openai.core.ClientOptions;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +77,7 @@ public class DefaultAiChatService implements AiChatService {
             AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
             long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider) {
         this(chatClient, chatMemory, vectorStore, modelResolver, defaultSystemPrompt, ragEnabled, streamTimeoutMs,
-                toolCallbackProvider, Collections.emptyList());
+                toolCallbackProvider, List.of());
     }
 
     public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
@@ -100,7 +99,7 @@ public class DefaultAiChatService implements AiChatService {
         this.ragEnabled = ragEnabled;
         this.streamTimeoutMs = streamTimeoutMs;
         this.toolCallbackProvider = toolCallbackProvider;
-        this.usageListeners = usageListeners != null ? usageListeners : Collections.emptyList();
+        this.usageListeners = usageListeners != null ? usageListeners : List.of();
         this.clientTimeout = clientTimeout != null ? clientTimeout : Duration.ofSeconds(60);
     }
 

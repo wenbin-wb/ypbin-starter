@@ -20,6 +20,7 @@ import cn.ypbin.starter.ai.rag.LazySimpleVectorStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -50,12 +51,30 @@ public class AiVectorStoreAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(AiVectorStoreAutoConfiguration.class);
 
+    /**
+     * 懒加载 SimpleVectorStore：仅在无其它 {@link VectorStore} 实现时装配。
+     *
+     * <p>{@link AiEmbeddingConfigResolver} 为业务方扩展点（starter 内无默认实现），
+     * 故用 {@link ObjectProvider} 取值并在缺失时给出可操作的明确错误，而非抛出
+     * 难以定位的 {@code NoSuchBeanDefinitionException}。</p>
+     *
+     * @param props              RAG 配置
+     * @param resolverProvider   向量化模型解析器（业务方提供）
+     * @return 懒加载向量库
+     */
     @Bean
     @ConditionalOnMissingBean(VectorStore.class)
     public VectorStore simpleVectorStore(AiRagProperties props,
-            AiEmbeddingConfigResolver embeddingResolver) {
+            ObjectProvider<AiEmbeddingConfigResolver> resolverProvider) {
+        AiEmbeddingConfigResolver embeddingResolver = resolverProvider.getIfAvailable();
+        if (embeddingResolver == null) {
+            throw new IllegalStateException(
+                "已开启 " + AiRagProperties.PREFIX + ".enabled=true，但容器中不存在 "
+                    + AiEmbeddingConfigResolver.class.getSimpleName()
+                    + " 实现；请提供该 Bean（用于解析向量化模型）或关闭 RAG");
+        }
         VectorStore store = new LazySimpleVectorStore(embeddingResolver, props.getSimpleStorePath(),
-            props.getClientTimeout());
+            props.getClientTimeout(), props.getPersistDebounceMs());
         log.debug("[ypbin-ai] LazySimpleVectorStore configured (delegate built on first use)");
         return store;
     }

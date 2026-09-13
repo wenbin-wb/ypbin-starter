@@ -49,6 +49,24 @@ class FeignSupportTest {
         assertThat(env.getProperty("spring.cloud.openfeign.circuitbreaker.enabled")).isNotNull();
         // Spring Cloud 2025.1.2+ 官方支持 Boot 4.1.x，禁用滞后的兼容性检查（误报）
         assertThat(env.getProperty("spring.cloud.compatibility-verifier.enabled")).isEqualTo("false");
+        // 连接/读取超时必须显式注入，杜绝无超时默认客户端
+        assertThat(env.getProperty("spring.cloud.openfeign.client.config.default.connect-timeout"))
+            .isEqualTo("5000");
+        assertThat(env.getProperty("spring.cloud.openfeign.client.config.default.read-timeout"))
+            .isEqualTo("10000");
+    }
+
+    @Test
+    void timeoutsShouldStillApplyWhenCircuitBreakerDisabled() {
+        FeignDefaultsEnvironmentPostProcessor processor = new FeignDefaultsEnvironmentPostProcessor();
+        MockEnvironment env = new MockEnvironment();
+        env.setProperty("ypbin.cloud.feign.circuitbreaker-enabled", "false");
+        processor.postProcessEnvironment(env, null);
+        // 熔断可关，但超时是基础安全项，必须仍然注入
+        assertThat(env.getProperty("spring.cloud.openfeign.client.config.default.connect-timeout"))
+            .isEqualTo("5000");
+        assertThat(env.getProperty("spring.cloud.openfeign.client.config.default.read-timeout"))
+            .isEqualTo("10000");
     }
 
     @Test

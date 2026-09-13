@@ -82,6 +82,8 @@
         <module>ypbin-starter-app-web</module>
         <module>ypbin-starter-app-cloud</module>
         <module>ypbin-starter-ai</module>
+        <module>ypbin-starter-test</module>
+        <module>ypbin-starter-architecture-tests</module>
     </modules>
 
     <properties>
@@ -140,6 +142,41 @@
     </build>
 
     <profiles>
+        <!-- 供应链合规 profile：生成 CycloneDX SBOM（软件物料清单），供下游做依赖审计与漏洞排查。
+             运行：mvn -Psbom verify  →  各模块 target/bom.json 与聚合 target/bom.json -->
+        <profile>
+            <id>sbom</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.cyclonedx</groupId>
+                        <artifactId>cyclonedx-maven-plugin</artifactId>
+                        <version>2.9.1</version>
+                        <executions>
+                            <execution>
+                                <id>make-bom</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>makeAggregateBom</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <projectType>library</projectType>
+                            <schemaVersion>1.6</schemaVersion>
+                            <includeBomSerialNumber>true</includeBomSerialNumber>
+                            <includeCompileScope>true</includeCompileScope>
+                            <includeProvidedScope>false</includeProvidedScope>
+                            <includeRuntimeScope>true</includeRuntimeScope>
+                            <includeTestScope>false</includeTestScope>
+                            <outputFormat>json</outputFormat>
+                            <outputName>bom</outputName>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <!-- 发布 profile：根聚合 pom 无 parent，需自带 GPG 签名与 Central 发布插件
              （两者仅在 deploy 到 Maven Central 时需要；放 profile 内避免普通构建解析失败） -->
         <profile>

@@ -23,7 +23,6 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
-import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
 /**
@@ -44,12 +43,12 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
     private static ConfigurableListableBeanFactory beanFactory;
 
     @Override
-    public void setApplicationContext(@NonNull ApplicationContext context) throws BeansException {
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
         applicationContext = context;
     }
 
     @Override
-    public void postProcessBeanFactory(@NonNull ConfigurableListableBeanFactory factory) throws BeansException {
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory factory) throws BeansException {
         beanFactory = factory;
     }
 

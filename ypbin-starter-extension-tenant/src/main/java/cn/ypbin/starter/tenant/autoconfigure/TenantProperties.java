@@ -39,6 +39,15 @@ public class TenantProperties {
     /** 忽略租户隔离的表（这些表不追加租户条件） */
     private List<String> ignoreTables = new ArrayList<>();
 
+    /**
+     * 缺少租户上下文时是否直接拒绝（fail-closed），默认 {@code true}。
+     *
+     * <p>开启后，未标注 {@code @TenantIgnore}（或未用 {@link cn.ypbin.starter.tenant.core.TenantContext#executeIgnore}
+     * 包裹）的查询在无租户上下文时抛出异常，避免「无租户即跨全租户查询」的越权风险。置为 {@code false}
+     * 时仅跳过追加租户条件（返回 Java null），由业务自行承担跨租户查询风险。</p>
+     */
+    private boolean failOnMissingTenant = true;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -61,5 +70,13 @@ public class TenantProperties {
 
     public void setIgnoreTables(List<String> ignoreTables) {
         this.ignoreTables = ignoreTables;
+    }
+
+    public boolean isFailOnMissingTenant() {
+        return failOnMissingTenant;
+    }
+
+    public void setFailOnMissingTenant(boolean failOnMissingTenant) {
+        this.failOnMissingTenant = failOnMissingTenant;
     }
 }

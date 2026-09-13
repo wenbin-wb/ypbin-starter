@@ -51,12 +51,21 @@ public class GatewayAuthGlobalFilter implements GlobalFilter, Ordered {
 
     private final List<String> excludePaths;
 
+    /** 身份头签名标记头名（为空表示不签发标记） */
+    private final String trustedSourceHeader;
+
+    /** 身份头签名标记值（为空表示不签发标记） */
+    private final String trustedSourceToken;
+
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
-    public GatewayAuthGlobalFilter(GatewayAuthProvider authProvider, ObjectMapper objectMapper, List<String> excludePaths) {
+    public GatewayAuthGlobalFilter(GatewayAuthProvider authProvider, ObjectMapper objectMapper,
+            List<String> excludePaths, String trustedSourceHeader, String trustedSourceToken) {
         this.authProvider = authProvider;
         this.objectMapper = objectMapper;
         this.excludePaths = excludePaths;
+        this.trustedSourceHeader = trustedSourceHeader;
+        this.trustedSourceToken = trustedSourceToken;
     }
 
     @Override
@@ -82,7 +91,14 @@ public class GatewayAuthGlobalFilter implements GlobalFilter, Ordered {
             return writeUnauthorized(exchange, message);
         }
         ServerHttpRequest mutated = exchange.getRequest().mutate()
-            .headers(headers -> result.getTrustedHeaders().forEach(headers::set))
+            .headers(headers -> {
+                result.getTrustedHeaders().forEach(headers::set);
+                // 同时签发来源标记：下游据此判定身份头可信（未配置则不签发，保持兼容）
+                if (trustedSourceHeader != null && !trustedSourceHeader.isBlank()
+                    && trustedSourceToken != null && !trustedSourceToken.isBlank()) {
+                    headers.set(trustedSourceHeader, trustedSourceToken);
+                }
+            })
             .build();
         return chain.filter(exchange.mutate().request(mutated).build());
     }

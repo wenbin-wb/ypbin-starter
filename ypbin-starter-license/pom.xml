@@ -54,21 +54,23 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- 授权载体序列化/反序列化：Jackson 原生支持 record，jsr310 处理 LocalDateTime。
+        <!-- 授权载体序列化/反序列化：Jackson 3 原生支持 record 与 JavaTime（LocalDateTime 无需额外模块）。
              签发时对序列化后的载荷字节签名并连同载荷原样封装，验签直接基于存储字节，规避重序列化的字段顺序问题。 -->
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <!-- @LicenseCheck 注解切面；Spring Boot 4.x 已移除 spring-boot-starter-aop，直接声明 aspectjweaver -->
         <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
+        </dependency>
+        <!-- 声明式外部 API 客户端（RestClient + @HttpExchange）位于 spring-web；
+             联机校验对接供应方开放平台属外部 HTTP API，故显式声明该依赖 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

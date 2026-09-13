@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: __ARTIFACT_ID__
+  # 任务进程不需要 Web 容器
+  main:
+    web-application-type: none
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/__ARTIFACT_ID__?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: change-me
+
+ypbin:
+  async:
+    enabled: true
+    # 默认使用虚拟线程执行器
+  xxl-job:
+    # 需先部署 xxl-job-admin 并改为实际地址再开启
+    enabled: false
+    admin-addresses: http://127.0.0.1:8080
+    appname: __ARTIFACT_ID__
+    port: 9999

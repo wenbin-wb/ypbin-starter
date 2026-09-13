@@ -19,10 +19,10 @@ import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.callback.BlockExceptionHandler;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Web 接口被 Sentinel 限流/降级时的统一响应处理器。

@@ -32,14 +32,25 @@ import org.junit.jupiter.api.Test;
 class RFeignFallbackFactoryTest {
 
     @Test
-    void shouldCreateInternalErrorFallbackResponse() {
+    void shouldNotLeakInternalExceptionMessage() {
         DemoClient client = new DemoFallbackFactory().create(new IllegalStateException("远程超时"));
 
         R<String> result = client.get();
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getCode()).isEqualTo(GlobalErrorCode.INTERNAL_ERROR.getCode());
-        assertThat(result.getMessage()).isEqualTo("远程超时");
+        // 底层异常文案可能含主机/端口/类名等内部细节，不得回传调用方
+        assertThat(result.getMessage()).isEqualTo("远程服务暂不可用，请稍后重试");
+    }
+
+    @Test
+    void shouldUseExplicitDefaultMessageWhenProvided() {
+        DemoClient client = new DemoFallbackFactory().create(
+            new IllegalStateException("connect timed out: 10.0.0.5:8080"));
+
+        R<String> result = client.getWithMessage();
+
+        assertThat(result.getMessage()).isEqualTo("用户服务暂不可用，请稍后重试");
     }
 
     @Test
@@ -55,13 +66,25 @@ class RFeignFallbackFactoryTest {
 
     private interface DemoClient {
         R<String> get();
+
+        R<String> getWithMessage();
     }
 
     private static class DemoFallbackFactory extends RFeignFallbackFactory<DemoClient> {
 
         @Override
         public DemoClient create(Throwable cause) {
-            return () -> fail(cause);
+            return new DemoClient() {
+                @Override
+                public R<String> get() {
+                    return fail(cause);
+                }
+
+                @Override
+                public R<String> getWithMessage() {
+                    return fail(cause, "用户服务暂不可用，请稍后重试");
+                }
+            };
         }
     }
 }

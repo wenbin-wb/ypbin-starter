@@ -17,7 +17,6 @@ package cn.ypbin.starter.security.password.lock;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.Cursor;
@@ -51,7 +50,7 @@ public class RedisPasswordAttemptStore implements PasswordAttemptStore {
     @Override
     public long increment(String key, Duration window, int threshold, Duration lockDuration) {
         Long result = redisTemplate.execute(incrScript,
-            Collections.singletonList(key),
+            List.of(key),
             String.valueOf(window.toSeconds()),
             String.valueOf(threshold),
             String.valueOf(lockDuration.toSeconds()));

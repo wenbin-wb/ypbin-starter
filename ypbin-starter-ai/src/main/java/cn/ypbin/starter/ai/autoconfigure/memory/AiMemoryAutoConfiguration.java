@@ -22,6 +22,7 @@ import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -63,9 +64,12 @@ public class AiMemoryAutoConfiguration {
     /**
      * JDBC 持久化记忆配置（嵌套类隔离可选依赖，防止缺 jar 时 NoClassDefFoundError）。
      *
-     * <p>需要：spring-ai-starter-model-chat-memory-repository-jdbc + MySQL 连接。
+     * <p>需要：spring-ai-starter-model-chat-memory-repository-jdbc + MySQL 连接。类级
+     * {@link ConditionalOnClass} 保证仅在 JDBC 记忆仓储依赖存在时才加载本类，
+     * 避免开启 {@code type=jdbc} 但未引依赖时以 NoClassDefFoundError 崩溃。</p>
      */
     @Configuration
+    @ConditionalOnClass(JdbcChatMemoryRepository.class)
     @ConditionalOnProperty(prefix = "ypbin.ai.memory", name = "type", havingValue = "jdbc")
     static class JdbcMemoryConfiguration {
 

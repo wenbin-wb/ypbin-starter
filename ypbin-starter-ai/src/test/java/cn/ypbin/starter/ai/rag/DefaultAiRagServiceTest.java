@@ -22,7 +22,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import cn.ypbin.starter.ai.autoconfigure.rag.AiRagProperties;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +62,7 @@ class DefaultAiRagServiceTest {
 
     @Test
     void ingest_emptyDocuments_doesNothing() {
-        ragService.ingest("kb-100", Collections.emptyList());
+        ragService.ingest("kb-100", List.of());
         ragService.ingest("kb-100", null);
     }
 

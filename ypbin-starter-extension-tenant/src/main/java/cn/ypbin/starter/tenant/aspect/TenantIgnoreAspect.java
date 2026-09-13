@@ -26,6 +26,10 @@ import org.aspectj.lang.annotation.Aspect;
  * <p>拦截 {@code @TenantIgnore} 标注的方法或类，在其执行期间激活忽略租户作用域，
  * 使租户行处理器临时放行。用 Spring 注解语义匹配，避免动态代理下注解丢失。</p>
  *
+ * <p>切点表达式中的注解类型名为字面量：{@code @Around} 的属性要求编译期常量，
+ * 不能用 {@code TenantIgnore.class.getName()} 拼接，属「禁内联全限定类名」规则的合理例外
+ * （此处是注解属性值而非 Java 代码标识符）。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */

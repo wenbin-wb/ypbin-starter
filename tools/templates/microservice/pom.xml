@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>__SPRING_BOOT_VERSION__</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>__GROUP_ID__</groupId>
+    <artifactId>__ARTIFACT_ID__</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>__APP_NAME__</name>
+    <description>由 ypbin-starter 脚手架生成（microservice 预设：服务实现 + 服务契约双模块）</description>
+
+    <modules>
+        <module>__ARTIFACT_ID__-api</module>
+        <module>__ARTIFACT_ID__-service</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <ypbin-starter.version>__STARTER_VERSION__</ypbin-starter.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-bom</artifactId>
+                <version>${ypbin-starter.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- 本工程内部模块 -->
+            <dependency>
+                <groupId>__GROUP_ID__</groupId>
+                <artifactId>__ARTIFACT_ID__-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

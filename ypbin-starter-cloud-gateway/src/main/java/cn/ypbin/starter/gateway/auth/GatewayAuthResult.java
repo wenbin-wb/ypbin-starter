@@ -15,7 +15,6 @@
  */
 package cn.ypbin.starter.gateway.auth;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -43,7 +42,7 @@ public class GatewayAuthResult {
     }
 
     public static GatewayAuthResult success() {
-        return success(Collections.emptyMap());
+        return success(Map.of());
     }
 
     public static GatewayAuthResult success(Map<String, String> trustedHeaders) {
@@ -51,7 +50,7 @@ public class GatewayAuthResult {
     }
 
     public static GatewayAuthResult failure(String message) {
-        return new GatewayAuthResult(false, message, Collections.emptyMap());
+        return new GatewayAuthResult(false, message, Map.of());
     }
 
     public boolean isAuthenticated() {

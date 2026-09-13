@@ -143,11 +143,42 @@ public class GlobalExceptionHandler {
 
     /**
      * 兜底：未预期的系统异常。
+     *
+     * <p>框架（MyBatis、事务代理、异步执行器等）常把业务异常包装成自有异常类型后再抛出，
+     * 例如 MyBatis 会把租户拦截器抛出的 {@link BusinessException} 包成
+     * {@code MyBatisSystemException}。此处先沿 cause 链解包：若根因是 {@link BaseException}，
+     * 仍按其业务码与提示返回，避免可预期的业务原因被降级为无从排查的「系统内部错误」。</p>
      */
     @ExceptionHandler(Exception.class)
     public R<Void> handleException(Exception e, HttpServletRequest request) {
+        BaseException cause = findBaseException(e);
+        if (cause != null) {
+            log.warn("[业务异常-被包装] {} -> {}", request.getRequestURI(), cause.getMessage(), e);
+            return R.fail(cause.getCode(), cause.getMessage());
+        }
         log.error("[系统异常] {} ", request.getRequestURI(), e);
         return R.fail(GlobalErrorCode.INTERNAL_ERROR);
+    }
+
+    /**
+     * 沿 cause 链查找被包装的业务/框架异常。
+     *
+     * @param throwable 原始异常
+     * @return 命中的 {@link BaseException}，未命中返回 {@code null}
+     */
+    private static BaseException findBaseException(Throwable throwable) {
+        Throwable current = throwable;
+        // 上限 10 层，防御异常链自引用导致的死循环
+        for (int depth = 0; current != null && depth < 10; depth++) {
+            if (current instanceof BaseException baseException) {
+                return baseException;
+            }
+            if (current.getCause() == current) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private static String formatFieldError(FieldError error) {

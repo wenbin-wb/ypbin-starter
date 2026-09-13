@@ -17,7 +17,6 @@ package cn.ypbin.starter.crud.model;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -45,11 +44,11 @@ public class PageResult<T> implements Serializable {
     private long pageSize;
 
     public PageResult() {
-        this.items = Collections.emptyList();
+        this.items = List.of();
     }
 
     public PageResult(List<T> items, long total, long page, long pageSize) {
-        this.items = (items != null) ? items : Collections.emptyList();
+        this.items = (items != null) ? items : List.of();
         this.total = total;
         this.page = page;
         this.pageSize = pageSize;

@@ -60,9 +60,12 @@ public class TenantThreadLocalAccessor implements ThreadLocalAccessor<TenantCont
 
     /**
      * 调度结束后由 Reactor 清理目标线程上下文，防止 ThreadLocal 泄漏。
+     *
+     * <p>context-propagation 1.1 起 {@code reset()} 已废弃，等价语义由无参 {@code setValue()}
+     * 承载（默认实现委托 {@code reset()}），新代码应覆写 {@code setValue()}。</p>
      */
     @Override
-    public void reset() {
+    public void setValue() {
         TenantContext.clear();
     }
 }

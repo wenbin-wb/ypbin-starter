@@ -17,6 +17,8 @@ package cn.ypbin.starter.cloud.feign.fallback;
 
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.util.StringUtils;
 
@@ -33,6 +35,11 @@ import org.springframework.util.StringUtils;
  */
 public abstract class RFeignFallbackFactory<T> implements FallbackFactory<T> {
 
+    private static final Logger log = LoggerFactory.getLogger(RFeignFallbackFactory.class);
+
+    /** 对外统一失败文案：不回传底层异常细节，避免泄露内部实现信息 */
+    private static final String DEFAULT_FAIL_MESSAGE = "远程服务暂不可用，请稍后重试";
+
     protected <D> R<D> fail(Throwable cause) {
         return fail(cause, null);
     }
@@ -41,17 +48,9 @@ public abstract class RFeignFallbackFactory<T> implements FallbackFactory<T> {
         if (cause instanceof FeignFallbackException fallbackException) {
             return R.fail(fallbackException.getCode(), fallbackException.getMessage());
         }
-        String message = resolveMessage(cause, defaultMessage);
+        // 完整堆栈仅落服务端日志，便于定位；对外只给稳定文案
+        log.warn("[ypbin-starter] Feign 调用失败，已返回统一降级响应", cause);
+        String message = StringUtils.hasText(defaultMessage) ? defaultMessage : DEFAULT_FAIL_MESSAGE;
         return R.fail(GlobalErrorCode.INTERNAL_ERROR.getCode(), message);
-    }
-
-    private String resolveMessage(Throwable cause, String defaultMessage) {
-        if (StringUtils.hasText(defaultMessage)) {
-            return defaultMessage;
-        }
-        if (cause != null && StringUtils.hasText(cause.getMessage())) {
-            return cause.getMessage();
-        }
-        return "远程服务暂不可用，请稍后重试";
     }
 }

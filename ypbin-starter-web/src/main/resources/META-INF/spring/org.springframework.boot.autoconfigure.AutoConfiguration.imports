@@ -1,1 +1,2 @@
 cn.ypbin.starter.web.autoconfigure.WebAutoConfiguration
+cn.ypbin.starter.web.autoconfigure.ApiVersionAutoConfiguration

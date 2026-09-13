@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>cn.ypbin</groupId>
+        <artifactId>ypbin-starter-dependencies</artifactId>
+        <version>${revision}</version>
+        <relativePath>../ypbin-starter-dependencies/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ypbin-starter-test</artifactId>
+
+    <name>${project.artifactId}</name>
+    <description>测试基座：集成测试容器支持（Redis/MySQL/Nacos）与外部实例回退，宿主以 test 作用域引入</description>
+
+    <dependencies>
+        <!-- 断言与测试运行时：作为测试基座需传递给宿主，故为 compile 作用域，宿主以 test 作用域引入本模块 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+        </dependency>
+        <!-- JUnit API 需显式声明：本模块的条件注解实现位于 src/main/java（供宿主复用），
+             而经 starter-test 传递解析到的 junit-jupiter-api 会被依赖调解落到 runtime 作用域，
+             编译期不可见（runtime 只进 test 编译类路径，不进 main 编译类路径） -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+
+        <!-- Testcontainers：无外部实例时自动拉起容器 -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mysql</artifactId>
+        </dependency>
+
+        <!-- 以下为「可选」能力：仅使用对应基类时才需要，避免强制宿主引入 Redis/MySQL -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

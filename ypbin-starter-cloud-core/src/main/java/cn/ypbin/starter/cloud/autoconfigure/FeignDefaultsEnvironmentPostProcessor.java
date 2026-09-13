@@ -17,8 +17,8 @@ package cn.ypbin.starter.cloud.autoconfigure;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
@@ -26,9 +26,10 @@ import org.springframework.core.env.MapPropertySource;
 /**
  * Feign 默认属性注入器。
  *
- * <p>以最低优先级开启 OpenFeign circuitbreaker，使 cloud-core 引入的 Resilience4j 真正参与 Feign
- * 调用链；同时注入一组 resilience4j 的 <em>默认</em> 熔断/超时参数，避免业务未配置时落入库默认的
- * 1s TimeLimiter 硬超时与过严/过松的熔断阈值（如慢接口被误判超时、窗口与判定次数不适合真实流量）。</p>
+ * <p>始终注入 OpenFeign 的连接/读取超时默认值，杜绝「无超时默认客户端」；在此基础上（可关闭）以最低
+ * 优先级开启 circuitbreaker，使 cloud-core 引入的 Resilience4j 真正参与 Feign 调用链，并注入一组
+ * resilience4j 的 <em>默认</em> 熔断/超时参数，避免业务未配置时落入库默认的 1s TimeLimiter 硬超时
+ * 与过严/过松的熔断阈值（如慢接口被误判超时、窗口与判定次数不适合真实流量）。</p>
  *
  * <p>注入值全部挂到 {@code configs.default} 且置于最低优先级属性源：业务方在 application.yml 中
  * 显式声明的同名项优先级更高，可整体或逐项覆盖（未声明项自动沿用本注入的默认）。</p>
@@ -56,38 +57,51 @@ public class FeignDefaultsEnvironmentPostProcessor implements EnvironmentPostPro
     private static final String DEFAULT_WAIT_DURATION_IN_OPEN_STATE = "10s";
 
     /** TimeLimiter 默认超时（resilience4j 库内建默认仅 1s，业务未配置时慢接口会被误杀） */
-    private static final String DEFAULT_TIMELIMITER_TIMEOUT = "10s";
+    private static final String DEFAULT_TIMELIMITER_TIMEOUT = "15s";
+
+    /** Feign 连接超时（毫秒）：建连超过该时长即失败，避免慢 DNS/网络拖死调用线程 */
+    private static final String DEFAULT_CONNECT_TIMEOUT_MILLIS = "5000";
+
+    /** Feign 读取超时（毫秒）：必须小于 TimeLimiter，让读取超时先以明确异常返回而非被熔断线程中断 */
+    private static final String DEFAULT_READ_TIMEOUT_MILLIS = "10000";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         if (environment.getPropertySources().contains(PROPERTY_SOURCE_NAME)) {
             return;
         }
-        Boolean enabled = environment.getProperty("ypbin.cloud.feign.circuitbreaker-enabled", Boolean.class, true);
-        if (!enabled) {
-            return;
-        }
         Map<String, Object> defaults = new HashMap<>();
-        defaults.put("spring.cloud.openfeign.circuitbreaker.enabled", "true");
+        // —— Feign 连接/读取超时：无论是否启用熔断都必须显式配置，杜绝无超时默认客户端 ——
+        // 最低优先级属性源，业务方 application.yml / Nacos 中的同名项优先级更高可覆盖
+        defaults.put("spring.cloud.openfeign.client.config.default.connect-timeout",
+            DEFAULT_CONNECT_TIMEOUT_MILLIS);
+        defaults.put("spring.cloud.openfeign.client.config.default.read-timeout",
+            DEFAULT_READ_TIMEOUT_MILLIS);
         // Spring Cloud 2025.1.2 起官方支持 Spring Boot 4.1.x（官网兼容表），
         // 但内置 CompatibilityVerifier 元数据滞后仍报 4.0.x-only，属误报，禁用该检查
         defaults.put("spring.cloud.compatibility-verifier.enabled", "false");
-        // —— resilience4j 默认熔断/超时参数（最低优先级，业务显式配置可整体/逐项覆盖）——
-        // TimeLimiter：默认 10s 超时，替换库内建 1s 硬超时
-        defaults.put("resilience4j.timelimiter.configs.default.timeout-duration",
-            DEFAULT_TIMELIMITER_TIMEOUT);
-        // CircuitBreaker 计数滑动窗口：20 次窗口 / 50% 失败率 / 至少 10 次才判定 / 半开放行 10 次 / 打开 10s
-        defaults.put("resilience4j.circuitbreaker.configs.default.sliding-window-size",
-            DEFAULT_SLIDING_WINDOW_SIZE);
-        defaults.put("resilience4j.circuitbreaker.configs.default.failure-rate-threshold",
-            DEFAULT_FAILURE_RATE_THRESHOLD);
-        defaults.put("resilience4j.circuitbreaker.configs.default.minimum-number-of-calls",
-            DEFAULT_MINIMUM_NUMBER_OF_CALLS);
-        defaults.put(
-            "resilience4j.circuitbreaker.configs.default.permitted-number-of-calls-in-half-open-state",
-            DEFAULT_PERMITTED_HALF_OPEN_CALLS);
-        defaults.put("resilience4j.circuitbreaker.configs.default.wait-duration-in-open-state",
-            DEFAULT_WAIT_DURATION_IN_OPEN_STATE);
+
+        Boolean enabled = environment.getProperty("ypbin.cloud.feign.circuitbreaker-enabled", Boolean.class, true);
+        if (enabled) {
+            defaults.put("spring.cloud.openfeign.circuitbreaker.enabled", "true");
+            // —— resilience4j 默认熔断/超时参数（业务显式配置可整体/逐项覆盖）——
+            // TimeLimiter 取 15s：大于 Feign read-timeout(10s)，保证读取超时先触发并抛出明确异常，
+            // 而不是被 TimeLimiter 中途取消线程、留下悬挂的底层连接
+            defaults.put("resilience4j.timelimiter.configs.default.timeout-duration",
+                DEFAULT_TIMELIMITER_TIMEOUT);
+            // CircuitBreaker 计数滑动窗口：20 次窗口 / 50% 失败率 / 至少 10 次才判定 / 半开放行 10 次 / 打开 10s
+            defaults.put("resilience4j.circuitbreaker.configs.default.sliding-window-size",
+                DEFAULT_SLIDING_WINDOW_SIZE);
+            defaults.put("resilience4j.circuitbreaker.configs.default.failure-rate-threshold",
+                DEFAULT_FAILURE_RATE_THRESHOLD);
+            defaults.put("resilience4j.circuitbreaker.configs.default.minimum-number-of-calls",
+                DEFAULT_MINIMUM_NUMBER_OF_CALLS);
+            defaults.put(
+                "resilience4j.circuitbreaker.configs.default.permitted-number-of-calls-in-half-open-state",
+                DEFAULT_PERMITTED_HALF_OPEN_CALLS);
+            defaults.put("resilience4j.circuitbreaker.configs.default.wait-duration-in-open-state",
+                DEFAULT_WAIT_DURATION_IN_OPEN_STATE);
+        }
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
     }
 

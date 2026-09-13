@@ -17,10 +17,10 @@ package cn.ypbin.starter.cloud.autoconfigure;
 
 import cn.ypbin.starter.cloud.feign.FeignHeaderInterceptor;
 import cn.ypbin.starter.cloud.feign.RResponseErrorDecoder;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.RequestInterceptor;
 import feign.codec.ErrorDecoder;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -28,6 +28,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 微服务 Feign 增强自动配置。
@@ -47,7 +49,10 @@ public class CloudFeignAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "ypbin.cloud.feign", name = "error-decoder-enabled", havingValue = "true", matchIfMissing = true)
-    public ErrorDecoder rResponseErrorDecoder(ObjectMapper objectMapper) {
+    public ErrorDecoder rResponseErrorDecoder(ObjectProvider<ObjectMapper> objectMapperProvider) {
+        // 优先复用容器配置的 Jackson 3 序列化器（继承时间/大数字约定）；未装配时用等价默认实例，
+        // 避免宿主未引 JSON 模块时因缺少 ObjectMapper Bean 直接启动失败。
+        ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(() -> JsonMapper.builder().build());
         return new RResponseErrorDecoder(objectMapper);
     }
 
@@ -61,7 +66,9 @@ public class CloudFeignAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(FeignHeaderInterceptor.class)
         public FeignHeaderInterceptor feignHeaderInterceptor(FeignProperties properties) {
-            return new FeignHeaderInterceptor(properties.getPropagateHeaders());
+            return new FeignHeaderInterceptor(properties.getPropagateHeaders(),
+                properties.getIdentityHeaders(), properties.getTrustedSourceHeader(),
+                properties.getTrustedSourceToken(), properties.isRequireTrustedSource());
         }
     }
 }

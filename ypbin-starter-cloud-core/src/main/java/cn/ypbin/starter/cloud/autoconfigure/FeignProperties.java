@@ -50,7 +50,35 @@ public class FeignProperties {
      */
     private List<String> propagateHeaders = new ArrayList<>(List.of(
         "Authorization", "X-Request-Id", "X-Trace-Id",
+        "X-User-Id", "X-User-Name", "X-Tenant-Id", "X-Dept-Id", "X-Roles",
+        // 网关身份头来源标记：必须透传，否则二次 RPC（如 auth→system）会因缺少标记
+        // 被下游丢弃身份头，导致下游拿不到当前用户
+        "X-Gateway-Signed"));
+
+    /**
+     * 身份类请求头名单（大小写不敏感）。这些头只应由可信网关签发，故当配置了
+     * {@link #trustedSourceToken} 时，仅当入站请求携带匹配的 {@link #trustedSourceHeader}
+     * 才会二次透传，避免直连服务伪造身份后经 Feign 调用放大越权。
+     */
+    private List<String> identityHeaders = new ArrayList<>(List.of(
         "X-User-Id", "X-User-Name", "X-Tenant-Id", "X-Dept-Id", "X-Roles"));
+
+    /** 可信来源标记头名（由可信网关在清洗外部头后签发） */
+    private String trustedSourceHeader = "X-Gateway-Signed";
+
+    /**
+     * 可信来源标记期望值；<strong>为空表示不启用来源校验</strong>（保持既有透传行为）。
+     * 生产环境建议在网关与各下游服务统一配置同一随机串后启用。
+     */
+    private String trustedSourceToken = "";
+
+    /**
+     * 是否要求必须配置可信来源标记，默认 {@code false}（仅启动告警）。
+     *
+     * <p>置为 {@code true} 时，若未配置 {@link #trustedSourceToken} 则**启动失败**，
+     * 用于强制新项目/生产环境开启身份头来源校验，避免忘记配置而长期处于「不校验」状态。</p>
+     */
+    private boolean requireTrustedSource = false;
 
     public boolean isEnabled() {
         return enabled;
@@ -82,5 +110,37 @@ public class FeignProperties {
 
     public void setPropagateHeaders(List<String> propagateHeaders) {
         this.propagateHeaders = propagateHeaders;
+    }
+
+    public List<String> getIdentityHeaders() {
+        return identityHeaders;
+    }
+
+    public void setIdentityHeaders(List<String> identityHeaders) {
+        this.identityHeaders = identityHeaders;
+    }
+
+    public String getTrustedSourceHeader() {
+        return trustedSourceHeader;
+    }
+
+    public void setTrustedSourceHeader(String trustedSourceHeader) {
+        this.trustedSourceHeader = trustedSourceHeader;
+    }
+
+    public boolean isRequireTrustedSource() {
+        return requireTrustedSource;
+    }
+
+    public void setRequireTrustedSource(boolean requireTrustedSource) {
+        this.requireTrustedSource = requireTrustedSource;
+    }
+
+    public String getTrustedSourceToken() {
+        return trustedSourceToken;
+    }
+
+    public void setTrustedSourceToken(String trustedSourceToken) {
+        this.trustedSourceToken = trustedSourceToken;
     }
 }

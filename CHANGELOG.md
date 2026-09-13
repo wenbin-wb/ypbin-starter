@@ -7,6 +7,65 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [未发布]
+
+**Jackson 3 全面对齐、Spring Boot 4.1 / Spring Framework 7 新特性落地，以及租户 fail-closed 等安全加固。**
+
+### ⚠️ 破坏性变更与迁移
+
+- **租户隔离改为 fail-closed**（extension-tenant）：新增 `ypbin.tenant.fail-on-missing-tenant`，**默认 `true`**。既无显式绑定也无 `TenantProvider` 返回值时，查询不再静默查空（旧实现返回 `NullValue` 会拼出 `tenant_id = NULL`，查询恒空、写入 NULL 租户后无法再查出），而是抛业务异常（业务码 409）并提示改用 `@TenantIgnore`。
+  - **迁移**：登录、匿名分享、定时任务等本无租户上下文的路径需显式 `@TenantIgnore` 或 `TenantContext.executeIgnore`；出现「缺少租户上下文」说明该路径漏声明，应补声明而非把开关关掉。确实需要「无租户即跨全租户查询」的场景可显式置为 `false`（不推荐）。
+- **网关鉴权放行范围收窄**（cloud-gateway）：默认 `exclude-paths` 不再包含 `/actuator/**`，改为仅 `/actuator/health`、`/actuator/health/**`、`/actuator/info` 与 API 文档路径。
+  - **迁移**：依赖经网关访问其它 actuator 端点的宿主需显式声明（建议仅放行 health/info）。
+- **Feign fallback 不再回传底层异常文案**（cloud-core）：`RFeignFallbackFactory` 改为返回稳定文案（默认「远程服务暂不可用，请稍后重试」）或调用方显式传入的文案，避免泄露目标主机/端口/类名等内部细节；完整堆栈仅落服务端日志。
+  - **迁移**：需要特定提示的调用方改用 `fail(cause, "自定义文案")`。
+- **Sa-Token 会话序列化切至 Jackson 3**（dependencies）：`sa-token-redis-jackson`（绑定 Jackson 2）替换为 `sa-token-redis-template` + `sa-token-jackson3`。auth 与 gateway 必须同时升级；Redis 存量会话可能无法反序列化，升级后用户需重新登录。
+
+### 变更
+- **Jackson 2 运行时全面移除**（json/cache/cloud-core/cloud-sentinel/log/license）：缓存值序列化改用 Spring Data Redis 4 的 `GenericJacksonJsonRedisSerializer`（Jackson 3），Feign 错误解码、限流拒绝响应统一改用 `tools.jackson`；`ypbin-starter-json` 移除 Jackson 2 定制器与 `spring-boot-jackson2`/`jackson-databind:2`/`jackson-datatype-jsr310` 依赖，合并为单一 Jackson 3 `JsonMapperBuilderCustomizer`。
+  - 说明：Jackson 3 官方**保留** `com.fasterxml.jackson.annotation` 注解包（依赖注释 *Annotations remain at Jackson 2.x group id*），`@JsonIgnore`/`@JsonInclude`/`@JacksonAnnotationsInside` 等 import 无需改动。注意 Jackson 3 的 `JacksonException` 继承 `RuntimeException`（Jackson 2 为受检 `IOException`），自定义序列化代码的 catch 子句需调整。
+- **Feign 超时默认注入**（cloud-core）：无条件注入 `connect-timeout=5s`、`read-timeout=10s`（即使关闭熔断也生效），并把 resilience4j TimeLimiter 由 10s 调整为 15s，确保读取超时先于熔断取消触发、不再留下悬挂连接。
+- **联机校验改为声明式外部 API 客户端**（license）：`HttpRemoteVerifyProvider` 由手写 JDK `HttpClient` 迁移为 `@HttpExchange` 接口 + `RestClient` + `HttpServiceProxyFactory`；签名参数、超时（连接/读取）与三桶裁决语义完全不变，原有 17 项用例全绿并新增 3 项请求参数断言（签名四件套齐全、空 `fingerprint` 必须省略）。**选型约定**：服务间调用用 Feign，外部第三方 API 用 `@HttpExchange`。
+- **集合字面量统一**：20 处 `Collections.emptyXxx/singletonXxx` 改为 `List.of/Map.of/Set.of`；架构约束测试新增防回归规则（含正则有效性自检）。
+- **废弃 API 全量清零**（全仓，`-Xlint:deprecation` 主源码零告警）：
+  - **`EnvironmentPostProcessor` 包迁移**：Spring Boot 4.1 起 `org.springframework.boot.env.EnvironmentPostProcessor` 废弃待移除，迁移至 `org.springframework.boot.EnvironmentPostProcessor`（方法签名不变）。⚠️ **接口与 `META-INF/spring.factories` 注册键必须同时改**——Boot 4.1 仍能兼容旧键，只改接口不改键会「编译通过但默认值静默失效」。已加双重门禁：源码级注册校验（`SourceConventionTest`）+ 用 `SpringFactoriesLoader` 直接加载的运行时可见性测试（`RegistrationDiscoveryTest`）。
+  - **空值注解迁移到 JSpecify**：Spring Framework 7 废弃 `org.springframework.lang.NonNull`/`Nullable`（包级已改用 `@NullMarked`），自研 API 的语义注解改用 `org.jspecify.annotations.*`（`jspecify` 版本由 `spring-boot-dependencies` 管理）；继承框架接口的冗余 `@NonNull` 直接删除。
+  - **`ThreadLocalAccessor.reset()`**（context-propagation 1.1 废弃）改为覆写无参 `setValue()`——默认实现即委托 `reset()`，语义等价且不再触发废弃告警。
+  - **`RestClient.Builder.messageConverters(Consumer<List>)`** 改为 `configureMessageConverters(Consumer<ClientBuilder>)`。注意**不能**顺手换成 `withJsonConverter()`：它用 `MediaType#equalsTypeAndSubtype` 校验，宽容媒体类型（`*/*`）会被直接判为非法参数，故仍需走列表配置。
+  - **测试基座**：`LettuceConnectionFactory#setPassword(String)`（Spring Data Redis 4.1 废弃）改为经 `RedisStandaloneConfiguration` + `RedisPassword` 注入；JSON 相关测试统一改用 Jackson 3 的 `JacksonJsonHttpMessageConverter`；MD5 旧算法的兼容性覆盖用例显式 `@SuppressWarnings("deprecation")` 并注明意图。
+  - **消费方示范**（admin）：MyBatis-Plus 3.5.17 起 `BaseMapper.selectBatchIds` 废弃（退化为委托 `selectByIds` 的 default 方法），3 处调用统一改为 `selectByIds`。
+
+### 安全
+- **身份头透传来源校验**（cloud-core）：新增 `ypbin.cloud.feign.trusted-source-token`（默认空=不校验，启动告警）与 `identity-headers`；启用后不可信来源的身份头不再二次透传，防止直连服务伪造身份后经 Feign 放大越权。
+- **链路 ID 防日志注入**（core/gateway/observability）：新增 `RequestIdUtils`，对客户端 `X-Request-Id` 校验长度（≤128）与可见 ASCII，含 CRLF/控制字符/ANSI 转义或超长时丢弃并重新生成。
+- **灰度版本白名单**（cloud-loadbalancer）：新增 `ypbin.cloud.loadbalancer.allowed-versions`，未在白名单内的请求头版本值一律忽略，防止把流量导向未加固实例。
+- **License 快查时钟回拨检测**（license）：断言路径 5s 节流快查补上时钟回拨检测，回拨超容差即锁定不可用（原实现仅全量 `evaluate()` 检测）。
+
+### 新增
+- **项目生成器与四档预设**（`tools/ypbin-init.mjs`）：`api-only`（纯 REST API）/ `monolith`（单体：Web+数据+缓存+安全）/ `microservice`（契约 + 实现双模块）/ `worker`（非 Web 任务进程）。生成即含可运行启动类、示例接口/任务、单元测试、README、`.gitignore`，版本取自 starter 根 pom 与 Spring Boot 基线；四个预设均实测「生成后 `mvn test` 通过」。
+- **供应链合规**：新增 `-Psbom` profile 生成 CycloneDX SBOM（聚合 483 组件，specVersion 1.6），CI 归档为构建产物；四仓统一加入 `.github/dependabot.yml`（Maven/npm + GitHub Actions，按 Spring 族与测试族分组）。
+- **网关身份头签名显式化**：`ypbin.gateway.auth.trusted-source-token/trusted-source-header` 由网关在签发身份头时同时写出标记；cloud-core 新增 `ypbin.cloud.feign.require-trusted-source`（默认 false 仅告警；置 true 时未配置密钥直接拒绝启动），标记头已加入默认透传白名单以保证二次 RPC 不丢身份。admin 的 gateway/system/ai Nacos 配置与 `install.sh`（自动生成 `GATEWAY_SIGN_TOKEN`）已接入并默认启用。
+- **测试基座 `ypbin-starter-test`**：提供 `ContainerSupport`（外部实例优先 → Docker 容器回退 → 条件跳过）、`RedisIntegrationTestSupport`、`MySqlIntegrationTestSupport`，以及 `@EnabledIfRedisAvailable` / `@EnabledIfMySqlAvailable` 条件注解。同一套集成测试在「本机已有中间件」「本机有 Docker」「两者都没有」三种环境下都能合理工作（跳过而非假失败）；宿主以 `test` 作用域引入。
+- **集成测试统一门禁**：surefire 默认排除 `**/*IT.java`，新增全局 `-Pit` profile 由 failsafe 执行 IT；CI 增加独立的「集成测试（Testcontainers）」job（GitHub runner 自带 Docker，真实拉起 Redis/MySQL）。
+- **架构约束测试模块 `ypbin-starter-architecture-tests`**（不发布）：用 ArchUnit 把编码铁律变为构建失败——分层依赖（L1 不得依赖 L2/L3、L2 不得依赖 L3）、`@Bean` 覆盖语义（白名单外必须有 `@ConditionalOnMissingBean`）、`@Transactional` 显式 rollbackFor、禁字段注入、禁 `printStackTrace`/`System.out`；字节码不可见的三条（禁内联全限定类名、Lombok `@Data` 边界、`@AutoConfiguration` 注册）改由源码扫描校验。含**规则有效性自检**（合成违规类反向验证），避免规则写错却永远通过。
+- **方法级弹性能力**（core）：新增 `ypbin.resilience.enabled`（默认 true）启用 Spring Framework 7 内建的 `@Retryable` / `@ConcurrencyLimit`（`org.springframework.resilience.annotation`），**无需再引入 Spring Retry 或 Resilience4j** 即可对任意 Bean 方法声明重试与并发限制；注解驱动，未使用注解则零开销。
+- **API 版本管理**（web）：新增 `ypbin.web.api-version.*`（默认关闭），支持 `@GetMapping(value = "/user", version = "1.0")` 与请求头/查询参数/路径段三种解析方式、缺省版本与支持版本清单。
+- **`InetAddressFilter` SSRF 防护**：starter 侧无用户 URL 抓取路径（`DocumentLoader` 只处理字节流），存量手写地址校验由消费方（ypbin-admin AI 知识库导入）改用 Spring Boot 4.1 的 `InetAddressFilter.externalAddresses()`，覆盖含 CGNAT 在内的特殊用途网段。**注意不可对出站客户端全局套用**，否则会切断 `lb://` 内网服务调用。
+
+### 性能
+- **向量库落盘消除 O(N²)**（ai）：抽出 `PersistCoordinator` 统一落盘——并发合并（单飞 + 脏标记循环复查，保证最后一次变更必落盘）+ 原子替换（先写 `.tmp` 再 `ATOMIC_MOVE`，避免半个 JSON 导致下次启动加载失败）+ 可选防抖 `ypbin.ai.rag.persist-debounce-ms`（默认 0 写透，设为正值可把顺序 N 次变更合并为约 1 次；正常关闭强制 flush）。新增 `PersistCoordinatorTest`（并发不丢数据、防抖合并、原子替换无残留、失败清理）。
+
+### 修复
+- **缓存值序列化不可变集合失败**（cache）：JDK 不可变集合（`List.of()`/`Map.of()`/`Set.of()`/`Stream.toList()`）为 final 类型，`As.PROPERTY` 形态无法写入多态类型标识，序列化器会静默丢弃类型信息，读回时抛 `SerializationException`（缺少类型 id）；可变集合（`ArrayList`/`HashMap`）不受影响。新增 `ImmutableCollectionNormalizer` 在写入前把集合规范化为 `ArrayList`/`LinkedHashMap`/`LinkedHashSet`（语义等价）。本项目自身大量使用 `List.of()`/`toList()`，该问题会在读缓存时必现，属必修项。
+  - 该缺陷由真实 Redis 往返集成测试发现（`RedisJacksonJsonRoundTripIT`，默认跳过、设 `YPBIN_TEST_REDIS_PASSWORD` 后运行）；同时锁定了 POJO、不可变 List/Set/Map、`toList()`、空集合与嵌套集合各形态。
+- **AI 可选依赖装配**（ai）：`JdbcMemoryConfiguration` 补类级 `@ConditionalOnClass(JdbcChatMemoryRepository.class)`，避免开启 `type=jdbc` 但未引依赖时以 `NoClassDefFoundError` 崩溃；`simpleVectorStore` 的 `AiEmbeddingConfigResolver` 改 `ObjectProvider` 并在缺失时给出可操作错误。
+- **CRUD 主键写入快速失败**（extension-crud）：`CrudController.setEntityId` 原先在找不到 `setId` 时静默跳过，可能导致无主键或以请求体中被篡改的主键执行 `updateById`；改为 fail-fast，并按参数类型兼容匹配（`setId(Long)` 也可接收 `Serializable` 主键）。
+- **网关 Swagger 聚合阻塞上限**（cloud-gateway）：`block()` 加 10s 上限，路由表未就绪时不再无限阻塞启动。
+- **业务异常解包**（web）：全局异常处理器沿 cause 链解包（上限 10 层），修复 MyBatis 等框架包装 `BusinessException` 后（如租户 fail-closed 异常）被降级为泛化「系统内部错误」500、丢失可操作提示的问题。
+- **内联全限定类名**（async）：`AsyncUtils.schedule` 内联 `java.time.Instant` 改为顶部 import（由新增的源码规范测试发现，全仓仅此一处）。
+- **模块依赖管理缺口**（dependencies）：`ypbin-starter-xxljob` 未登记在父 pom 的 dependencyManagement 中，导致内部模块引用时缺版本；已补齐。
+- **License 指纹缓存**（license）：`MachineFingerprint.current()` 增加进程内缓存，避免每次 `@LicenseCheck(online=true)` 都枚举网卡与解析主机名。
+
 ## [2.2.3] - 2026-09-09
 
 **独立复审整改**（2.2.2 发布后由三仓交叉复审产出，详见提交记录）。

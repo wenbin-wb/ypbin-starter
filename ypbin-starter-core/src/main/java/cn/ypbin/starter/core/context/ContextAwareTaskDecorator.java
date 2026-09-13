@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.MDC;
 import org.springframework.core.task.TaskDecorator;
-import org.springframework.lang.NonNull;
 
 /**
  * 上下文感知任务装饰器。
@@ -40,8 +39,7 @@ public class ContextAwareTaskDecorator implements TaskDecorator {
     }
 
     @Override
-    @NonNull
-    public Runnable decorate(@NonNull Runnable runnable) {
+    public Runnable decorate(Runnable runnable) {
         // 主线程（提交时）：抓取要传播的快照
         Map<String, String> capturedMdc = MDC.getCopyOfContextMap();
         Object[] snapshots = new Object[propagators.size()];

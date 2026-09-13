@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Spring Boot 官方 parent：提供构建插件版本管理与默认配置（与 starter 平台版本一致） -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>__SPRING_BOOT_VERSION__</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>__GROUP_ID__</groupId>
+    <artifactId>__ARTIFACT_ID__</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>__APP_NAME__</name>
+    <description>由 ypbin-starter 脚手架生成（api-only 预设）</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <ypbin-starter.version>__STARTER_VERSION__</ypbin-starter.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ypbin-starter BOM：统一管理全部 starter 模块版本 -->
+            <dependency>
+                <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-bom</artifactId>
+                <version>${ypbin-starter.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Web 能力聚合：统一响应 R、全局异常、CORS/XSS、请求上下文 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-web</artifactId>
+        </dependency>
+        <!-- Jackson 统一序列化：时间格式、Long 转字符串 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-json</artifactId>
+        </dependency>
+        <!-- 接口文档（springdoc，访问 /swagger-ui.html） -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-api-doc</artifactId>
+        </dependency>
+        <!-- 操作日志（@Log）与访问日志 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-log</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -16,7 +16,7 @@
 package cn.ypbin.starter.tools.idempotent;
 
 import java.time.Duration;
-import java.util.Collections;
+import java.util.List;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -47,7 +47,7 @@ public class RedisIdempotentStore implements IdempotentStore {
     @Override
     public boolean tryAcquire(String key, Duration expire) {
         Long result = redisTemplate.execute(script,
-            Collections.singletonList(key),
+            List.of(key),
             String.valueOf(expire.toSeconds()));
         return result != null && result == 1L;
     }

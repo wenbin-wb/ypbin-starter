@@ -16,7 +16,9 @@
 package cn.ypbin.starter.gateway.swagger;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +51,12 @@ public class GatewaySwaggerAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(GatewaySwaggerAutoConfiguration.class);
 
+    /**
+     * 路由表解析阻塞上限：路由定位器（如 Nacos 动态路由）未就绪时不得无限阻塞启动，
+     * 超时后日志告警并以已有路由继续（聚合信息可在路由就绪后通过刷新补齐）。
+     */
+    private static final Duration ROUTE_RESOLVE_TIMEOUT = Duration.ofSeconds(10);
+
     @Bean
     @ConditionalOnMissingBean(name = "ypbinGatewaySwaggerUrlsInitializer")
     public Object ypbinGatewaySwaggerUrlsInitializer(
@@ -61,7 +69,16 @@ public class GatewaySwaggerAutoConfiguration {
             existingUrls.addAll(swaggerUiConfigProperties.getUrls());
         }
 
-        Flux.fromIterable(routeDefinitionLocator.getRouteDefinitions().collectList().block())
+        List<RouteDefinition> definitions = routeDefinitionLocator.getRouteDefinitions()
+            .collectList()
+            .block(ROUTE_RESOLVE_TIMEOUT);
+        if (definitions == null) {
+            log.warn("[ypbin-starter] 路由表在 {} 内未就绪，Swagger 聚合跳过本次刷新",
+                ROUTE_RESOLVE_TIMEOUT);
+            return new Object();
+        }
+
+        Flux.fromIterable(definitions)
             .filter(definition -> aggregationProperties.getExcludedRoutePrefixes()
                 .stream().noneMatch(prefix -> definition.getId().startsWith(prefix)))
             .mapNotNull(GatewaySwaggerAutoConfiguration::extractServiceName)
@@ -76,7 +93,7 @@ public class GatewaySwaggerAutoConfiguration {
                 existingUrls.add(swaggerUrl);
                 log.debug("[ypbin-starter] Swagger aggregated: {} -> {}", serviceName, url);
             })
-            .blockLast();
+            .blockLast(ROUTE_RESOLVE_TIMEOUT);
         swaggerUiConfigProperties.setUrls(existingUrls);
         return new Object();
     }

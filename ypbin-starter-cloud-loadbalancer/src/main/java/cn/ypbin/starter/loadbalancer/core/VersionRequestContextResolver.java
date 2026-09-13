@@ -16,6 +16,7 @@
 package cn.ypbin.starter.loadbalancer.core;
 
 import cn.ypbin.starter.loadbalancer.autoconfigure.LoadBalancerProperties;
+import java.util.List;
 import org.springframework.cloud.client.loadbalancer.DefaultRequestContext;
 import org.springframework.cloud.client.loadbalancer.Request;
 import org.springframework.cloud.client.loadbalancer.RequestData;
@@ -24,6 +25,9 @@ import org.springframework.util.StringUtils;
 
 /**
  * 请求灰度版本解析器。
+ *
+ * <p>按配置的头名顺序读取灰度版本；配置了 {@code ypbin.cloud.loadbalancer.allowed-versions}
+ * 白名单时，仅采纳白名单内的值——请求头由客户端可控，不限制则可被用于把流量导向任意灰度实例。</p>
  *
  * @author wenbin
  * @since 2026-07-31
@@ -43,11 +47,29 @@ public class VersionRequestContextResolver {
         }
         for (String headerName : properties.getVersionHeaders()) {
             String value = headers.getFirst(headerName);
-            if (StringUtils.hasText(value)) {
+            if (isAcceptable(value)) {
                 return value.trim();
             }
         }
         return null;
+    }
+
+    /**
+     * 判断请求头中的版本值是否可被采纳：非空且（未配置白名单或命中白名单）。
+     *
+     * @param value 请求头版本值
+     * @return 可采纳返回 true
+     */
+    private boolean isAcceptable(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        List<String> allowed = properties.getAllowedVersions();
+        if (allowed == null || allowed.isEmpty()) {
+            return true;
+        }
+        String trimmed = value.trim();
+        return allowed.stream().anyMatch(trimmed::equals);
     }
 
     private HttpHeaders resolveHeaders(Request<?> request) {

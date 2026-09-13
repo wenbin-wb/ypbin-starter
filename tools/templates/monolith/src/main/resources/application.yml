@@ -1,0 +1,26 @@
+server:
+  port: __PORT__
+
+spring:
+  application:
+    name: __ARTIFACT_ID__
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/__ARTIFACT_ID__?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: change-me
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+
+ypbin:
+  json:
+    date-time-format: yyyy-MM-dd HH:mm:ss
+    write-big-number-as-string: true
+  cache:
+    enabled: true
+  security:
+    # 单体形态：使用 Sa-Token 会话校验；微服务下游请改用身份头模式（见 microservice 预设）
+    interceptor: true
+  api-doc:
+    enabled: true

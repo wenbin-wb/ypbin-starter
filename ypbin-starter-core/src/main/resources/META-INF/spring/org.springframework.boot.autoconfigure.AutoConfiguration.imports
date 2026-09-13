@@ -1,1 +1,2 @@
 cn.ypbin.starter.core.autoconfigure.CoreAutoConfiguration
+cn.ypbin.starter.core.autoconfigure.ResilienceAutoConfiguration

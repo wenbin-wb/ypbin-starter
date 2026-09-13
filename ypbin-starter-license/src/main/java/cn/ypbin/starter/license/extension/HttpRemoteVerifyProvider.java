@@ -18,21 +18,23 @@ package cn.ypbin.starter.license.extension;
 import cn.ypbin.starter.license.core.LicenseContent;
 import cn.ypbin.starter.license.exception.LicenseErrorCode;
 import cn.ypbin.starter.license.exception.LicenseException;
+import cn.ypbin.starter.license.extension.client.LicenseVerifyApi;
+import cn.ypbin.starter.license.extension.client.LicenseVerifyResponse;
 import cn.ypbin.starter.sign.core.SignAlgorithm;
 import cn.ypbin.starter.sign.core.SignClient;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.support.RestClientAdapter;
+import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 /**
  * 基于 HTTP 的联机校验参考实现。
@@ -63,9 +65,8 @@ import tools.jackson.databind.ObjectMapper;
 public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
 
     private static final Logger log = LoggerFactory.getLogger(HttpRemoteVerifyProvider.class);
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final String VERIFY_PATH = "/open/license/verify";
 
+    /** 联机服务基础地址，仅用于日志 */
     private final String baseUrl;
     private final String accessKey;
     private final String secretKey;
@@ -75,7 +76,10 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
     private final int failOpenThreshold;
     private final long failOpenBackoffMillis;
     private final RemoteFailurePolicy failurePolicy;
-    private final HttpClient client;
+
+    /** 外部 API 的声明式客户端（Spring 生成代理）：查询串、序列化、超时与错误转换均由框架负责 */
+    private final LicenseVerifyApi verifyApi;
+
     private final Object verifyLock = new Object();
 
     /** 最近一次服务端明确返回有效的时间戳（毫秒）；0 表示从未明确校验通过。volatile 保证多线程可见 */
@@ -99,7 +103,46 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         this.failOpenThreshold = Math.max(1, failOpenThreshold);
         this.failOpenBackoffMillis = Math.max(0, failOpenBackoffSeconds) * 1000L;
         this.failurePolicy = failurePolicy;
-        this.client = HttpClient.newBuilder().connectTimeout(timeout).build();
+        this.verifyApi = buildApiClient(baseUrl, timeout);
+    }
+
+    /**
+     * 构建声明式外部 API 客户端。
+     *
+     * <p>传输层沿用 JDK {@link HttpClient} 并显式设置连接与读取超时（与迁移前一致）；
+     * 不设置超时会退化为 JDK 默认的无限等待，违反「远程调用必须显式超时」铁律。</p>
+     *
+     * @param baseUrl 服务基础地址
+     * @param timeout 连接/读取超时
+     * @return 声明式客户端
+     */
+    private static LicenseVerifyApi buildApiClient(String baseUrl, Duration timeout) {
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(timeout).build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(timeout);
+        // 显式注册 Jackson 3 转换器：本类自行构建 RestClient（非 Boot 自动配置），
+        // 默认转换器不含 JSON 支持，缺它会导致响应无法反序列化并被当成「未明确裁决」。
+        // 放宽 supported media type 到 */*：部分开放平台对 JSON 响应未正确设置
+        // Content-Type（或返回 text/plain），若严格要求 application/json 会一律判为
+        // 「未明确裁决」，在 FAIL_OPEN 策略下等于永久静默放行、吊销永远感知不到——
+        // 对吊销校验而言宽容更安全（迁移前用 ofString() 解析，同样不依赖 Content-Type）。
+        // 注意：此处不能用 withJsonConverter()——它要求转换器精确声明 application/json
+        // （MediaType#equalsTypeAndSubtype 校验），会把 */* 直接判为非法参数。
+        JacksonJsonHttpMessageConverter jsonConverter = new JacksonJsonHttpMessageConverter();
+        jsonConverter.setSupportedMediaTypes(List.of(MediaType.ALL));
+        RestClient restClient = RestClient.builder()
+            .baseUrl(baseUrl)
+            .requestFactory(requestFactory)
+            .configureMessageConverters(converters -> converters
+                .registerDefaults()
+                .configureMessageConvertersList(list -> {
+                    list.removeIf(converter -> converter instanceof JacksonJsonHttpMessageConverter);
+                    list.add(jsonConverter);
+                }))
+            .build();
+        return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient))
+            .build()
+            .createClient(LicenseVerifyApi.class);
     }
 
     @Override
@@ -145,52 +188,39 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         Map<String, String> signed = SignClient.sign(
             Map.of("licenseId", licenseId, "fingerprint", fingerprint == null ? "" : fingerprint),
             accessKey, secretKey, SignAlgorithm.HMAC_SHA256);
-        URI uri = URI.create(baseUrl + VERIFY_PATH + "?" + buildQuery(signed));
-        HttpRequest request = HttpRequest.newBuilder(uri)
-            .timeout(timeout)
-            .GET()
-            .build();
-        HttpResponse<String> response;
+        LicenseVerifyResponse response;
         try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("[ypbin-starter] 联机校验被中断(licenseId={}):{}", licenseId, e.getMessage());
-            handleIndeterminate(licenseId);
-            return;
-        } catch (IOException e) {
-            log.warn("[ypbin-starter] 联机校验服务不可达(licenseId={}):{}", licenseId, e.getMessage());
-            handleIndeterminate(licenseId);
-            return;
-        }
-        if (response.statusCode() != 200) {
-            log.warn("[ypbin-starter] 联机校验服务异常(HTTP {}，licenseId={})",
-                response.statusCode(), licenseId);
-            handleIndeterminate(licenseId);
-            return;
-        }
-        JsonNode data;
-        try {
-            data = MAPPER.readTree(response.body()).path("data");
-        } catch (Exception e) {
-            log.warn("[ypbin-starter] 联机校验响应解析失败(licenseId={}):{}", licenseId, e.getMessage());
+            // fingerprint 为空时传 null，框架会省略该查询参数——服务端按实际收到的参数重算签名，
+            // 多送一个空参数会导致验签失败
+            response = verifyApi.verify(signed.get("accessKey"), signed.get("timestamp"),
+                signed.get("nonce"), signed.get("sign"), signed.get("licenseId"),
+                fingerprint == null || fingerprint.isEmpty() ? null : fingerprint);
+        } catch (RestClientException e) {
+            // 网络不可达/超时/非 2xx/响应体无法转换，统一按「未明确裁决」处理：
+            // 绝不当作明确有效（否则网络抖动会掩盖吊销），也不直接拒绝（由 failurePolicy 决定）
+            if (Thread.currentThread().isInterrupted()) {
+                log.warn("[ypbin-starter] 联机校验被中断(licenseId={}):{}", licenseId, e.getMessage());
+            } else {
+                log.warn("[ypbin-starter] 联机校验未获得明确结果(licenseId={}):{}", licenseId, e.getMessage());
+            }
             handleIndeterminate(licenseId);
             return;
         }
-        JsonNode validNode = data.path("valid");
-        if (!validNode.isBoolean()) {
+        LicenseVerifyResponse.VerifyData data = response == null ? null : response.data();
+        Boolean valid = data == null ? null : data.valid();
+        if (valid == null) {
             log.warn("[ypbin-starter] 联机校验响应缺少有效的 valid 字段(licenseId={})", licenseId);
             handleIndeterminate(licenseId);
             return;
         }
-        if (validNode.booleanValue()) {
+        if (valid) {
             markValid();
             return;
         }
         // 明确拒绝：重置放行计数（服务端可达且给出明确答复），不缓存，直接阻断
         consecutiveFailOpenCount = 0;
         failOpenUntil = 0;
-        String reason = data.path("reason").asText("");
+        String reason = data.reason() == null ? "" : data.reason();
         throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
             "联机授权校验未通过：" + (reason.isBlank() ? "授权可能已被吊销" : reason));
     }
@@ -231,37 +261,5 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
      */
     private static String stripTrailingSlash(String baseUrl) {
         return baseUrl == null ? "" : baseUrl.replaceAll("/+$", "");
-    }
-
-    /**
-     * 把签名参数集拼成查询串（空值跳过，与服务端 {@code SignChecker} 的参与参数集合一致）。
-     *
-     * @param params 签名参数集（含四件套与业务参数）
-     * @return 查询串（不含 {@code ?}）
-     */
-    private static String buildQuery(Map<String, String> params) {
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, String> entry : params.entrySet()) {
-            String value = entry.getValue();
-            if (value == null || value.isEmpty()) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append('&');
-            }
-            sb.append(encode(entry.getKey())).append('=').append(encode(value));
-        }
-        return sb.toString();
-    }
-
-    /**
-     * URL 编码查询参数（空格转 {@code %20}，避免 {@code +} 歧义）。
-     *
-     * @param value 参数值
-     * @return 编码后文本
-     */
-    private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8)
-            .replace("+", "%20");
     }
 }

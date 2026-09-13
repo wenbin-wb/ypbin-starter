@@ -16,7 +16,6 @@
 package cn.ypbin.starter.web.util;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,7 +104,7 @@ public final class WebRequestUtils {
         HttpServletRequest req = request();
         Enumeration<String> names = req.getHeaderNames();
         if (names == null) {
-            return Collections.emptyMap();
+            return Map.of();
         }
         Map<String, String> headers = new LinkedHashMap<>();
         while (names.hasMoreElements()) {

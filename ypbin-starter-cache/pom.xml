@@ -31,10 +31,11 @@
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
         </dependency>
-        <!-- GenericJackson2JsonRedisSerializer 需要 jackson-databind，data-redis 中为 optional 不传递，显式引入 -->
+        <!-- GenericJacksonJsonRedisSerializer（Jackson 3）需要 tools.jackson databind，
+             data-redis 中为 optional 不传递，显式引入 Boot 4 的 Jackson 3 自动配置模块 -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson</artifactId>
         </dependency>
         <!-- 多级缓存 L1 本地缓存（可选，仅 ypbin.cache.multi-level.enabled 时需要） -->
         <dependency>
@@ -50,6 +51,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 集成测试基座：真实 Redis（外部实例优先，无则 Docker 容器回退，都无则跳过） -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

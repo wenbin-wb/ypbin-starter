@@ -189,6 +189,11 @@
                 <artifactId>ypbin-starter-ai</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-test</artifactId>
+                <version>${revision}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

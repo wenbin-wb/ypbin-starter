@@ -44,6 +44,15 @@ public class AiRagProperties {
     /** SimpleVectorStore 序列化文件路径；配置后重启不丢向量（自动加载/保存） */
     private String simpleStorePath;
 
+    /**
+     * 向量库落盘防抖间隔（毫秒）；0（默认）= 每次变更立即写透。
+     *
+     * <p>批量入库（反复 {@code add()}）时整库序列化是 O(N²)；把该值设为正值（如 1000）可把
+     * 「顺序 N 次变更」合并为约 1 次落盘。代价：硬崩溃（SIGKILL/断电）可能丢失最近一个防抖窗口
+     * 内的变更——正常关闭会强制落盘，因此仅在「可接受重建最近增量」的场景开启。</p>
+     */
+    private long persistDebounceMs = 0;
+
     /** 动态构建 embedding 客户端时的传输层超时（连接 + 读写），默认 60s */
     private Duration clientTimeout = Duration.ofSeconds(60);
 
@@ -53,6 +62,14 @@ public class AiRagProperties {
 
     public void setClientTimeout(Duration clientTimeout) {
         this.clientTimeout = clientTimeout;
+    }
+
+    public long getPersistDebounceMs() {
+        return persistDebounceMs;
+    }
+
+    public void setPersistDebounceMs(long persistDebounceMs) {
+        this.persistDebounceMs = persistDebounceMs;
     }
 
     public String getSimpleStorePath() {

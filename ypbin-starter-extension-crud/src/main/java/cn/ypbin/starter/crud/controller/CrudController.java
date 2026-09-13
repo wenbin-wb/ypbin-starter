@@ -83,6 +83,9 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
     private static final String ACTION_EDIT = "edit";
     private static final String ACTION_DELETE = "delete";
 
+    /** 实体主键写入方法名 */
+    private static final String ID_SETTER_NAME = "setId";
+
     /**
      * 提供业务服务实例。
      *
@@ -310,13 +313,52 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
         }
     }
 
+    /**
+     * 把路径主键写入实体，供 {@link #beforeUpdate} 默认实现使用。
+     *
+     * <p>找不到可用 setter 或写入失败时一律快速失败，绝不放行：静默跳过会导致
+     * {@code updateById} 在无主键（或以请求体中被篡改的主键）下执行，产生越权更新或静默空更新。
+     * 实体确实无需路径主键时，请子类覆盖 {@link #beforeUpdate} 显式处理。</p>
+     *
+     * @param entity 待更新实体
+     * @param id     路径主键
+     */
     private void setEntityId(T entity, ID id) {
-        try {
-            entity.getClass().getMethod("setId", id.getClass()).invoke(entity, id);
-        } catch (NoSuchMethodException ignored) {
-            // 实体没有同类型 setId 方法时，交由业务自行在 beforeUpdate 覆盖处理。
-        } catch (Exception e) {
-            throw new IllegalStateException("设置实体主键失败，请覆盖 beforeUpdate 方法", e);
+        if (id == null) {
+            throw new IllegalStateException("更新主键为空，已拒绝执行更新");
         }
+        Method setter = resolveIdSetter(entity.getClass(), id);
+        if (setter == null) {
+            throw new IllegalStateException(
+                "实体 " + entity.getClass().getName() + " 未找到可接收 "
+                    + id.getClass().getName() + " 的 setId 方法，无法安全执行更新；"
+                    + "请为实体提供 setId(Long) 或覆盖 beforeUpdate 方法");
+        }
+        try {
+            setter.invoke(entity, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("设置实体主键失败，请检查 setId 方法或覆盖 beforeUpdate", e);
+        }
+    }
+
+    /**
+     * 解析可写入该主键的 {@code setId} 方法：按参数类型兼容（父类型/接口亦可）匹配，
+     * 避免仅按精确类型查找导致 {@code setId(Long)} 无法接收 {@code Serializable} 主键。
+     *
+     * @param entityType 实体类型
+     * @param id         主键值
+     * @return 可用 setter，找不到返回 {@code null}
+     */
+    private static Method resolveIdSetter(Class<?> entityType, Object id) {
+        for (Method method : entityType.getMethods()) {
+            if (!ID_SETTER_NAME.equals(method.getName()) || method.getParameterCount() != 1) {
+                continue;
+            }
+            Class<?> paramType = method.getParameterTypes()[0];
+            if (paramType.isInstance(id)) {
+                return method;
+            }
+        }
+        return null;
     }
 }

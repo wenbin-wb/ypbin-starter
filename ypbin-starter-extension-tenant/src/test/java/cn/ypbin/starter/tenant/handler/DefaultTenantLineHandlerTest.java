@@ -16,12 +16,13 @@
 package cn.ypbin.starter.tenant.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.tenant.autoconfigure.TenantProperties;
 import cn.ypbin.starter.tenant.core.TenantContext;
 import java.util.Optional;
 import net.sf.jsqlparser.expression.LongValue;
-import net.sf.jsqlparser.expression.NullValue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -59,10 +60,31 @@ class DefaultTenantLineHandlerTest {
     }
 
     @Test
-    void missingTenantRemainsFailClosed() {
+    void missingTenantShouldBeRejectedByDefault() {
         DefaultTenantLineHandler handler = new DefaultTenantLineHandler(
             Optional::empty, new TenantProperties());
 
-        assertThat(handler.getTenantId()).isInstanceOf(NullValue.class);
+        // 默认 fail-closed：缺租户上下文直接拒绝，避免跨全租户查询
+        assertThatThrownBy(handler::getTenantId)
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("缺少租户上下文");
+    }
+
+    @Test
+    void missingTenantShouldReturnJavaNullWhenFailClosedDisabled() {
+        TenantProperties properties = new TenantProperties();
+        properties.setFailOnMissingTenant(false);
+        DefaultTenantLineHandler handler = new DefaultTenantLineHandler(Optional::empty, properties);
+
+        // 仅当显式关闭 fail-closed 时才跳过租户条件；必须是 Java null（返回 NullValue 会拼出 tenant_id = NULL）
+        assertThat(handler.getTenantId()).isNull();
+    }
+
+    @Test
+    void ignoredTableBypassesTenantResolution() {
+        DefaultTenantLineHandler handler = new DefaultTenantLineHandler(
+            Optional::empty, new TenantProperties());
+
+        TenantContext.runIgnore(() -> assertThat(handler.ignoreTable("sys_user")).isTrue());
     }
 }

@@ -25,7 +25,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 
 /**
  * 响应拦截与缓存工具测试：RefTextResponseAdvice 的 supports/委托逻辑、
@@ -55,14 +55,14 @@ class RefTextResponseAdviceTest {
     void supportsShouldSkipIgnoredClass() throws Exception {
         RefTextResponseAdvice advice = new RefTextResponseAdvice(new RefTextResolver(null));
         assertThat(advice.supports(paramOf(IgnoredController.class),
-            MappingJackson2HttpMessageConverter.class)).isFalse();
+            JacksonJsonHttpMessageConverter.class)).isFalse();
     }
 
     @Test
     void supportsShouldAcceptPlainClass() throws Exception {
         RefTextResponseAdvice advice = new RefTextResponseAdvice(new RefTextResolver(null));
         assertThat(advice.supports(paramOf(PlainController.class),
-            MappingJackson2HttpMessageConverter.class)).isTrue();
+            JacksonJsonHttpMessageConverter.class)).isTrue();
     }
 
     @Test
@@ -70,7 +70,7 @@ class RefTextResponseAdviceTest {
         RefTextResponseAdvice advice = new RefTextResponseAdvice(new RefTextResolver(null));
         Object body = new Object();
         Object result = advice.beforeBodyWrite(body, null, MediaType.APPLICATION_JSON,
-            MappingJackson2HttpMessageConverter.class, null, null);
+            JacksonJsonHttpMessageConverter.class, null, null);
         assertThat(result).isSameAs(body);
     }
 

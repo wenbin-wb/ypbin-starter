@@ -16,7 +16,7 @@
 package cn.ypbin.starter.messaging.sse;
 
 import java.time.Duration;
-import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -58,7 +58,7 @@ public class RedisSseTicketStore implements SseTicketStore {
             return Optional.empty();
         }
         String userId = redisTemplate.execute(
-            consumeScript, Collections.singletonList(KEY_PREFIX + ticket));
+            consumeScript, List.of(KEY_PREFIX + ticket));
         return Optional.ofNullable(userId);
     }
 }

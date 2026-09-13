@@ -39,15 +39,39 @@ import java.util.Locale;
  */
 public final class MachineFingerprint {
 
+    /**
+     * 进程内缓存的指纹：机器特征（网卡 MAC、主机名等）在进程生命周期内不变，
+     * 缓存可避免每次 {@code @LicenseCheck(online=true)} 都重新枚举网卡与解析主机名。
+     */
+    private static volatile String cached;
+
     private MachineFingerprint() {
     }
 
     /**
-     * 生成当前机器的指纹。
+     * 生成当前机器的指纹（首次调用后缓存复用）。
      *
      * @return 64 位十六进制 SM3 指纹（小写）
      */
     public static String current() {
+        String value = cached;
+        if (value != null) {
+            return value;
+        }
+        synchronized (MachineFingerprint.class) {
+            if (cached == null) {
+                cached = compute();
+            }
+            return cached;
+        }
+    }
+
+    /**
+     * 采集特征并计算指纹。
+     *
+     * @return 64 位十六进制 SM3 指纹（小写）
+     */
+    private static String compute() {
         List<String> features = collectFeatures();
         if (features.isEmpty()) {
             throw new IllegalStateException("未能采集到任何机器特征，无法生成机器指纹");

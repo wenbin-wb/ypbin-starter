@@ -16,7 +16,7 @@
 package cn.ypbin.starter.tools.limiter;
 
 import java.time.Duration;
-import java.util.Collections;
+import java.util.List;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -47,7 +47,7 @@ public class RedisRateLimiterStore implements RateLimiterStore {
     @Override
     public long incrementAndGet(String key, Duration window) {
         Long count = redisTemplate.execute(script,
-            Collections.singletonList(key),
+            List.of(key),
             String.valueOf(window.toSeconds()));
         return count == null ? 0L : count;
     }

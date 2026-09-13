@@ -15,7 +15,6 @@
  */
 package cn.ypbin.starter.security.core;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,7 +37,7 @@ public interface PermissionProvider {
      * @return 权限码列表
      */
     default List<String> getPermissions(Object loginId, String loginType) {
-        return Collections.emptyList();
+        return List.of();
     }
 
     /**
@@ -49,6 +48,6 @@ public interface PermissionProvider {
      * @return 角色码列表
      */
     default List<String> getRoles(Object loginId, String loginType) {
-        return Collections.emptyList();
+        return List.of();
     }
 }

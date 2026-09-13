@@ -28,6 +28,24 @@ jobs:
       - name: 本地打包与安装
         run: mvn -B install -DskipTests
 
+      - name: 配置 Node（配置元数据导出脚本依赖）
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 校验配置元数据未漂移
+        run: node tools/export-config-metadata.mjs --check
+
+      - name: 生成 CycloneDX SBOM（软件物料清单）
+        run: mvn -B -Psbom -DskipTests verify
+
+      - name: 归档 SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyclonedx-sbom
+          path: "**/target/bom.json"
+          if-no-files-found: ignore
+
       - name: 归档 JaCoCo 覆盖率报告
         if: always()
         uses: actions/upload-artifact@v4
@@ -35,3 +53,28 @@ jobs:
           name: jacoco-coverage-reports
           path: "**/target/site/jacoco/"
           if-no-files-found: ignore
+
+  integration-tests:
+    name: 集成测试（Testcontainers）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: 编译、代码风格校验与全量单元测试
+        run: mvn -B clean test
+
+      - name: 安装到本地仓库（供 IT 模块解析依赖）
+        run: mvn -B install -DskipTests
+
+      # GitHub 托管 runner 自带 Docker，IT 会真实拉起 Redis/MySQL 容器；
+      # 若某模块的中间件不可用，对应 IT 会条件跳过而非失败（见 ypbin-starter-test）。
+      - name: 执行集成测试（*IT.java）
+        run: mvn -B -Pit verify -DskipTests=false

@@ -16,6 +16,7 @@
 package cn.ypbin.starter.cloud.feign;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import feign.RequestTemplate;
 import java.util.List;
@@ -33,6 +34,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  */
 class FeignHeaderInterceptorTest {
 
+    /** 兼容构造：不启用来源校验（等价旧行为） */
+    private static FeignHeaderInterceptor noSourceCheck(List<String> headers) {
+        return new FeignHeaderInterceptor(headers, List.of(), "X-Gateway-Signed", "");
+    }
+
     @AfterEach
     void tearDown() {
         RequestContextHolder.resetRequestAttributes();
@@ -43,7 +49,7 @@ class FeignHeaderInterceptorTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("X-Request-Id", "req-1");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
-        FeignHeaderInterceptor interceptor = new FeignHeaderInterceptor(List.of("X-Request-Id"));
+        FeignHeaderInterceptor interceptor = noSourceCheck(List.of("X-Request-Id"));
         RequestTemplate template = new RequestTemplate();
 
         interceptor.apply(template);
@@ -56,7 +62,7 @@ class FeignHeaderInterceptorTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("X-Request-Id", "from-request");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
-        FeignHeaderInterceptor interceptor = new FeignHeaderInterceptor(List.of("X-Request-Id"));
+        FeignHeaderInterceptor interceptor = noSourceCheck(List.of("X-Request-Id"));
         RequestTemplate template = new RequestTemplate();
         template.header("x-request-id", "existing");
 
@@ -68,11 +74,59 @@ class FeignHeaderInterceptorTest {
 
     @Test
     void shouldSkipWhenRequestContextMissing() {
-        FeignHeaderInterceptor interceptor = new FeignHeaderInterceptor(List.of("X-Request-Id"));
+        FeignHeaderInterceptor interceptor = noSourceCheck(List.of("X-Request-Id"));
         RequestTemplate template = new RequestTemplate();
 
         interceptor.apply(template);
 
         assertThat(template.headers()).isEmpty();
+    }
+
+    @Test
+    void shouldDropIdentityHeadersWhenSourceUntrusted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-User-Id", "1");
+        request.addHeader("X-Request-Id", "req-1");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        FeignHeaderInterceptor interceptor = new FeignHeaderInterceptor(
+            List.of("X-Request-Id", "X-User-Id"), List.of("X-User-Id"),
+            "X-Gateway-Signed", "s3cret");
+        RequestTemplate template = new RequestTemplate();
+
+        interceptor.apply(template);
+
+        // 非身份头照常透传，身份头因来源不可信被丢弃
+        assertThat(template.headers().get("X-Request-Id")).containsExactly("req-1");
+        assertThat(template.headers()).doesNotContainKey("X-User-Id");
+    }
+
+    @Test
+    void shouldFailFastWhenTrustedSourceRequiredButNotConfigured() {
+        assertThatThrownBy(() -> new FeignHeaderInterceptor(
+            List.of("X-User-Id"), List.of("X-User-Id"), "X-Gateway-Signed", "", true))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("require-trusted-source");
+    }
+
+    @Test
+    void shouldStartWhenTrustedSourceRequiredAndConfigured() {
+        assertThat(new FeignHeaderInterceptor(
+            List.of("X-User-Id"), List.of("X-User-Id"), "X-Gateway-Signed", "s3cret", true))
+            .isNotNull();
+    }
+
+    @Test
+    void shouldPropagateIdentityHeadersWhenSourceTrusted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-User-Id", "1");
+        request.addHeader("X-Gateway-Signed", "s3cret");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        FeignHeaderInterceptor interceptor = new FeignHeaderInterceptor(
+            List.of("X-User-Id"), List.of("X-User-Id"), "X-Gateway-Signed", "s3cret");
+        RequestTemplate template = new RequestTemplate();
+
+        interceptor.apply(template);
+
+        assertThat(template.headers().get("X-User-Id")).containsExactly("1");
     }
 }

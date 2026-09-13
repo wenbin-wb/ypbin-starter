@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.loadbalancer.autoconfigure.LoadBalancerProperties;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.client.loadbalancer.DefaultRequest;
@@ -62,5 +63,48 @@ class VersionRequestContextResolverTest {
         String version = resolver.resolve(request);
 
         assertThat(version).isNull();
+    }
+
+    @Test
+    void shouldRejectVersionOutsideAllowList() {
+        LoadBalancerProperties properties = new LoadBalancerProperties();
+        properties.setAllowedVersions(List.of("gray-v1"));
+        VersionRequestContextResolver resolver = new VersionRequestContextResolver(properties);
+
+        // 未在白名单内的版本头由客户端伪造，须忽略并按正式实例路由
+        assertThat(resolver.resolve(requestWithVersion("internal-canary"))).isNull();
+    }
+
+    @Test
+    void shouldAcceptVersionInsideAllowList() {
+        LoadBalancerProperties properties = new LoadBalancerProperties();
+        properties.setAllowedVersions(List.of("gray-v1"));
+        VersionRequestContextResolver resolver = new VersionRequestContextResolver(properties);
+
+        assertThat(resolver.resolve(requestWithVersion("gray-v1"))).isEqualTo("gray-v1");
+    }
+
+    @Test
+    void shouldSkipRejectedHeaderAndTryNextHeader() {
+        LoadBalancerProperties properties = new LoadBalancerProperties();
+        properties.setAllowedVersions(List.of("gray-v1"));
+        VersionRequestContextResolver resolver = new VersionRequestContextResolver(properties);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Version", "forged");
+        headers.add("version", "gray-v1");
+
+        assertThat(resolver.resolve(requestWithHeaders(headers))).isEqualTo("gray-v1");
+    }
+
+    private static DefaultRequest<DefaultRequestContext> requestWithVersion(String version) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Version", version);
+        return requestWithHeaders(headers);
+    }
+
+    private static DefaultRequest<DefaultRequestContext> requestWithHeaders(HttpHeaders headers) {
+        RequestData requestData = new RequestData(
+            HttpMethod.GET, URI.create("http://demo/test"), headers, null, Map.of());
+        return new DefaultRequest<>(new DefaultRequestContext(requestData));
     }
 }

@@ -50,6 +50,9 @@ public class LicenseManager {
     /** 断言路径过期快查的最小间隔（毫秒）：5s 内不重复重算，避免每个请求都做状态判定 */
     private static final long EXPIRY_QUICK_CHECK_INTERVAL_MILLIS = 5000L;
 
+    /** 快查路径时钟回拨容差（毫秒）：与 {@link #CLOCK_TOLERANCE_SECONDS} 同量级，避免正常校时误判 */
+    private static final long QUICK_CHECK_CLOCK_TOLERANCE_MILLIS = CLOCK_TOLERANCE_SECONDS * 1000L;
+
     private final String sm2PublicKey;
     private final String sm4Key;
     private final boolean fingerprintEnabled;
@@ -205,12 +208,23 @@ public class LicenseManager {
      *
      * <p>只按本地时钟判定「授权是否已过宽限期」，是则直接把状态切换为不可用，使过期即时生效、
      * 不依赖业务手工调度定期任务。5s 节流避免每请求重算，且不做完整签名重验（成本考虑）。
-     * 边界：本快查是纯本地时钟的过期判定，不含时钟回拨检测——时钟异常场景的全量重算仍由
-     * {@link #evaluate()} / 定时任务负责。未加载授权或已处于不可用时不切换，恢复路径由
-     * {@link #load(String)} / {@link #evaluate()} 主导。</p>
+     * 同时以「上次快查时刻」为基准做时钟回拨检测：回拨会掩盖已过期授权，检测到即锁定不可用。
+     * 完整签名重验与机器指纹校验仍由 {@link #evaluate()} / 定时任务负责。未加载授权或已处于
+     * 不可用时不切换，恢复路径由 {@link #load(String)} / {@link #evaluate()} 主导。</p>
      */
     private void evaluateIfNeeded() {
         long now = System.currentTimeMillis();
+        // 时钟回拨检测：快查同样受本地时钟影响，回拨会掩盖已过期授权（wallNow 早于宽限期末端即判可用）。
+        // 以「上次快查时刻」为基准，倒退超过容差即视为篡改，直接锁定不可用。
+        long previous = lastQuickCheckMillis;
+        if (previous > 0 && now < previous - QUICK_CHECK_CLOCK_TOLERANCE_MILLIS) {
+            synchronized (this) {
+                if (status.isUsable()) {
+                    markIllegal("检测到系统时间回拨：last=" + previous + "，now=" + now);
+                }
+            }
+            return;
+        }
         if (now - lastQuickCheckMillis < EXPIRY_QUICK_CHECK_INTERVAL_MILLIS) {
             return;
         }

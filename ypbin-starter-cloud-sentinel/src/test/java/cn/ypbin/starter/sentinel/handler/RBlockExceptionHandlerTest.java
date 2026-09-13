@@ -20,10 +20,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * {@link RBlockExceptionHandler} 单元测试。
@@ -33,7 +33,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
  */
 class RBlockExceptionHandlerTest {
 
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final JsonMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Test
     void shouldWriteUnifiedRJsonOnBlock() throws Exception {

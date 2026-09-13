@@ -18,13 +18,13 @@ package cn.ypbin.starter.cloud.feign;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.cloud.exception.FeignRemoteException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.FeignException;
 import feign.Request;
 import feign.Response;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * {@link RResponseErrorDecoder} 单元测试。
@@ -34,7 +34,8 @@ import org.junit.jupiter.api.Test;
  */
 class RResponseErrorDecoderTest {
 
-    private final RResponseErrorDecoder decoder = new RResponseErrorDecoder(new ObjectMapper());
+    private final RResponseErrorDecoder decoder =
+        new RResponseErrorDecoder(JsonMapper.builder().build());
 
     @Test
     void shouldDecodeRResponseToFeignRemoteException() {

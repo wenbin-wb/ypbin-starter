@@ -17,7 +17,6 @@ package cn.ypbin.starter.tools.support;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -144,7 +143,7 @@ public final class RequestUtils {
     public static Map<String, String> getHeaders() {
         HttpServletRequest request = getRequest();
         if (request == null) {
-            return Collections.emptyMap();
+            return Map.of();
         }
         Map<String, String> headers = new LinkedHashMap<>();
         Enumeration<String> names = request.getHeaderNames();
@@ -176,7 +175,7 @@ public final class RequestUtils {
     public static Map<String, String> getParameters() {
         HttpServletRequest request = getRequest();
         if (request == null) {
-            return Collections.emptyMap();
+            return Map.of();
         }
         Map<String, String> params = new HashMap<>();
         request.getParameterMap().forEach((k, v) -> params.put(k, v.length > 0 ? v[0] : null));

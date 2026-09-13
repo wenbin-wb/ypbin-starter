@@ -17,6 +17,7 @@ package cn.ypbin.starter.web.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.ypbin.starter.core.exception.BaseException;
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
@@ -75,6 +76,42 @@ class GlobalExceptionHandlerTest {
     @Test
     void unexpectedExceptionShouldReturn500() {
         R<Void> result = handler.handleException(new IllegalStateException("boom"), request);
+        assertThat(result.getCode()).isEqualTo(GlobalErrorCode.INTERNAL_ERROR.getCode());
+    }
+
+    @Test
+    void wrappedBusinessExceptionShouldKeepItsCodeAndMessage() {
+        // 模拟 MyBatis 把业务异常包成 MyBatisSystemException 的情形
+        BusinessException root = new BusinessException("缺少租户上下文，请使用 @TenantIgnore");
+        Exception wrapped = new IllegalStateException("### Error querying database", root);
+
+        R<Void> result = handler.handleException(wrapped, request);
+
+        assertThat(result.getCode()).isEqualTo(root.getCode());
+        assertThat(result.getMessage()).isEqualTo(root.getMessage());
+    }
+
+    @Test
+    void wrappedBaseExceptionShouldKeepItsCode() {
+        BaseException root = new BaseException(GlobalErrorCode.FORBIDDEN, "禁止访问");
+        Exception wrapped = new RuntimeException("outer", new RuntimeException("mid", root));
+
+        R<Void> result = handler.handleException(wrapped, request);
+
+        assertThat(result.getCode()).isEqualTo(GlobalErrorCode.FORBIDDEN.getCode());
+        assertThat(result.getMessage()).isEqualTo("禁止访问");
+    }
+
+    @Test
+    void overlyDeepCauseChainShouldFallBackToInternalError() {
+        // 超过解包深度上限（10 层）时不继续下探，避免超深异常链带来的额外开销
+        Throwable current = new BusinessException("深层业务异常");
+        for (int i = 0; i < 12; i++) {
+            current = new IllegalStateException("wrap-" + i, current);
+        }
+
+        R<Void> result = handler.handleException((Exception) current, request);
+
         assertThat(result.getCode()).isEqualTo(GlobalErrorCode.INTERNAL_ERROR.getCode());
     }
 

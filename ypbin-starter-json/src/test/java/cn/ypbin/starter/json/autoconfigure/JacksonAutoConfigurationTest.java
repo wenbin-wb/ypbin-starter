@@ -23,15 +23,16 @@ import cn.ypbin.starter.json.dict.DictUtils;
 import cn.ypbin.starter.json.ref.RefTextManager;
 import cn.ypbin.starter.json.ref.RefTextResolver;
 import cn.ypbin.starter.json.ref.RefTextUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.TestPropertySource;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Jackson 自动装配集成测试：容器启动后 ObjectMapper 定制、Dict/RefText 绑定链应完整可用。
@@ -73,11 +74,9 @@ class JacksonAutoConfigurationTest {
         }
 
         @Bean
-        com.fasterxml.jackson.databind.ObjectMapper objectMapper(
-            List<org.springframework.boot.jackson2.autoconfigure.Jackson2ObjectMapperBuilderCustomizer> customizers) {
-            org.springframework.http.converter.json.Jackson2ObjectMapperBuilder builder =
-                new org.springframework.http.converter.json.Jackson2ObjectMapperBuilder();
-            for (var customizer : customizers) {
+        JsonMapper jsonMapper(List<JsonMapperBuilderCustomizer> customizers) {
+            JsonMapper.Builder builder = JsonMapper.builder();
+            for (JsonMapperBuilderCustomizer customizer : customizers) {
                 customizer.customize(builder);
             }
             return builder.build();
@@ -92,7 +91,7 @@ class JacksonAutoConfigurationTest {
     }
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper objectMapper;
 
     @Autowired
     private RefTextManager refTextManager;

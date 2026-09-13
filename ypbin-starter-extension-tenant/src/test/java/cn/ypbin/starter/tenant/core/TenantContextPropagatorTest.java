@@ -51,6 +51,24 @@ class TenantContextPropagatorTest {
     }
 
     @Test
+    void threadLocalAccessorSetValueShouldRestoreSnapshot() {
+        TenantContext.runWithTenant(3L, () -> {
+            TenantThreadLocalAccessor accessor = new TenantThreadLocalAccessor();
+            TenantContext.ContextSnapshot snapshot = accessor.getValue();
+
+            TenantContext.clear();
+            assertThat(TenantContext.getTenantId()).isEmpty();
+
+            accessor.setValue(snapshot);
+            assertThat(TenantContext.getTenantId()).contains(3L);
+
+            // 无参 setValue()（替代已废弃的 reset()）应清空线程本地上下文，防止泄漏
+            accessor.setValue();
+            assertThat(TenantContext.getTenantId()).isEmpty();
+        });
+    }
+
+    @Test
     void tenantBaseEntityShouldCarryTenantId() {
         TenantEntity entity = new TenantEntity();
         entity.setTenantId(5L);

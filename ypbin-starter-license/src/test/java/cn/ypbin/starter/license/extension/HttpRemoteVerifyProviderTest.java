@@ -53,6 +53,8 @@ class HttpRemoteVerifyProviderTest {
     private volatile int status = 200;
     private volatile String responseBody = "{\"data\":{\"valid\":true,\"reason\":\"ok\"}}";
     private volatile int requestCount = 0;
+    /** 最近一次请求的原始查询串，用于断言签名参数与「空值省略」语义 */
+    private volatile String lastQuery = null;
 
     @BeforeEach
     void startServer() throws IOException {
@@ -68,6 +70,7 @@ class HttpRemoteVerifyProviderTest {
 
     private void handle(HttpExchange exchange) throws IOException {
         requestCount++;
+        lastQuery = exchange.getRequestURI().getRawQuery();
         byte[] body = responseBody.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(status, body.length);
         exchange.getResponseBody().write(body);
@@ -180,6 +183,35 @@ class HttpRemoteVerifyProviderTest {
 
         responseBody = "{\"data\":{\"valid\":false,\"reason\":\"revoked\"}}";
         assertThatThrownBy(() -> p.verify(content(), "f1")).isInstanceOf(LicenseException.class);
+    }
+
+    @Test
+    void verify_shouldSendSignedQueryParameters() {
+        provider().verify(content(), "f1");
+
+        // 四件套 + 业务参数必须齐全，缺任一项服务端验签都会失败
+        assertThat(lastQuery).contains("accessKey=");
+        assertThat(lastQuery).contains("timestamp=");
+        assertThat(lastQuery).contains("nonce=");
+        assertThat(lastQuery).contains("sign=");
+        assertThat(lastQuery).contains("licenseId=LIC-0001");
+        assertThat(lastQuery).contains("fingerprint=f1");
+    }
+
+    @Test
+    void verify_shouldOmitBlankFingerprintParameter() {
+        // 服务端按「实际收到的参数集合」重算签名：多送一个空参数会导致验签不一致
+        provider().verify(content(), "");
+
+        assertThat(lastQuery).doesNotContain("fingerprint");
+        assertThat(lastQuery).contains("licenseId=LIC-0001");
+    }
+
+    @Test
+    void verify_shouldOmitFingerprintWhenNull() {
+        provider().verify(content(), null);
+
+        assertThat(lastQuery).doesNotContain("fingerprint");
     }
 
     @Test

@@ -17,8 +17,8 @@ package cn.ypbin.starter.sentinel.autoconfigure;
 
 import cn.ypbin.starter.sentinel.handler.RBlockExceptionHandler;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.callback.BlockExceptionHandler;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -26,6 +26,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Sentinel 增强自动配置。
@@ -46,7 +48,10 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public BlockExceptionHandler blockExceptionHandler(ObjectMapper objectMapper, SentinelProperties properties) {
+    public BlockExceptionHandler blockExceptionHandler(ObjectProvider<ObjectMapper> objectMapperProvider,
+            SentinelProperties properties) {
+        // 优先容器配置的 Jackson 3 序列化器；未装配时用等价默认实例，避免宿主缺 JSON 模块时启动失败
+        ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(() -> JsonMapper.builder().build());
         return new RBlockExceptionHandler(objectMapper, properties.getBlockMessage());
     }
 }

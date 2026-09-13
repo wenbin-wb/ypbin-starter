@@ -16,6 +16,7 @@
 package cn.ypbin.starter.async.util;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -281,7 +282,7 @@ public final class AsyncUtils {
      * @param delay 延迟时长
      */
     public static void schedule(Runnable task, Duration delay) {
-        scheduler().schedule(task, java.time.Instant.now().plus(delay));
+        scheduler().schedule(task, Instant.now().plus(delay));
     }
 
     /**

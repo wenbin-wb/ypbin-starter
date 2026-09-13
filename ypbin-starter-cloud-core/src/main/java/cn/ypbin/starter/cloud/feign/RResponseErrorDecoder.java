@@ -18,13 +18,14 @@ package cn.ypbin.starter.cloud.feign;
 import cn.ypbin.starter.cloud.exception.FeignRemoteException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Response;
 import feign.codec.ErrorDecoder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 统一响应体 Feign 错误解码器。
@@ -64,7 +65,7 @@ public class RResponseErrorDecoder implements ErrorDecoder {
     private R<?> parseResult(String body) {
         try {
             return objectMapper.readValue(body, R.class);
-        } catch (IOException ignored) {
+        } catch (JacksonException ignored) {
             return null;
         }
     }

@@ -44,6 +44,9 @@
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+        <archunit.version>1.4.1</archunit.version>
+        <testcontainers.version>1.20.4</testcontainers.version>
+        <maven-failsafe-plugin.version>3.5.4</maven-failsafe-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -62,6 +65,15 @@
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
                 <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Testcontainers BOM：集成测试基座（ypbin-starter-test）统一版本 -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -119,9 +131,15 @@
                 <artifactId>sa-token-spring-boot4-starter</artifactId>
                 <version>${sa-token.version}</version>
             </dependency>
+            <!-- Sa-Token 会话存储：RedisTemplate 承载 + Jackson 3 序列化（sa-token-redis-jackson 绑定 Jackson 2，已弃用） -->
             <dependency>
                 <groupId>cn.dev33</groupId>
-                <artifactId>sa-token-redis-jackson</artifactId>
+                <artifactId>sa-token-redis-template</artifactId>
+                <version>${sa-token.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.dev33</groupId>
+                <artifactId>sa-token-jackson3</artifactId>
                 <version>${sa-token.version}</version>
             </dependency>
 
@@ -354,8 +372,25 @@
             </dependency>
             <dependency>
                 <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-xxljob</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-test</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-ai</artifactId>
                 <version>${revision}</version>
+            </dependency>
+
+            <!-- 架构约束测试（字节码级断言），仅测试作用域使用 -->
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -481,11 +516,54 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <!-- 单元测试默认排除集成测试：IT 需要真实中间件，统一由 -Pit（failsafe）执行 -->
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${maven-failsafe-plugin.version}</version>
+                <configuration>
+                    <!-- 只跑集成测试；无中间件环境由测试内部条件（@EnabledIf...）跳过 -->
+                    <includes>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
 
     <profiles>
+        <!--
+         | 集成测试 profile：默认不激活。`mvn -Pit verify` 会执行 **/*IT.java（需要真实中间件或 Docker）。
+         | 需要中间件但环境不具备时，测试通过 @EnabledIfRedisAvailable / @EnabledIfMySqlAvailable 跳过而非失败，
+         | 因此可在任意机器上安全执行；CI 有 Docker 时会真实跑通。
+        -->
+        <profile>
+            <id>it</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>integration-tests</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <!--
          | 发布 profile：仅在 mvn deploy -Prelease 时激活，生成 source/javadoc 附件（GPG 签名已由根 pom 的
          | release profile 继承，不重复声明）。默认不激活，避免拖慢日常构建。

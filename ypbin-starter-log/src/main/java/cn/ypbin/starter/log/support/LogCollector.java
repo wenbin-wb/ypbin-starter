@@ -28,7 +28,6 @@ import jakarta.servlet.http.HttpSession;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -201,7 +200,7 @@ public class LogCollector {
         Map<String, String> headers = new LinkedHashMap<>();
         Enumeration<String> names = request.getHeaderNames();
         if (names == null) {
-            return Collections.emptyMap();
+            return Map.of();
         }
         while (names.hasMoreElements()) {
             String name = names.nextElement();

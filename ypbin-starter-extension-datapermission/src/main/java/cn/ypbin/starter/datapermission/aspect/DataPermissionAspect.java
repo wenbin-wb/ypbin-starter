@@ -31,6 +31,10 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
  * 使 MyBatis-Plus 拦截器仅对这些查询拼接数据范围 SQL。方法级 {@code ignore=true} 可在
  * 已启用的类中排除个别方法。用 Spring 注解工具查找，避免动态代理下注解丢失。</p>
  *
+ * <p>切点表达式中的注解类型名为字面量：{@code @Around} 的属性要求编译期常量，
+ * 不能用 {@code DataPermission.class.getName()} 拼接，属「禁内联全限定类名」规则的合理例外
+ * （此处是注解属性值而非 Java 代码标识符）。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */

@@ -205,9 +205,45 @@ public class GatewayProperties {
         /** 是否启用统一认证，默认关闭；需同时提供 GatewayAuthProvider Bean */
         private boolean enabled = false;
 
-        /** 放行路径 */
+        /**
+         * 放行路径。
+         *
+         * <p>仅默认放行健康探针与 API 文档；<b>不</b>默认放行 {@code /actuator/**}——
+         * {@code env}/{@code heapdump}/{@code shutdown} 等敏感端点若暴露到网关将造成信息泄露与
+         * 远程操作风险。确需暴露时由业务方显式声明（建议仅放行 health/info）。</p>
+         */
+        /**
+         * 网关身份头签名标记值。
+         *
+         * <p>配置后，网关在签发身份头的同时写出标记头（{@link #trustedSourceHeader}），
+         * 下游服务据此判定身份头来源可信（见 cloud-core 的
+         * {@code ypbin.cloud.feign.trusted-source-token}）。建议生产环境与各下游统一配置同一随机串，
+         * 防止直连服务伪造身份头经 Feign 放大越权。为空表示不签发标记（保持兼容）。</p>
+         */
+        private String trustedSourceToken = "";
+
+        /** 身份头签名标记的头名，需与下游 trusted-source-header 一致 */
+        private String trustedSourceHeader = "X-Gateway-Signed";
+
+        public String getTrustedSourceToken() {
+            return trustedSourceToken;
+        }
+
+        public void setTrustedSourceToken(String trustedSourceToken) {
+            this.trustedSourceToken = trustedSourceToken;
+        }
+
+        public String getTrustedSourceHeader() {
+            return trustedSourceHeader;
+        }
+
+        public void setTrustedSourceHeader(String trustedSourceHeader) {
+            this.trustedSourceHeader = trustedSourceHeader;
+        }
+
         private List<String> excludePaths = new ArrayList<>(List.of(
-            "/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"));
+            "/actuator/health", "/actuator/health/**", "/actuator/info",
+            "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"));
 
         public boolean isEnabled() {
             return enabled;
