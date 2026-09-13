@@ -68,68 +68,12 @@
             <scope>test</scope>
         </dependency>
         <!-- 测试序列化 R.timestamp（LocalDateTime）由 Jackson 3 内置 JavaTime 支持，无需额外模块 -->
+        <!-- IT（SentinelFlowIT）真启动 Web 服务，需要 web starter；常驻 test 作用域，
+             由根 ypbin-starter-dependencies 的 -Pit profile 交给 failsafe 执行 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <!-- 默认构建排除 *IT.java；集成测试仅在 -Pit 下开启（见 profiles/it） -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <testExcludes>
-                        <testExclude>**/*IT.java</testExclude>
-                    </testExcludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>**/*IT.java</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <!--
-          集成测试 profile（默认不激活）：真启动 Web 服务 + Sentinel 拦截链路，验证限流被拒时的统一 R 响应。
-          本机即可真跑（不依赖 Nacos/Docker）：mvn -Pit test -pl ypbin-starter-cloud-sentinel
-        -->
-        <profile>
-            <id>it</id>
-            <dependencies>
-                <dependency>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-web</artifactId>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <configuration>
-                            <testExcludes combine.self="override"/>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <excludes combine.self="override"/>
-                            <includes>
-                                <include>**/*IT.java</include>
-                                <include>**/*Test.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

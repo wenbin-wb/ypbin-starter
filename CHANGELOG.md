@@ -65,6 +65,13 @@
 - **内联全限定类名**（async）：`AsyncUtils.schedule` 内联 `java.time.Instant` 改为顶部 import（由新增的源码规范测试发现，全仓仅此一处）。
 - **模块依赖管理缺口**（dependencies）：`ypbin-starter-xxljob` 未登记在父 pom 的 dependencyManagement 中，导致内部模块引用时缺版本；已补齐。
 - **License 指纹缓存**（license）：`MachineFingerprint.current()` 增加进程内缓存，避免每次 `@LicenseCheck(online=true)` 都枚举网卡与解析主机名。
+- **集成测试门禁失效与两处 IT 陈旧**（cloud-nacos/cloud-sentinel）：
+  - `cloud-nacos`、`cloud-sentinel` 残留模块级 `it` profile，把 `*IT.java` 交给 **surefire** 执行（还顺带重跑 `*Test.java`），绕过了根 pom 统一的「surefire 排除 IT / `-Pit` 交 failsafe」门禁。已删除模块级 profile 与重复的 compiler/surefire 覆盖，所需测试依赖改为常驻 `test` 作用域。
+  - `NacosDiscoveryIT` 容器模式必然失败：镜像硬编码 `nacos-server:v2.4.3` 与客户端 3.1.1 大版本不符，就绪探测路径在 Nacos 3 已不存在，且 Nacos 客户端固定按「服务端口 + 1000」连 gRPC，而 Testcontainers 默认把 8848/9848 映射成互不相干的随机端口（表现为 `Client not connected, current status:STARTING`）。改为取 `ContainerSupport.NACOS_IMAGE`（与部署同为 v3.2.4）、按 `forListeningPorts` 等待、把 8848/9848 绑定到一对相隔 1000 的连续空闲宿主端口，并补齐 Nacos 3 镜像强制的鉴权三件套（`NACOS_AUTH_TOKEN`/`NACOS_AUTH_IDENTITY_KEY`/`VALUE`，随机生成、`NACOS_AUTH_ENABLE=false` 故无需口令）。
+  - `SentinelFlowIT` 无法编译：`TestRestTemplate` 已随 Spring Boot 4 移除。改用 `@LocalServerPort` + `RestClient`，并关闭默认状态码错误映射，使被限流返回 200 或 429 都能取到响应体断言；同时修掉 `@org.springframework.context.annotation.Bean` 内联全限定名。
+
+### 变更
+- **集成测试统一按容器模式验证**（全仓）：`mvn -Pit verify` 现可在一台有 Docker 的机器上真跑全部 IT（Redis/Nacos 容器 + Sentinel 真启动 Web），无需外部中间件；`FeignCrossServiceIT` 仍要求显式提供 `-Dypbin.it.nacos-addr`，未提供则跳过。
 
 ## [2.2.3] - 2026-09-09
 
