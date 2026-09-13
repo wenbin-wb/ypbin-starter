@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.core.util;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -38,8 +39,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProcessor {
 
+    @Nullable
     private static ApplicationContext applicationContext;
 
+    @Nullable
     private static ConfigurableListableBeanFactory beanFactory;
 
     @Override
@@ -57,6 +60,7 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
      *
      * @return {@link ApplicationContext}
      */
+    @Nullable
     public static ApplicationContext getApplicationContext() {
         return applicationContext;
     }
@@ -69,7 +73,8 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
      * @return Bean 实例
      */
     public static <T> T getBean(Class<T> requiredType) {
-        return beanFactory != null ? beanFactory.getBean(requiredType) : applicationContext.getBean(requiredType);
+        ConfigurableListableBeanFactory factory = beanFactory;
+        return factory != null ? factory.getBean(requiredType) : requireApplicationContext().getBean(requiredType);
     }
 
     /**
@@ -81,7 +86,9 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
      * @return Bean 实例
      */
     public static <T> T getBean(String name, Class<T> requiredType) {
-        return beanFactory != null ? beanFactory.getBean(name, requiredType) : applicationContext.getBean(name, requiredType);
+        ConfigurableListableBeanFactory factory = beanFactory;
+        return factory != null ? factory.getBean(name, requiredType)
+            : requireApplicationContext().getBean(name, requiredType);
     }
 
     /**
@@ -111,7 +118,7 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
      * @return {@link ApplicationEventPublisher}
      */
     public static ApplicationEventPublisher getEventPublisher() {
-        return applicationContext;
+        return requireApplicationContext();
     }
 
     /**
@@ -120,7 +127,7 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
      * @return {@link Environment}
      */
     public static Environment getEnvironment() {
-        return applicationContext.getEnvironment();
+        return requireApplicationContext().getEnvironment();
     }
 
     /**
@@ -129,6 +136,7 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
      * @param key 配置键
      * @return 配置值，不存在时返回 {@code null}
      */
+    @Nullable
     public static String getProperty(String key) {
         return getEnvironment().getProperty(key);
     }
@@ -140,6 +148,25 @@ public class SpringUtils implements ApplicationContextAware, BeanFactoryPostProc
      */
     public static String[] getActiveProfiles() {
         return getEnvironment().getActiveProfiles();
+    }
+
+    /**
+     * 取回已就绪的应用上下文，未就绪时快速失败并给出可操作提示。
+     *
+     * <p>原先这些入口直接解引用 {@code applicationContext}，未就绪时抛出的是无信息的
+     * {@link NullPointerException}（静态工具类在容器启动前被调用就会踩到）。这里改为显式断言：
+     * 仍然失败（不放行、不返回 null），但错误信息能直接指出原因与用法。</p>
+     *
+     * @return 应用上下文
+     */
+    private static ApplicationContext requireApplicationContext() {
+        ApplicationContext context = applicationContext;
+        if (context == null) {
+            throw new IllegalStateException(
+                "Spring 应用上下文尚未就绪，SpringUtils 暂不可用；请在容器启动完成后调用（"
+                    + "或改用构造器注入以避免静态依赖）");
+        }
+        return context;
     }
 
     /**

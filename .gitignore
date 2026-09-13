@@ -25,6 +25,11 @@ bin/
 *.log
 *.tmp
 
+# javac / JVM 崩溃与参数转储（Error Prone 等编译器插件的失败产物，勿入库）
+javac.*.args
+hs_err_pid*.log
+replay_pid*.log
+
 # 操作系统
 .DS_Store
 Thumbs.db

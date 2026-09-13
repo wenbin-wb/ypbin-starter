@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 树形结构构建工具。
@@ -58,7 +59,7 @@ public final class TreeUtils {
      * @param <ID>         标识类型
      * @return 根节点列表
      */
-    public static <T extends TreeNode<T, ID>, ID> List<T> build(List<T> nodes, ID rootParentId) {
+    public static <T extends TreeNode<T, ID>, ID> List<T> build(List<T> nodes, @Nullable ID rootParentId) {
         if (nodes == null || nodes.isEmpty()) {
             return new ArrayList<>();
         }
@@ -154,6 +155,7 @@ public final class TreeUtils {
      * @param <ID>  标识类型
      * @return 匹配节点，未找到为 {@code null}
      */
+    @Nullable
     public static <T extends TreeNode<T, ID>, ID> T findNode(List<T> roots, ID id) {
         for (T node : flatten(roots)) {
             if (Objects.equals(node.getId(), id)) {
@@ -163,7 +165,7 @@ public final class TreeUtils {
         return null;
     }
 
-    private static <T extends TreeNode<T, ID>, ID> boolean isRoot(T node, ID rootParentId, List<T> nodes) {
+    private static <T extends TreeNode<T, ID>, ID> boolean isRoot(T node, @Nullable ID rootParentId, List<T> nodes) {
         ID parentId = node.getParentId();
         if (rootParentId != null) {
             return Objects.equals(parentId, rootParentId);

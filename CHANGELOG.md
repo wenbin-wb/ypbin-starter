@@ -9,7 +9,29 @@
 
 ## [未发布]
 
+### 新增
+- **空值语义静态检查（NullAway，试点 core 模块）**：新增可选 `nullaway` profile，
+  `mvn -Pnullaway -pl ypbin-starter-core compile` 把「未标注即非空」（`@NullMarked`）变成编译期错误；
+  `ypbin-starter-core` 根包加 `package-info.java` 标注 `@NullMarked`，CI 增加对应门禁步骤。
+  试点上线即报出 15 处「代码确实可空但未标注」，其中 **4 处为真实潜在 NPE**；
+  逐模块推广步骤与工具链坑（必须 `fork`、必须 `--should-stop=ifError=FLOW`、`-Xplugin` 需单行、
+  `annotationProcessorPaths` 是覆盖而非追加、本工具链下 `JSpecifyMode` 不可用）见站点
+  「项目脚手架 → 空值语义」。
+  说明：**只加注解不加校验是危险的**——注解一旦与实际可空性不符就是「注解说谎」，
+  比不标注更容易误导 IDE 与静态分析，故注解与检查器必须同时落地。
+
 ### 修复
+- **上下文未就绪时的无信息 NPE**（core，由 NullAway 发现）：`SpringUtils` 的 `getBean(Class)`、
+  `getBean(String, Class)`、`getEventPublisher()`、`getEnvironment()` 原先直接解引用尚未赋值的
+  `applicationContext`，未就绪时抛无信息的 `NullPointerException`；改为统一的
+  `requireApplicationContext()` 断言——仍然快速失败（不放行、不返回 null），但错误信息直接说明
+  原因与替代做法（改用构造器注入）。
+- **空值契约显式化**（core）：`SpringUtils#getApplicationContext`/`getProperty`、
+  `TreeUtils#findNode`（未找到为 null）、`RequestIdUtils#sanitize`（不合法为 null）、
+  `R#message`/`R#data`（允许为空）等原本只在 Javadoc 里写明的可空语义，补上 `@Nullable` 变成
+  机器可校验的契约；`TreeUtils` 内部递归辅助方法的 `rootParentId` 参数同步标注。
+
+## [3.0.0] - 2026-09-13
 - **发布包混入非发布模块**（构建配置）：`ypbin-starter-architecture-tests` 仅设了 `maven.deploy.skip=true`，
   但 Central 发布插件以 `extensions=true` 接管 deploy 生命周期、不读取该属性，导致它的空 jar 被一并打进
   上传包；而该模块 `gpg.skip=true`（无 `.asc` 签名）且没有 sources/javadoc，会让整个 deployment 校验失败。

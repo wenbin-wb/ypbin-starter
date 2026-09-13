@@ -16,6 +16,7 @@
 package cn.ypbin.starter.core.util;
 
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 请求链路 ID 工具。
@@ -50,6 +51,7 @@ public final class RequestIdUtils {
      * @param candidate 客户端传入的链路 ID
      * @return 合法链路 ID，或 {@code null}
      */
+    @Nullable
     public static String sanitize(String candidate) {
         if (candidate == null) {
             return null;

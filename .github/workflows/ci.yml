@@ -33,6 +33,12 @@ jobs:
         with:
           node-version: 22
 
+      # 空值语义静态检查（当前试点：core 模块）。@NullMarked 声明「未标注即非空」，
+      # NullAway 让漏标 @Nullable 直接变成编译失败——本步上线时就挖出 4 处真实潜在 NPE。
+      # 逐模块推广方式见站点「项目脚手架 → 空值语义」。
+      - name: 空值语义检查（NullAway，core 试点）
+        run: mvn -B -Pnullaway -pl ypbin-starter-core compile
+
       - name: 校验配置元数据未漂移
         run: node tools/export-config-metadata.mjs --check
 

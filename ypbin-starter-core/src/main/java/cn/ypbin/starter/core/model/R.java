@@ -20,6 +20,7 @@ import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 统一响应体。
@@ -41,9 +42,11 @@ public class R<T> implements Serializable {
     private int code;
 
     /** 提示信息 */
+    @Nullable
     private String message;
 
     /** 数据载荷 */
+    @Nullable
     private T data;
 
     /** 是否成功 */
@@ -56,7 +59,7 @@ public class R<T> implements Serializable {
         this.timestamp = LocalDateTime.now();
     }
 
-    private R(int code, String message, T data, boolean success) {
+    private R(int code, @Nullable String message, @Nullable T data, boolean success) {
         this.code = code;
         this.message = message;
         this.data = data;
@@ -110,19 +113,21 @@ public class R<T> implements Serializable {
         this.code = code;
     }
 
+    @Nullable
     public String getMessage() {
         return message;
     }
 
-    public void setMessage(String message) {
+    public void setMessage(@Nullable String message) {
         this.message = message;
     }
 
+    @Nullable
     public T getData() {
         return data;
     }
 
-    public void setData(T data) {
+    public void setData(@Nullable T data) {
         this.data = data;
     }
 
