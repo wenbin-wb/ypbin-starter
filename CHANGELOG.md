@@ -9,6 +9,19 @@
 
 ## [未发布]
 
+### 变更
+- **测试基座新增 Nacos 容器支持**（`ypbin-starter-test`）：`ContainerSupport.nacosServerAddress()`
+  统一「外部地址优先 → 容器回退 → 条件跳过」，新增 `@EnabledIfNacosAvailable`。
+  Nacos 容器模式的全部细节收敛进基座：与部署对齐的镜像版本、**8848/9848 必须绑定到相隔 1000 的
+  连续宿主端口**（客户端固定按「服务端口 + 1000」连 gRPC，随机端口会导致
+  `Client not connected, current status:STARTING`）、Nacos 3 镜像强制的鉴权三件套、
+  以及用「监听端口」而非已移除的 v2 健康路径做就绪探测。
+- **跨服务 Feign 调用在 CI 真正被覆盖**（cloud-core）：`FeignCrossServiceIT` 由「必须显式提供
+  `-Dypbin.it.nacos-addr` 否则跳过」改为容器化（`@EnabledIfNacosAvailable` +
+  `@DynamicPropertySource`），本机与 CI 均真跑：注册 → 发现 → 负载均衡 → Feign 调通、
+  请求头透传、下游 `R` 错误解码为 `FeignRemoteException`；顺带清理其内联全限定名。
+- **NacosDiscoveryIT 去重**（cloud-nacos）：删除内联的容器/端口/鉴权逻辑，改用共享基座。
+
 ### 新增
 - **空值语义静态检查（NullAway，试点 core 模块）**：新增可选 `nullaway` profile，
   `mvn -Pnullaway -pl ypbin-starter-core compile` 把「未标注即非空」（`@NullMarked`）变成编译期错误；

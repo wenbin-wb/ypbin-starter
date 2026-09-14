@@ -67,6 +67,13 @@
                     <artifactId>spring-boot-starter-test</artifactId>
                     <scope>test</scope>
                 </dependency>
+        <!-- 集成测试基座：ContainerSupport 统一解析 Nacos 地址（外部优先 / 容器回退 / 条件跳过） -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
                     <groupId>com.alibaba.cloud</groupId>
                     <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
