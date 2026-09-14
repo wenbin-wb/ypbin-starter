@@ -74,6 +74,13 @@
 
 ### 修复
 
+- **日志注入（log injection）加固**：新增 `cn.ypbin.starter.core.util.LogSanitizer`——把用户可控值
+  （URL、请求头、查询参数、文件名、AccessKey 等）写入日志前统一替换换行/制表/控制字符并限制长度，
+  避免攻击者用换行在日志里**伪造日志行**（污染审计与告警，例如伪造一条「登录成功」）。
+  已应用到 16 处上报点（`GlobalExceptionHandler`、`AccessLogAspect`、`IdentityHeaderFilter`、
+  `RepeatableReadRequestWrapper`、`SignChecker`），并附单元测试覆盖 CRLF/控制字符/null/超长截断。
+  admin 侧因仍依赖已发布的 starter 3.0.0（不含本类），在 `ypbin-common` 放置同语义实现并注明
+  「升级到 starter 3.1.0 后删除本类、改用 starter 版本」，避免两处实现漂移。
 - **空值语义静态检查再推广 16 个模块**（累计 **21 个模块**）：api-crypto / api-doc / async / captcha /
   cloud-loadbalancer / cloud-nacos / cloud-observability / cloud-sentinel / excel / extension-crud /
   extension-datapermission / i18n / sensitive-words / social / test / xxljob。本轮修出 **59 处**
