@@ -25,6 +25,9 @@
  *   node tools/ypbin-init.mjs monolith demo-admin --group=cn.ypbin.demo --out=/tmp/demo-admin
  *
  * 生成后进入目录执行 `mvn -o test` 即可验证骨架可用。
+ *
+ * 写入生成项目的 starter 版本取「最新已发布版本」（CHANGELOG 第一条 `## [X.Y.Z] - 日期`），
+ * 与根 pom 的 `revision`（开发期是下一迭代快照）解耦，保证生成项目依赖的是已发布坐标。
  */
 import { readdir, readFile, writeFile, mkdir, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -85,14 +88,29 @@ function classNameOf(artifactId) {
     .join('')
 }
 
-/** 读取 starter 当前版本：优先取根 pom 的 revision，保证生成的项目与本地仓库一致 */
+/**
+ * 取写入生成项目的 starter 版本：优先「最新已发布版本」——从 CHANGELOG 第一条
+ * `## [X.Y.Z] - 日期` 读取（该标题出现即代表版本已发布）。
+ *
+ * 为什么不直接用根 pom 的 `revision`：按 RELEASING.md 第 6 步，发布后 `revision` 会立刻推进到
+ * **下一迭代快照**（如 `3.1.0-SNAPSHOT`）。把它写进生成项目，宿主就依赖了一个尚未发布的坐标，
+ * 在别人的机器上无法解析。仅在 CHANGELOG 解析不到时才回退到 `revision` 并告警。
+ *
+ * @returns {Promise<{version: string, source: string}>} 版本号与来源说明
+ */
 async function starterVersion() {
+  const changelog = await readFile(join(root, 'CHANGELOG.md'), 'utf8')
+  const released = /^##\s*\[(\d+\.\d+\.\d+)\][ \t]*-[ \t]*\d{4}-\d{2}-\d{2}/m.exec(changelog)
+  if (released) {
+    return { version: released[1], source: 'CHANGELOG 最新已发布版本' }
+  }
   const pom = await readFile(join(root, 'pom.xml'), 'utf8')
   const match = /<revision>([^<]+)<\/revision>/.exec(pom)
   if (!match) {
-    throw new Error('未能从根 pom 解析 <revision>，无法确定 starter 版本')
+    throw new Error('未能从 CHANGELOG.md 解析最新已发布版本，也无法从根 pom 解析 <revision>')
   }
-  return match[1]
+  console.warn(`⚠ 未能从 CHANGELOG.md 解析最新已发布版本，回退使用 revision=${match[1]}（可能是未发布坐标）`)
+  return { version: match[1], source: '根 pom revision（回退）' }
 }
 
 /** 读取 starter 基线使用的 Spring Boot 版本，保证生成项目与 starter 平台版本一致 */
@@ -183,7 +201,7 @@ async function main() {
   const appName = options.name ?? artifactId
   const port = options.port ?? preset.port
   const outDir = resolve(options.out ?? `./${artifactId}`)
-  const version = await starterVersion()
+  const { version, source: versionSource } = await starterVersion()
   const bootVersion = await springBootVersion()
 
   const values = {
@@ -228,7 +246,7 @@ async function main() {
 
   console.log(`✓ 已生成 ${presetName} 预设项目：${outDir}`)
   console.log(`  groupId=${groupId}  artifactId=${artifactId}  package=${packageName}`)
-  console.log(`  starter=${version}  文件数=${written}`)
+  console.log(`  starter=${version}（${versionSource}）  文件数=${written}`)
   console.log('\n下一步：')
   console.log(`  cd ${relative(process.cwd(), outDir) || '.'}`)
   console.log('  mvn -o test          # 单元测试（离线可用）')
