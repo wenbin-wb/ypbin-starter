@@ -43,7 +43,7 @@ jobs:
             for pom in ./*/pom.xml; do
               dir="$(dirname "$pom")"
               [ -d "$dir/src/main/java" ] || continue
-              grep -q '<nullaway.packages>' "$pom" && printf '%s\n' "${dir#./}"
+              if grep -q '<nullaway.packages>' "$pom"; then printf '%s\n' "${dir#./}"; fi
             done | paste -sd, -
           )"
           if [ -z "$MODULES" ]; then
@@ -63,6 +63,11 @@ jobs:
             exit 1
           fi
           printf '%s\n' "$OUT" | grep -E "Compiling .* source file|BUILD SUCCESS" | tail -8
+
+      # 依赖版本收敛：同一构件在依赖树里出现多个版本即失败。Maven 对「同深度不同版本」按声明顺序择一，
+      # 结果不确定也无声；本仓库借此发现过 commons-io 与 victools jsonschema 两处真实分叉。
+      - name: 依赖版本收敛检查
+        run: mvn -B -Pdep-convergence validate --fail-at-end
 
       - name: 校验配置元数据未漂移
         run: node tools/export-config-metadata.mjs --check

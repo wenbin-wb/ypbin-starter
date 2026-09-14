@@ -43,8 +43,8 @@
 
 - **发布前置门禁脚本 `tools/preflight.sh`**：`-Prelease` 会让承载非发布模块的 `dev-only` profile 失效，
   架构约束测试因此不进入发布反应堆（这是为了让未签名产物不混进 Central 上传包），副作用是
-  **发布构建本身不再跑铁律门禁**。新增脚本一次跑全四道门禁（全量构建含 35 项架构测试、
-  NullAway 空值语义、集成测试、配置元数据漂移），`RELEASING.md` 第 3 步已改为调用它。
+  **发布构建本身不再跑铁律门禁**。新增脚本一次跑全**五道**门禁（全量构建含 35 项架构测试、
+  NullAway 空值语义、依赖版本收敛、集成测试、配置元数据漂移），且 Docker 不可用时**显式失败**而非静默跳过 IT，`RELEASING.md` 第 3 步已改为调用它。
 - **测试基座新增 Nacos 容器支持**（`ypbin-starter-test`）：`ContainerSupport.nacosServerAddress()`
   统一「外部地址优先 → 容器回退 → 条件跳过」，新增 `@EnabledIfNacosAvailable`。
   容器模式细节全部收敛进基座：与部署对齐的镜像版本、**8848/9848 必须绑定到相隔 1000 的连续宿主端口**
@@ -74,6 +74,17 @@
 
 ### 修复
 
+- **依赖版本收敛缺陷（2 处真实分叉，由新增的 enforcer `dependencyConvergence` 门禁发现）**：
+  Maven 对「同深度、不同版本」的传递依赖按**声明顺序**择一，既不确定也无提示，宿主可能拿到与库
+  构建时不同的版本。实测发现并修复：
+  - `commons-io`：POI 5.5.1 / poi-ooxml 5.5.1 要 **2.21.0**，而 commons-csv 1.14.1 与
+    commons-compress 1.28.0 要 **2.20.0** → 统一钉到 2.21.0（POI 构建时所用版本）；
+  - victools `jsonschema-generator`/`-module-jackson`/`-module-swagger-2`：Spring AI 2.0
+    （spring-ai-model）要 **5.0.0**，而 spring-ai-openai → openai-java-core 4.39.1 要 **4.38.0**
+    → 统一钉到 5.0.0（Spring AI 自身期望的版本）。
+  两处均钉在 `ypbin-starter-dependencies` 的 `dependencyManagement`，并新增可执行门禁
+  `mvn -Pdep-convergence validate`（CI 与 `tools/preflight.sh` 均已接入）。
+  变异验证：撤掉任一钉版本 → 门禁立即红并打印冲突路径；还原 → 全 40 模块通过。
 - **CI 的 NullAway 门禁此前是「假绿」（空转）**：Error Prone 只在 javac 真正执行时生效，而 CI 在该步骤
   之前已把全部类编译好（`clean test` → `install -DskipTests`），于是 `compile` 直接输出
   「Nothing to compile - all classes are up to date」并成功返回——检查一次都没跑。已改为 `clean compile`

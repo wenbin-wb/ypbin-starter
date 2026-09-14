@@ -17,14 +17,14 @@ cd "$(dirname "$0")/.."
 step() { echo; echo "==> $*"; }
 fail() { echo "✖ $*"; exit 1; }
 
-step "1/4 全量构建（编译 + spotless + 单测 + 架构约束测试）"
+step "1/5 全量构建（编译 + spotless + 单测 + 架构约束测试）"
 mvn -B clean install || fail "全量构建失败"
 
-step "2/4 空值语义静态检查（NullAway；参与模块由 pom 里的 nullaway.packages 决定）"
+step "2/5 空值语义静态检查（NullAway；参与模块由 pom 里的 nullaway.packages 决定）"
 MODULES="$(for pom in ./*/pom.xml; do
     dir="$(dirname "$pom")"
     [ -d "$dir/src/main/java" ] || continue
-    grep -q '<nullaway.packages>' "$pom" && printf '%s\n' "${dir#./}"
+    if grep -q '<nullaway.packages>' "$pom"; then printf '%s\n' "${dir#./}"; fi
   done | paste -sd, -)"
 if [ -z "$MODULES" ]; then
   echo "没有模块声明 nullaway.packages，跳过"
@@ -42,17 +42,23 @@ else
   fi
 fi
 
-step "3/4 集成测试（外部实例优先 / Testcontainers 回退；无 Docker 时优雅跳过）"
+step "3/5 依赖版本收敛（同一构件多版本即失败）"
+mvn -B -Pdep-convergence validate --fail-at-end || fail "依赖版本收敛检查未通过（把版本钉到 dependencyManagement）"
+
+step "4/5 集成测试（外部实例优先 / Testcontainers 回退）"
 if docker info >/dev/null 2>&1; then
   mvn -B -Pit verify -DskipTests=false || fail "集成测试失败"
+elif [ "${SKIP_IT:-0}" = "1" ]; then
+  echo "⚠ SKIP_IT=1：显式跳过集成测试（发布前请确认这不是自欺）"
 else
-  echo "⚠ 本机 Docker 不可用，集成测试将按条件跳过（CI 上会真实执行）"
-  mvn -B -Pit verify -DskipTests=false || fail "集成测试失败"
+  # 不静默跳过：Docker 不可用时所有 IT 会被 @EnabledIf 条件跳过，门禁就变成空转
+  fail "本机 Docker 不可用，集成测试会被条件跳过；请修复 Docker，或显式 SKIP_IT=1 确认放弃该门禁"
 fi
 
-step "4/4 配置元数据未漂移"
+step "5/5 配置元数据未漂移"
 node tools/export-config-metadata.mjs --check || fail "配置元数据漂移，请运行 node tools/export-config-metadata.mjs 后提交"
 
 echo
-echo "✓ 发布前置门禁全部通过。下一步：确认根 pom 的 <revision> 已是正式版本号（去掉 -SNAPSHOT），"
+echo "✓ 发布前置门禁全部通过（全量构建 / NullAway / 依赖收敛 / 集成测试 / 配置元数据）。下一步："
+echo "  确认根 pom 的 <revision> 已是正式版本号（去掉 -SNAPSHOT），"
 echo "  然后执行 mvn clean deploy -Prelease"

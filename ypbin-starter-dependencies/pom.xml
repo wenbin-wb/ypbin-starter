@@ -121,6 +121,39 @@
                 <version>${fesod.version}</version>
             </dependency>
 
+            <!--
+              commons-io 版本收敛：fesod-sheet 的传递依赖对它是分裂的
+              （commons-csv 1.14.1 / commons-compress 1.28.0 → 2.20.0，而 poi 5.5.1 / poi-ooxml 5.5.1 → 2.21.0），
+              不收敛时最终取谁取决于声明顺序——对宿主就是一个隐式的版本赌博，且 POI 是按 2.21.0 构建的。
+              统一钉到 2.21.0（较新者），并由 enforcer 的 dependencyConvergence 规则长期守住。
+            -->
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.21.0</version>
+            </dependency>
+
+            <!--
+              victools jsonschema 版本收敛：Spring AI 2.0（spring-ai-model）按 5.0.0 构建，
+              而 spring-ai-openai → openai-java-core 4.39.1 的传递依赖仍是 4.38.0；
+              两者深度相同，最终取谁取决于声明顺序（不确定）。统一钉到 5.0.0——即 Spring AI 自身期望的版本。
+            -->
+            <dependency>
+                <groupId>com.github.victools</groupId>
+                <artifactId>jsonschema-generator</artifactId>
+                <version>5.0.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.victools</groupId>
+                <artifactId>jsonschema-module-jackson</artifactId>
+                <version>5.0.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.victools</groupId>
+                <artifactId>jsonschema-module-swagger-2</artifactId>
+                <version>5.0.0</version>
+            </dependency>
+
             <!-- 行为验证码（滑块/旋转/点选/拼图 + 轨迹校验） -->
             <dependency>
                 <groupId>cloud.tianai.captcha</groupId>
@@ -677,6 +710,43 @@
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+          依赖版本收敛检查（按需开启）：同一构件在依赖树里出现多个版本时构建失败。
+
+          为什么需要：Maven 对「同深度、不同版本」的传递依赖按**声明顺序**择一，结果既不确定也无声——
+          宿主可能拿到与库构建时不同的版本。本仓库已借此发现两处真实分叉：
+          commons-io（POI 5.5.1 要 2.21.0，commons-csv/commons-compress 要 2.20.0）
+          与 victools jsonschema（Spring AI 2.0 要 5.0.0，openai-java-core 要 4.38.0）。
+
+          用法：mvn -Pdep-convergence validate 加 -fae（失败也要跑完全部模块）
+          （CI 与 tools/preflight.sh 均已接入；版本统一钉在 ypbin-starter-dependencies 的 dependencyManagement）
+        -->
+        <profile>
+            <id>dep-convergence</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>enforce-dependency-convergence</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <dependencyConvergence/>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
