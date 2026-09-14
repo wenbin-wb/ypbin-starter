@@ -571,7 +571,9 @@ class SourceConventionTest {
         }
         assertThat(violations)
             .as("返回集合的方法（含 Optional<集合>、raw 集合类型）查到空数据时一律返回 List.of()/Map.of()/Set.of()；"
-                + "若语义是「无结果/解析失败」而非「空集合」，请用 Optional 包裹集合本体（Optional<List<X>> 而非 Optional.empty() 之外的空值）")
+                + "若语义是「无结果/解析失败」而非「空集合」，请用 Optional 包裹集合本体。"
+                + "已知边界：方法体内嵌套类型（匿名类/局部类）里的 return null 也会被计入外层方法——"
+                + "源码扫描不区分嵌套类型归属，如遇误报请把该嵌套实现提取为独立类/方法")
             .isEmpty();
     }
 

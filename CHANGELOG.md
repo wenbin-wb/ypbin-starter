@@ -15,92 +15,92 @@
   **返回 `null`**（调用方需自查），`getBean(...)`/`getEnvironment()` 则直接抛无信息的 `NullPointerException`；
   现统一改为 `requireApplicationContext()` 断言——仍然失败（不放行、不返回 null），但抛
   `IllegalStateException` 并说明原因与替代做法（改用构造器注入）。
-  **迁移**：若此前依赖 `getEventPublisher() == null` 做判空，请改为在容器就绪后调用，或直接注入
-  `ApplicationEventPublisher`。
-- **`R` 的可空契约显式化**（core）：`R#getData()`/`R#getMessage()` 标注 `@Nullable`（`R.ok()` 等工厂本就传 `null`，
-  字段默认构造也允许为空）。对启用 JSpecify 静态检查的宿主是编译期契约变化，运行期无影响。
-- **`TreeUtils` 参数容忍 `null` 的语义显式化**（core）：`build`/`buildAndFilter`/`flatten`/`findNode` 的列表参数
-  与 `RequestIdUtils#sanitize` 的候选值标注 `@Nullable`（实现本就按空/null 处理），使注解与实现一致。
+  - **迁移**：若此前依赖 `getEventPublisher() == null` 判空，请改为在容器就绪后调用，或直接注入
+    `ApplicationEventPublisher`。
+- **`R` 的可空契约显式化**（core）：`R#getData()`/`R#getMessage()` 标注 `@Nullable`（`R.ok()` 等工厂本就传
+  `null`，无参构造也允许为空）。对启用 JSpecify 静态检查的宿主是编译期契约变化，运行期无影响。
+- **`TreeUtils`/`RequestIdUtils` 参数容忍 `null` 的语义显式化**（core）：`build`/`buildAndFilter`/`flatten`/`findNode`
+  的列表参数与 `RequestIdUtils#sanitize` 的候选值标注 `@Nullable`（实现本就按空/null 处理），使注解与实现一致。
 
-### 修复
+### 新增
+
 - **性能基线模块 `ypbin-starter-benchmarks`**（不发布）：JMH 微基准覆盖三类热路径——树组装
   （`TreeUtils.build`）、链路 ID 校验与生成（`RequestIdUtils`）、缓存值序列化
   （`RedisJsonSerializerFactory` 写路径含不可变集合规范化、读路径多态还原）。
-  刻意**不做 CI 挂钟门禁**（共享 runner 必然抖动、只会带来假失败）：基准只量化，
-  可精确断言的复杂度/正确性由单元测试兜底。
-  树组装基准同时测「父在前」与「父在后」两种形态——**只测一种形态会掩盖退化**（见下方修复条目）。
-  配套：分层规则把 `cn.ypbin.starter.benchmarks..` 列入「可横跨各层」的开发工具；
-  根 pom 的非发布模块 profile 由 `arch-tests` 更名为 `dev-only` 并纳入本模块，
-  使 `-Prelease` 同时排除它与架构测试模块（避免重演 3.0.0 首次发布因混入未签名模块而失败）。
-
-### 变更
-- **测试基座新增 Nacos 容器支持**（`ypbin-starter-test`）：`ContainerSupport.nacosServerAddress()`
-  统一「外部地址优先 → 容器回退 → 条件跳过」，新增 `@EnabledIfNacosAvailable`。
-  Nacos 容器模式的全部细节收敛进基座：与部署对齐的镜像版本、**8848/9848 必须绑定到相隔 1000 的
-  连续宿主端口**（客户端固定按「服务端口 + 1000」连 gRPC，随机端口会导致
-  `Client not connected, current status:STARTING`）、Nacos 3 镜像强制的鉴权三件套、
-  以及用「监听端口」而非已移除的 v2 健康路径做就绪探测。
-- **跨服务 Feign 调用在 CI 真正被覆盖**（cloud-core）：`FeignCrossServiceIT` 由「必须显式提供
-  `-Dypbin.it.nacos-addr` 否则跳过」改为容器化（`@EnabledIfNacosAvailable` +
-  `@DynamicPropertySource`），本机与 CI 均真跑：注册 → 发现 → 负载均衡 → Feign 调通、
-  请求头透传、下游 `R` 错误解码为 `FeignRemoteException`；顺带清理其内联全限定名。
-- **NacosDiscoveryIT 去重**（cloud-nacos）：删除内联的容器/端口/鉴权逻辑，改用共享基座。
-
-### 新增
+  刻意**不做 CI 挂钟门禁**（共享 runner 必然抖动、只会带来假失败）：基准只量化，可精确断言的复杂度与
+  正确性由单元测试兜底。树组装基准同时测「父在前」「父在后」两种形态——**只测一种形态会掩盖退化**。
+  配套：分层规则把 `cn.ypbin.starter.benchmarks..` 列入「可横跨各层」的开发工具。
 - **空值语义静态检查（NullAway，试点 core 模块）**：新增可选 `nullaway` profile，
   `mvn -Pnullaway -pl ypbin-starter-core compile` 把「未标注即非空」（`@NullMarked`）变成编译期错误；
   `ypbin-starter-core` 根包加 `package-info.java` 标注 `@NullMarked`，CI 增加对应门禁步骤。
-  试点上线即报出 15 处「代码确实可空但未标注」，其中 **4 处为真实潜在 NPE**；
+  试点上线即报出 15 处「代码确实可空但未标注」，其中 **4 处为真实潜在 NPE**。
   逐模块推广步骤与工具链坑（必须 `fork`、必须 `--should-stop=ifError=FLOW`、`-Xplugin` 需单行、
-  `annotationProcessorPaths` 是覆盖而非追加、本工具链下 `JSpecifyMode` 不可用）见站点
-  「项目脚手架 → 空值语义」。
-  说明：**只加注解不加校验是危险的**——注解一旦与实际可空性不符就是「注解说谎」，
-  比不标注更容易误导 IDE 与静态分析，故注解与检查器必须同时落地。
-
-### 修复
-- **上下文未就绪时的无信息 NPE**（core，由 NullAway 发现）：`SpringUtils` 的 `getBean(Class)`、
-  `getBean(String, Class)`、`getEventPublisher()`、`getEnvironment()` 原先直接解引用尚未赋值的
-  `applicationContext`，未就绪时抛无信息的 `NullPointerException`；改为统一的
-  `requireApplicationContext()` 断言——仍然快速失败（不放行、不返回 null），但错误信息直接说明
-  原因与替代做法（改用构造器注入）。
-- **空值契约显式化**（core）：`SpringUtils#getApplicationContext`/`getProperty`、
-  `TreeUtils#findNode`（未找到为 null）、`RequestIdUtils#sanitize`（不合法为 null）、
-  `R#message`/`R#data`（允许为空）等原本只在 Javadoc 里写明的可空语义，补上 `@Nullable` 变成
-  机器可校验的契约；`TreeUtils` 内部递归辅助方法的 `rootParentId` 参数同步标注。
-
-## [3.0.0] - 2026-09-13
-- **发布包混入非发布模块**（构建配置）：`ypbin-starter-architecture-tests` 仅设了 `maven.deploy.skip=true`，
-  但 Central 发布插件以 `extensions=true` 接管 deploy 生命周期、不读取该属性，导致它的空 jar 被一并打进
-  上传包；而该模块 `gpg.skip=true`（无 `.asc` 签名）且没有 sources/javadoc，会让整个 deployment 校验失败。
-  已在 release profile 用插件的 `excludeArtifacts` 显式排除。
-- **CRUD 反射辅助跨包访问失效**（extension-crud）：`CrudController` 的泛型解析/实例化/主键写入等私有方法
-  下沉到 `crud.support.CrudReflectSupport` 后，与原实现同包时可访问的**包级私有** DTO/实体变为
-  `IllegalAccessException`；已在 `instantiate` 与 `writeId` 中对不可访问的构造器/setter 调用
-  `setAccessible(true)`，行为既恢复兼容又比原来更宽（宿主把模型声明为包级私有同样可用）。
+  `annotationProcessorPaths` 是覆盖而非追加、本工具链下 `JSpecifyMode` 不可用）见站点「项目脚手架 → 空值语义」。
+  说明：**只加注解不加校验是危险的**——注解一旦与实际可空性不符就是「注解说谎」，比不标注更容易误导
+  IDE 与静态分析，故注解与检查器必须同时落地。
 
 ### 变更
-- **Controller 极薄落地**（extension-crud）：`CrudController` 的 4 个私有反射方法（泛型解析、实例化、
-  主键写入、setter 解析）下沉至新增的 `CrudReflectSupport`，主类 364 → 289 行，不再含私有方法。
-- **架构门禁新增 5 条规则**（`ypbin-starter-architecture-tests`，20 → 28 项断言）：
-  - `@Transactional` 只能标注在 public 方法/类上（Spring AOP 只代理 public，非 public 会静默失效）；
-  - 每个 `@ConfigurationProperties` 前缀必须有配置元数据（缺 `spring-boot-configuration-processor`
-    会让接入方失去 IDE 提示与配置校验）；
-  - 禁裸 `java.util.Date`（时间字段统一 `LocalDateTime`）；
-  - Controller 单文件 ≤400 行且不得含私有方法；
-  - 实体 `equals/hashCode` 必须且仅基于主键 id（禁未限定 `onlyExplicitlyIncluded` 的
-    `@EqualsAndHashCode`、禁手写实现）；
-  - 集合返回类型的方法不得返回 `null`（查无数据须返回空集合；语义是「无结果」时改用 `Optional`）。
-  源码级规则均附带「正则应命中/不命中」的有效性自检。
 
-### 变更
+- **测试基座新增 Nacos 容器支持**（`ypbin-starter-test`）：`ContainerSupport.nacosServerAddress()`
+  统一「外部地址优先 → 容器回退 → 条件跳过」，新增 `@EnabledIfNacosAvailable`。
+  容器模式细节全部收敛进基座：与部署对齐的镜像版本、**8848/9848 必须绑定到相隔 1000 的连续宿主端口**
+  （客户端固定按「服务端口 + 1000」连 gRPC，随机端口会导致 `Client not connected, current status:STARTING`）、
+  Nacos 3 镜像强制的鉴权三件套、以及用「监听端口」而非 Nacos 3 已移除的 v2 健康路径做就绪探测。
+- **跨服务 Feign 调用在 CI 真正被覆盖**（cloud-core）：`FeignCrossServiceIT` 由「必须显式提供
+  `-Dypbin.it.nacos-addr` 否则跳过」改为容器化（`@EnabledIfNacosAvailable` + `@DynamicPropertySource`），
+  本机与 CI 均真跑；顺带清理其内联全限定名。
+- **NacosDiscoveryIT 去重**（cloud-nacos）：删除内联的容器/端口/鉴权逻辑，改用共享基座。
+- **Controller 极薄落地**（extension-crud）：`CrudController` 的 4 个私有反射方法下沉至新增的
+  `crud.support.CrudReflectSupport`，主类 364 → 289 行且不再含私有方法。
+- **架构门禁 20 → 35 项**（`ypbin-starter-architecture-tests`）：
+  - 新增 5 条：`@Transactional` 只能标注在 public 成员；每个 `@ConfigurationProperties` 前缀必须有配置元数据；
+    禁裸 `java.util.Date`；Controller 单文件 ≤400 行且不得含私有方法；实体 `equals/hashCode` 必须且仅基于主键 id；
+    集合返回类型的方法不得返回 `null`；
+  - 新增 3 项一致性/健壮性门禁：模块发布清单一致性（见修复）、源码剥离后大括号必须平衡、文本块剥离正确性。
 - **集合返回 null 消除**（cloud-gateway）：`NacosRouteInitializer#parseRoutes` 原以 `null` 表达
   「配置解析失败 → 保留现有路由」，与「集合不得返回 null」冲突；改用 `Optional<List<RouteDefinition>>`
   表达同一语义（调用方仍为「空即保留现有路由」，防止误清全量路由的安全性语义不变）。
-- **发布反应堆排除纯测试模块**：`ypbin-starter-architecture-tests` 改由 `activeByDefault` profile 提供，
-  `-Prelease` 激活 release profile 后该 profile 失效，模块不再进入发布反应堆；
-  同时把 release profile 的 `excludeArtifacts` 修正为**只用 artifactId**（插件实现是
-  `excludeArtifacts.contains(artifact.getArtifactId())`，写成 `groupId:artifactId` 不会匹配）。
-  `-Psbom` 显式带回该模块，保证只有 release 会排除它。
+
+### 修复
+
+- **`TreeUtils.build` 实际是 O(n²)**（core，由独立代码审查发现——此前用基准得出的「线性」结论是错的）：
+  根判定 `nodes.stream().noneMatch(...)` 在逐节点循环里线性扫描父节点，最坏形态（父节点排在列表末尾）
+  `getId()` 调用量达 ≈1.0·n²（n=4000 时约 1600 万次，已用调用计数独立复现）。改为预建 ID 集合一次，
+  实测降到约 2n（n=16000 亦 <6n），Javadoc 的 O(n) 声明这才成立。
+  **教训**：当时基准用 `rootId * 1_000_000 + child` 造节点 ID，子 ID 与根 ID 撞号导致扫描提前命中，
+  把最坏形态掩盖成了线性——**用来自证复杂度的手段本身也会骗人**。现基准覆盖两种形态，并新增
+  **确定性调用计数守卫**（`TreeUtilsTest#buildShouldBeLinearInNodeCount`，按调用次数而非挂钟断言）。
+- **架构门禁自身的边界缺陷**（architecture-tests，同样由审查发现）：
+  - 源码剥离器不支持文本块：内容含奇数个引号会把**文本块之后的代码整段吞掉**，使所有消费剥离文本的规则
+    静默失明（现正确跳过文本块，并新增「剥离后大括号必须平衡」断言把静默失明变成显式失败）；
+  - 「集合返回 null」规则：漏判「注解与签名同行」「参数含注解数组 `@Foo({1,2})`」「raw 集合类型」
+    （均已修，`Optional<集合>` 的口径也已写进文案）；**已知边界**：方法体内嵌套类型（匿名类/局部类）里的
+    `return null` 仍会被计入外层方法——源码扫描不区分嵌套类型归属，已在规则文案中显式声明；
+  - Controller 私有方法规则同样漏判「注解与签名同行」（已修）；
+  - 实体等值规则把合法的 `@EqualsAndHashCode(of = "id")` 误判为违规（已放行）；
+  - 禁裸 `Date` 规则被 `import java.util.*;` 绕过（已覆盖通配导入下的裸 `Date` 记号）；
+  - 以上边界均已加入规则有效性自检样例。
+- **非发布模块缺一致性门禁**（architecture-tests 新增 `ModulePublishingTest`）：此前只靠约定「非发布模块放进
+  `dev-only` profile」，新增模块若写进顶层 `<modules>` 仍会静默混进 Central 上传包。现由测试强制：
+  凡 `pom` 声明 `maven.deploy.skip`/`gpg.skip` 的模块，不得出现在顶层 `<modules>`，且必须由 `dev-only`
+  profile 承载（已用变异验证：把模块挪回顶层即构建失败）。
+- **发布包混入非发布模块**（构建配置）：`ypbin-starter-architecture-tests` 仅设 `maven.deploy.skip=true`，
+  但 Central 发布插件以 `extensions=true` 接管 deploy 生命周期、不读取该属性，导致其空 jar 被一并打进上传包；
+  而该模块 `gpg.skip=true`（无 `.asc` 签名）且无 sources/javadoc，会让整个 deployment 校验失败。
+  修复：release profile 的 `excludeArtifacts` 修正为**只用 artifactId**（插件实现是
+  `excludeArtifacts.contains(artifact.getArtifactId())`），并把非发布模块统一改由根 pom 的
+  `activeByDefault` profile（`dev-only`）承载——`-Prelease` 会使其失效，模块不进入发布反应堆
+  （`-Psbom` 显式带回以保证 SBOM 完整；注意 `-Prelease`/`-Prelease,it` 因此不会执行架构门禁，
+  发布前的铁律检查由 CI 与 tag 流程保证）。
+- **CRUD 反射辅助跨包访问失效**（extension-crud）：4 个私有反射方法下沉到 `crud.support.CrudReflectSupport` 后，
+  与原实现同包时可访问的**包级私有** DTO/实体变为 `IllegalAccessException`；已在 `instantiate` 与 `writeId`
+  中对不可访问的构造器/setter 调用 `setAccessible(true)`，行为既恢复兼容又比原来更宽。
+- **上下文未就绪时的无信息 NPE**（core，由 NullAway 发现）：`SpringUtils` 的 `getBean(Class)`、
+  `getBean(String, Class)`、`getEventPublisher()`、`getEnvironment()` 原先直接解引用尚未赋值的
+  `applicationContext`；改为统一的 `requireApplicationContext()` 断言（见上方破坏性变更）。
+- **空值契约显式化**（core）：`SpringUtils#getApplicationContext`/`getProperty`、`TreeUtils#findNode`
+  （未找到为 null）、`RequestIdUtils#sanitize`（不合法为 null）、`R#message`/`R#data`（允许为空）等
+  原本只在 Javadoc 写明的可空语义，补上 `@Nullable` 变成机器可校验的契约。
 
 ## [3.0.0] - 2026-09-13
 
@@ -131,6 +131,7 @@
   - **`RestClient.Builder.messageConverters(Consumer<List>)`** 改为 `configureMessageConverters(Consumer<ClientBuilder>)`。注意**不能**顺手换成 `withJsonConverter()`：它用 `MediaType#equalsTypeAndSubtype` 校验，宽容媒体类型（`*/*`）会被直接判为非法参数，故仍需走列表配置。
   - **测试基座**：`LettuceConnectionFactory#setPassword(String)`（Spring Data Redis 4.1 废弃）改为经 `RedisStandaloneConfiguration` + `RedisPassword` 注入；JSON 相关测试统一改用 Jackson 3 的 `JacksonJsonHttpMessageConverter`；MD5 旧算法的兼容性覆盖用例显式 `@SuppressWarnings("deprecation")` 并注明意图。
   - **消费方示范**（admin）：MyBatis-Plus 3.5.17 起 `BaseMapper.selectBatchIds` 废弃（退化为委托 `selectByIds` 的 default 方法），3 处调用统一改为 `selectByIds`。
+- **集成测试统一按容器模式验证**（全仓）：`mvn -Pit verify` 现可在一台有 Docker 的机器上真跑全部 IT（Redis/Nacos 容器 + Sentinel 真启动 Web），无需外部中间件；`FeignCrossServiceIT` 仍要求显式提供 `-Dypbin.it.nacos-addr`，未提供则跳过。
 
 ### 安全
 - **身份头透传来源校验**（cloud-core）：新增 `ypbin.cloud.feign.trusted-source-token`（默认空=不校验，启动告警）与 `identity-headers`；启用后不可信来源的身份头不再二次透传，防止直连服务伪造身份后经 Feign 放大越权。
@@ -166,9 +167,6 @@
   - `cloud-nacos`、`cloud-sentinel` 残留模块级 `it` profile，把 `*IT.java` 交给 **surefire** 执行（还顺带重跑 `*Test.java`），绕过了根 pom 统一的「surefire 排除 IT / `-Pit` 交 failsafe」门禁。已删除模块级 profile 与重复的 compiler/surefire 覆盖，所需测试依赖改为常驻 `test` 作用域。
   - `NacosDiscoveryIT` 容器模式必然失败：镜像硬编码 `nacos-server:v2.4.3` 与客户端 3.1.1 大版本不符，就绪探测路径在 Nacos 3 已不存在，且 Nacos 客户端固定按「服务端口 + 1000」连 gRPC，而 Testcontainers 默认把 8848/9848 映射成互不相干的随机端口（表现为 `Client not connected, current status:STARTING`）。改为取 `ContainerSupport.NACOS_IMAGE`（与部署同为 v3.2.4）、按 `forListeningPorts` 等待、把 8848/9848 绑定到一对相隔 1000 的连续空闲宿主端口，并补齐 Nacos 3 镜像强制的鉴权三件套（`NACOS_AUTH_TOKEN`/`NACOS_AUTH_IDENTITY_KEY`/`VALUE`，随机生成、`NACOS_AUTH_ENABLE=false` 故无需口令）。
   - `SentinelFlowIT` 无法编译：`TestRestTemplate` 已随 Spring Boot 4 移除。改用 `@LocalServerPort` + `RestClient`，并关闭默认状态码错误映射，使被限流返回 200 或 429 都能取到响应体断言；同时修掉 `@org.springframework.context.annotation.Bean` 内联全限定名。
-
-### 变更
-- **集成测试统一按容器模式验证**（全仓）：`mvn -Pit verify` 现可在一台有 Docker 的机器上真跑全部 IT（Redis/Nacos 容器 + Sentinel 真启动 Web），无需外部中间件；`FeignCrossServiceIT` 仍要求显式提供 `-Dypbin.it.nacos-addr`，未提供则跳过。
 
 ## [2.2.3] - 2026-09-09
 
