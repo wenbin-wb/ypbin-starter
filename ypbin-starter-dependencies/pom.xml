@@ -669,7 +669,10 @@
           - annotationProcessorPaths 是覆盖而非追加：这里显式带上 spring-boot-configuration-processor，
             否则参与模块的配置元数据不再生成、元数据漂移门禁会失败；
           - 本工具链组合（NullAway 0.14.1 + error_prone_core 2.50.0 + JDK 21 fork javac）下不要用
-            JSpecifyMode=true：实测会让 javac 无任何诊断地失败；用 AnnotatedPackages 声明同一范围即可。
+            JSpecifyMode=true：实测会让 javac 无任何诊断地失败；用 AnnotatedPackages 声明同一范围即可；
+          - 作用范围是**主源码**（`mvn compile`，即 src/main/java）：门禁与 CI 都只跑这一步。
+            测试源码不在范围内——`mvn -Pnullaway test-compile` 会报出既有告警（如 core 的
+            TreeUtilsTest/RequestIdUtilsTest），属**已知范围外**，需要时可单独治理，不要误判为门禁退化。
         -->
         <profile>
             <id>nullaway</id>

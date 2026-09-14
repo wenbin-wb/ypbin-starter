@@ -61,6 +61,21 @@
                             <artifactId>jmh-generator-annprocess</artifactId>
                             <version>${jmh.version}</version>
                         </path>
+                        <!-- 本模块自带的 annotationProcessorPaths 会**覆盖** nullaway profile 的那份，
+                             于是 profile 注入的 -Xplugin:ErrorProne 找不到插件，在整反应堆
+                             `mvn -Pnullaway ... compile` 时报「plug-in not found: ErrorProne」。
+                             这里显式补上同一组处理器，保证该 profile 能在全反应堆使用
+                             （本模块不是空值检查参与方：未声明 nullaway.packages）。 -->
+                        <path>
+                            <groupId>com.google.errorprone</groupId>
+                            <artifactId>error_prone_core</artifactId>
+                            <version>${error-prone.version}</version>
+                        </path>
+                        <path>
+                            <groupId>com.uber.nullaway</groupId>
+                            <artifactId>nullaway</artifactId>
+                            <version>${nullaway.version}</version>
+                        </path>
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
