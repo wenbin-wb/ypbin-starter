@@ -19,9 +19,9 @@
 
     <properties>
         <!-- 平台版本 -->
-        <spring-boot.version>4.1.0</spring-boot.version>
+        <spring-boot.version>4.1.1</spring-boot.version>
         <!-- 微服务层：与 Boot 4.1.x 硬绑定，与 Spring Cloud 2025.1.x 对应 -->
-        <spring-cloud.version>2025.1.2</spring-cloud.version>
+        <spring-cloud.version>2025.1.3</spring-cloud.version>
         <spring-cloud-alibaba.version>2025.1.0.0</spring-cloud-alibaba.version>
 
         <!-- 三方库版本 -->
@@ -37,7 +37,7 @@
         <paho-mqtt.version>1.2.5</paho-mqtt.version>
         <sms4j.version>3.3.5</sms4j.version>
 
-        <spring-ai.version>2.0.0</spring-ai.version>
+        <spring-ai.version>2.0.1</spring-ai.version>
         <xxl-job.version>3.4.2</xxl-job.version>
         <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
