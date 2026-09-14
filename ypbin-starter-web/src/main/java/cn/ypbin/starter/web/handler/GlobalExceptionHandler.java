@@ -129,7 +129,7 @@ public class GlobalExceptionHandler {
      * {@code spring.mvc.throw-exception-if-no-handler-found=true} 生效（本模块已默认开启）。</p>
      */
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
-    public R<Void> handleNotFound(Exception e, HttpServletRequest request) {
+    public R<Void> handleNotFound(HttpServletRequest request) {
         log.warn("[接口不存在] {}", LogSanitizer.sanitize(request.getRequestURI()));
         return R.fail(GlobalErrorCode.NOT_FOUND.getCode(), "接口不存在");
     }

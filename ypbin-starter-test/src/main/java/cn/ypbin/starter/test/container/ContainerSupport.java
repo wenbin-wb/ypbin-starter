@@ -98,6 +98,9 @@ public final class ContainerSupport {
      * （表现为 {@code Client not connected, current status:STARTING}）。因此必须把两个端口绑定到
      * 一对相隔 {@link #NACOS_GRPC_PORT_OFFSET} 的连续空闲宿主端口。</p>
      */
+    /** 外部 Redis 默认端口 */
+    private static final String DEFAULT_REDIS_PORT = "6379";
+
     private static final int NACOS_BASE_PORT = 18848;
 
     /** 服务端口与 gRPC 端口的固定偏移 */
@@ -199,7 +202,13 @@ public final class ContainerSupport {
      */
     public static int redisPort() {
         if (externalRedisConfigured()) {
-            return Integer.parseInt(EXTERNAL.getOrDefault(ENV_REDIS_PORT, "6379"));
+            String configured = EXTERNAL.getOrDefault(ENV_REDIS_PORT, DEFAULT_REDIS_PORT);
+            try {
+                return Integer.parseInt(configured);
+            } catch (NumberFormatException e) {
+                // 不静默兜底：配置错就是配置错，给出可定位的错误信息
+                throw new IllegalStateException(ENV_REDIS_PORT + " 不是合法端口：" + configured, e);
+            }
         }
         return redisContainer().getMappedPort(6379);
     }

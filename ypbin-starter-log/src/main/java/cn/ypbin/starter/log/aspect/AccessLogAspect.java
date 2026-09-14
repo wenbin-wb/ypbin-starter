@@ -123,7 +123,7 @@ public class AccessLogAspect {
         } catch (Throwable t) {
             long cost = System.currentTimeMillis() - start;
             log.info("================  Response Start  ================");
-            log.info("===Result===  exception: {}", t.getMessage());
+            log.info("===Result===  exception: {}", LogSanitizer.sanitize(t.getMessage()));
             log.info("<=== {}: {} ({} ms)", method, uri, cost);
             log.info("================   Response End   ================");
             throw t;

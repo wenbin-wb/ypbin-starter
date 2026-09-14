@@ -22,6 +22,8 @@ import cn.ypbin.starter.security.client.LoginClient;
 import cn.ypbin.starter.security.client.LoginClientHolder;
 import cn.ypbin.starter.security.client.LoginClientRequest;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 登录辅助工具。
@@ -33,6 +35,8 @@ import java.util.Optional;
  * @since 2026-07-30
  */
 public final class LoginHelper {
+
+    private static final Logger log = LoggerFactory.getLogger(LoginHelper.class);
 
     private LoginHelper() {
     }
@@ -148,9 +152,10 @@ public final class LoginHelper {
                 return Optional.empty();
             }
             return Optional.of(Long.valueOf(loginId.toString()));
-        } catch (SaTokenException e) {
-            // 无 Sa-Token 上下文（异步线程、定时任务等）：视为无当前登录人，不抛异常。
+        } catch (SaTokenException | NumberFormatException e) {
+            // 无 Sa-Token 上下文（异步线程、定时任务等）或登录 ID 非数字：视为无当前登录人，不抛异常。
             // 关键场景：审计填充 AuditorProvider 走本方法，异步落库时须安全跳过而非崩溃。
+            log.debug("[ypbin-starter] 无法获取当前登录人，按无登录上下文处理：{}", e.getMessage());
             return Optional.empty();
         }
     }

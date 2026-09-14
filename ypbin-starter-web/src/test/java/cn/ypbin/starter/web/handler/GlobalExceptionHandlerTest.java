@@ -29,7 +29,6 @@ import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.context.support.StandardServletEnvironment;
-import org.springframework.web.servlet.NoHandlerFoundException;
 
 /**
  * 全局异常处理器与 Web 默认环境后置处理测试。
@@ -68,8 +67,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void notFoundShouldReturn404() {
-        R<Void> result = handler.handleNotFound(
-            new NoHandlerFoundException("GET", "/x", null), request);
+        // 签名刻意不含异常参数：404 场景的异常对象无诊断价值，省掉可避免「未使用参数」
+        R<Void> result = handler.handleNotFound(request);
         assertThat(result.getCode()).isEqualTo(GlobalErrorCode.NOT_FOUND.getCode());
     }
 
