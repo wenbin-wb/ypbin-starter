@@ -32,7 +32,7 @@
         <aws-sdk-v2.version>2.54.16</aws-sdk-v2.version>
         <fesod.version>2.0.2-incubating</fesod.version>
         <tianai-captcha.version>1.5.5</tianai-captcha.version>
-        <bouncycastle.version>1.85.2</bouncycastle.version>
+        <bouncycastle.version>1.86</bouncycastle.version>
         <justauth.version>1.16.7</justauth.version>
         <paho-mqtt.version>1.2.5</paho-mqtt.version>
         <sms4j.version>3.3.5</sms4j.version>
