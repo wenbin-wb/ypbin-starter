@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-13T11:42:29.508Z",
+  "generatedAt": "2026-09-14T01:10:09.738Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -11,12 +11,12 @@
     "本文件由 tools/export-config-metadata.mjs 生成，禁止手工编辑"
   ],
   "summary": {
-    "moduleCount": 38,
+    "moduleCount": 39,
     "modulesWithConfigCount": 30,
     "customPropertyCount": 317,
     "standardHostPropertyCount": 40,
     "totalEntryCount": 357,
-    "modulesWithoutMetadata": 9
+    "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
     "management.endpoint",
