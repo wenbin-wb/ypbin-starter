@@ -28,7 +28,7 @@
         <sa-token.version>1.46.0</sa-token.version>
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
         <hutool.version>5.8.47</hutool.version>
-        <springdoc.version>3.1.0</springdoc.version>
+        <springdoc.version>3.1.1</springdoc.version>
         <aws-sdk-v2.version>2.35.10</aws-sdk-v2.version>
         <fesod.version>2.0.2-incubating</fesod.version>
         <tianai-captcha.version>1.5.5</tianai-captcha.version>
