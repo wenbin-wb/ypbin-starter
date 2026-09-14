@@ -41,6 +41,27 @@
 
 ### 变更
 
+- **依赖与工具链升级（含两处大版本迁移）**：
+  - **Testcontainers 1.20.4 → 2.0.5**：2.0 是有 API 变更的大版本，迁移点为三处——
+    模块改名（`org.testcontainers:mysql` → `testcontainers-mysql`、
+    `junit-jupiter` → `testcontainers-junit-jupiter`）、包迁移
+    （`org.testcontainers.containers.MySQLContainer` → `org.testcontainers.mysql.MySQLContainer`）、
+    以及 `MySQLContainer` **不再是泛型**（`MySQLContainer<?> x = new MySQLContainer<>(...)` 需去掉类型参数）。
+    已在真机容器下跑通全部集成测试（MySQL/Redis/Nacos/Sentinel 均由 2.0 正常拉起）。
+  - **NullAway 0.11.3 → 0.14.1**：新版收紧两类检查，全仓仅多出 4 处并已修复——
+    ① **数组类型的 JSpecify 注解位置**（`@Nullable byte[]` 注解的是**元素类型**，数组本身可空须写
+    `byte @Nullable []`，方法返回同理 `String @Nullable []`）；② 可空实参传入非空形参
+    （`cancel(registry.remove(jobId))`，方法体本就判空，形参改为可空即可）。
+  - **ArchUnit 1.4.1 → 1.5.0**（测试期依赖，35 项架构约束测试全绿）。
+  - 其余：Bouncy Castle、commons-io 2.22.0、maven-shade、maven-enforcer、
+    `actions/setup-node` v7、`github/codeql-action` v4、`actions/setup-java` v5。
+  - ⚠️ **`error_prone_core` 暂不升级**：2.50.0 在本项目的编译参数下**插件初始化即抛异常**
+    （`ErrorProneJavacPlugin.init` → `BaseErrorProneJavaCompiler.checkAddTypeAnnotationsToSymbol`），
+    此时日志中的「0 违规」只是分析未运行的假象，需单独调研新版 Error Prone 的调用方式后再升级。
+- **Dependabot 分组补强**（防「同族依赖版本错配」）：新增 `analysis` 组（Error Prone + NullAway + JSpecify
+  必须同批升级，二者存在版本耦合）；前端仓库补齐运行时生态分组（`@tiptap/*`、Vue 运行时与编译器）——
+  此前这类包不在任何分组内会各开一个 PR，曾出现「只升 `@tiptap/starter-kit` 而 core 停留在旧版本，
+  导致类型增强失效」的问题。
 - **发布前置门禁脚本 `tools/preflight.sh`**：`-Prelease` 会让承载非发布模块的 `dev-only` profile 失效，
   架构约束测试因此不进入发布反应堆（这是为了让未签名产物不混进 Central 上传包），副作用是
   **发布构建本身不再跑铁律门禁**。新增脚本一次跑全**五道**门禁（全量构建含 35 项架构测试、
