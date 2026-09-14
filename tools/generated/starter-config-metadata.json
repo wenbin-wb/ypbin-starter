@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-14T01:10:09.738Z",
+  "generatedAt": "2026-09-14T05:54:54.006Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -590,7 +590,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-crypto/src/main/java/cn/ypbin/starter/apicrypto/autoconfigure/ApiCryptoProperties.java",
-              "line": 35
+              "line": 37
             }
           ],
           "default": null,
@@ -602,7 +602,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-crypto/src/main/java/cn/ypbin/starter/apicrypto/autoconfigure/ApiCryptoProperties.java",
-              "line": 35
+              "line": 37
             }
           ],
           "group": "ypbin.api-crypto",
@@ -2947,7 +2947,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 70
+              "line": 73
             }
           ],
           "default": null,
@@ -2959,7 +2959,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 70
+              "line": 73
             }
           ],
           "group": "ypbin.cloud",
@@ -2981,7 +2981,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 49
+              "line": 52
             }
           ],
           "default": 1,
@@ -2991,7 +2991,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 49
+              "line": 52
             }
           ],
           "group": "ypbin.cloud",
@@ -3013,7 +3013,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 34
+              "line": 37
             }
           ],
           "default": true,
@@ -3023,7 +3023,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 34
+              "line": 37
             }
           ],
           "group": "ypbin.cloud",
@@ -3045,7 +3045,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 52
+              "line": 55
             }
           ],
           "default": true,
@@ -3055,7 +3055,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 52
+              "line": 55
             }
           ],
           "group": "ypbin.cloud",
@@ -3077,7 +3077,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 43
+              "line": 46
             }
           ],
           "default": "version",
@@ -3087,7 +3087,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 43
+              "line": 46
             }
           ],
           "group": "ypbin.cloud",
@@ -3109,7 +3109,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 55
+              "line": 58
             }
           ],
           "default": true,
@@ -3119,7 +3119,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 55
+              "line": 58
             }
           ],
           "group": "ypbin.cloud",
@@ -3141,7 +3141,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 58
+              "line": 61
             }
           ],
           "default": null,
@@ -3151,7 +3151,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 58
+              "line": 61
             }
           ],
           "group": "ypbin.cloud",
@@ -3173,7 +3173,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 61
+              "line": 64
             }
           ],
           "default": true,
@@ -3183,7 +3183,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 61
+              "line": 64
             }
           ],
           "group": "ypbin.cloud",
@@ -3205,7 +3205,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 37
+              "line": 40
             }
           ],
           "default": null,
@@ -3215,7 +3215,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 37
+              "line": 40
             }
           ],
           "group": "ypbin.cloud",
@@ -3237,7 +3237,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 40
+              "line": 43
             }
           ],
           "default": null,
@@ -3247,7 +3247,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 40
+              "line": 43
             }
           ],
           "group": "ypbin.cloud",
@@ -3269,7 +3269,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 46
+              "line": 49
             }
           ],
           "default": "weight",
@@ -3279,7 +3279,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-loadbalancer/src/main/java/cn/ypbin/starter/loadbalancer/autoconfigure/LoadBalancerProperties.java",
-              "line": 46
+              "line": 49
             }
           ],
           "group": "ypbin.cloud",
@@ -3337,7 +3337,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 47
+              "line": 50
             }
           ],
           "default": null,
@@ -3347,7 +3347,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 47
+              "line": 50
             }
           ],
           "group": "ypbin.cloud",
@@ -3369,7 +3369,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 44
+              "line": 47
             }
           ],
           "default": null,
@@ -3379,7 +3379,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 44
+              "line": 47
             }
           ],
           "group": "ypbin.cloud",
@@ -3401,7 +3401,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 80
+              "line": 83
             }
           ],
           "default": false,
@@ -3411,7 +3411,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 80
+              "line": 83
             }
           ],
           "group": "ypbin.cloud",
@@ -3433,7 +3433,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 62
+              "line": 65
             }
           ],
           "default": "yaml",
@@ -3443,7 +3443,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 62
+              "line": 65
             }
           ],
           "group": "ypbin.cloud",
@@ -3465,7 +3465,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 56
+              "line": 59
             }
           ],
           "default": null,
@@ -3475,7 +3475,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 56
+              "line": 59
             }
           ],
           "group": "ypbin.cloud",
@@ -3497,7 +3497,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 71
+              "line": 74
             }
           ],
           "default": false,
@@ -3507,7 +3507,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 71
+              "line": 74
             }
           ],
           "group": "ypbin.cloud",
@@ -3529,7 +3529,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 53
+              "line": 56
             }
           ],
           "default": true,
@@ -3539,7 +3539,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 53
+              "line": 56
             }
           ],
           "group": "ypbin.cloud",
@@ -3561,7 +3561,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 59
+              "line": 62
             }
           ],
           "default": "application",
@@ -3571,7 +3571,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 59
+              "line": 62
             }
           ],
           "group": "ypbin.cloud",
@@ -3593,7 +3593,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 38
+              "line": 41
             }
           ],
           "default": "dev",
@@ -3603,7 +3603,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 38
+              "line": 41
             }
           ],
           "group": "ypbin.cloud",
@@ -3625,7 +3625,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 35
+              "line": 38
             }
           ],
           "default": true,
@@ -3635,7 +3635,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 35
+              "line": 38
             }
           ],
           "group": "ypbin.cloud",
@@ -3657,7 +3657,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 32
+              "line": 35
             }
           ],
           "default": true,
@@ -3667,7 +3667,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 32
+              "line": 35
             }
           ],
           "group": "ypbin.cloud",
@@ -3689,7 +3689,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 41
+              "line": 44
             }
           ],
           "default": true,
@@ -3699,7 +3699,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 41
+              "line": 44
             }
           ],
           "group": "ypbin.cloud",
@@ -3721,7 +3721,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 68
+              "line": 71
             }
           ],
           "default": true,
@@ -3731,7 +3731,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 68
+              "line": 71
             }
           ],
           "group": "ypbin.cloud",
@@ -3753,7 +3753,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 65
+              "line": 68
             }
           ],
           "default": true,
@@ -3763,7 +3763,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 65
+              "line": 68
             }
           ],
           "group": "ypbin.cloud",
@@ -3785,7 +3785,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 74
+              "line": 77
             }
           ],
           "default": false,
@@ -3795,7 +3795,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 74
+              "line": 77
             }
           ],
           "group": "ypbin.cloud",
@@ -3817,7 +3817,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 77
+              "line": 80
             }
           ],
           "default": true,
@@ -3827,7 +3827,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 77
+              "line": 80
             }
           ],
           "group": "ypbin.cloud",
@@ -3849,7 +3849,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 50
+              "line": 53
             }
           ],
           "default": null,
@@ -3859,7 +3859,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-nacos/src/main/java/cn/ypbin/starter/nacos/autoconfigure/NacosProperties.java",
-              "line": 50
+              "line": 53
             }
           ],
           "group": "ypbin.cloud",
@@ -11007,7 +11007,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 43
+              "line": 46
             }
           ],
           "default": "",
@@ -11017,7 +11017,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 43
+              "line": 46
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11039,7 +11039,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 49
+              "line": 52
             }
           ],
           "default": null,
@@ -11049,7 +11049,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 49
+              "line": 52
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11073,7 +11073,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 40
+              "line": 43
             }
           ],
           "default": null,
@@ -11085,7 +11085,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 40
+              "line": 43
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11109,7 +11109,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 46
+              "line": 49
             }
           ],
           "default": null,
@@ -11121,7 +11121,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 46
+              "line": 49
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11143,7 +11143,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 37
+              "line": 40
             }
           ],
           "default": false,
@@ -11153,7 +11153,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 37
+              "line": 40
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11175,7 +11175,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 52
+              "line": 55
             }
           ],
           "default": null,
@@ -11185,7 +11185,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 52
+              "line": 55
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11207,7 +11207,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 58
+              "line": 61
             }
           ],
           "default": null,
@@ -11217,7 +11217,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 58
+              "line": 61
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11239,7 +11239,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 61
+              "line": 64
             }
           ],
           "default": 30,
@@ -11249,7 +11249,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 61
+              "line": 64
             }
           ],
           "group": "ypbin.xxl-job",
@@ -11271,7 +11271,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 55
+              "line": 58
             }
           ],
           "default": 9999,
@@ -11281,7 +11281,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 55
+              "line": 58
             }
           ],
           "group": "ypbin.xxl-job",
