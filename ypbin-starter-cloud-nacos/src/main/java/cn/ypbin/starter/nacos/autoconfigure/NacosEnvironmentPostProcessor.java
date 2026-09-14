@@ -21,6 +21,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.core.Ordered;
@@ -160,6 +161,7 @@ public class NacosEnvironmentPostProcessor implements EnvironmentPostProcessor, 
         return String.join(",", imports);
     }
 
+    @Nullable
     private String currentProfile(ConfigurableEnvironment environment) {
         Set<String> activeProfiles = activeProfiles(environment);
         if (!activeProfiles.isEmpty()) {
@@ -203,8 +205,11 @@ public class NacosEnvironmentPostProcessor implements EnvironmentPostProcessor, 
         return environment.getProperty(NacosProperties.PREFIX + "." + key, Boolean.class, defaultValue);
     }
 
-    private String getString(ConfigurableEnvironment environment, String key, String defaultValue) {
-        return environment.getProperty(NacosProperties.PREFIX + "." + key, defaultValue);
+    @Nullable
+    private String getString(ConfigurableEnvironment environment, String key, @Nullable String defaultValue) {
+        // 用「带类型」的重载（返回可空）再回落默认值：双参数 getProperty 的 defaultValue 声明为非空
+        String value = environment.getProperty(NacosProperties.PREFIX + "." + key, String.class);
+        return value != null ? value : defaultValue;
     }
 
     @Override

@@ -17,6 +17,7 @@ package cn.ypbin.starter.social.core;
 
 import java.util.Set;
 import me.zhyd.oauth.request.AuthRequest;
+import org.jspecify.annotations.Nullable;
 
 /**
  * OAuth 授权请求注册表。
@@ -42,6 +43,13 @@ public interface SocialRequestRegistry {
      * @param source 平台标识
      * @return 被移除的授权请求，不存在时返回 {@code null}
      */
+    /**
+     * 移除并返回指定平台的注册信息。
+     *
+     * @param source 平台标识
+     * @return 被移除的注册信息；此前未注册时为 {@code null}
+     */
+    @Nullable
     AuthRequest remove(String source);
 
     /**

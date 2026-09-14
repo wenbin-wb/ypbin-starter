@@ -19,6 +19,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.GenericTypeResolver;
 
 /**
@@ -123,6 +124,7 @@ public final class CrudReflectSupport {
      * @param id         主键值
      * @return 可用 setter，找不到返回 {@code null}
      */
+    @Nullable
     private static Method resolveIdSetter(Class<?> entityType, Object id) {
         for (Method method : entityType.getMethods()) {
             if (!ID_SETTER_NAME.equals(method.getName()) || method.getParameterCount() != 1) {

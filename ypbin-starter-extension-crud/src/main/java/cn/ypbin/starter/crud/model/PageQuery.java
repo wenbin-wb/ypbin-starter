@@ -19,6 +19,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.io.Serial;
 import java.io.Serializable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 分页查询参数。
@@ -43,6 +44,7 @@ public class PageQuery implements Serializable {
     private long pageSize = 10L;
 
     /** 排序字段 */
+    @Nullable
     private String sortField;
 
     /** 是否升序 */
@@ -64,6 +66,7 @@ public class PageQuery implements Serializable {
         this.pageSize = pageSize;
     }
 
+    @Nullable
     public String getSortField() {
         return sortField;
     }

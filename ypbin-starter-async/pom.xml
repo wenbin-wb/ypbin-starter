@@ -17,6 +17,11 @@
     <description>异步执行与线程池治理：统一线程池、@Async 接管、异步异常处理、上下文透传、AsyncUtils 静态工具</description>
 
     <dependencies>
+        <!-- JSpecify 空值语义注解：本模块以 @NullMarked 声明「未标注即非空」 -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
@@ -42,4 +47,9 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.async</nullaway.packages>
+    </properties>
 </project>

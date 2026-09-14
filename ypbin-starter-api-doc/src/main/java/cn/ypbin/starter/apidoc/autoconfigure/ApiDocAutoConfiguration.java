@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
@@ -164,6 +165,7 @@ public class ApiDocAutoConfiguration {
         };
     }
 
+    @Nullable
     private static Integer resolveOrder(HandlerMethod handlerMethod) {
         ApiOrder methodOrder = handlerMethod.getMethodAnnotation(ApiOrder.class);
         if (methodOrder != null) {

@@ -17,8 +17,10 @@ package cn.ypbin.starter.loadbalancer.core;
 
 import cn.ypbin.starter.loadbalancer.autoconfigure.LoadBalancerProperties;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
+import org.jspecify.annotations.Nullable;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.util.PatternMatchUtils;
 import org.springframework.util.StringUtils;
@@ -40,7 +42,8 @@ public class VersionServiceInstanceChooser {
         this.properties = properties;
     }
 
-    public ServiceInstance choose(List<ServiceInstance> instances, String requestVersion) {
+    @Nullable
+    public ServiceInstance choose(List<ServiceInstance> instances, @Nullable String requestVersion) {
         List<ServiceInstance> candidates = candidates(instances, requestVersion);
         if (candidates.isEmpty()) {
             return null;
@@ -50,7 +53,8 @@ public class VersionServiceInstanceChooser {
         return chooseByWeight(candidates, weightPoint);
     }
 
-    ServiceInstance choose(List<ServiceInstance> instances, String requestVersion, long weightPoint) {
+    @Nullable
+    ServiceInstance choose(List<ServiceInstance> instances, @Nullable String requestVersion, long weightPoint) {
         List<ServiceInstance> candidates = candidates(instances, requestVersion);
         if (candidates.isEmpty()) {
             return null;
@@ -58,7 +62,7 @@ public class VersionServiceInstanceChooser {
         return chooseByWeight(candidates, weightPoint);
     }
 
-    private List<ServiceInstance> candidates(List<ServiceInstance> instances, String requestVersion) {
+    private List<ServiceInstance> candidates(List<ServiceInstance> instances, @Nullable String requestVersion) {
         if (instances == null || instances.isEmpty()) {
             return List.of();
         }
@@ -115,7 +119,7 @@ public class VersionServiceInstanceChooser {
     }
 
     private long weightOf(ServiceInstance instance) {
-        String value = instance.getMetadata().get(properties.getWeightMetadataKey());
+        String value = metadataOf(instance).get(properties.getWeightMetadataKey());
         if (!StringUtils.hasText(value)) {
             return positiveDefaultWeight();
         }
@@ -126,12 +130,24 @@ public class VersionServiceInstanceChooser {
         }
     }
 
+    /**
+     * 取实例元数据（{@code ServiceInstance#getMetadata} 声明为可空，这里统一收敛为「空即无元数据」）。
+     *
+     * @param instance 服务实例
+     * @return 元数据映射，永不为 {@code null}
+     */
+    private static Map<String, String> metadataOf(ServiceInstance instance) {
+        Map<String, String> metadata = instance.getMetadata();
+        return metadata == null ? Map.of() : metadata;
+    }
+
     private long positiveDefaultWeight() {
         return Math.max(1L, properties.getDefaultWeight());
     }
 
+    @Nullable
     private String versionOf(ServiceInstance instance) {
-        return instance.getMetadata().entrySet().stream()
+        return metadataOf(instance).entrySet().stream()
             .filter(entry -> Objects.equals(entry.getKey(), properties.getMetadataKey()))
             .map(entry -> entry.getValue() == null ? null : entry.getValue().trim())
             .filter(StringUtils::hasText)

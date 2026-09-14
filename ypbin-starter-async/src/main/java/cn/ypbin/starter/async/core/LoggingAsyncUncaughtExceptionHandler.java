@@ -17,6 +17,7 @@ package cn.ypbin.starter.async.core;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
@@ -35,7 +36,7 @@ public class LoggingAsyncUncaughtExceptionHandler implements AsyncUncaughtExcept
     private static final Logger log = LoggerFactory.getLogger(LoggingAsyncUncaughtExceptionHandler.class);
 
     @Override
-    public void handleUncaughtException(Throwable ex, Method method, Object... params) {
+    public void handleUncaughtException(Throwable ex, Method method, @Nullable Object... params) {
         log.error("[ypbin-starter] 异步任务执行异常：method={}#{}, params={}",
             method.getDeclaringClass().getSimpleName(), method.getName(), Arrays.toString(params), ex);
     }

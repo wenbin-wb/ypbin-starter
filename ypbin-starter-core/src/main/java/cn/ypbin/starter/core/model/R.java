@@ -73,7 +73,7 @@ public class R<T> implements Serializable {
         return new R<>(GlobalErrorCode.SUCCESS.getCode(), GlobalErrorCode.SUCCESS.getMessage(), null, true);
     }
 
-    public static <T> R<T> ok(T data) {
+    public static <T> R<T> ok(@Nullable T data) {
         return new R<>(GlobalErrorCode.SUCCESS.getCode(), GlobalErrorCode.SUCCESS.getMessage(), data, true);
     }
 

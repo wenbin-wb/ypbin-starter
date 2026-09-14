@@ -17,6 +17,11 @@
     <description>测试基座：集成测试容器支持（Redis/MySQL/Nacos）与外部实例回退，宿主以 test 作用域引入</description>
 
     <dependencies>
+        <!-- JSpecify 空值语义注解：本模块以 @NullMarked 声明「未标注即非空」 -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
         <!-- 断言与测试运行时：作为测试基座需传递给宿主，故为 compile 作用域，宿主以 test 作用域引入本模块 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -60,4 +65,9 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
     </dependencies>
+
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.test</nullaway.packages>
+    </properties>
 </project>

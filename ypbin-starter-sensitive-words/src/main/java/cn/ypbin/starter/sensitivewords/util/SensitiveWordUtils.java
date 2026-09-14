@@ -19,6 +19,7 @@ import cn.ypbin.starter.core.util.SpringUtils;
 import cn.ypbin.starter.sensitivewords.core.SensitiveWordService;
 import java.util.Collection;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 敏感词静态工具。
@@ -33,6 +34,7 @@ import java.util.List;
  */
 public final class SensitiveWordUtils {
 
+    @Nullable
     private static volatile SensitiveWordService service;
 
     private SensitiveWordUtils() {
@@ -44,14 +46,18 @@ public final class SensitiveWordUtils {
      * @return 敏感词服务实例
      */
     private static SensitiveWordService service() {
-        if (service == null) {
+        SensitiveWordService current = service;
+        if (current == null) {
             synchronized (SensitiveWordUtils.class) {
-                if (service == null) {
-                    service = SpringUtils.getBean(SensitiveWordService.class);
+                current = service;
+                if (current == null) {
+                    // SpringUtils.getBean 在容器未就绪时抛错，故此处拿到的必然非空
+                    current = SpringUtils.getBean(SensitiveWordService.class);
+                    service = current;
                 }
             }
         }
-        return service;
+        return current;
     }
 
     /**

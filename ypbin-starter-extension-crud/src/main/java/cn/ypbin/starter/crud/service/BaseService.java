@@ -19,6 +19,7 @@ import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.model.PageResult;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.spring.service.IService;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 通用业务服务契约。
@@ -48,5 +49,5 @@ public interface BaseService<T> extends IService<T> {
      * @param wrapper 查询条件，为 {@code null} 时等价于无条件分页
      * @return 分页结果
      */
-    PageResult<T> page(PageQuery query, Wrapper<T> wrapper);
+    PageResult<T> page(PageQuery query, @Nullable Wrapper<T> wrapper);
 }

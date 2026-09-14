@@ -26,6 +26,7 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -150,6 +151,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
      *
      * @return 权限码前缀；{@code null} 或空表示不自动校验
      */
+    @Nullable
     protected String permissionPrefix() {
         return null;
     }
@@ -188,6 +190,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
      * @param query 分页查询参数（含业务过滤字段）
      * @return 查询条件，{@code null} 表示无条件
      */
+    @Nullable
     protected Wrapper<T> buildQueryWrapper(Q query) {
         return null;
     }
@@ -254,9 +257,10 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
      * @return 数据库实体
      */
     @SuppressWarnings("unchecked")
-    protected T toEntity(REQ req) {
+    protected T toEntity(@Nullable REQ req) {
         if (req == null) {
-            return null;
+            // 不静默返回 null：入参由 @RequestBody 保证非空，为空即编程错误，显式失败更易定位
+            throw new IllegalArgumentException("req 不可为 null；如需支持空请求体，请覆写本方法");
         }
         Class<T> entityType = CrudReflectSupport.resolveTypeArg(getClass(), CrudController.class, 0);
         if (entityType.isInstance(req)) {
@@ -274,8 +278,10 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
      * @return 响应视图
      */
     @SuppressWarnings("unchecked")
-    protected RESP toResp(T entity) {
+    @Nullable
+    protected RESP toResp(@Nullable T entity) {
         if (entity == null) {
+            // 查无此记录时透传 null，由调用方决定如何呈现（R.ok(null)）
             return null;
         }
         Class<RESP> respType = CrudReflectSupport.resolveTypeArg(getClass(), CrudController.class, 3);

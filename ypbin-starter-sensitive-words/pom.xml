@@ -17,6 +17,11 @@
     <description>敏感词过滤：基于 Hutool DFA 的敏感词检测、替换、可插拔词库</description>
 
     <dependencies>
+        <!-- JSpecify 空值语义注解：本模块以 @NullMarked 声明「未标注即非空」 -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
@@ -47,4 +52,9 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.sensitivewords</nullaway.packages>
+    </properties>
 </project>

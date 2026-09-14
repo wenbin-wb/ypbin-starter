@@ -18,6 +18,7 @@ package cn.ypbin.starter.sensitivewords.core;
 import cn.hutool.dfa.WordTree;
 import java.util.Collection;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 敏感词服务。
@@ -32,8 +33,22 @@ public class SensitiveWordService {
 
     private volatile WordTree wordTree;
 
-    public SensitiveWordService(Collection<String> words) {
-        reload(words);
+    public SensitiveWordService(@Nullable Collection<String> words) {
+        this.wordTree = buildTree(words);
+    }
+
+    /**
+     * 构建词树（构造器与 reload 共用；返回值必然非空，便于静态证明字段已被初始化）。
+     *
+     * @param words 敏感词集合（允许为 {@code null}，等价空集合）
+     * @return 词树
+     */
+    private static WordTree buildTree(@Nullable Collection<String> words) {
+        WordTree tree = new WordTree();
+        if (words != null) {
+            words.stream().filter(word -> word != null && !word.isBlank()).forEach(tree::addWord);
+        }
+        return tree;
     }
 
     /**
@@ -41,12 +56,8 @@ public class SensitiveWordService {
      *
      * @param words 敏感词集合
      */
-    public void reload(Collection<String> words) {
-        WordTree tree = new WordTree();
-        if (words != null) {
-            words.stream().filter(w -> w != null && !w.isBlank()).forEach(tree::addWord);
-        }
-        this.wordTree = tree;
+    public void reload(@Nullable Collection<String> words) {
+        this.wordTree = buildTree(words);
     }
 
     /**
@@ -55,7 +66,7 @@ public class SensitiveWordService {
      * @param text 待检测文本
      * @return 是否命中
      */
-    public boolean contains(String text) {
+    public boolean contains(@Nullable String text) {
         if (text == null || text.isEmpty()) {
             return false;
         }

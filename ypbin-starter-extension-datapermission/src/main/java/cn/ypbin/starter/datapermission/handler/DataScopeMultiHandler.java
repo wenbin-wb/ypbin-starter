@@ -21,6 +21,7 @@ import com.baomidou.mybatisplus.extension.plugins.handler.MultiDataPermissionHan
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Table;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +46,7 @@ public class DataScopeMultiHandler implements MultiDataPermissionHandler {
     }
 
     @Override
+    @Nullable
     public Expression getSqlSegment(Table table, Expression where, String mappedStatementId) {
         // 仅在 @DataPermission 方法作用域内才拼接数据范围，避免全局无差别拦截
         if (!DataPermissionContext.isActive()) {

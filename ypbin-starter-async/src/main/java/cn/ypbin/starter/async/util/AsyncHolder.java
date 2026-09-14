@@ -16,6 +16,7 @@
 package cn.ypbin.starter.async.util;
 
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.scheduling.TaskScheduler;
 
 /**
@@ -28,8 +29,10 @@ import org.springframework.scheduling.TaskScheduler;
  */
 public final class AsyncHolder {
 
+    @Nullable
     private static volatile Executor executor;
 
+    @Nullable
     private static volatile TaskScheduler scheduler;
 
     private AsyncHolder() {
@@ -41,19 +44,21 @@ public final class AsyncHolder {
     }
 
     public static Executor getExecutor() {
-        if (executor == null) {
+        Executor current = executor;
+        if (current == null) {
             throw new IllegalStateException(
                 "异步执行器尚未初始化：请确认已引入 ypbin-starter-async 且 ypbin.async.enabled=true");
         }
-        return executor;
+        return current;
     }
 
     public static TaskScheduler getScheduler() {
-        if (scheduler == null) {
+        TaskScheduler current = scheduler;
+        if (current == null) {
             throw new IllegalStateException(
                 "任务调度器尚未初始化：请确认已引入 ypbin-starter-async 且 ypbin.async.enabled=true");
         }
-        return scheduler;
+        return current;
     }
 
     public static boolean isReady() {

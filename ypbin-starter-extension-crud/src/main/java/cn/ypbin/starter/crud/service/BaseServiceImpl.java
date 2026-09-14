@@ -24,6 +24,7 @@ import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 通用业务服务实现。
@@ -54,7 +55,7 @@ public class BaseServiceImpl<M extends BaseMapper<T>, T>
     }
 
     @Override
-    public PageResult<T> page(PageQuery query, Wrapper<T> wrapper) {
+    public PageResult<T> page(PageQuery query, @Nullable Wrapper<T> wrapper) {
         Page<T> page = buildPage(query);
         IPage<T> result = super.page(page, wrapper);
         return PageResult.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());

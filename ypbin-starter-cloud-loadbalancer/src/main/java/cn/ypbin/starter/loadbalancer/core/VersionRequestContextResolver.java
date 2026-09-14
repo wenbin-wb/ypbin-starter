@@ -17,6 +17,7 @@ package cn.ypbin.starter.loadbalancer.core;
 
 import cn.ypbin.starter.loadbalancer.autoconfigure.LoadBalancerProperties;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.cloud.client.loadbalancer.DefaultRequestContext;
 import org.springframework.cloud.client.loadbalancer.Request;
 import org.springframework.cloud.client.loadbalancer.RequestData;
@@ -40,6 +41,7 @@ public class VersionRequestContextResolver {
         this.properties = properties;
     }
 
+    @Nullable
     public String resolve(Request<?> request) {
         HttpHeaders headers = resolveHeaders(request);
         if (headers == null || headers.isEmpty()) {
@@ -47,7 +49,8 @@ public class VersionRequestContextResolver {
         }
         for (String headerName : properties.getVersionHeaders()) {
             String value = headers.getFirst(headerName);
-            if (isAcceptable(value)) {
+            // 显式判空：容器取值可空，且 NullAway 需要直接的空检查才能证明后续 trim 安全
+            if (value != null && isAcceptable(value)) {
                 return value.trim();
             }
         }
@@ -60,7 +63,7 @@ public class VersionRequestContextResolver {
      * @param value 请求头版本值
      * @return 可采纳返回 true
      */
-    private boolean isAcceptable(String value) {
+    private boolean isAcceptable(@Nullable String value) {
         if (!StringUtils.hasText(value)) {
             return false;
         }
@@ -72,6 +75,7 @@ public class VersionRequestContextResolver {
         return allowed.stream().anyMatch(trimmed::equals);
     }
 
+    @Nullable
     private HttpHeaders resolveHeaders(Request<?> request) {
         Object context = request == null ? null : request.getContext();
         if (context instanceof DefaultRequestContext defaultRequestContext) {

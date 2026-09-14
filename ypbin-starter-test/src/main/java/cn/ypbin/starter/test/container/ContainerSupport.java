@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
@@ -104,17 +105,22 @@ public final class ContainerSupport {
 
     private static final Map<String, String> EXTERNAL = System.getenv();
 
+    @Nullable
     private static volatile GenericContainer<?> redisContainer;
 
+    @Nullable
     private static volatile GenericContainer<?> mysqlContainer;
 
+    @Nullable
     private static volatile GenericContainer<?> nacosContainer;
 
     /** 已解析出的 Nacos 地址（含容器模式），非空即表示已就绪 */
+    @Nullable
     private static volatile String nacosAddress;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    @Nullable
     private static volatile Boolean dockerAvailable;
 
     private ContainerSupport() {
@@ -129,20 +135,21 @@ public final class ContainerSupport {
      */
     public static boolean dockerAvailable() {
         Boolean cached = dockerAvailable;
-        if (cached != null) {
-            return cached;
-        }
-        synchronized (ContainerSupport.class) {
-            if (dockerAvailable == null) {
-                try {
-                    dockerAvailable = DockerClientFactory.instance().isDockerAvailable();
-                } catch (RuntimeException e) {
-                    log.debug("[ypbin-test] Docker 不可用：{}", e.getMessage());
-                    dockerAvailable = false;
+        if (cached == null) {
+            synchronized (ContainerSupport.class) {
+                cached = dockerAvailable;
+                if (cached == null) {
+                    try {
+                        cached = DockerClientFactory.instance().isDockerAvailable();
+                    } catch (RuntimeException e) {
+                        log.debug("[ypbin-test] Docker 不可用：{}", e.getMessage());
+                        cached = false;
+                    }
+                    dockerAvailable = cached;
                 }
             }
-            return dockerAvailable;
         }
+        return cached;
     }
 
     /** 是否配置了外部 Redis */
@@ -202,6 +209,7 @@ public final class ContainerSupport {
      *
      * @return 口令或 null
      */
+    @Nullable
     public static String redisPassword() {
         return EXTERNAL.get(ENV_REDIS_PASSWORD);
     }
@@ -212,8 +220,10 @@ public final class ContainerSupport {
      * @return JDBC URL
      */
     public static String mySqlUrl() {
-        if (externalMySqlConfigured()) {
-            return EXTERNAL.get(ENV_MYSQL_URL);
+        String external = EXTERNAL.get(ENV_MYSQL_URL);
+        // 显式判空（而非复用 hasText）：NullAway 需要直接的 null 检查才能证明返回值非空
+        if (external != null && !external.isBlank()) {
+            return external;
         }
         GenericContainer<?> container = mySqlContainer();
         return "jdbc:mysql://" + container.getHost() + ":" + container.getMappedPort(3306)
@@ -276,7 +286,11 @@ public final class ContainerSupport {
                 "Nacos 不可用：未设置 -D" + PROP_NACOS_ADDR + " / " + ENV_NACOS_ADDR + " 且本机 Docker 不可用");
         }
         ensureNacosContainer();
-        return nacosAddress;
+        String address = nacosAddress;
+        if (address == null) {
+            throw new IllegalStateException("Nacos 容器已启动但地址未解析成功");
+        }
+        return address;
     }
 
     private static void ensureNacosContainer() {
@@ -319,13 +333,14 @@ public final class ContainerSupport {
      *
      * @return 地址，未配置返回 {@code null}
      */
+    @Nullable
     private static String externalNacosAddress() {
         String fromProperty = System.getProperty(PROP_NACOS_ADDR);
         if (hasText(fromProperty)) {
             return fromProperty.trim();
         }
         String fromEnv = EXTERNAL.get(ENV_NACOS_ADDR);
-        return hasText(fromEnv) ? fromEnv.trim() : null;
+        return hasText(fromEnv) && fromEnv != null ? fromEnv.trim() : null;
     }
 
     /** 找一对相隔 {@link #NACOS_GRPC_PORT_OFFSET} 且都空闲的宿主端口 */
@@ -385,14 +400,15 @@ public final class ContainerSupport {
         GenericContainer<?> container = redisContainer;
         if (container == null) {
             synchronized (ContainerSupport.class) {
-                if (redisContainer == null) {
-                    redisContainer = new GenericContainer<>(DockerImageName.parse(REDIS_IMAGE))
-                        .withExposedPorts(6379);
-                    redisContainer.start();
-                    log.info("[ypbin-test] Redis 容器已启动：{}:{}", redisContainer.getHost(),
-                        redisContainer.getMappedPort(6379));
-                }
                 container = redisContainer;
+                if (container == null) {
+                    container = new GenericContainer<>(DockerImageName.parse(REDIS_IMAGE))
+                        .withExposedPorts(6379);
+                    container.start();
+                    redisContainer = container;
+                    log.info("[ypbin-test] Redis 容器已启动：{}:{}", container.getHost(),
+                        container.getMappedPort(6379));
+                }
             }
         }
         return container;
@@ -402,24 +418,25 @@ public final class ContainerSupport {
         GenericContainer<?> container = mysqlContainer;
         if (container == null) {
             synchronized (ContainerSupport.class) {
-                if (mysqlContainer == null) {
+                container = mysqlContainer;
+                if (container == null) {
                     // 泛型自限定类型需先落到具名局部变量再赋给通配字段
                     MySQLContainer<?> started = new MySQLContainer<>(DockerImageName.parse(MYSQL_IMAGE))
                         .withDatabaseName("ypbin_test")
                         .withUsername("root")
                         .withPassword("test");
                     started.start();
+                    container = started;
                     mysqlContainer = started;
                     log.info("[ypbin-test] MySQL 容器已启动：{}:{}", started.getHost(),
                         started.getMappedPort(3306));
                 }
-                container = mysqlContainer;
             }
         }
         return container;
     }
 
-    private static boolean hasText(String value) {
+    private static boolean hasText(@Nullable String value) {
         return value != null && !value.isBlank();
     }
 }

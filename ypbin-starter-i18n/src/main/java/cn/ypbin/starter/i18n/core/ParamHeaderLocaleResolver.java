@@ -18,6 +18,7 @@ package cn.ypbin.starter.i18n.core;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.LocaleResolver;
 
@@ -58,7 +59,8 @@ public class ParamHeaderLocaleResolver implements LocaleResolver {
     }
 
     @Override
-    public void setLocale(HttpServletRequest request, HttpServletResponse response, Locale locale) {
+    public void setLocale(HttpServletRequest request, @Nullable HttpServletResponse response,
+        @Nullable Locale locale) {
         // 无状态：语言由每次请求的参数/头决定，不做服务端存储
     }
 }

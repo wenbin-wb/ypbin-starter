@@ -16,6 +16,7 @@
 package cn.ypbin.starter.i18n.core;
 
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 
@@ -31,6 +32,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 public final class I18nUtil {
 
     /** volatile：装配时机与读取可能跨线程（如异步请求），保证可见性 */
+    @Nullable
     private static volatile MessageSource messageSource;
 
     private I18nUtil() {
@@ -63,6 +65,8 @@ public final class I18nUtil {
         if (messageSource == null) {
             return code;
         }
-        return messageSource.getMessage(code, args, code, locale);
+        // MessageSource#getMessage 的返回值声明为可空（无匹配且未提供默认值时），这里已有兜底：回落消息码本身
+        String resolved = messageSource.getMessage(code, args, code, locale);
+        return resolved != null ? resolved : code;
     }
 }

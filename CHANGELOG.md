@@ -74,6 +74,22 @@
 
 ### 修复
 
+- **空值语义静态检查再推广 16 个模块**（累计 **21 个模块**）：api-crypto / api-doc / async / captcha /
+  cloud-loadbalancer / cloud-nacos / cloud-observability / cloud-sentinel / excel / extension-crud /
+  extension-datapermission / i18n / sensitive-words / social / test / xxljob。本轮修出 **59 处**
+  （累计 113 处）。推广已工具化：`node tools/rollout-nullaway.mjs <模块…> | --all-pending`
+  自动完成「推导包根 → 生成 `@NullMarked` package-info → 声明 `nullaway.packages` 与 jspecify 依赖」
+  （幂等），CI 按属性自动发现参与模块，**新增模块无需改 CI**。
+  其中值得单列的三处**契约修正**（不只是补注解）：
+  - `R.ok(T data)` → `R.ok(@Nullable T data)`：同类工厂 `R.ok()` 本就直接把 `null` 传给构造器，
+    参数声明为非空与实现不符；
+  - `BaseService#page(PageQuery, Wrapper)` 与 `SocialRequestRegistry#remove`：null 分别是
+    「无条件查询」与「此前未注册」的既有语义，接口同步标注 `@Nullable`；
+  - `CrudController#toEntity`：原「入参为 null 就静默返回 null」改为**显式抛错**（入参由
+    `@RequestBody` 保证非空，为空即编程错误）——静默返回 null 正是铁律禁止的静默降级；
+    `toResp` 保留「查无记录透传 null」的语义并显式标注。
+  另有三类框架语义按类标注 `@SuppressWarnings("NullAway.Init")`（`@ConfigurationProperties`
+  构造后绑定字段），以及 Spring Cloud `ServiceInstance#getMetadata` 可空 → 收敛为「空即空表」。
 - **依赖版本收敛缺陷（2 处真实分叉，由新增的 enforcer `dependencyConvergence` 门禁发现）**：
   Maven 对「同深度、不同版本」的传递依赖按**声明顺序**择一，既不确定也无提示，宿主可能拿到与库
   构建时不同的版本。实测发现并修复：

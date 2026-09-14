@@ -32,6 +32,8 @@ public class ApiCryptoProperties {
     private boolean enabled = true;
 
     /** 默认 AES 实现的密钥，长度需为 16/24/32 字节。配置后才装配默认加解密器 */
+    // 由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null
+    @SuppressWarnings("NullAway.Init")
     private String key;
 
     public boolean isEnabled() {

@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import me.zhyd.oauth.request.AuthRequest;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 默认 OAuth 授权请求注册表。
@@ -68,6 +69,7 @@ public class DefaultSocialRequestRegistry implements SocialRequestRegistry {
     }
 
     @Override
+    @Nullable
     public AuthRequest remove(String source) {
         String normalizedSource = normalize(source);
         AtomicReference<AuthRequest> removed = new AtomicReference<>();
@@ -87,7 +89,7 @@ public class DefaultSocialRequestRegistry implements SocialRequestRegistry {
     @Override
     public AuthRequest require(String source) {
         String normalizedSource = normalize(source);
-        AuthRequest request = requests.get().get(normalizedSource);
+        AuthRequest request = snapshot().get(normalizedSource);
         if (request == null) {
             throw new SocialException("未配置第三方登录平台：" + source);
         }
@@ -96,7 +98,17 @@ public class DefaultSocialRequestRegistry implements SocialRequestRegistry {
 
     @Override
     public Set<String> sources() {
-        return requests.get().keySet();
+        return snapshot().keySet();
+    }
+
+    /**
+     * 取当前注册表快照（{@code AtomicReference#get} 声明可空，这里收敛为「空即空表」）。
+     *
+     * @return 当前注册表，永不为 {@code null}
+     */
+    private Map<String, AuthRequest> snapshot() {
+        Map<String, AuthRequest> current = requests.get();
+        return current == null ? Map.of() : current;
     }
 
     private static String normalize(String source) {

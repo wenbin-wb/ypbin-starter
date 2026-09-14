@@ -18,6 +18,7 @@ package cn.ypbin.starter.apicrypto.advice;
 import cn.ypbin.starter.apicrypto.annotation.ApiEncrypt;
 import cn.ypbin.starter.apicrypto.core.ApiCryptoProvider;
 import cn.ypbin.starter.core.model.R;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -67,7 +68,7 @@ public class ApiEncryptResponseAdvice implements ResponseBodyAdvice<Object> {
     }
 
     @Override
-    public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
+    public @Nullable Object beforeBodyWrite(@Nullable Object body, MethodParameter returnType, MediaType selectedContentType,
         Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request,
         ServerHttpResponse response) {
         try {
