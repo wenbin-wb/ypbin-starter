@@ -19,6 +19,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 操作日志记录。
@@ -29,6 +30,8 @@ import java.util.Map;
  * @author wenbin
  * @since 2026-07-30
  */
+// 字段由采集器逐项 setter 填充（构造后才赋值），属数据装配语义，故按类抑制 NullAway.Init
+@SuppressWarnings("NullAway.Init")
 public class LogRecord implements Serializable {
 
     @Serial
@@ -47,18 +50,22 @@ public class LogRecord implements Serializable {
     private String requestUri;
 
     /** 请求头 */
+    @Nullable
     private Map<String, String> requestHeaders;
 
     /** 请求参数 */
+    @Nullable
     private String requestParam;
 
     /** 请求体 */
+    @Nullable
     private String requestBody;
 
     /** 响应头 */
     private Map<String, String> responseHeaders;
 
     /** 响应体 */
+    @Nullable
     private String responseBody;
 
     /** HTTP 状态码 */
@@ -68,12 +75,15 @@ public class LogRecord implements Serializable {
     private String ip;
 
     /** IP 归属地 */
+    @Nullable
     private String location;
 
     /** 浏览器 */
+    @Nullable
     private String browser;
 
     /** 操作系统 */
+    @Nullable
     private String os;
 
     /** 客户端 ID */
@@ -98,6 +108,7 @@ public class LogRecord implements Serializable {
     private boolean success;
 
     /** 错误信息 */
+    @Nullable
     private String errorMsg;
 
     public String getDescription() {
@@ -132,27 +143,30 @@ public class LogRecord implements Serializable {
         this.requestUri = requestUri;
     }
 
+    @Nullable
     public Map<String, String> getRequestHeaders() {
         return requestHeaders;
     }
 
-    public void setRequestHeaders(Map<String, String> requestHeaders) {
+    public void setRequestHeaders(@Nullable Map<String, String> requestHeaders) {
         this.requestHeaders = requestHeaders;
     }
 
+    @Nullable
     public String getRequestParam() {
         return requestParam;
     }
 
-    public void setRequestParam(String requestParam) {
+    public void setRequestParam(@Nullable String requestParam) {
         this.requestParam = requestParam;
     }
 
+    @Nullable
     public String getRequestBody() {
         return requestBody;
     }
 
-    public void setRequestBody(String requestBody) {
+    public void setRequestBody(@Nullable String requestBody) {
         this.requestBody = requestBody;
     }
 
@@ -164,11 +178,12 @@ public class LogRecord implements Serializable {
         this.responseHeaders = responseHeaders;
     }
 
+    @Nullable
     public String getResponseBody() {
         return responseBody;
     }
 
-    public void setResponseBody(String responseBody) {
+    public void setResponseBody(@Nullable String responseBody) {
         this.responseBody = responseBody;
     }
 
@@ -188,27 +203,30 @@ public class LogRecord implements Serializable {
         this.ip = ip;
     }
 
+    @Nullable
     public String getLocation() {
         return location;
     }
 
-    public void setLocation(String location) {
+    public void setLocation(@Nullable String location) {
         this.location = location;
     }
 
+    @Nullable
     public String getBrowser() {
         return browser;
     }
 
-    public void setBrowser(String browser) {
+    public void setBrowser(@Nullable String browser) {
         this.browser = browser;
     }
 
+    @Nullable
     public String getOs() {
         return os;
     }
 
-    public void setOs(String os) {
+    public void setOs(@Nullable String os) {
         this.os = os;
     }
 
@@ -268,11 +286,12 @@ public class LogRecord implements Serializable {
         this.success = success;
     }
 
+    @Nullable
     public String getErrorMsg() {
         return errorMsg;
     }
 
-    public void setErrorMsg(String errorMsg) {
+    public void setErrorMsg(@Nullable String errorMsg) {
         this.errorMsg = errorMsg;
     }
 }

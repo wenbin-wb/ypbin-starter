@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
@@ -101,6 +102,7 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
     /**
      * 解析 Long 型身份头：缺失/空白返回 {@code null}；非数字记 debug 并返回 {@code null}（不抛异常中断请求）。
      */
+    @Nullable
     private static Long parseLongHeader(String headerValue, String headerName) {
         if (!StringUtils.hasText(headerValue)) {
             return null;

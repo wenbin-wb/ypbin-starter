@@ -29,6 +29,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -97,7 +98,7 @@ public class LogAspect {
         }
     }
 
-    private void fillMeta(LogRecord record, Log methodLog, Log classLog) {
+    private void fillMeta(LogRecord record, @Nullable Log methodLog, @Nullable Log classLog) {
         if (methodLog != null && !methodLog.value().isBlank()) {
             record.setDescription(methodLog.value());
         }
@@ -110,7 +111,7 @@ public class LogAspect {
         record.setModule(module);
     }
 
-    private Set<Include> resolveIncludes(Log methodLog, Log classLog) {
+    private Set<Include> resolveIncludes(@Nullable Log methodLog, @Nullable Log classLog) {
         Set<Include> result = EnumSet.noneOf(Include.class);
         result.addAll(globalIncludes);
         // 先应用类级（对类下所有方法生效），再用方法级覆盖，实现"方法级优先"
@@ -119,7 +120,7 @@ public class LogAspect {
         return result;
     }
 
-    private void applyIncludes(Set<Include> result, Log log) {
+    private void applyIncludes(Set<Include> result, @Nullable Log log) {
         if (log != null) {
             result.addAll(Set.of(log.includes()));
             Set.of(log.excludes()).forEach(result::remove);

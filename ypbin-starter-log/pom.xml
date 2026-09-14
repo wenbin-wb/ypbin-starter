@@ -17,6 +17,11 @@
     <description>操作日志：基于 @Log 注解的 AOP 采集，Include 控制粒度，LogDao 扩展持久化</description>
 
     <dependencies>
+        <!-- JSpecify 空值语义注解：本模块以 @NullMarked 声明「未标注即非空」 -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
@@ -71,4 +76,9 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.log</nullaway.packages>
+    </properties>
 </project>

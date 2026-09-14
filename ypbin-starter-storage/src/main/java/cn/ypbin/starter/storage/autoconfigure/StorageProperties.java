@@ -29,6 +29,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @since 2026-07-30
  */
 @ConfigurationProperties(prefix = StorageProperties.PREFIX)
+// 字段由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null；
+// NullAway 的「字段未初始化」在此属框架装配语义，故按类抑制并在此说明原因
+@SuppressWarnings("NullAway.Init")
 public class StorageProperties {
 
     public static final String PREFIX = "ypbin.storage";
@@ -91,6 +94,9 @@ public class StorageProperties {
     /**
      * 本地存储源配置。
      */
+// 字段由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null；
+// NullAway 的「字段未初始化」在此属框架装配语义，故按类抑制并在此说明原因
+@SuppressWarnings("NullAway.Init")
     public static class LocalConfig {
 
         /** 平台标识（唯一键） */
@@ -144,6 +150,9 @@ public class StorageProperties {
      * <p>阿里云 OSS / 腾讯云 COS / MinIO / 七牛等均兼容 S3 协议，通过 endpoint /
      * region / pathStyle 区分，无需为每家单独实现。</p>
      */
+// 字段由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null；
+// NullAway 的「字段未初始化」在此属框架装配语义，故按类抑制并在此说明原因
+@SuppressWarnings("NullAway.Init")
     public static class OssConfig {
 
         /** 平台标识（唯一键） */

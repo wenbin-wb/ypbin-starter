@@ -21,6 +21,8 @@ package cn.ypbin.starter.security.client;
  * @author wenbin
  * @since 2026-08-01
  */
+// 字段由配置绑定 / setter / 映射逐项填充（构造后才赋值），属数据装配语义，故按类抑制 NullAway.Init
+@SuppressWarnings("NullAway.Init")
 public class LoginClientRequest {
 
     /** 客户端 ID */

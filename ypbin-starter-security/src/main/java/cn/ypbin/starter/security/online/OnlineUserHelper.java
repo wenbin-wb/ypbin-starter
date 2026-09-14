@@ -19,6 +19,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 在线用户终端信息记录门面。
@@ -75,6 +76,7 @@ public final class OnlineUserHelper {
      * @param token 令牌值
      * @return 终端信息，未记录时为 {@code null}
      */
+    @Nullable
     public static Terminal getByToken(String token) {
         Object value = StpUtil.getTokenSessionByToken(token).get(KEY_TERMINAL);
         return (value instanceof Terminal terminal) ? terminal : null;
@@ -86,6 +88,8 @@ public final class OnlineUserHelper {
      * @author wenbin
      * @since 2026-08-01
      */
+// 字段由配置绑定 / setter / 映射逐项填充（构造后才赋值），属数据装配语义，故按类抑制 NullAway.Init
+@SuppressWarnings("NullAway.Init")
     public static class Terminal implements Serializable {
 
         @Serial

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +50,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
     }
 
     @Override
-    public List<OnlineUser> list(String keyword) {
+    public List<OnlineUser> list(@Nullable String keyword) {
         List<String> tokenKeys = StpUtil.searchTokenValue("", 0, -1, false);
         List<OnlineUser> result = new ArrayList<>();
         for (String tokenKey : tokenKeys) {
@@ -109,6 +110,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
     /**
      * 从 searchTokenValue 返回的完整键中截取真实 token 值（取最后一个冒号之后）。
      */
+    @Nullable
     private String extractToken(String tokenKey) {
         if (tokenKey == null) {
             return null;
@@ -120,7 +122,8 @@ public class DefaultOnlineUserService implements OnlineUserService {
     /**
      * 解析单个 token 为在线用户；token 已过期或无对应登录 ID 时返回 {@code null}。
      */
-    private OnlineUser resolve(String token) {
+    @Nullable
+    private OnlineUser resolve(@Nullable String token) {
         if (token == null || token.isBlank()) {
             return null;
         }
@@ -171,6 +174,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
         return online;
     }
 
+    @Nullable
     private LoginUser readLoginUser(Object loginId) {
         try {
             SaSession session = StpUtil.getSessionByLoginId(loginId, false);
@@ -185,7 +189,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
         }
     }
 
-    private OnlineUserHelper.Terminal readTerminal(String token) {
+    private OnlineUserHelper.@Nullable Terminal readTerminal(String token) {
         try {
             return OnlineUserHelper.getByToken(token);
         } catch (Exception e) {
@@ -194,6 +198,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
         }
     }
 
+    @Nullable
     private LocalDateTime tokenCreateTime(String token) {
         try {
             SaSession tokenSession = StpUtil.getTokenSessionByToken(token);
@@ -208,6 +213,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
         return null;
     }
 
+    @Nullable
     private Long parseUserId(Object loginId) {
         try {
             return Long.valueOf(loginId.toString());
@@ -216,7 +222,7 @@ public class DefaultOnlineUserService implements OnlineUserService {
         }
     }
 
-    private boolean matchKeyword(OnlineUser user, String keyword) {
+    private boolean matchKeyword(OnlineUser user, @Nullable String keyword) {
         if (keyword == null || keyword.isBlank()) {
             return true;
         }

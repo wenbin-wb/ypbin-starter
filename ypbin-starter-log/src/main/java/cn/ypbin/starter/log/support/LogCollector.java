@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -85,7 +86,8 @@ public class LogCollector {
      * @param result   方法返回值（用于响应体，可空）
      * @param error    异常（可空）
      */
-    public void collect(LogRecord record, Set<Include> includes, Object[] args, Object result, Throwable error) {
+    public void collect(LogRecord record, Set<Include> includes, Object[] args, @Nullable Object result,
+            @Nullable Throwable error) {
         userProvider.getCurrentUserId().ifPresent(record::setUserId);
 
         if (includes.contains(Include.CLIENT)) {
@@ -141,6 +143,7 @@ public class LogCollector {
         }
     }
 
+    @Nullable
     private HttpServletRequest currentRequest() {
         try {
             if (RequestContextHolder
@@ -169,6 +172,7 @@ public class LogCollector {
     /**
      * 格式化浏览器为「名称 + 版本」，版本缺失时只留名称。
      */
+    @Nullable
     private String formatBrowser(UserAgent ua) {
         if (ua.getBrowser() == null) {
             return null;
@@ -181,6 +185,7 @@ public class LogCollector {
         return name + " " + version;
     }
 
+    @Nullable
     private String resolveParams(HttpServletRequest request) {
         Map<String, String[]> params = request.getParameterMap();
         if (params.isEmpty()) {
@@ -196,6 +201,7 @@ public class LogCollector {
         return sb.toString();
     }
 
+    @Nullable
     private Map<String, String> resolveHeaders(HttpServletRequest request) {
         Map<String, String> headers = new LinkedHashMap<>();
         Enumeration<String> names = request.getHeaderNames();
@@ -213,6 +219,7 @@ public class LogCollector {
      * 序列化方法入参为 JSON，剔除无法/不宜序列化的特殊参数
      * （Servlet 请求响应、文件上传等），保留业务 DTO（含 @RequestBody 的 JSON 对象）。
      */
+    @Nullable
     private String serializeArgs(Object[] args) {
         if (args == null || args.length == 0) {
             return null;
@@ -241,6 +248,7 @@ public class LogCollector {
             && !(arg instanceof OutputStream);
     }
 
+    @Nullable
     private String serialize(Object value) {
         try {
             return objectMapper.writeValueAsString(value);

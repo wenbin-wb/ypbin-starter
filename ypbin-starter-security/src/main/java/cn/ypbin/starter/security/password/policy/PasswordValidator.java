@@ -16,6 +16,7 @@
 package cn.ypbin.starter.security.password.policy;
 
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 密码复杂度校验器。
@@ -54,7 +55,7 @@ public class PasswordValidator {
      * @param username    用户名，可空
      * @return 校验结果
      */
-    public PasswordCheckResult check(String rawPassword, String username) {
+    public PasswordCheckResult check(String rawPassword, @Nullable String username) {
         if (rawPassword == null || rawPassword.isEmpty()) {
             return PasswordCheckResult.fail("密码不能为空");
         }
@@ -99,7 +100,7 @@ public class PasswordValidator {
         return false;
     }
 
-    private boolean containsUsername(String rawPassword, String username) {
+    private boolean containsUsername(String rawPassword, @Nullable String username) {
         if (username == null || username.isBlank()) {
             return false;
         }

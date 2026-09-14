@@ -30,6 +30,8 @@ import java.util.Set;
  * @author wenbin
  * @since 2026-07-31
  */
+// 字段由配置绑定 / setter / 映射逐项填充（构造后才赋值），属数据装配语义，故按类抑制 NullAway.Init
+@SuppressWarnings("NullAway.Init")
 public class LoginUser implements Serializable {
 
     @Serial

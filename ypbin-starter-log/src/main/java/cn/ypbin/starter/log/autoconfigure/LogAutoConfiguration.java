@@ -27,6 +27,7 @@ import cn.ypbin.starter.log.support.LogCollector;
 import java.util.Optional;
 import java.util.Set;
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -80,6 +81,7 @@ public class LogAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
+    @Nullable
     public IpLocationResolver ipLocationResolver() {
         return ip -> null;
     }

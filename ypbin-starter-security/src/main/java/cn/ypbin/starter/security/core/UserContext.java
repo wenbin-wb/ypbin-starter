@@ -18,6 +18,7 @@ package cn.ypbin.starter.security.core;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.ypbin.starter.security.identity.IdentityContext;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 当前登录用户上下文门面（统一自适应单体/微服务）。
@@ -46,6 +47,7 @@ public final class UserContext {
      *
      * @return 用户 ID，未登录为 null
      */
+    @Nullable
     public static Long getUserId() {
         return getUserIdSafely().orElse(null);
     }

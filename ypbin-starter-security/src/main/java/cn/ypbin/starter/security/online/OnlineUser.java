@@ -18,6 +18,7 @@ package cn.ypbin.starter.security.online;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 在线用户信息。
@@ -29,12 +30,15 @@ import java.time.LocalDateTime;
  * @author wenbin
  * @since 2026-08-01
  */
+// 字段由配置绑定 / setter / 映射逐项填充（构造后才赋值），属数据装配语义，故按类抑制 NullAway.Init
+@SuppressWarnings("NullAway.Init")
 public class OnlineUser implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     /** 用户 ID */
+    @Nullable
     private Long userId;
 
     /** 用户名 */
@@ -53,6 +57,7 @@ public class OnlineUser implements Serializable {
     private String clientId;
 
     /** 客户端类型/设备类型 */
+    @Nullable
     private String deviceType;
 
     /** 登录 IP */
@@ -68,13 +73,15 @@ public class OnlineUser implements Serializable {
     private String os;
 
     /** 登录时间 */
+    @Nullable
     private LocalDateTime loginTime;
 
+    @Nullable
     public Long getUserId() {
         return userId;
     }
 
-    public void setUserId(Long userId) {
+    public void setUserId(@Nullable Long userId) {
         this.userId = userId;
     }
 
@@ -118,11 +125,12 @@ public class OnlineUser implements Serializable {
         this.clientId = clientId;
     }
 
+    @Nullable
     public String getDeviceType() {
         return deviceType;
     }
 
-    public void setDeviceType(String deviceType) {
+    public void setDeviceType(@Nullable String deviceType) {
         this.deviceType = deviceType;
     }
 
@@ -158,11 +166,12 @@ public class OnlineUser implements Serializable {
         this.os = os;
     }
 
+    @Nullable
     public LocalDateTime getLoginTime() {
         return loginTime;
     }
 
-    public void setLoginTime(LocalDateTime loginTime) {
+    public void setLoginTime(@Nullable LocalDateTime loginTime) {
         this.loginTime = loginTime;
     }
 }

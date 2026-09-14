@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.log.core;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * IP 归属地解析扩展点。
  *
@@ -35,5 +37,6 @@ public interface IpLocationResolver {
      * @param ip 客户端 IP
      * @return 归属地描述；无法解析或未接入时返回 {@code null}
      */
+    @Nullable
     String resolve(String ip);
 }

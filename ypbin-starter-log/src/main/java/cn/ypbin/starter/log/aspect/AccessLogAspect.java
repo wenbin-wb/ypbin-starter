@@ -32,6 +32,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
@@ -256,6 +257,7 @@ public class AccessLogAspect {
      * @param result 方法返回值
      * @return 摘要或截断后的 JSON 字符串
      */
+    @Nullable
     private String serializeResult(Object result) {
         String summary = summarize(result);
         return summary != null ? summary : truncate(serialize(result));
@@ -267,6 +269,7 @@ public class AccessLogAspect {
      * @param value 待判断对象
      * @return 摘要；不属于该类别返回 null
      */
+    @Nullable
     private static String summarize(Object value) {
         if (value instanceof Resource resource) {
             String name = resource.getFilename();
@@ -293,7 +296,8 @@ public class AccessLogAspect {
      * @param json 原始字符串
      * @return 截断后的字符串；未超长或为 null 原样返回
      */
-    private static String truncate(String json) {
+    @Nullable
+    private static String truncate(@Nullable String json) {
         if (json == null || json.length() <= MAX_RESULT_LENGTH) {
             return json;
         }
@@ -306,6 +310,7 @@ public class AccessLogAspect {
      * @param value 待序列化对象
      * @return JSON 字符串或 null
      */
+    @Nullable
     private String serialize(Object value) {
         try {
             return objectMapper.writeValueAsString(value);

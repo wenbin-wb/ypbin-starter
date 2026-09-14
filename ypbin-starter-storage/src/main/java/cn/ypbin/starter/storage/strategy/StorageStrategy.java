@@ -19,6 +19,7 @@ import cn.ypbin.starter.storage.model.FileInfo;
 import cn.ypbin.starter.storage.model.UploadContext;
 import java.io.InputStream;
 import java.time.Duration;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 存储后端能力契约。
@@ -92,13 +93,14 @@ public interface StorageStrategy {
      * @param expire 有效期（对直链无意义时可忽略）
      * @return 访问 URL
      */
-    String url(String bucket, String path, Duration expire);
+    String url(String bucket, String path, @Nullable Duration expire);
 
     /**
      * 分片上传能力，不支持时返回 {@code null}。
      *
      * @return 分片上传能力接口，或 {@code null}
      */
+    @Nullable
     default MultipartUpload multipart() {
         return null;
     }

@@ -74,6 +74,19 @@
 
 ### 修复
 
+- **空值语义静态检查（NullAway）覆盖全部 33 个含主源码模块**：本轮补齐最后 3 个模块
+  `storage`(31) / `log`(40) / `security`(53)，至此所有模块均在 CI 门禁下做空值检查，
+  累计修复 300+ 处。三类典型修法：框架/构建器填充的字段（配置绑定、模型 setter、Jackson 反射实例化）
+  按类标注 `@SuppressWarnings("NullAway.Init")` 并写明原因；真实可空契约补 `@Nullable`
+  （接口/实现/getter 同步，避免只改一处）；懒初始化静态持有器统一改「可空字段 + 局部变量双重检查」。
+  另有若干**契约修正**：`JobDefinition` 触发方式缺失时显式抛错、`LicenseCheckAspect` 拿不到授权内容
+  时显式失败（不静默跳过联机回验）、`SensitiveType` 策略缺失时显式抛错、
+  联机校验签名字段缺失时回落空串上报（服务端验签必然失败，fail-closed）。
+  踩坑记录：Java 类型注解不能写在限定类型前——`@Nullable A.B` 会被判为注解外侧限定符而编译报错，
+  须写成 `A.@Nullable B`。
+
+### 修复
+
 - **日志注入（log injection）加固**：新增 `cn.ypbin.starter.core.util.LogSanitizer`——把用户可控值
   （URL、请求头、查询参数、文件名、AccessKey 等）写入日志前统一替换换行/制表/控制字符并限制长度，
   避免攻击者用换行在日志里**伪造日志行**（污染审计与告警，例如伪造一条「登录成功」）。

@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -167,7 +168,7 @@ public class OssStorageStrategy implements StorageStrategy {
     }
 
     @Override
-    public String url(String bucket, String path, Duration expire) {
+    public String url(String bucket, String path, @Nullable Duration expire) {
         // 配置了自定义域名则拼直链
         if (config.getDomain() != null && !config.getDomain().isBlank()) {
             String prefix = config.getDomain();

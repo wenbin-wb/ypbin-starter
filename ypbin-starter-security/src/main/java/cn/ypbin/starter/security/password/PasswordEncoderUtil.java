@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.security.password;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -40,6 +41,7 @@ public final class PasswordEncoderUtil {
      * @param rawPassword 明文
      * @return BCrypt 密文（含盐）
      */
+    @Nullable
     public static String encode(String rawPassword) {
         return ENCODER.encode(rawPassword);
     }

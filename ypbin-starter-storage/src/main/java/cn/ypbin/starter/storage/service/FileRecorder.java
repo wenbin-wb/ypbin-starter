@@ -16,6 +16,7 @@
 package cn.ypbin.starter.storage.service;
 
 import cn.ypbin.starter.storage.model.FileInfo;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 文件记录器扩展点。
@@ -44,6 +45,7 @@ public interface FileRecorder {
      * @param url 访问 URL
      * @return 文件信息，不存在返回 {@code null}
      */
+    @Nullable
     default FileInfo getByUrl(String url) {
         return null;
     }

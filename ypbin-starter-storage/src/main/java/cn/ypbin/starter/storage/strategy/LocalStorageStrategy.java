@@ -27,6 +27,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 本地磁盘存储策略。
@@ -98,7 +99,7 @@ public class LocalStorageStrategy implements StorageStrategy {
     }
 
     @Override
-    public String url(String bucket, String path, Duration expire) {
+    public String url(String bucket, String path, @Nullable Duration expire) {
         String prefix = config.getDomain();
         StringBuilder sb = new StringBuilder();
         if (prefix != null && !prefix.isBlank()) {

@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.security.client;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 登录客户端服务静态持有者。
  *
@@ -23,6 +25,7 @@ package cn.ypbin.starter.security.client;
  */
 public final class LoginClientHolder {
 
+    @Nullable
     private static volatile LoginClientService service;
 
     private LoginClientHolder() {
