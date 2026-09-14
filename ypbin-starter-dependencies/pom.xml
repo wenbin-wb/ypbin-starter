@@ -44,8 +44,8 @@
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
-        <archunit.version>1.4.1</archunit.version>
-        <testcontainers.version>1.20.4</testcontainers.version>
+        <archunit.version>1.5.0</archunit.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
         <maven-failsafe-plugin.version>3.6.0</maven-failsafe-plugin.version>
 
         <!--
