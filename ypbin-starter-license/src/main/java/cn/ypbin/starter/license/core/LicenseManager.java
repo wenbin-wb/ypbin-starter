@@ -148,9 +148,14 @@ public class LicenseManager {
             throw new LicenseException(LicenseErrorCode.LICENSE_NOT_YET_VALID);
         }
         LocalDateTime expireAt = content.expireAt();
+        // 永久授权（无到期时间）单独短路：evaluateAt 对空到期时间恒返回 LEGAL，
+        // 显式提前返回可避免后续分支对 expireAt 解引用（CodeQL 提示的潜在 NPE）
+        if (expireAt == null) {
+            transit(LicenseStatus.LEGAL, "永久授权");
+            return;
+        }
         switch (evaluateAt(content, now)) {
-            case LEGAL -> transit(LicenseStatus.LEGAL,
-                expireAt == null ? "永久授权" : "授权有效，到期时间：" + expireAt);
+            case LEGAL -> transit(LicenseStatus.LEGAL, "授权有效，到期时间：" + expireAt);
             case GRACE -> transit(LicenseStatus.GRACE,
                 "授权已过期，宽限期至：" + expireAt.plusDays(Math.max(0, content.graceDays())));
             case ILLEGAL -> transit(LicenseStatus.ILLEGAL, "授权已过期：" + expireAt);

@@ -21,6 +21,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -48,6 +49,7 @@ public final class RequestUtils {
      *
      * @return {@link HttpServletRequest}，无上下文时为 {@code null}
      */
+    @Nullable
     public static HttpServletRequest getRequest() {
         try {
             if (RequestContextHolder
@@ -100,6 +102,7 @@ public final class RequestUtils {
      *
      * @return {@link HttpServletResponse}，无上下文时为 {@code null}
      */
+    @Nullable
     public static HttpServletResponse getResponse() {
         try {
             if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
@@ -162,6 +165,7 @@ public final class RequestUtils {
      * @param name 参数名
      * @return 参数值，不存在或无上下文时为 {@code null}
      */
+    @Nullable
     public static String getParameter(String name) {
         HttpServletRequest request = getRequest();
         return request == null ? null : request.getParameter(name);

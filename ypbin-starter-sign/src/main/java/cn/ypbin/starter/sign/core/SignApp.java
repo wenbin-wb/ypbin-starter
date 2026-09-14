@@ -16,6 +16,7 @@
 package cn.ypbin.starter.sign.core;
 
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 开放应用信息。
@@ -34,15 +35,19 @@ public class SignApp {
     /** Secret Key（私有密钥，参与签名） */
     private String secretKey;
 
-    /** 应用名称 */
+    /** 应用名称（可选） */
+    @Nullable
     private String appName;
 
     /** 失效时间，为空表示永不过期 */
+    @Nullable
     private LocalDateTime expireTime;
 
     /** 是否启用 */
     private boolean enabled = true;
 
+    /** 供框架反序列化/绑定使用的无参构造：字段随后由 setter 填充 */
+    @SuppressWarnings("NullAway.Init")
     public SignApp() {
     }
 
@@ -76,6 +81,7 @@ public class SignApp {
         this.secretKey = secretKey;
     }
 
+    @Nullable
     public String getAppName() {
         return appName;
     }
@@ -84,6 +90,7 @@ public class SignApp {
         this.appName = appName;
     }
 
+    @Nullable
     public LocalDateTime getExpireTime() {
         return expireTime;
     }

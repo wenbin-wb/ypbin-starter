@@ -106,10 +106,16 @@ public class SignChecker {
         } catch (NumberFormatException e) {
             return SignResult.fail("时间戳格式错误");
         }
-        // 过去方向按 timeout 判过期；未来方向只容忍小幅时钟偏移（防"未来时间戳"扩大重放窗口）
-        long ahead = requestTime - now;
-        long behind = now - requestTime;
-        if (behind > properties.getTimeout() || ahead > CLOCK_SKEW_SECONDS) {
+        // 过去方向按 timeout 判过期；未来方向只容忍小幅时钟偏移（防"未来时间戳"扩大重放窗口）。
+        // 用「比较」而非「相减」：requestTime 完全由请求方提供，相减在极值（如 Long.MIN_VALUE）下会溢出，
+        // 溢出后 behind/ahead 可能同时不满足条件，等于绕过有效期校验。
+        long lowerBound = now - properties.getTimeout();
+        long upperBound = now + CLOCK_SKEW_SECONDS;
+        if (requestTime < lowerBound || requestTime > upperBound) {
+            return SignResult.fail("签名已过期");
+        }
+        long delta = requestTime - now;
+        if (delta > CLOCK_SKEW_SECONDS || delta < -properties.getTimeout()) {
             return SignResult.fail("签名已过期");
         }
 
@@ -118,7 +124,7 @@ public class SignChecker {
             // nonce 存活必须覆盖时间戳的整个有效期末尾（requestTime + timeout）。
             // 固定 timeout+1 在时间戳偏未来时会早于时间戳失效前过期，留出重放真空期，
             // 故按请求时间戳动态计算 TTL。abs 校验已保证该值落在 [1, 2*timeout+1]，不会为负。
-            long ttlSeconds = requestTime + properties.getTimeout() - now + 1;
+            long ttlSeconds = properties.getTimeout() + delta + 1;
             if (!nonceStore.tryUse(nonceKey, Duration.ofSeconds(ttlSeconds))) {
                 return SignResult.fail("请求重复（nonce 已使用）");
             }

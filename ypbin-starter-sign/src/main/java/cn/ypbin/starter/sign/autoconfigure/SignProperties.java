@@ -129,6 +129,8 @@ public class SignProperties {
     }
 
     /** 应用信息 */
+    // 字段由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null
+    @SuppressWarnings("NullAway.Init")
     public static class AppInfo {
         /** Access Key（访问密钥，公开标识） */
         private String accessKey;

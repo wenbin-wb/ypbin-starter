@@ -23,6 +23,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +49,7 @@ public class DistributedLockAspect {
     }
 
     @Around("@annotation(distributedLock)")
+    @Nullable
     public Object around(ProceedingJoinPoint point, DistributedLock distributedLock) throws Throwable {
         String key = buildKey(point, distributedLock);
         String owner = UUID.randomUUID().toString();

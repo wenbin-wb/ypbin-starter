@@ -32,6 +32,9 @@ import java.io.Serial;
  * @author wenbin
  * @since 2026-07-31
  */
+// tenantId 由 MyBatis-Plus 租户行拦截器/数据库回填，不经由构造器初始化；
+// NullAway 的「字段未初始化」在此属框架装配语义，故按类抑制并在此说明原因
+@SuppressWarnings("NullAway.Init")
 public abstract class TenantBaseEntity extends BaseEntity {
 
     @Serial

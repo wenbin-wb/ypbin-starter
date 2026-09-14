@@ -88,6 +88,16 @@ public final class SignGenerator {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
+    /**
+     * MD5 摘要（<strong>遗留算法</strong>）。
+     *
+     * <p><strong>⚠️ MD5 已不具备抗碰撞性，且不带密钥、无法抵抗长度扩展攻击。</strong>
+     * 仅为兼容既有接入方保留（需显式把 {@code ypbin.sign.algorithm} 配为 MD5）；
+     * 默认算法是 {@code HMAC_SHA256}，新接入方请勿选择 MD5。</p>
+     *
+     * @param text 待摘要文本
+     * @return 十六进制摘要
+     */
     private static String md5Hex(String text) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");

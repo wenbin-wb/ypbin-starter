@@ -18,6 +18,7 @@ package cn.ypbin.starter.gateway.handler;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import java.nio.charset.StandardCharsets;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
@@ -92,7 +93,7 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
         return R.fail(GlobalErrorCode.INTERNAL_ERROR);
     }
 
-    private R<Void> resolveByStatusCode(int statusCode, String reason) {
+    private R<Void> resolveByStatusCode(int statusCode, @Nullable String reason) {
         if (statusCode == 404) {
             return R.fail(GlobalErrorCode.NOT_FOUND.getCode(), "接口不存在");
         }

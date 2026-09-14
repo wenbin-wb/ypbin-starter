@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-14T05:54:54.006Z",
+  "generatedAt": "2026-09-14T07:08:24.121Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -9336,7 +9336,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 135
+              "line": 137
             }
           ],
           "default": null,
@@ -9348,7 +9348,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 135
+              "line": 137
             }
           ],
           "group": "ypbin.sign",
@@ -9373,7 +9373,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 137
+              "line": 139
             }
           ],
           "default": null,
@@ -9386,7 +9386,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 137
+              "line": 139
             }
           ],
           "group": "ypbin.sign",
@@ -9408,7 +9408,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 139
+              "line": 141
             }
           ],
           "default": null,
@@ -9418,7 +9418,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 139
+              "line": 141
             }
           ],
           "group": "ypbin.sign",
@@ -9440,7 +9440,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 141
+              "line": 143
             }
           ],
           "default": null,
@@ -9450,7 +9450,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 141
+              "line": 143
             }
           ],
           "group": "ypbin.sign",
@@ -9472,7 +9472,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 143
+              "line": 145
             }
           ],
           "default": "true",
@@ -9482,7 +9482,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 143
+              "line": 145
             }
           ],
           "group": "ypbin.sign",

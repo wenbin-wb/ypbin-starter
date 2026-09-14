@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -67,8 +68,10 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
 
     private final RouteDefinitionWriter routeDefinitionWriter;
 
+    @Nullable
     private ApplicationEventPublisher eventPublisher;
 
+    @Nullable
     private volatile String lastValidConfig;
 
     public NacosRouteInitializer(
@@ -125,7 +128,9 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
                 }
 
                 @Override
+                @Nullable
                 public Executor getExecutor() {
+                    // 返回 null 表示使用 Nacos 客户端默认线程池执行回调
                     return null;
                 }
             });
@@ -165,13 +170,18 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
             // block(Duration) 等整条 delete-all→save-all 流水线完成后再返回，保证与下一批应用互斥
             // 且不交错；带超时避免路由存储实现挂起时无限阻塞启动/监听线程
             routeDefinitionLocator.getRouteDefinitions()
-                .flatMap(rd -> routeDefinitionWriter.delete(Mono.just(rd.getId())))
+                .flatMap(rd -> Mono.justOrEmpty(rd.getId()).flatMap(id -> routeDefinitionWriter.delete(Mono.just(id))))
                 .collectList()
                 .flatMapMany(unused -> Flux.fromIterable(newRoutes))
                 .flatMap(rd -> routeDefinitionWriter.save(Mono.just(rd)))
                 .collectList()
                 .block(Duration.ofSeconds(ROUTE_APPLY_TIMEOUT_SECONDS));
-            eventPublisher.publishEvent(new RefreshRoutesEvent(this));
+            ApplicationEventPublisher publisher = eventPublisher;
+            if (publisher == null) {
+                // 不静默跳过：没有事件发布器意味着新路由不会生效，属装配错误，必须显式暴露
+                throw new IllegalStateException("ApplicationEventPublisher 未注入，无法广播路由刷新事件");
+            }
+            publisher.publishEvent(new RefreshRoutesEvent(this));
             log.info("[ypbin-starter] Nacos dynamic routes refreshed: {} routes.", newRoutes.size());
         } catch (Exception e) {
             // delete-all→save-all 非原子：中途失败时旧路由可能已被部分/全部删除，日志如实描述，
@@ -199,6 +209,7 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
         }
     }
 
+    @Nullable
     String currentValidConfig() {
         return lastValidConfig;
     }

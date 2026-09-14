@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 默认租户行处理器。
@@ -52,6 +53,7 @@ public class DefaultTenantLineHandler implements TenantLineHandler {
     }
 
     @Override
+    @Nullable
     public Expression getTenantId() {
         Optional<Long> tenantId = TenantContext.getTenantId()
             .or(tenantProvider::getCurrentTenantId);

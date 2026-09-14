@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springdoc.core.properties.AbstractSwaggerUiConfigProperties.SwaggerUrl;
@@ -79,8 +80,9 @@ public class GatewaySwaggerAutoConfiguration {
         }
 
         Flux.fromIterable(definitions)
-            .filter(definition -> aggregationProperties.getExcludedRoutePrefixes()
-                .stream().noneMatch(prefix -> definition.getId().startsWith(prefix)))
+            .filter(definition -> definition.getId() != null
+                && aggregationProperties.getExcludedRoutePrefixes()
+                    .stream().noneMatch(prefix -> definition.getId().startsWith(prefix)))
             .mapNotNull(GatewaySwaggerAutoConfiguration::extractServiceName)
             .distinct()
             .doOnNext(serviceName -> {
@@ -98,6 +100,7 @@ public class GatewaySwaggerAutoConfiguration {
         return new Object();
     }
 
+    @Nullable
     private static String extractServiceName(RouteDefinition definition) {
         URI uri = definition.getUri();
         if (uri == null || !"lb".equals(uri.getScheme())) {

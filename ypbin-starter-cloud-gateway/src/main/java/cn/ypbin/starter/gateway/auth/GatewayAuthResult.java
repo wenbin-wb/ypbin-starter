@@ -17,6 +17,7 @@ package cn.ypbin.starter.gateway.auth;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 网关认证结果。
@@ -31,11 +32,12 @@ public class GatewayAuthResult {
 
     private final boolean authenticated;
 
+    @Nullable
     private final String message;
 
     private final Map<String, String> trustedHeaders;
 
-    private GatewayAuthResult(boolean authenticated, String message, Map<String, String> trustedHeaders) {
+    private GatewayAuthResult(boolean authenticated, @Nullable String message, Map<String, String> trustedHeaders) {
         this.authenticated = authenticated;
         this.message = message;
         this.trustedHeaders = trustedHeaders;
@@ -57,6 +59,7 @@ public class GatewayAuthResult {
         return authenticated;
     }
 
+    @Nullable
     public String getMessage() {
         return message;
     }

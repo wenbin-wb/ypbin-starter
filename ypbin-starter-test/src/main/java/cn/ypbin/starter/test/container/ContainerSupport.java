@@ -340,7 +340,10 @@ public final class ContainerSupport {
             return fromProperty.trim();
         }
         String fromEnv = EXTERNAL.get(ENV_NACOS_ADDR);
-        return hasText(fromEnv) && fromEnv != null ? fromEnv.trim() : null;
+        if (fromEnv == null || fromEnv.isBlank()) {
+            return null;
+        }
+        return fromEnv.trim();
     }
 
     /** 找一对相隔 {@link #NACOS_GRPC_PORT_OFFSET} 且都空闲的宿主端口 */
@@ -405,9 +408,11 @@ public final class ContainerSupport {
                     container = new GenericContainer<>(DockerImageName.parse(REDIS_IMAGE))
                         .withExposedPorts(6379);
                     container.start();
-                    redisContainer = container;
+                    // 先打印再发布到静态字段：字段赋值必须是同步块内最后一步，
+                    // 否则其他线程可能在「已可见但尚未完成发布」的窗口读到半初始化对象
                     log.info("[ypbin-test] Redis 容器已启动：{}:{}", container.getHost(),
                         container.getMappedPort(6379));
+                    redisContainer = container;
                 }
             }
         }
@@ -426,10 +431,11 @@ public final class ContainerSupport {
                         .withUsername("root")
                         .withPassword("test");
                     started.start();
-                    container = started;
-                    mysqlContainer = started;
+                    // 同上：日志先行，字段赋值作为最后一步
                     log.info("[ypbin-test] MySQL 容器已启动：{}:{}", started.getHost(),
                         started.getMappedPort(3306));
+                    container = started;
+                    mysqlContainer = started;
                 }
             }
         }

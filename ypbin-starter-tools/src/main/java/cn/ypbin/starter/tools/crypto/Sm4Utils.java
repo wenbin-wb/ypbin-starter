@@ -26,6 +26,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 国密 SM4 对称加解密工具。
@@ -62,6 +63,11 @@ public final class Sm4Utils {
     /**
      * SM4/ECB 加密并 Base64 编码。
      *
+     * <p><strong>⚠️ 安全提示：ECB 模式不提供语义安全</strong>——相同明文块会产生相同密文块，
+     * 无法隐藏数据模式，且不提供完整性校验。本方法仅为<strong>兼容既有数据</strong>而保留，
+     * 新代码请改用 {@link #encryptGcm(byte[], byte[])}（认证加密，推荐）或
+     * {@link #encryptCbc(byte[], byte[], byte[])}（需自行管理 IV）。</p>
+     *
      * @param plainText 明文
      * @param key       16 字节密钥
      * @return Base64 密文
@@ -77,6 +83,7 @@ public final class Sm4Utils {
      * @param key        16 字节密钥
      * @return 明文
      */
+    // 安全提示：ECB 模式不提供语义安全，仅为兼容既有数据保留；新代码请用 encryptGcm/encryptCbc
     public static String decrypt(String cipherText, byte[] key) {
         return new String(decryptEcb(Base64.getDecoder().decode(cipherText), key), StandardCharsets.UTF_8);
     }
@@ -88,6 +95,7 @@ public final class Sm4Utils {
      * @param key       字符串密钥
      * @return Base64 密文
      */
+    // 安全提示：ECB 模式不提供语义安全，仅为兼容既有数据保留；新代码请用 encryptGcm/encryptCbc
     public static String encrypt(String plainText, String key) {
         return encrypt(plainText, key.getBytes(StandardCharsets.UTF_8));
     }
@@ -99,6 +107,7 @@ public final class Sm4Utils {
      * @param key        字符串密钥
      * @return 明文
      */
+    // 安全提示：ECB 模式不提供语义安全，仅为兼容既有数据保留；新代码请用 encryptGcm/encryptCbc
     public static String decrypt(String cipherText, String key) {
         return new String(decryptEcb(Base64.getDecoder().decode(cipherText),
             key.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
@@ -113,6 +122,7 @@ public final class Sm4Utils {
      * @param key   16 字节密钥
      * @return 密文字节
      */
+    // 安全提示：ECB 模式不提供语义安全，仅为兼容既有数据保留；新代码请用 encryptGcm/encryptCbc
     public static byte[] encryptEcb(byte[] plain, byte[] key) {
         return doFinal(ECB, Cipher.ENCRYPT_MODE, plain, key, null);
     }
@@ -124,6 +134,7 @@ public final class Sm4Utils {
      * @param key    16 字节密钥
      * @return 明文字节
      */
+    // 安全提示：ECB 模式不提供语义安全，仅为兼容既有数据保留；新代码请用 encryptGcm/encryptCbc
     public static byte[] decryptEcb(byte[] cipher, byte[] key) {
         return doFinal(ECB, Cipher.DECRYPT_MODE, cipher, key, null);
     }
@@ -268,7 +279,8 @@ public final class Sm4Utils {
      * @param iv             初始向量（ECB 传 {@code null}）
      * @return 处理结果字节
      */
-    private static byte[] doFinal(String transformation, int mode, byte[] input, byte[] key, IvParameterSpec iv) {
+    private static byte[] doFinal(String transformation, int mode, byte[] input, byte[] key,
+        @Nullable IvParameterSpec iv) {
         try {
             Cipher cipher = Cipher.getInstance(transformation, BouncyCastleProvider.PROVIDER_NAME);
             if (iv == null) {
