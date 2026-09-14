@@ -71,10 +71,31 @@
 
 ### 🏭 工程治理
 
-- `${revision}` + flatten 统一版本，对外 BOM 一键导入
-- spotless 强制代码风格与 license 头
-- 已发布 Maven Central，遵循语义化版本
-- JaCoCo 覆盖率门禁，对抗性代码审查
+**门禁即铁律：能自动拦住的，绝不靠人工自觉。** 下表每一道都在 CI 里强制执行，且都可在本地复现。
+
+| 门禁 | 拦住什么 | 本地命令 |
+|---|---|---|
+| **架构约束测试**（ArchUnit，35 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失 | `mvn -pl ypbin-starter-architecture-tests test` |
+| **空值语义静态检查**（NullAway + Error Prone，**全部 33 个模块**） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
+| **依赖版本收敛**（enforcer `dependencyConvergence`） | 同一依赖出现多个版本（Maven 会静默按声明顺序择一，不报错） | `mvn -Pdep-convergence validate` |
+| **集成测试体系**（外部实例优先 → Testcontainers 回退 → 条件跳过） | 只在真机才暴露的问题（Redis 序列化、Nacos 注册、Feign 跨服务） | `mvn -Pit verify` |
+| **配置元数据漂移** | 配置项增删改后文档未同步（清单由构建产物生成，不手工维护） | `node tools/export-config-metadata.mjs --check` |
+| **代码风格与 license 头** | 格式不一致、缺 license | `mvn com.diffplug.spotless:spotless-maven-plugin:apply` |
+| **静态安全扫描**（CodeQL，仓库 CI） | 注入、敏感信息落日志、不安全随机数、弱算法误用 | GitHub Actions（推送后自动跑） |
+| **覆盖率**（JaCoCo，`haltOnFailure`） | 用「没测到」冒充「没问题」 | `mvn test` |
+
+发布前用 `tools/preflight.sh` **一次跑全五道硬门禁**（全量构建含架构测试、NullAway、依赖收敛、集成测试、
+配置元数据），任一门禁不通过即中止发布；脚本在 Docker 不可用时**显式失败**而非静默跳过集成测试。
+
+新增模块时用 `node tools/rollout-nullaway.mjs <模块>` 一键补齐空值检查样板（包根 `package-info` +
+`nullaway.packages` 属性 + jspecify 依赖），CI 会自动发现并纳入门禁，无需改 CI 文件。
+
+供应链侧：每周 Dependabot 检查依赖与 GitHub Actions，**同族依赖强制同批升级**（Spring、测试栈、
+Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）——避免「只升其中一个导致版本错配」；
+需要 SBOM 时执行 `mvn -Psbom` 生成 CycloneDX 清单（CI 会归档）。
+
+版本治理：`${revision}` + flatten 统一版本，对外 BOM 一键导入；已发布 Maven Central，遵循语义化版本；
+发布后**必须立刻推进开发版本号**（见 `RELEASING.md`），避免已发布坐标被后续提交冒用。
 
 ## 🎯 设计取舍
 
@@ -260,7 +281,19 @@ mvn clean install
 
 # 一键格式化代码（统一 license 头、import 顺序、去除多余空白）
 mvn com.diffplug.spotless:spotless-maven-plugin:apply
+
+# 只验证改动模块的空值语义（快，建议提交前跑）
+mvn -Pnullaway -pl <改动模块> clean compile
+
+# 架构约束（35 项铁律）
+mvn -pl ypbin-starter-architecture-tests test
+
+# 发布前：一次跑全五道硬门禁
+bash tools/preflight.sh
 ```
+
+> 项目在 Windows(IDEA) 上开发、在 Linux/CI 上构建，仓库内 `.gitattributes` 与 `.editorconfig`
+> 已统一行尾（LF）与缩进约定，跨平台提交不会产生 diff 噪音。
 
 发布到 Maven Central 的完整流程与版本迭代规范见 [RELEASING.md](RELEASING.md)。
 
