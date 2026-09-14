@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -186,7 +187,14 @@ public class DefaultAiRagService implements AiRagService {
     /**
      * 轻量关键词重叠重排分数：查询命中词数 + 命中词占比加权。
      */
-    private double overlapScore(Set<String> queryTokens, String text) {
+    /**
+     * 计算文档与查询词元的重叠得分。
+     *
+     * @param queryTokens 查询词元
+     * @param text        文档文本（{@code Document#getText()} 声明可空，空文本记 0 分）
+     * @return 重叠得分
+     */
+    private double overlapScore(Set<String> queryTokens, @Nullable String text) {
         if (queryTokens.isEmpty() || text == null || text.isBlank()) {
             return 0.0;
         }

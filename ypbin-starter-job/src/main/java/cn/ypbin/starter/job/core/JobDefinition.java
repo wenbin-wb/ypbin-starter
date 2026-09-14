@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.job.core;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 任务调度定义。
  *
@@ -38,12 +40,15 @@ public class JobDefinition {
     private String executor;
 
     /** cron 表达式（与 fixedRateSeconds 二选一） */
+    @Nullable
     private String cron;
 
     /** 固定频率秒数（与 cron 二选一） */
+    @Nullable
     private Long fixedRateSeconds;
 
-    /** 执行参数（业务自定义，透传给 {@link JobContext#getArgs()}） */
+    /** 执行参数（业务自定义，透传给 {@link JobContext#getArgs()}），允许为空 */
+    @Nullable
     private String args;
 
     /**
@@ -56,6 +61,8 @@ public class JobDefinition {
     /** 是否启用集群防重（多实例只跑一个），默认 true */
     private boolean concurrentGuard = true;
 
+    /** 供框架绑定/反序列化使用的无参构造：字段随后由 setter/映射填充 */
+    @SuppressWarnings("NullAway.Init")
     public JobDefinition() {
     }
 
@@ -99,6 +106,7 @@ public class JobDefinition {
         this.executor = executor;
     }
 
+    @Nullable
     public String getCron() {
         return cron;
     }
@@ -107,6 +115,7 @@ public class JobDefinition {
         this.cron = cron;
     }
 
+    @Nullable
     public Long getFixedRateSeconds() {
         return fixedRateSeconds;
     }
@@ -115,6 +124,7 @@ public class JobDefinition {
         this.fixedRateSeconds = fixedRateSeconds;
     }
 
+    @Nullable
     public String getArgs() {
         return args;
     }

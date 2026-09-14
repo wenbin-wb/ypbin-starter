@@ -16,6 +16,7 @@
 package cn.ypbin.starter.license.core;
 
 import cn.ypbin.starter.core.util.SpringUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * License 授权静态工具。
@@ -32,6 +33,7 @@ import cn.ypbin.starter.core.util.SpringUtils;
  */
 public final class LicenseVerifier {
 
+    @Nullable
     private static volatile LicenseManager manager;
 
     private LicenseVerifier() {
@@ -43,14 +45,17 @@ public final class LicenseVerifier {
      * @return 授权状态机实例
      */
     private static LicenseManager manager() {
-        if (manager == null) {
+        LicenseManager current = manager;
+        if (current == null) {
             synchronized (LicenseVerifier.class) {
-                if (manager == null) {
-                    manager = SpringUtils.getBean(LicenseManager.class);
+                current = manager;
+                if (current == null) {
+                    current = SpringUtils.getBean(LicenseManager.class);
+                    manager = current;
                 }
             }
         }
-        return manager;
+        return current;
     }
 
     /**
@@ -93,6 +98,7 @@ public final class LicenseVerifier {
      *
      * @return 授权内容；未加载时为 {@code null}
      */
+    @Nullable
     public static LicenseContent content() {
         return manager().getContent();
     }

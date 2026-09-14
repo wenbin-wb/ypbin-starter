@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.license.extension.client;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
@@ -61,5 +62,5 @@ public interface LicenseVerifyApi {
         @RequestParam("nonce") String nonce,
         @RequestParam("sign") String sign,
         @RequestParam("licenseId") String licenseId,
-        @RequestParam(value = "fingerprint", required = false) String fingerprint);
+        @RequestParam(value = "fingerprint", required = false) @Nullable String fingerprint);
 }

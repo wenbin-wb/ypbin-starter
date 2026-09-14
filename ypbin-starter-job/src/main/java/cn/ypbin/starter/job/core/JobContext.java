@@ -16,6 +16,7 @@
 package cn.ypbin.starter.job.core;
 
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 任务执行上下文。
@@ -37,6 +38,7 @@ public class JobContext {
     private final String executor;
 
     /** 执行参数（业务自定义格式，通常为 JSON 或简单串，可空） */
+    @Nullable
     private final String args;
 
     /** 是否手动触发（true=手动立即执行，false=定时触发） */
@@ -45,7 +47,7 @@ public class JobContext {
     /** 本次触发时间 */
     private final LocalDateTime triggerTime;
 
-    public JobContext(Long jobId, String jobName, String executor, String args, boolean manual,
+    public JobContext(Long jobId, String jobName, String executor, @Nullable String args, boolean manual,
         LocalDateTime triggerTime) {
         this.jobId = jobId;
         this.jobName = jobName;
@@ -67,6 +69,7 @@ public class JobContext {
         return executor;
     }
 
+    @Nullable
     public String getArgs() {
         return args;
     }

@@ -31,6 +31,11 @@
     <description>AI 基座模块：封装 Spring AI 2.0 ChatClient、RAG、Memory、Tool 等能力</description>
 
     <dependencies>
+        <!-- JSpecify 空值语义注解：本模块以 @NullMarked 声明「未标注即非空」 -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
         <!-- Spring AI 核心：ChatClient、ChatModel API -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
@@ -151,6 +156,11 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.ai</nullaway.packages>
+    </properties>
 
     <build>
         <plugins>

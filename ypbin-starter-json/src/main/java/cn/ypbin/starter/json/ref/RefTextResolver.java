@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 引用翻译预加载解析器。
@@ -240,6 +241,7 @@ public class RefTextResolver {
         });
     }
 
+    @Nullable
     private Object readField(Field field, Object obj) {
         try {
             return field.get(obj);

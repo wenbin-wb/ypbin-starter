@@ -25,6 +25,7 @@ import com.openai.core.ClientOptions;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -58,10 +59,13 @@ public class DefaultAiChatService implements AiChatService {
     private static final Logger log = LoggerFactory.getLogger(DefaultAiChatService.class);
 
     /** yml 模型 starter 装配的 ChatClient；为空时按 {@link AiModelConfigResolver} 动态构建 */
+    @Nullable
     private final ChatClient chatClient;
     private final ChatMemory chatMemory;
+    @Nullable
     private final VectorStore vectorStore;
     /** 动态模型解析器（业务方实现，从模型配置表读取当前模型） */
+    @Nullable
     private final AiModelConfigResolver modelResolver;
     /** 默认系统提示词（动态构建 ChatClient 时注入） */
     private final String defaultSystemPrompt;
@@ -70,26 +74,30 @@ public class DefaultAiChatService implements AiChatService {
     /** 动态构建 OpenAI 兼容客户端时的传输层超时（连接 + 读写） */
     private final Duration clientTimeout;
     /** @Tool 工具回调提供者（可空：无工具时动态 ChatClient 不注册工具） */
+    @Nullable
     private final ToolCallbackProvider toolCallbackProvider;
     private final List<AiUsageListener> usageListeners;
 
-    public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
-            AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
-            long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider) {
+    public DefaultAiChatService(@Nullable ChatClient chatClient, ChatMemory chatMemory,
+            @Nullable VectorStore vectorStore,
+            @Nullable AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
+            long streamTimeoutMs, @Nullable ToolCallbackProvider toolCallbackProvider) {
         this(chatClient, chatMemory, vectorStore, modelResolver, defaultSystemPrompt, ragEnabled, streamTimeoutMs,
                 toolCallbackProvider, List.of());
     }
 
-    public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
-            AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
-            long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners) {
+    public DefaultAiChatService(@Nullable ChatClient chatClient, ChatMemory chatMemory,
+            @Nullable VectorStore vectorStore,
+            @Nullable AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
+            long streamTimeoutMs, @Nullable ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners) {
         this(chatClient, chatMemory, vectorStore, modelResolver, defaultSystemPrompt, ragEnabled, streamTimeoutMs,
                 toolCallbackProvider, usageListeners, Duration.ofSeconds(60));
     }
 
-    public DefaultAiChatService(ChatClient chatClient, ChatMemory chatMemory, VectorStore vectorStore,
-            AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
-            long streamTimeoutMs, ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners,
+    public DefaultAiChatService(@Nullable ChatClient chatClient, ChatMemory chatMemory,
+            @Nullable VectorStore vectorStore,
+            @Nullable AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
+            long streamTimeoutMs, @Nullable ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners,
             Duration clientTimeout) {
         this.chatClient = chatClient;
         this.chatMemory = chatMemory;
@@ -182,7 +190,7 @@ public class DefaultAiChatService implements AiChatService {
         return tokens == null ? "" : String.join("", tokens);
     }
 
-    private void notifyUsage(String model, String conversationId, long durationMs) {
+    private void notifyUsage(@Nullable String model, String conversationId, long durationMs) {
         if (usageListeners.isEmpty()) {
             return;
         }
@@ -283,6 +291,7 @@ public class DefaultAiChatService implements AiChatService {
      * 全局 RAG Advisor：当 {@code ypbin.ai.chat.rag-enabled=true} 且已配置向量库时，
      * 普通对话也自动检索全部知识库片段增强回答；未开启时返回 {@code null}（不注入）。
      */
+    @Nullable
     private RetrievalAugmentationAdvisor globalRagAdvisor() {
         if (!ragEnabled || vectorStore == null) {
             return null;

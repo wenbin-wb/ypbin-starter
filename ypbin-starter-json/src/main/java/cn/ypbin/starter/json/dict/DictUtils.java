@@ -16,6 +16,7 @@
 package cn.ypbin.starter.json.dict;
 
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 字典静态门面。
@@ -29,6 +30,7 @@ import java.util.List;
  */
 public final class DictUtils {
 
+    @Nullable
     private static volatile DictCache cache;
 
     private DictUtils() {

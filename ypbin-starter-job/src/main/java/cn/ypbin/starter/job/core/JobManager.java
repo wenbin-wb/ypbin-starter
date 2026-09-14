@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
@@ -217,12 +218,20 @@ public class JobManager {
         return new Scheduled(definition, future, activationToken);
     }
 
+    @Nullable
     private ScheduledFuture<?> schedule(JobDefinition definition, Runnable task) {
-        if (definition.isCronTrigger()) {
-            return taskScheduler.schedule(task, new CronTrigger(definition.getCron()));
+        // 用局部变量 + 显式判空（而非 isCronTrigger()）：静态分析无法从 isCronTrigger() 反推 cron 非空
+        String cron = definition.getCron();
+        if (cron != null && !cron.isBlank()) {
+            return taskScheduler.schedule(task, new CronTrigger(cron));
         }
-        PeriodicTrigger trigger = new PeriodicTrigger(
-            Duration.ofSeconds(definition.getFixedRateSeconds()));
+        Long fixedRateSeconds = definition.getFixedRateSeconds();
+        if (fixedRateSeconds == null || fixedRateSeconds <= 0) {
+            // 不静默兜底：既不是 cron 触发、又没有合法固定间隔，属任务定义错误，显式失败
+            throw new IllegalStateException("任务既未配置 cron 也未配置合法的 fixedRateSeconds：id="
+                + definition.getId());
+        }
+        PeriodicTrigger trigger = new PeriodicTrigger(Duration.ofSeconds(fixedRateSeconds));
         trigger.setFixedRate(true);
         return taskScheduler.schedule(task, trigger);
     }
@@ -308,8 +317,9 @@ public class JobManager {
                 log.warn("[ypbin-starter] job execute failed: name={}, err={}", definition.getName(), e.getMessage());
                 listener.onError(context, System.currentTimeMillis() - start, e);
             } finally {
-                if (locked) {
-                    jobLock.unlock(lockKey, nodeId);
+                String currentLockKey = lockKey;
+                if (locked && currentLockKey != null) {
+                    jobLock.unlock(currentLockKey, nodeId);
                 }
             }
         } finally {
@@ -369,7 +379,11 @@ public class JobManager {
             throw new IllegalArgumentException("任务须且只能指定 cron 或正的固定频率秒数之一");
         }
         if (cronTrigger) {
-            cronService.validate(definition.getCron());
+            String cron = definition.getCron();
+            if (cron == null || cron.isBlank()) {
+                throw new IllegalArgumentException("任务标记为 cron 触发但未提供 cron 表达式");
+            }
+            cronService.validate(cron);
         }
     }
 

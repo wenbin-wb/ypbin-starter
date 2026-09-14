@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.json.ref;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.MediaType;
@@ -56,7 +57,8 @@ public class RefTextResponseAdvice implements ResponseBodyAdvice<Object> {
     }
 
     @Override
-    public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
+    public @Nullable Object beforeBodyWrite(@Nullable Object body, MethodParameter returnType,
+        MediaType selectedContentType,
         Class<? extends HttpMessageConverter<?>> selectedConverterType, ServerHttpRequest request,
         ServerHttpResponse response) {
         if (body != null) {

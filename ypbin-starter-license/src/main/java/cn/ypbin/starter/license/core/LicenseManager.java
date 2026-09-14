@@ -18,6 +18,7 @@ package cn.ypbin.starter.license.core;
 import cn.ypbin.starter.license.exception.LicenseErrorCode;
 import cn.ypbin.starter.license.exception.LicenseException;
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,9 +58,11 @@ public class LicenseManager {
     private final String sm4Key;
     private final boolean fingerprintEnabled;
 
+    @Nullable
     private volatile LicenseContent content;
     private volatile LicenseStatus status = LicenseStatus.ILLEGAL;
     private volatile String reason = "尚未加载授权";
+    @Nullable
     private volatile LocalDateTime lastSeenTime;
 
     /** 最近一次过期快查的时刻（毫秒时间戳，用于 5s 内不重算的节流） */
@@ -313,10 +316,12 @@ public class LicenseManager {
      *
      * @param why 锁定原因
      */
-    private void markIllegal(String why) {
-        transit(LicenseStatus.ILLEGAL, why);
+    private void markIllegal(@Nullable String why) {
+        // 不静默：异常消息可能为空，回落为可读文案（否则状态原因列为空，排查困难）
+        transit(LicenseStatus.ILLEGAL, why == null || why.isBlank() ? "授权校验失败" : why);
     }
 
+    @Nullable
     public LicenseContent getContent() {
         return content;
     }

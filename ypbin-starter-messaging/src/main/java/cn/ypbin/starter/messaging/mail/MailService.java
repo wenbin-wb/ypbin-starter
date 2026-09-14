@@ -19,6 +19,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.util.Properties;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -40,7 +41,9 @@ public class MailService {
     private final MailConfigProvider configProvider;
 
     /** 缓存的 sender 与其对应配置指纹（配置变化即重建） */
+    @Nullable
     private volatile JavaMailSenderImpl cachedSender;
+    @Nullable
     private volatile String cachedFingerprint;
 
     public MailService(MailConfigProvider configProvider) {

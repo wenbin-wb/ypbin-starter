@@ -30,6 +30,7 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -79,7 +80,7 @@ public final class DocumentLoader {
      * @return 切片后的文档列表
      */
     public static List<Document> loadAndChunk(byte[] bytes, String filename,
-            Map<String, Object> metadata, Integer chunkSize) {
+            Map<String, Object> metadata, @Nullable Integer chunkSize) {
         List<Document> rawDocs = parseRaw(bytes, filename);
         var splitterBuilder = TokenTextSplitter.builder();
         // 仅当 chunkSize 为正数时覆盖默认值，保持向后兼容
@@ -224,7 +225,9 @@ public final class DocumentLoader {
         String html = new String(bytes, StandardCharsets.UTF_8);
         Element doc = Jsoup.parse(html);
         Element main = doc.selectFirst("article,main,[role=main]");
-        String text = (main != null ? main : doc.ownerDocument().body()).text();
+        // 不经 ownerDocument()（声明可空）：改用 body 元素；jsoup 解析后必然存在 body，取不到时退回整篇文本
+        Element body = doc.selectFirst("body");
+        String text = (main != null ? main : body != null ? body : doc).text();
         return List.of(new Document(text, Map.of("source", filename != null ? filename : "")));
     }
 }

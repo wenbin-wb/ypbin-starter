@@ -23,6 +23,7 @@ import com.openai.core.ClientOptions;
 import java.io.File;
 import java.time.Duration;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -60,6 +61,7 @@ public class LazySimpleVectorStore implements VectorStore, DisposableBean {
     /** 落盘协调器：合并突发写入并原子替换文件，消除逐次全量落盘的 O(N²) */
     private final PersistCoordinator persistCoordinator;
 
+    @Nullable
     private volatile SimpleVectorStore delegate;
 
     public LazySimpleVectorStore(AiEmbeddingConfigResolver embeddingResolver, String storePath) {
@@ -87,14 +89,17 @@ public class LazySimpleVectorStore implements VectorStore, DisposableBean {
     }
 
     private SimpleVectorStore delegate() {
-        if (delegate == null) {
+        SimpleVectorStore current = delegate;
+        if (current == null) {
             synchronized (this) {
-                if (delegate == null) {
-                    delegate = build();
+                current = delegate;
+                if (current == null) {
+                    current = build();
+                    delegate = current;
                 }
             }
         }
-        return delegate;
+        return current;
     }
 
     private SimpleVectorStore build() {

@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,9 +75,11 @@ final class PersistCoordinator {
     private final AtomicBoolean persisting = new AtomicBoolean(false);
 
     /** 防抖调度器（懒创建，daemon 线程不阻塞 JVM 退出） */
+    @Nullable
     private volatile ScheduledExecutorService scheduler;
 
     /** 待执行的防抖落盘任务 */
+    @Nullable
     private volatile ScheduledFuture<?> pendingFlush;
 
     /**

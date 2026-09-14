@@ -16,6 +16,7 @@
 package cn.ypbin.starter.json.ref;
 
 import java.util.Collection;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 引用翻译静态门面。
@@ -29,6 +30,7 @@ import java.util.Collection;
  */
 public final class RefTextUtils {
 
+    @Nullable
     private static volatile RefTextManager manager;
 
     private RefTextUtils() {
@@ -59,6 +61,7 @@ public final class RefTextUtils {
      * @param id   引用 ID
      * @return 名称
      */
+    @Nullable
     public static String translate(String type, Object id) {
         return manager == null ? null : manager.translate(type, id);
     }

@@ -18,6 +18,7 @@ package cn.ypbin.starter.job.autoconfigure;
 import cn.ypbin.starter.job.core.JobManager;
 import java.lang.reflect.Method;
 import java.time.Duration;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -51,6 +52,7 @@ final class JobLockFactory {
         return new DelegatingJobLock(lockService);
     }
 
+    @Nullable
     private static Object resolveLockService(ApplicationContext ctx) {
         try {
             Class<?> type = Class.forName(LOCK_SERVICE_CLASS);

@@ -26,6 +26,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @since 2026-08-05
  */
 @ConfigurationProperties(prefix = LicenseProperties.PREFIX)
+// 字段由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null；
+// NullAway 的「字段未初始化」在此属框架装配语义，故按类抑制并在此说明原因
+@SuppressWarnings("NullAway.Init")
 public class LicenseProperties {
 
     public static final String PREFIX = "ypbin.license";
@@ -122,6 +125,8 @@ public class LicenseProperties {
      * <p>鉴权采用接口签名：accessKey 为公开的应用标识、secretKey 为参与签名的私有密钥，二者由签发端
      * 「开放应用管理」为每个消费端应用独立签发；密钥泄露只影响单一应用，且可在应用管理禁用/重置。</p>
      */
+    // 同上：配置绑定类
+    @SuppressWarnings("NullAway.Init")
     public static class Online {
 
         /** 联机校验服务根地址（如 {@code http://license-admin:8080}）；为空则不装配联机校验 */

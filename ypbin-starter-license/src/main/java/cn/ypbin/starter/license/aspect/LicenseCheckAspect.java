@@ -19,6 +19,8 @@ import cn.ypbin.starter.license.annotation.LicenseCheck;
 import cn.ypbin.starter.license.core.LicenseContent;
 import cn.ypbin.starter.license.core.LicenseManager;
 import cn.ypbin.starter.license.core.MachineFingerprint;
+import cn.ypbin.starter.license.exception.LicenseErrorCode;
+import cn.ypbin.starter.license.exception.LicenseException;
 import cn.ypbin.starter.license.extension.RemoteVerifyProvider;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -88,6 +90,10 @@ public class LicenseCheckAspect {
             return;
         }
         LicenseContent content = manager.getContent();
+        if (content == null) {
+            // 不静默跳过联机回验：本地校验已通过却拿不到授权内容属状态不一致，显式失败（fail-closed）
+            throw new LicenseException(LicenseErrorCode.LICENSE_NOT_YET_VALID);
+        }
         String fingerprint = MachineFingerprint.current();
         for (RemoteVerifyProvider provider : remoteVerifyProviders) {
             provider.verify(content, fingerprint);

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +46,7 @@ public class FileLicenseStore implements LicenseStore {
     }
 
     @Override
+    @Nullable
     public String load() {
         if (!Files.exists(location)) {
             log.warn("[ypbin-starter] 未找到授权文件：{}", location);

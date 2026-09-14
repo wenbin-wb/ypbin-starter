@@ -17,6 +17,7 @@ package cn.ypbin.starter.json.ref;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 引用翻译本地缓存。
@@ -60,6 +61,7 @@ public class RefTextCache {
      * @param id   引用 ID
      * @return 命中返回名称（含空值哨兵的空串）；未命中返回 {@code null}
      */
+    @Nullable
     public String get(String type, Object id) {
         Entry entry = cache.get(key(type, id));
         if (entry == null) {
@@ -90,7 +92,7 @@ public class RefTextCache {
      * @param id   引用 ID
      * @param name 名称（查无结果时传空串作哨兵）
      */
-    public void put(String type, Object id, String name) {
+    public void put(String type, Object id, @Nullable String name) {
         long now = System.currentTimeMillis();
         cleanupIfNeeded(now);
         if (cache.size() >= maxSize && !cache.containsKey(key(type, id))) {

@@ -29,6 +29,9 @@ import tools.jackson.databind.ValueSerializer;
  * @author wenbin
  * @since 2026-07-30
  */
+// 由 Jackson 通过反射实例化并直接赋值属性字段（createContextual 中 new + 赋值），
+// 构造器结束时字段尚为空属框架装配语义，故按类抑制 NullAway.Init
+@SuppressWarnings("NullAway.Init")
 public class SensitiveSerializer extends ValueSerializer<String> {
 
     private SensitiveType type;

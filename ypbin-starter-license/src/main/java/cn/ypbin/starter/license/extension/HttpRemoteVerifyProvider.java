@@ -192,8 +192,11 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         try {
             // fingerprint 为空时传 null，框架会省略该查询参数——服务端按实际收到的参数重算签名，
             // 多送一个空参数会导致验签失败
-            response = verifyApi.verify(signed.get("accessKey"), signed.get("timestamp"),
-                signed.get("nonce"), signed.get("sign"), signed.get("licenseId"),
+            // 缺失字段回落为空串（而非 null）后原样上报：服务端按实际收到的参数重算签名必然不匹配，
+            // 从而 fail-closed 拒绝；比抛异常更能纳入既有的「未明确裁决」处理路径
+            response = verifyApi.verify(signed.getOrDefault("accessKey", ""),
+                signed.getOrDefault("timestamp", ""), signed.getOrDefault("nonce", ""),
+                signed.getOrDefault("sign", ""), signed.getOrDefault("licenseId", ""),
                 fingerprint == null || fingerprint.isEmpty() ? null : fingerprint);
         } catch (RestClientException e) {
             // 网络不可达/超时/非 2xx/响应体无法转换，统一按「未明确裁决」处理：
@@ -220,7 +223,7 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         // 明确拒绝：重置放行计数（服务端可达且给出明确答复），不缓存，直接阻断
         consecutiveFailOpenCount = 0;
         failOpenUntil = 0;
-        String reason = data.reason() == null ? "" : data.reason();
+        String reason = data == null || data.reason() == null ? "" : data.reason();
         throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
             "联机授权校验未通过：" + (reason.isBlank() ? "授权可能已被吊销" : reason));
     }

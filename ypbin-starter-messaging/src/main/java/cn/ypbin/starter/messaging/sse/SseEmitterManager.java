@@ -25,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -56,6 +57,7 @@ public class SseEmitterManager implements DisposableBean {
     private final long heartbeatIntervalMillis;
 
     /** 心跳调度器（懒创建，daemon 线程不阻塞关闭）；所有连接共享 */
+    @Nullable
     private volatile ScheduledExecutorService scheduler;
 
     /** 发送执行器：每次推送在独立虚拟线程里执行，慢客户端不阻塞其他连接 */
@@ -117,6 +119,7 @@ public class SseEmitterManager implements DisposableBean {
      * @param emitter 连接
      * @return 心跳任务（未启用时返回 {@code null}）
      */
+    @Nullable
     private ScheduledFuture<?> startHeartbeat(String userId, SseEmitter emitter) {
         if (heartbeatIntervalMillis <= 0) {
             return null;
@@ -165,7 +168,7 @@ public class SseEmitterManager implements DisposableBean {
      *
      * @param heartbeat 心跳任务（可为 {@code null}）
      */
-    private static void cancelHeartbeat(ScheduledFuture<?> heartbeat) {
+    private static void cancelHeartbeat(@Nullable ScheduledFuture<?> heartbeat) {
         if (heartbeat != null) {
             heartbeat.cancel(false);
         }

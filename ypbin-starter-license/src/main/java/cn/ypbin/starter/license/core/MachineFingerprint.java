@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 机器指纹采集器。
@@ -43,6 +44,7 @@ public final class MachineFingerprint {
      * 进程内缓存的指纹：机器特征（网卡 MAC、主机名等）在进程生命周期内不变，
      * 缓存可避免每次 {@code @LicenseCheck(online=true)} 都重新枚举网卡与解析主机名。
      */
+    @Nullable
     private static volatile String cached;
 
     private MachineFingerprint() {
@@ -59,10 +61,12 @@ public final class MachineFingerprint {
             return value;
         }
         synchronized (MachineFingerprint.class) {
-            if (cached == null) {
-                cached = compute();
+            String current = cached;
+            if (current == null) {
+                current = compute();
+                cached = current;
             }
-            return cached;
+            return current;
         }
     }
 

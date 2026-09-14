@@ -18,6 +18,7 @@ package cn.ypbin.starter.messaging.mail;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 邮件（SMTP）配置。
@@ -28,6 +29,9 @@ import java.util.Objects;
  * @author wenbin
  * @since 2026-08-01
  */
+// 字段由 MailConfigProvider 的实现方（配置中心/DB/静态配置）在构造后填充，
+// 不经构造器初始化，属装配语义，故按类抑制 NullAway.Init
+@SuppressWarnings("NullAway.Init")
 public class MailConfig implements Serializable {
 
     @Serial
@@ -46,9 +50,11 @@ public class MailConfig implements Serializable {
     private String password;
 
     /** 发件人邮箱，为空时取 {@link #username} */
+    @Nullable
     private String from;
 
     /** 发件人显示名，可空 */
+    @Nullable
     private String fromName;
 
     /** 协议，默认 smtp */
@@ -145,6 +151,7 @@ public class MailConfig implements Serializable {
         this.password = password;
     }
 
+    @Nullable
     public String getFrom() {
         return from;
     }
@@ -153,6 +160,7 @@ public class MailConfig implements Serializable {
         this.from = from;
     }
 
+    @Nullable
     public String getFromName() {
         return fromName;
     }

@@ -16,6 +16,7 @@
 package cn.ypbin.starter.json.sensitive;
 
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 脱敏类型。
@@ -52,9 +53,10 @@ public enum SensitiveType {
     /** 自定义：按注解的 prefixKeep / suffixKeep 保留位数 */
     CUSTOM(null);
 
+    @Nullable
     private final Function<String, String> strategy;
 
-    SensitiveType(Function<String, String> strategy) {
+    SensitiveType(@Nullable Function<String, String> strategy) {
         this.strategy = strategy;
     }
 
@@ -71,9 +73,15 @@ public enum SensitiveType {
             return value;
         }
         if (this == CUSTOM) {
+            // CUSTOM 走 prefixKeep/suffixKeep 规则，不使用 strategy
             return mask(value, prefixKeep, suffixKeep);
         }
-        return strategy.apply(value);
+        Function<String, String> current = strategy;
+        if (current == null) {
+            // 不静默降级：非 CUSTOM 类型必须有脱敏策略，缺失属枚举定义错误
+            throw new IllegalStateException("脱敏策略缺失：type=" + this);
+        }
+        return current.apply(value);
     }
 
     /**

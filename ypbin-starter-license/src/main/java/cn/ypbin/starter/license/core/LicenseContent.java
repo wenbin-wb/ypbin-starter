@@ -18,6 +18,7 @@ package cn.ypbin.starter.license.core;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * License 授权内容。
@@ -97,6 +98,7 @@ public record LicenseContent(
      * @param key 业务参数名
      * @return 额度上限；未配置时返回 {@code null}（表示该项不限）
      */
+    @Nullable
     public Long quota(String key) {
         return quotas == null ? null : quotas.get(key);
     }
@@ -107,6 +109,7 @@ public record LicenseContent(
      * @param key 参数名
      * @return 参数值；不存在返回 {@code null}
      */
+    @Nullable
     public String attribute(String key) {
         return attributes == null ? null : attributes.get(key);
     }

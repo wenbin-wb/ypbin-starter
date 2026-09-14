@@ -18,6 +18,7 @@ package cn.ypbin.starter.messaging.util;
 import cn.ypbin.starter.core.util.SpringUtils;
 import cn.ypbin.starter.messaging.push.PushEvent;
 import cn.ypbin.starter.messaging.push.PushService;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 实时推送静态工具。
@@ -33,6 +34,7 @@ import cn.ypbin.starter.messaging.push.PushService;
  */
 public final class PushUtils {
 
+    @Nullable
     private static volatile PushService service;
 
     private PushUtils() {
@@ -44,14 +46,17 @@ public final class PushUtils {
      * @return 推送服务实例
      */
     private static PushService service() {
-        if (service == null) {
-            synchronized (PushUtils.class) {
-                if (service == null) {
-                    service = SpringUtils.getBean(PushService.class);
+        PushService current = service;
+        if (current == null) {
+            synchronized (PushService.class) {
+                current = service;
+                if (current == null) {
+                    current = SpringUtils.getBean(PushService.class);
+                    service = current;
                 }
             }
         }
-        return service;
+        return current;
     }
 
     /**

@@ -19,6 +19,7 @@ import cn.ypbin.starter.core.util.SpringUtils;
 import cn.ypbin.starter.messaging.sms.SmsService;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 短信静态工具。
@@ -33,20 +34,24 @@ import java.util.Map;
  */
 public final class SmsUtils {
 
+    @Nullable
     private static volatile SmsService service;
 
     private SmsUtils() {
     }
 
     private static SmsService service() {
-        if (service == null) {
-            synchronized (SmsUtils.class) {
-                if (service == null) {
-                    service = SpringUtils.getBean(SmsService.class);
+        SmsService current = service;
+        if (current == null) {
+            synchronized (SmsService.class) {
+                current = service;
+                if (current == null) {
+                    current = SpringUtils.getBean(SmsService.class);
+                    service = current;
                 }
             }
         }
-        return service;
+        return current;
     }
 
     /**

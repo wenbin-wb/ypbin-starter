@@ -18,6 +18,7 @@ package cn.ypbin.starter.messaging.util;
 import cn.ypbin.starter.core.util.SpringUtils;
 import cn.ypbin.starter.messaging.mail.MailService;
 import java.io.File;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 邮件静态工具。
@@ -32,6 +33,7 @@ import java.io.File;
  */
 public final class MailUtils {
 
+    @Nullable
     private static volatile MailService service;
 
     private MailUtils() {
@@ -43,14 +45,17 @@ public final class MailUtils {
      * @return 邮件服务实例
      */
     private static MailService service() {
-        if (service == null) {
-            synchronized (MailUtils.class) {
-                if (service == null) {
-                    service = SpringUtils.getBean(MailService.class);
+        MailService current = service;
+        if (current == null) {
+            synchronized (MailService.class) {
+                current = service;
+                if (current == null) {
+                    current = SpringUtils.getBean(MailService.class);
+                    service = current;
                 }
             }
         }
-        return service;
+        return current;
     }
 
     /**

@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.license.extension;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 授权串存取扩展点。
  *
@@ -35,6 +37,7 @@ public interface LicenseStore {
      *
      * @return Base64 授权串；不存在时返回 {@code null}
      */
+    @Nullable
     String load();
 
     /**

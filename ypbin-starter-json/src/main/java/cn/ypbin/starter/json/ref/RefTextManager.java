@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,6 +64,7 @@ public class RefTextManager {
      * @param id   引用 ID
      * @return 名称；无 provider 或查不到时返回 {@code null}
      */
+    @Nullable
     public String translate(String type, Object id) {
         if (type == null || id == null) {
             return null;

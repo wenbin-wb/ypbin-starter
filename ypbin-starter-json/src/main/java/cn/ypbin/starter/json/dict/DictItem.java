@@ -17,6 +17,7 @@ package cn.ypbin.starter.json.dict;
 
 import java.io.Serial;
 import java.io.Serializable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 字典项。
@@ -39,11 +40,14 @@ public class DictItem implements Serializable {
     private String label;
 
     /** 扩展样式标签（如 success/warning，前端标签颜色），可空 */
+    @Nullable
     private String color;
 
     /** 排序 */
     private int sort;
 
+    /** 供框架/反序列化使用的无参构造：字段随后由 setter/映射填充 */
+    @SuppressWarnings("NullAway.Init")
     public DictItem() {
     }
 
@@ -68,6 +72,7 @@ public class DictItem implements Serializable {
         this.label = label;
     }
 
+    @Nullable
     public String getColor() {
         return color;
     }

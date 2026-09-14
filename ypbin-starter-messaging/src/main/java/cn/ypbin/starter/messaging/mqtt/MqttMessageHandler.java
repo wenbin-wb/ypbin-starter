@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.messaging.mqtt;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * MQTT 消息消费回调。
  *
@@ -39,6 +41,7 @@ public interface MqttMessageHandler {
      *
      * @return QoS，或 null 表示使用默认值
      */
+    @Nullable
     default Integer qos() {
         return null;
     }
