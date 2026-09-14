@@ -29,7 +29,7 @@ jobs:
         run: mvn -B install -DskipTests
 
       - name: 配置 Node（配置元数据导出脚本依赖）
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
