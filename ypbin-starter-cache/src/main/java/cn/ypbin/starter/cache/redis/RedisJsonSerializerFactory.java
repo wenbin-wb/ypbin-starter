@@ -84,7 +84,7 @@ public final class RedisJsonSerializerFactory {
         }
 
         @Override
-        public @Nullable Object deserialize(@Nullable byte[] bytes) throws SerializationException {
+        public @Nullable Object deserialize(byte @Nullable [] bytes) throws SerializationException {
             return delegate.deserialize(bytes);
         }
     }

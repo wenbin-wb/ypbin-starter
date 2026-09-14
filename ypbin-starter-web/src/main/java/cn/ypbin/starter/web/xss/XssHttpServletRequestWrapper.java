@@ -49,8 +49,7 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
     }
 
     @Override
-    @Nullable
-    public String[] getParameterValues(String name) {
+    public String @Nullable [] getParameterValues(String name) {
         String[] values = super.getParameterValues(name);
         if (values == null) {
             return null;

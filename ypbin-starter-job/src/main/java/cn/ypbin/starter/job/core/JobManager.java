@@ -261,7 +261,7 @@ public class JobManager {
         cancel(registry.remove(jobId));
     }
 
-    private void cancel(Scheduled scheduled) {
+    private void cancel(@Nullable Scheduled scheduled) {
         if (scheduled != null) {
             scheduled.future().cancel(false);
         }

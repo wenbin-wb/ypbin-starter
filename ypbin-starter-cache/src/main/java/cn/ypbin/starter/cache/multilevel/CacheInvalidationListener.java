@@ -43,7 +43,7 @@ public class CacheInvalidationListener implements MessageListener {
     }
 
     @Override
-    public void onMessage(Message message, @Nullable byte[] pattern) {
+    public void onMessage(Message message, byte @Nullable [] pattern) {
         String body = new String(message.getBody(), StandardCharsets.UTF_8);
         int sep = body.indexOf(LENGTH_SEPARATOR);
         if (sep <= 0) {
