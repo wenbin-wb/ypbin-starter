@@ -31,8 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -435,7 +435,7 @@ public final class ContainerSupport {
                 container = mysqlContainer;
                 if (container == null) {
                     // 泛型自限定类型需先落到具名局部变量再赋给通配字段
-                    MySQLContainer<?> started = new MySQLContainer<>(DockerImageName.parse(MYSQL_IMAGE))
+                    MySQLContainer started = new MySQLContainer(DockerImageName.parse(MYSQL_IMAGE))
                         .withDatabaseName("ypbin_test")
                         .withUsername("root")
                         .withPassword("test");

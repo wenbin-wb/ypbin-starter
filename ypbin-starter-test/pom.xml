@@ -40,13 +40,14 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
         </dependency>
+        <!-- testcontainers 2.x 模块统一加 testcontainers- 前缀（1.21 起提供新名，2.0 起旧名移除） -->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mysql</artifactId>
+            <artifactId>testcontainers-mysql</artifactId>
         </dependency>
 
         <!-- 以下为「可选」能力：仅使用对应基类时才需要，避免强制宿主引入 Redis/MySQL -->
