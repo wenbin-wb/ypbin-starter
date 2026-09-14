@@ -145,6 +145,13 @@
           非发布的开发/度量模块（架构约束测试、JMH 性能基线）：由 activeByDefault 提供，使默认构建包含它们，
           而 `-Prelease` 激活 release profile 后本 profile 失效 → 这些模块不进入发布反应堆。
           这样它们的空 jar（无签名、无 sources/javadoc）绝不会被 staged 进 Central 上传包。
+
+          ⚠️ 副作用（已实测）：只要激活了根 pom 的任一 profile（如 `-Prelease`，甚至 `-Prelease,it`），
+          本 profile 即失效，构建就**不会**执行这里的架构约束测试——`it` 定义在父 pom，不会把模块带回来。
+          发布前的铁律门禁由 CI 常规 job（`mvn clean test`）与 tag 流程保证；本地要跑门禁就别加 `-P`，
+          或单独执行一次 `mvn -o -pl ypbin-starter-architecture-tests test`。
+          新增不发布模块时必须同时加进本 profile 与 sbom profile，并由
+          `ModulePublishingTest` 校验（写进顶层 modules 会让未签名产物混进 Central 上传包）。
         -->
         <profile>
             <id>dev-only</id>
