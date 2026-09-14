@@ -17,6 +17,12 @@
     <description>缓存能力：基于 Redis 的默认实现，预留 CacheService 策略接口以便扩展</description>
 
     <dependencies>
+        <!-- JSpecify 空值语义注解：本模块以 @NullMarked 声明「未标注即非空」 -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
@@ -60,6 +66,11 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 会据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.cache</nullaway.packages>
+    </properties>
 
     <build>
         <plugins>

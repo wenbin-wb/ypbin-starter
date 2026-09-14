@@ -16,6 +16,7 @@
 package cn.ypbin.starter.web.xss;
 
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * XSS 内容清洗工具。
@@ -60,7 +61,8 @@ public final class XssCleaner {
      * @param value 原始值
      * @return 清洗后的值；入参为 {@code null} 时返回 {@code null}
      */
-    public static String clean(String value) {
+    @Nullable
+    public static String clean(@Nullable String value) {
         if (value == null || value.isBlank()) {
             return value;
         }

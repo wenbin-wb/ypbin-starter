@@ -17,6 +17,7 @@ package cn.ypbin.starter.cloud.feign.fallback;
 
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
@@ -44,7 +45,7 @@ public abstract class RFeignFallbackFactory<T> implements FallbackFactory<T> {
         return fail(cause, null);
     }
 
-    protected <D> R<D> fail(Throwable cause, String defaultMessage) {
+    protected <D> R<D> fail(Throwable cause, @Nullable String defaultMessage) {
         if (cause instanceof FeignFallbackException fallbackException) {
             return R.fail(fallbackException.getCode(), fallbackException.getMessage());
         }

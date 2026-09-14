@@ -20,6 +20,7 @@ import cn.ypbin.starter.core.util.SpringUtils;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 缓存静态工具。
@@ -35,6 +36,7 @@ import java.util.function.Supplier;
  */
 public final class CacheUtils {
 
+    @Nullable
     private static volatile CacheService cacheService;
 
     private CacheUtils() {
@@ -46,14 +48,18 @@ public final class CacheUtils {
      * @return 缓存服务实例
      */
     private static CacheService cacheService() {
-        if (cacheService == null) {
+        CacheService current = cacheService;
+        if (current == null) {
             synchronized (CacheUtils.class) {
-                if (cacheService == null) {
-                    cacheService = SpringUtils.getBean(CacheService.class);
+                current = cacheService;
+                if (current == null) {
+                    // SpringUtils.getBean 在容器未就绪时抛错，故此处拿到的必然非空
+                    current = SpringUtils.getBean(CacheService.class);
+                    cacheService = current;
                 }
             }
         }
-        return cacheService;
+        return current;
     }
 
     /**
@@ -97,7 +103,7 @@ public final class CacheUtils {
      * @param <T>  泛型
      * @return 值，不存在时为 {@code null}
      */
-    public static <T> T get(String key, Class<T> type) {
+    public static <T> @Nullable T get(String key, Class<T> type) {
         return cacheService().get(key, type);
     }
 
@@ -174,7 +180,7 @@ public final class CacheUtils {
      * @param <T>    泛型
      * @return 缓存值或回源结果
      */
-    public static <T> T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
+    public static <T> @Nullable T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
         return cacheService().getOrLoad(key, type, loader, ttl);
     }
 }

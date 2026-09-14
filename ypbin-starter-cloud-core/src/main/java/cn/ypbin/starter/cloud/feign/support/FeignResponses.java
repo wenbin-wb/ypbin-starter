@@ -19,6 +19,7 @@ import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.model.R;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Feign 统一响应处理工具。
@@ -58,7 +59,7 @@ public final class FeignResponses {
      * @param fallback 降级值
      * @return 业务数据或降级值
      */
-    public static <T> T dataOrElse(R<T> response, T fallback) {
+    public static <T> @Nullable T dataOrElse(R<T> response, @Nullable T fallback) {
         if (response == null || !response.isSuccess() || response.getData() == null) {
             return fallback;
         }

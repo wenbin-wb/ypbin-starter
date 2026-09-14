@@ -20,6 +20,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 多级缓存实现：L1 本地（Caffeine）+ L2 分布式（委托底层 {@link CacheService}，通常为 Redis）。
@@ -38,13 +39,14 @@ public class MultiLevelCacheService implements CacheService {
 
     private final CacheService l2;
     private final Cache<String, Object> l1;
+    @Nullable
     private final CacheInvalidationPublisher invalidationPublisher;
 
     /** 空值哨兵：与 L2 一致，L1 也缓存空值防穿透 */
     private static final Object NULL_SENTINEL = new Object();
 
     public MultiLevelCacheService(CacheService l2, Cache<String, Object> l1,
-            CacheInvalidationPublisher invalidationPublisher) {
+            @Nullable CacheInvalidationPublisher invalidationPublisher) {
         this.l2 = l2;
         this.l1 = l1;
         this.invalidationPublisher = invalidationPublisher;
@@ -71,7 +73,7 @@ public class MultiLevelCacheService implements CacheService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> T get(String key, Class<T> type) {
+    public <T> @Nullable T get(String key, Class<T> type) {
         Object local = l1.getIfPresent(key);
         if (local != null) {
             return local == NULL_SENTINEL ? null : (T) local;
@@ -137,7 +139,7 @@ public class MultiLevelCacheService implements CacheService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
+    public <T> @Nullable T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
         Object local = l1.getIfPresent(key);
         if (local != null) {
             return local == NULL_SENTINEL ? null : (T) local;

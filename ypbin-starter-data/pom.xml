@@ -17,6 +17,12 @@
     <description>数据访问增强：MyBatis-Plus 基础实体、分页拦截器、字段自动填充</description>
 
     <dependencies>
+        <!-- JSpecify 空值语义注解：本模块以 @NullMarked 声明「未标注即非空」 -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
@@ -49,6 +55,11 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 会据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.data</nullaway.packages>
+    </properties>
 
     <build>
         <plugins>

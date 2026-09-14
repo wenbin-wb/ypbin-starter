@@ -22,6 +22,7 @@ import cn.ypbin.starter.core.model.R;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
@@ -166,6 +167,7 @@ public class GlobalExceptionHandler {
      * @param throwable 原始异常
      * @return 命中的 {@link BaseException}，未命中返回 {@code null}
      */
+    @Nullable
     private static BaseException findBaseException(Throwable throwable) {
         Throwable current = throwable;
         // 上限 10 层，防御异常链自引用导致的死循环

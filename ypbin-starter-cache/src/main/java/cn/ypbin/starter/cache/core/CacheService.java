@@ -18,6 +18,7 @@ package cn.ypbin.starter.cache.core;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 缓存能力契约。
@@ -65,7 +66,7 @@ public interface CacheService {
      * @param <T>  泛型
      * @return 值，不存在时为 {@code null}
      */
-    <T> T get(String key, Class<T> type);
+    <T> @Nullable T get(String key, Class<T> type);
 
     /**
      * 删除单个键。
@@ -135,5 +136,5 @@ public interface CacheService {
      * @param <T>    泛型
      * @return 缓存值或回源结果，数据源也无数据时返回 {@code null}
      */
-    <T> T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl);
+    <T> @Nullable T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl);
 }

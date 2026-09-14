@@ -92,6 +92,8 @@ public class DataProperties {
     public static class Encrypt {
 
         /** AES 密钥，长度需为 16/24/32 字节。配置后才装配默认字段加密器 */
+        // 由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null
+        @SuppressWarnings("NullAway.Init")
         private String key;
 
         public String getKey() {

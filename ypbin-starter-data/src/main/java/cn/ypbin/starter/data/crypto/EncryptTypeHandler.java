@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedTypes;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 字段加密 TypeHandler。
@@ -43,21 +44,25 @@ public class EncryptTypeHandler extends BaseTypeHandler<String> {
     }
 
     @Override
+    @Nullable
     public String getNullableResult(ResultSet rs, String columnName) throws SQLException {
         return decrypt(rs.getString(columnName));
     }
 
     @Override
+    @Nullable
     public String getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
         return decrypt(rs.getString(columnIndex));
     }
 
     @Override
+    @Nullable
     public String getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
         return decrypt(cs.getString(columnIndex));
     }
 
-    private String decrypt(String value) {
+    @Nullable
+    private String decrypt(@Nullable String value) {
         return value == null ? null : FieldEncryptorHolder.getEncryptor().decrypt(value);
     }
 }

@@ -73,70 +73,8 @@
         </dependency>
     </dependencies>
 
-    <profiles>
-        <!--
-          空值语义静态检查试点（默认不激活）：`mvn -Pnullaway -pl ypbin-starter-core compile`
-          用 NullAway 把「未标注即非空」的约定变成编译期错误，先在一个模块上量出真实违规量，
-          再决定是否逐模块推广。不默认激活的原因：Error Prone 需要一组 add-exports / add-opens
-          JVM 参数，且会拖慢编译，先在单个模块验证收益与成本。
-
-          注意 annotationProcessorPaths 是「覆盖」而非「追加」，必须把该模块原有的
-          spring-boot-configuration-processor 一并列入，否则配置元数据不再生成、漂移门禁会失败。
-        -->
-        <profile>
-            <id>nullaway</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <configuration>
-                            <!-- 必须 fork：Error Prone 依赖的 javax 导出参数（J 前缀）只对 javac 启动器生效，
-                                 非 fork（in-process）模式下会被忽略，并以 IllegalAccessError 崩溃 -->
-                            <fork>true</fork>
-                            <compilerArgs>
-                                <arg>-XDcompilePolicy=simple</arg>
-                                <!-- fork 模式下 javac 默认的 should-stop 策略为 INIT，Error Prone 不接受，必须显式改为 FLOW -->
-                                <arg>--should-stop=ifError=FLOW</arg>
-                                <!-- 只跑 NullAway，关闭 Error Prone 其余检查，避免无关告警淹没结论。
-                                     整条 -Xplugin 必须写在同一行：换行会被当作独立参数传给 javac。
-                                     这里用 AnnotatedPackages 而不是 JSpecifyMode=true：实测本工具链组合
-                                     （NullAway 0.11.3 + error_prone_core 2.36.0 + JDK 21 fork javac）下
-                                     JSpecifyMode 会让 javac 无任何诊断地失败；AnnotatedPackages 声明同一范围即可，
-                                     包上的 @NullMarked 仍保留，供 IDE 与其他 JSpecify 工具识别语义。 -->
-                                <arg>-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=cn.ypbin.starter.core</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
-                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
-                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
-                            </compilerArgs>
-                            <annotationProcessorPaths>
-                                <path>
-                                    <groupId>org.springframework.boot</groupId>
-                                    <artifactId>spring-boot-configuration-processor</artifactId>
-                                    <version>${spring-boot.version}</version>
-                                </path>
-                                <path>
-                                    <groupId>com.google.errorprone</groupId>
-                                    <artifactId>error_prone_core</artifactId>
-                                    <version>2.36.0</version>
-                                </path>
-                                <path>
-                                    <groupId>com.uber.nullaway</groupId>
-                                    <artifactId>nullaway</artifactId>
-                                    <version>0.11.3</version>
-                                </path>
-                            </annotationProcessorPaths>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
+    <properties>
+        <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 会据此限定检查范围） -->
+        <nullaway.packages>cn.ypbin.starter.core</nullaway.packages>
+    </properties>
 </project>

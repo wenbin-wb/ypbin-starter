@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.cache.redis;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.SerializationException;
@@ -54,7 +55,7 @@ public final class RedisJsonSerializerFactory {
      * @param baseMapper 容器 JsonMapper（可为 {@code null}，此时用默认构建器）
      * @return Redis 值序列化器
      */
-    public static RedisSerializer<Object> create(JsonMapper baseMapper) {
+    public static RedisSerializer<Object> create(@Nullable JsonMapper baseMapper) {
         JsonMapper base = baseMapper != null ? baseMapper : JsonMapper.builder().build();
         GenericJacksonJsonRedisSerializer delegate = GenericJacksonJsonRedisSerializer
             .builder(base::rebuild)
@@ -78,12 +79,12 @@ public final class RedisJsonSerializerFactory {
         }
 
         @Override
-        public byte[] serialize(Object value) throws SerializationException {
+        public byte[] serialize(@Nullable Object value) throws SerializationException {
             return delegate.serialize(ImmutableCollectionNormalizer.normalize(value));
         }
 
         @Override
-        public Object deserialize(byte[] bytes) throws SerializationException {
+        public @Nullable Object deserialize(@Nullable byte[] bytes) throws SerializationException {
             return delegate.deserialize(bytes);
         }
     }

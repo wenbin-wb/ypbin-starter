@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 不可变集合规范化器：把 JDK 不可变集合转换为可变实现，使多态类型信息可被正常写入。
@@ -55,11 +56,13 @@ final class ImmutableCollectionNormalizer {
      * @param value 原始值
      * @return 规范化后的值
      */
-    static Object normalize(Object value) {
+    @Nullable
+    static Object normalize(@Nullable Object value) {
         return normalize(value, new IdentityHashMap<>(), 0);
     }
 
-    private static Object normalize(Object value, IdentityHashMap<Object, Object> seen, int depth) {
+    @Nullable
+    private static Object normalize(@Nullable Object value, IdentityHashMap<Object, Object> seen, int depth) {
         if (value == null || depth > MAX_DEPTH) {
             return value;
         }

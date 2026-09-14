@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.data.crypto;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 字段加密器扩展点。
  *
@@ -32,7 +34,8 @@ public interface FieldEncryptor {
      * @param plainText 明文
      * @return 密文
      */
-    String encrypt(String plainText);
+    @Nullable
+    String encrypt(@Nullable String plainText);
 
     /**
      * 解密密文。
@@ -40,5 +43,6 @@ public interface FieldEncryptor {
      * @param cipherText 密文
      * @return 明文
      */
-    String decrypt(String cipherText);
+    @Nullable
+    String decrypt(@Nullable String cipherText);
 }

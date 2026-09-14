@@ -21,6 +21,7 @@ import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 基于 AES-GCM 的默认字段加密器。
@@ -51,7 +52,7 @@ public class AesFieldEncryptor implements FieldEncryptor {
     }
 
     @Override
-    public String encrypt(String plainText) {
+    public @Nullable String encrypt(@Nullable String plainText) {
         if (plainText == null) {
             return null;
         }
@@ -72,7 +73,7 @@ public class AesFieldEncryptor implements FieldEncryptor {
     }
 
     @Override
-    public String decrypt(String cipherText) {
+    public @Nullable String decrypt(@Nullable String cipherText) {
         if (cipherText == null) {
             return null;
         }

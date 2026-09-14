@@ -19,6 +19,7 @@ import cn.ypbin.starter.data.core.AuditorProvider;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import java.time.LocalDateTime;
 import org.apache.ibatis.reflection.MetaObject;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 审计字段自动填充处理器。
@@ -68,6 +69,7 @@ public class DefaultMetaObjectHandler implements MetaObjectHandler {
         }
     }
 
+    @Nullable
     private Long currentAuditor() {
         return auditorProvider.getCurrentAuditor().orElse(null);
     }

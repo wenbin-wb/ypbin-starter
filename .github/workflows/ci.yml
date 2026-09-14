@@ -33,11 +33,36 @@ jobs:
         with:
           node-version: 22
 
-      # 空值语义静态检查（当前试点：core 模块）。@NullMarked 声明「未标注即非空」，
-      # NullAway 让漏标 @Nullable 直接变成编译失败——本步上线时就挖出 4 处真实潜在 NPE。
-      # 逐模块推广方式见站点「项目脚手架 → 空值语义」。
-      - name: 空值语义检查（NullAway，core 试点）
-        run: mvn -B -Pnullaway -pl ypbin-starter-core compile
+      # 空值语义静态检查。@NullMarked 声明「未标注即非空」，NullAway 让漏标 @Nullable 直接变成编译失败。
+      # 参与模块由 pom 里是否声明 nullaway.packages 决定，这里自动发现，新增模块无需改本文件；
+      # 检查范围见站点「项目脚手架 → 空值语义」。注意加 --fail-at-end：否则快速失败会让
+      # 后面模块「看起来通过」，实际是根本没跑到。
+      - name: 空值语义检查（NullAway）
+        run: |
+          MODULES="$(
+            for pom in ./*/pom.xml; do
+              dir="$(dirname "$pom")"
+              [ -d "$dir/src/main/java" ] || continue
+              grep -q '<nullaway.packages>' "$pom" && printf '%s\n' "${dir#./}"
+            done | paste -sd, -
+          )"
+          if [ -z "$MODULES" ]; then
+            echo "没有模块声明 nullaway.packages，跳过"
+            exit 0
+          fi
+          echo "参与模块：$MODULES"
+          # 必须 clean：Error Prone 只在 javac 真正执行时生效，若前置步骤已编译过同类，
+          # Maven 会输出「Nothing to compile」直接跳过——门禁会静默变成空转（本仓库踩过）。
+          # --fail-at-end：否则快速失败会让后续模块「看起来通过」，实际是根本没跑到。
+          OUT="$(mvn -B -Pnullaway -pl "$MODULES" clean compile --fail-at-end 2>&1)" || {
+            printf '%s\n' "$OUT" | grep -E "\[ERROR\]" | head -30
+            exit 1
+          }
+          if printf '%s\n' "$OUT" | grep -q "Nothing to compile"; then
+            echo "✖ 未发生实际编译，NullAway 等于空转（请检查是否遗漏 clean）"
+            exit 1
+          fi
+          printf '%s\n' "$OUT" | grep -E "Compiling .* source file|BUILD SUCCESS" | tail -8
 
       - name: 校验配置元数据未漂移
         run: node tools/export-config-metadata.mjs --check

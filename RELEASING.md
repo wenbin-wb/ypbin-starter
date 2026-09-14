@@ -68,8 +68,12 @@ gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>   # 公钥上传（供�
 
 **3. 全量验证**（正式版一经发布不可撤回，务必全绿）：
 ```bash
-mvn clean install
+bash tools/preflight.sh
 ```
+
+> ⚠️ 不要只跑 `mvn clean install`：`-Prelease` 会让承载「非发布模块」的 `dev-only` profile 失效，
+> 架构约束测试因此**不进入发布反应堆**（这是为了让未签名产物不混进 Central 上传包）。
+> `tools/preflight.sh` 会把全量构建、NullAway 空值语义、集成测试与配置元数据漂移四道门禁跑全。
 
 **4. 发布到中央仓库**：
 ```bash

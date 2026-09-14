@@ -23,6 +23,7 @@ import feign.codec.ErrorDecoder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import org.jspecify.annotations.Nullable;
 import org.springframework.util.StringUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -62,6 +63,7 @@ public class RResponseErrorDecoder implements ErrorDecoder {
         return new FeignRemoteException(result.getCode(), message, response.status(), methodKey);
     }
 
+    @Nullable
     private R<?> parseResult(String body) {
         try {
             return objectMapper.readValue(body, R.class);
@@ -70,6 +72,7 @@ public class RResponseErrorDecoder implements ErrorDecoder {
         }
     }
 
+    @Nullable
     private String readBody(Response response) {
         if (response == null || response.body() == null) {
             return null;

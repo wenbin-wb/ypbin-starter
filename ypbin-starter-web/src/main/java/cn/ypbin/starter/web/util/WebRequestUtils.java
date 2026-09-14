@@ -20,6 +20,7 @@ import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -162,6 +163,7 @@ public final class WebRequestUtils {
      * @param name 表单字段名
      * @return 上传文件
      */
+    @Nullable
     public static MultipartFile file(String name) {
         if (request() instanceof MultipartHttpServletRequest multipartRequest) {
             return multipartRequest.getFile(name);
@@ -182,6 +184,7 @@ public final class WebRequestUtils {
         return List.of();
     }
 
+    @Nullable
     private static String firstNonBlank(String... values) {
         for (String value : values) {
             if (value != null && !value.isBlank() && !"unknown".equalsIgnoreCase(value)) {

@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.ObjectMapper;
@@ -93,7 +94,7 @@ public class RepeatableReadRequestFilter extends OncePerRequestFilter {
     }
 
     /** 以统一响应结构写回拒绝结果（HTTP 200 + 业务码，见类注释）。 */
-    private void writeFail(HttpServletResponse response, String message) throws IOException {
+    private void writeFail(HttpServletResponse response, @Nullable String message) throws IOException {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write(objectMapper.writeValueAsString(

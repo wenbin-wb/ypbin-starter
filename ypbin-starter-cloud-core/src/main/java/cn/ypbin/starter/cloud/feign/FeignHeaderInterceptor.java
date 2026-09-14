@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -136,6 +137,7 @@ public class FeignHeaderInterceptor implements RequestInterceptor {
         return value != null && !value.isBlank();
     }
 
+    @Nullable
     private HttpServletRequest currentRequest() {
         try {
             if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {

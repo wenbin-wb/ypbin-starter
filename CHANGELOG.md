@@ -41,6 +41,10 @@
 
 ### 变更
 
+- **发布前置门禁脚本 `tools/preflight.sh`**：`-Prelease` 会让承载非发布模块的 `dev-only` profile 失效，
+  架构约束测试因此不进入发布反应堆（这是为了让未签名产物不混进 Central 上传包），副作用是
+  **发布构建本身不再跑铁律门禁**。新增脚本一次跑全四道门禁（全量构建含 35 项架构测试、
+  NullAway 空值语义、集成测试、配置元数据漂移），`RELEASING.md` 第 3 步已改为调用它。
 - **测试基座新增 Nacos 容器支持**（`ypbin-starter-test`）：`ContainerSupport.nacosServerAddress()`
   统一「外部地址优先 → 容器回退 → 条件跳过」，新增 `@EnabledIfNacosAvailable`。
   容器模式细节全部收敛进基座：与部署对齐的镜像版本、**8848/9848 必须绑定到相隔 1000 的连续宿主端口**
@@ -70,6 +74,22 @@
 
 ### 修复
 
+- **CI 的 NullAway 门禁此前是「假绿」（空转）**：Error Prone 只在 javac 真正执行时生效，而 CI 在该步骤
+  之前已把全部类编译好（`clean test` → `install -DskipTests`），于是 `compile` 直接输出
+  「Nothing to compile - all classes are up to date」并成功返回——检查一次都没跑。已改为 `clean compile`
+  强制重编译，并加**空转自检**：输出里一旦出现「Nothing to compile」就以失败退出，避免今后有人误删
+  `clean` 又悄悄变回假绿。已用变异验证：注入一个必然违规的探针 → 门禁红并打印 NullAway 错误；
+  撤掉探针 → 门禁绿且日志显示确实编译了 71 个源文件。`tools/preflight.sh` 同步修复。
+- **空值语义静态检查推广到 4 个模块**（cache / data / web / cloud-core，共 39 处）：
+  配置收敛为父 pom 的一个可复用 `nullaway` profile——参与模块只需在自己的 `<properties>` 里覆盖
+  `nullaway.packages` 并放一个 `@NullMarked` 的 `package-info.java`，CI 步骤按此自动发现参与模块。
+  修出的问题分三类：①**真实可空却标注非空**（`CacheService#get`/`getOrLoad` 未命中返回 null、
+  `XssCleaner#clean`/`FieldEncryptor#encrypt` 的「null 进 null 出」、MyBatis 的 `getNullableResult`、
+  Spring Data `RedisSerializer` 的可空契约等，统一补 `@Nullable` 让注解与实现一致）；
+  ②**框架填充字段**（`BaseEntity` 的 `id`/审计字段、`DataProperties.Encrypt#key`）由 MyBatis-Plus 填充或
+  Spring Boot 构造后绑定，不经构造器初始化，按字段/类标注 `@SuppressWarnings("NullAway.Init")` 并写明原因；
+  ③**静态持有器**（`CacheUtils`/`RedisUtils`/`FieldEncryptorHolder`）改为「可空字段 + 局部变量双重检查」，
+  既通过检查，又让原有的判空逻辑被静态校验。
 - **`TreeUtils.build` 实际是 O(n²)**（core，由独立代码审查发现——此前用基准得出的「线性」结论是错的）：
   根判定 `nodes.stream().noneMatch(...)` 在逐节点循环里线性扫描父节点，最坏形态（父节点排在列表末尾）
   `getId()` 调用量达 ≈1.0·n²（n=4000 时约 1600 万次，已用调用计数独立复现）。改为预建 ID 集合一次，

@@ -19,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * XSS 请求包装器。
@@ -42,11 +43,13 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
     }
 
     @Override
+    @Nullable
     public String getParameter(String name) {
         return XssCleaner.clean(super.getParameter(name));
     }
 
     @Override
+    @Nullable
     public String[] getParameterValues(String name) {
         String[] values = super.getParameterValues(name);
         if (values == null) {
@@ -74,6 +77,7 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
     }
 
     @Override
+    @Nullable
     public String getHeader(String name) {
         return XssCleaner.clean(super.getHeader(name));
     }

@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.core.RedisTemplate;
 
 /**
@@ -40,6 +41,7 @@ import org.springframework.data.redis.core.RedisTemplate;
  */
 public final class RedisUtils {
 
+    @Nullable
     @SuppressWarnings("unchecked")
     private static volatile RedisTemplate<String, Object> template;
 
@@ -53,14 +55,18 @@ public final class RedisUtils {
      */
     @SuppressWarnings("unchecked")
     private static RedisTemplate<String, Object> redis() {
-        if (template == null) {
+        RedisTemplate<String, Object> current = template;
+        if (current == null) {
             synchronized (RedisUtils.class) {
-                if (template == null) {
-                    template = SpringUtils.getBean("redisTemplate", RedisTemplate.class);
+                current = template;
+                if (current == null) {
+                    // SpringUtils.getBean 在容器未就绪时抛错，故此处拿到的必然非空
+                    current = SpringUtils.getBean("redisTemplate", RedisTemplate.class);
+                    template = current;
                 }
             }
         }
-        return template;
+        return current;
     }
 
     // ------------------------------------------------------------------ key 通用

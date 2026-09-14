@@ -16,6 +16,7 @@
 package cn.ypbin.starter.cache.multilevel;
 
 import java.nio.charset.StandardCharsets;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 
@@ -42,7 +43,7 @@ public class CacheInvalidationListener implements MessageListener {
     }
 
     @Override
-    public void onMessage(Message message, byte[] pattern) {
+    public void onMessage(Message message, @Nullable byte[] pattern) {
         String body = new String(message.getBody(), StandardCharsets.UTF_8);
         int sep = body.indexOf(LENGTH_SEPARATOR);
         if (sep <= 0) {

@@ -47,6 +47,16 @@
         <archunit.version>1.4.1</archunit.version>
         <testcontainers.version>1.20.4</testcontainers.version>
         <maven-failsafe-plugin.version>3.5.4</maven-failsafe-plugin.version>
+
+        <!--
+          NullAway 空值语义静态检查（默认关闭，用 -Pnullaway 开启）：
+          参与模块只需在自己的 <properties> 里把 nullaway.packages 覆盖为本模块根包，
+          并在该根包放一个 @NullMarked 的 package-info.java。
+          未覆盖的模块保留下面这个不存在的包名，等价于不做检查。
+        -->
+        <nullaway.packages>cn.ypbin.starter.__nullaway_placeholder__</nullaway.packages>
+        <nullaway.version>0.11.3</nullaway.version>
+        <error-prone.version>2.36.0</error-prone.version>
     </properties>
 
     <dependencyManagement>
@@ -605,6 +615,68 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+          NullAway 空值语义静态检查：把「未标注即非空」（@NullMarked）变成编译期错误。
+          只对 nullaway.packages 指向的包生效，故未参与的模块零成本；
+          用法：mvn -Pnullaway -pl <参与的模块列表> compile
+
+          关键坑（都实测过）：
+          - 必须 fork：Error Prone 依赖的一组 javax 导出/开放参数（J 前缀）只对 javac 启动器生效，
+            非 fork 模式会被忽略并以 IllegalAccessError 崩溃；
+          - 必须显式设置 should-stop 策略为 ifError=FLOW：fork 模式下 javac 默认策略 INIT，Error Prone 不接受；
+          - -Xplugin 整条必须写在同一行：XML 换行会被当作独立参数传给 javac；
+          - annotationProcessorPaths 是覆盖而非追加：这里显式带上 spring-boot-configuration-processor，
+            否则参与模块的配置元数据不再生成、元数据漂移门禁会失败；
+          - 本工具链组合（NullAway 0.11.3 + error_prone_core 2.36.0 + JDK 21 fork javac）下不要用
+            JSpecifyMode=true：实测会让 javac 无任何诊断地失败；用 AnnotatedPackages 声明同一范围即可。
+        -->
+        <profile>
+            <id>nullaway</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <fork>true</fork>
+                            <compilerArgs>
+                                <arg>-XDcompilePolicy=simple</arg>
+                                <arg>--should-stop=ifError=FLOW</arg>
+                                <arg>-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=${nullaway.packages}</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                            </compilerArgs>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>org.springframework.boot</groupId>
+                                    <artifactId>spring-boot-configuration-processor</artifactId>
+                                    <version>${spring-boot.version}</version>
+                                </path>
+                                <path>
+                                    <groupId>com.google.errorprone</groupId>
+                                    <artifactId>error_prone_core</artifactId>
+                                    <version>${error-prone.version}</version>
+                                </path>
+                                <path>
+                                    <groupId>com.uber.nullaway</groupId>
+                                    <artifactId>nullaway</artifactId>
+                                    <version>${nullaway.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

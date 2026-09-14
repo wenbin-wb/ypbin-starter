@@ -40,6 +40,9 @@ import tools.jackson.databind.ser.std.ToStringSerializer;
  * @author wenbin
  * @since 2026-07-30
  */
+// 字段由 MyBatis-Plus 填充（FieldFill）或从数据库回填，不经由构造器初始化；
+// NullAway 的「字段未初始化」在此属框架装配语义，故按类抑制并在此说明原因
+@SuppressWarnings("NullAway.Init")
 public abstract class BaseEntity implements Serializable {
 
     @Serial

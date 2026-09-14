@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.data.crypto;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 字段加密器静态持有器。
  *
@@ -27,6 +29,7 @@ package cn.ypbin.starter.data.crypto;
  */
 public final class FieldEncryptorHolder {
 
+    @Nullable
     private static volatile FieldEncryptor encryptor;
 
     private FieldEncryptorHolder() {

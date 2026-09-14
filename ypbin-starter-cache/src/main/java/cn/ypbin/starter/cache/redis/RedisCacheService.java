@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -80,7 +81,7 @@ public class RedisCacheService implements CacheService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> T get(String key, Class<T> type) {
+    public <T> @Nullable T get(String key, Class<T> type) {
         Object value = redisTemplate.opsForValue().get(key);
         return value == null ? null : (T) value;
     }
@@ -124,7 +125,7 @@ public class RedisCacheService implements CacheService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
+    public <T> @Nullable T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
         // 1. 先读缓存：命中空值哨兵直接返回 null（防穿透），命中真实值直接返回
         Object cached = redisTemplate.opsForValue().get(key);
         if (cached != null) {
@@ -172,6 +173,7 @@ public class RedisCacheService implements CacheService {
     }
 
     @SuppressWarnings("unchecked")
+    @Nullable
     private <T> T waitForOtherOrLoad(String key, Class<T> type, Supplier<T> loader) {
         for (int i = 0; i < MAX_RETRY; i++) {
             try {
