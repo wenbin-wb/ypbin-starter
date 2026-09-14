@@ -34,8 +34,15 @@ import org.openjdk.jmh.annotations.Warmup;
 /**
  * 树组装基准：验证 {@link TreeUtils#build(List)} 的 O(n) 声明。
  *
- * <p>节点规模按 {@code size} 参数放大，观察耗时是否线性增长——若退化为 O(n²)（例如在循环里线性查找父节点），
- * 耗时增长会明显快于规模增长。</p>
+ * <p><strong>为什么要同时测「父在前」与「父在后」两种形态</strong>：根判定需要回答「父 ID 是否在列表内」，
+ * 若实现按逐节点线性扫描，则「父节点排在列表末尾」时每个子节点都要扫到最后才命中，整体退化为 O(n²)；
+ * 而「父节点在前」会让扫描提前命中，测出来仍像线性——<strong>只测一种形态会掩盖退化</strong>。</p>
+ *
+ * <p>该形态确实踩过：早期基准用 {@code rootId * 1_000_000 + child} 造 ID，子 ID 与根 ID 撞号，
+ * 使最坏形态被掩盖，并据此得出了错误的「线性」结论（真实实现当时是 O(n²)，已修复）。</p>
+ *
+ * <p>两种形态的 ID 都刻意不撞号；规模按 {@code size} 放大：线性实现下两者每节点成本应接近，
+ * 且规模放大 10 倍耗时约 10 倍。</p>
  *
  * @author wenbin
  * @since 2026-09-14
@@ -48,28 +55,44 @@ import org.openjdk.jmh.annotations.Warmup;
 @State(Scope.Benchmark)
 public class TreeUtilsBenchmark {
 
-    /** 扁平节点总数（10 个根 + 每根若干子节点） */
+    private static final int ROOTS = 10;
+
+    /** 扁平节点总数（10 个根 + 其余子节点） */
     @Param({"1000", "10000"})
     private int size;
 
-    private List<BenchNode> flat;
+    /** 常见形态：根在前、其后是各根的子节点 */
+    private List<BenchNode> parentsFirst;
+
+    /** 最坏形态：全部子节点在前、根节点在最后（若实现线性扫描父节点，此处必然退化） */
+    private List<BenchNode> childrenFirst;
 
     @Setup
     public void prepare() {
-        flat = new ArrayList<>(size);
-        int roots = 10;
-        int perRoot = size / roots;
-        for (int root = 0; root < roots; root++) {
-            long rootId = root;
-            flat.add(new BenchNode(rootId, null));
+        parentsFirst = new ArrayList<>(size);
+        childrenFirst = new ArrayList<>(size);
+        int perRoot = Math.max(1, size / ROOTS);
+        for (int root = 0; root < ROOTS; root++) {
+            long rootId = root + 1L;
+            BenchNode rootNode = new BenchNode(rootId, null);
+            parentsFirst.add(rootNode);
             for (int child = 1; child < perRoot; child++) {
-                flat.add(new BenchNode(rootId * 1_000_000L + child, rootId));
+                // 子 ID 与根 ID 严格不撞号，避免「恰好提前命中」掩盖线性扫描
+                BenchNode childNode = new BenchNode(1_000_000L + rootId * 100_000L + child, rootId);
+                parentsFirst.add(childNode);
+                childrenFirst.add(childNode);
             }
+            childrenFirst.add(rootNode);
         }
     }
 
     @Benchmark
-    public List<BenchNode> build() {
-        return TreeUtils.build(flat);
+    public List<BenchNode> buildParentsFirst() {
+        return TreeUtils.build(parentsFirst);
+    }
+
+    @Benchmark
+    public List<BenchNode> buildChildrenFirst() {
+        return TreeUtils.build(childrenFirst);
     }
 }

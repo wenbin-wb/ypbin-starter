@@ -9,13 +9,26 @@
 
 ## [未发布]
 
-### 新增
+### ⚠️ 破坏性变更
+
+- **`SpringUtils` 上下文未就绪时的失败方式变更**（core）：`getEventPublisher()` 原先在应用上下文尚未就绪时
+  **返回 `null`**（调用方需自查），`getBean(...)`/`getEnvironment()` 则直接抛无信息的 `NullPointerException`；
+  现统一改为 `requireApplicationContext()` 断言——仍然失败（不放行、不返回 null），但抛
+  `IllegalStateException` 并说明原因与替代做法（改用构造器注入）。
+  **迁移**：若此前依赖 `getEventPublisher() == null` 做判空，请改为在容器就绪后调用，或直接注入
+  `ApplicationEventPublisher`。
+- **`R` 的可空契约显式化**（core）：`R#getData()`/`R#getMessage()` 标注 `@Nullable`（`R.ok()` 等工厂本就传 `null`，
+  字段默认构造也允许为空）。对启用 JSpecify 静态检查的宿主是编译期契约变化，运行期无影响。
+- **`TreeUtils` 参数容忍 `null` 的语义显式化**（core）：`build`/`buildAndFilter`/`flatten`/`findNode` 的列表参数
+  与 `RequestIdUtils#sanitize` 的候选值标注 `@Nullable`（实现本就按空/null 处理），使注解与实现一致。
+
+### 修复
 - **性能基线模块 `ypbin-starter-benchmarks`**（不发布）：JMH 微基准覆盖三类热路径——树组装
   （`TreeUtils.build`）、链路 ID 校验与生成（`RequestIdUtils`）、缓存值序列化
   （`RedisJsonSerializerFactory` 写路径含不可变集合规范化、读路径多态还原）。
   刻意**不做 CI 挂钟门禁**（共享 runner 必然抖动、只会带来假失败）：基准只量化，
-  可精确断言的复杂度/正确性由单元测试兜底。实测节点规模放大 10 倍、`TreeUtils.build`
-  耗时放大 11.1 倍 ≈ 线性，印证 O(n) 声明。
+  可精确断言的复杂度/正确性由单元测试兜底。
+  树组装基准同时测「父在前」与「父在后」两种形态——**只测一种形态会掩盖退化**（见下方修复条目）。
   配套：分层规则把 `cn.ypbin.starter.benchmarks..` 列入「可横跨各层」的开发工具；
   根 pom 的非发布模块 profile 由 `arch-tests` 更名为 `dev-only` 并纳入本模块，
   使 `-Prelease` 同时排除它与架构测试模块（避免重演 3.0.0 首次发布因混入未签名模块而失败）。

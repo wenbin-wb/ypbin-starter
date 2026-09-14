@@ -21,6 +21,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
@@ -28,7 +29,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * 树形结构构建工具。
  *
- * <p>把扁平列表按父子关系组装为树。采用父 ID 索引，整体 O(n)，避免逐节点递归查找的 O(n²)。</p>
+ * <p>把扁平列表按父子关系组装为树。父 ID 索引与「ID 集合」各遍历一次建立，整体 O(n)：
+ * 根判定问「父 ID 是否在列表内」，靠预建的 ID 集合完成，不做逐节点线性查找。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -41,12 +43,12 @@ public final class TreeUtils {
     /**
      * 构建树：以「父 ID 为空或不在列表中」的节点为根。
      *
-     * @param nodes 扁平节点列表
+     * @param nodes 扁平节点列表（允许为 {@code null}，按空列表处理）
      * @param <T>   节点类型
      * @param <ID>  标识类型
      * @return 根节点列表（每个根的 children 已递归填充）
      */
-    public static <T extends TreeNode<T, ID>, ID> List<T> build(List<T> nodes) {
+    public static <T extends TreeNode<T, ID>, ID> List<T> build(@Nullable List<T> nodes) {
         return build(nodes, null);
     }
 
@@ -59,7 +61,7 @@ public final class TreeUtils {
      * @param <ID>         标识类型
      * @return 根节点列表
      */
-    public static <T extends TreeNode<T, ID>, ID> List<T> build(List<T> nodes, @Nullable ID rootParentId) {
+    public static <T extends TreeNode<T, ID>, ID> List<T> build(@Nullable List<T> nodes, @Nullable ID rootParentId) {
         if (nodes == null || nodes.isEmpty()) {
             return new ArrayList<>();
         }
@@ -67,11 +69,13 @@ public final class TreeUtils {
         Map<ID, List<T>> childrenIndex = nodes.stream()
             .filter(n -> n.getParentId() != null)
             .collect(Collectors.groupingBy(TreeNode::getParentId));
+        // 根判定要问「父 ID 是否存在于本列表」：预建 ID 集合一次，避免在循环里线性扫描（原为 O(n²)）
+        Set<ID> ids = nodes.stream().map(TreeNode::getId).collect(Collectors.toSet());
 
         List<T> roots = new ArrayList<>();
         for (T node : nodes) {
             node.setChildren(childrenIndex.getOrDefault(node.getId(), new ArrayList<>()));
-            if (isRoot(node, rootParentId, nodes)) {
+            if (isRoot(node, rootParentId, ids)) {
                 roots.add(node);
             }
         }
@@ -87,7 +91,7 @@ public final class TreeUtils {
      * @param <ID>      标识类型
      * @return 过滤后的根节点列表
      */
-    public static <T extends TreeNode<T, ID>, ID> List<T> buildAndFilter(List<T> nodes, Predicate<T> predicate) {
+    public static <T extends TreeNode<T, ID>, ID> List<T> buildAndFilter(@Nullable List<T> nodes, Predicate<T> predicate) {
         if (nodes == null || nodes.isEmpty()) {
             return new ArrayList<>();
         }
@@ -103,7 +107,7 @@ public final class TreeUtils {
      * @param <ID>  标识类型
      * @return 展平后的全部节点
      */
-    public static <T extends TreeNode<T, ID>, ID> List<T> flatten(List<T> roots) {
+    public static <T extends TreeNode<T, ID>, ID> List<T> flatten(@Nullable List<T> roots) {
         List<T> result = new ArrayList<>();
         if (roots == null || roots.isEmpty()) {
             return result;
@@ -156,7 +160,7 @@ public final class TreeUtils {
      * @return 匹配节点，未找到为 {@code null}
      */
     @Nullable
-    public static <T extends TreeNode<T, ID>, ID> T findNode(List<T> roots, ID id) {
+    public static <T extends TreeNode<T, ID>, ID> T findNode(@Nullable List<T> roots, ID id) {
         for (T node : flatten(roots)) {
             if (Objects.equals(node.getId(), id)) {
                 return node;
@@ -165,15 +169,12 @@ public final class TreeUtils {
         return null;
     }
 
-    private static <T extends TreeNode<T, ID>, ID> boolean isRoot(T node, @Nullable ID rootParentId, List<T> nodes) {
+    private static <T extends TreeNode<T, ID>, ID> boolean isRoot(T node, @Nullable ID rootParentId, Set<ID> ids) {
         ID parentId = node.getParentId();
         if (rootParentId != null) {
             return Objects.equals(parentId, rootParentId);
         }
         // 未指定根标识：父 ID 为空，或父节点不在列表中，视为根
-        if (parentId == null) {
-            return true;
-        }
-        return nodes.stream().noneMatch(n -> Objects.equals(n.getId(), parentId));
+        return parentId == null || !ids.contains(parentId);
     }
 }

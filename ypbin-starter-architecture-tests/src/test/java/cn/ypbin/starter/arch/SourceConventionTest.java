@@ -109,6 +109,25 @@ class SourceConventionTest {
                     i++;
                 }
                 i = Math.min(i + 2, n);
+            } else if (ch == '"' && i + 2 < n && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"') {
+                // 文本块：必须整体跳过，否则内容里的引号会让剥离器与后续代码错位
+                // （奇数个引号时，文本块之后的代码会被整段吞掉，所有消费剥离文本的规则静默失明）
+                i += 3;
+                while (i < n) {
+                    if (source.charAt(i) == '\\') {
+                        i += 2;
+                        continue;
+                    }
+                    if (source.charAt(i) == '"' && i + 2 < n
+                        && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"') {
+                        i += 3;
+                        break;
+                    }
+                    if (source.charAt(i) == '\n') {
+                        out.append('\n');
+                    }
+                    i++;
+                }
             } else if (ch == '"' || ch == '\'') {
                 char quote = ch;
                 i++;
@@ -347,21 +366,55 @@ class SourceConventionTest {
     private static final Pattern BARE_DATE_TYPE = Pattern.compile(
         "\\bjava\\.util\\.Date\\b|^\\s*import\\s+java\\.util\\.Date\\s*;", Pattern.MULTILINE);
 
+    /** 通配导入（该项会让下面的裸 Date 判定生效） */
+    private static final Pattern WILDCARD_UTIL_IMPORT = Pattern.compile(
+        "^\\s*import\\s+java\\.util\\.\\*\\s*;", Pattern.MULTILINE);
+
+    /** 裸 Date 记号：排除 LocalDate/LocalDateTime 等相邻写法与成员访问 */
+    private static final Pattern BARE_DATE_TOKEN = Pattern.compile("(?<![\\w$.])Date(?![\\w$])");
+
     @Test
     @DisplayName("禁止裸 java.util.Date（时间字段统一 LocalDateTime）")
     void shouldNotUseBareJavaUtilDate() throws IOException {
         List<String> violations = new ArrayList<>();
         for (Path file : mainSources()) {
             String code = stripCommentsAndLiterals(Files.readString(file, StandardCharsets.UTF_8));
-            Matcher matcher = BARE_DATE_TYPE.matcher(code);
-            while (matcher.find()) {
-                int line = (int) code.substring(0, matcher.start()).chars().filter(ch -> ch == '\n').count() + 1;
+            for (int line : bareDateLines(code)) {
                 violations.add(repoRoot.relativize(file) + ":" + line);
             }
         }
         assertThat(violations)
             .as("裸 java.util.Date 缺时区语义、序列化格式无法统一；请用 LocalDateTime（必要时 Instant 表达时刻）")
             .isEmpty();
+    }
+
+    /**
+     * 找出裸 {@code java.util.Date} 使用所在行号。
+     *
+     * <p>除显式引用外还要覆盖 {@code import java.util.*;} 的情形：只有通配导入时
+     * 「裸 Date 记号」才足以判定为 java.util.Date（否则可能来自其它包，会误判）。</p>
+     *
+     * @param code 已剥离注释/字面量的源码
+     * @return 去重后的行号（1-based）
+     */
+    static List<Integer> bareDateLines(String code) {
+        Set<Integer> lines = new TreeSet<>();
+        Matcher explicit = BARE_DATE_TYPE.matcher(code);
+        while (explicit.find()) {
+            lines.add(lineOf(code, explicit.start()));
+        }
+        if (WILDCARD_UTIL_IMPORT.matcher(code).find()) {
+            Matcher bare = BARE_DATE_TOKEN.matcher(code);
+            while (bare.find()) {
+                lines.add(lineOf(code, bare.start()));
+            }
+        }
+        return new ArrayList<>(lines);
+    }
+
+    /** 计算下标所在行号（1-based） */
+    private static int lineOf(String code, int index) {
+        return (int) code.substring(0, index).chars().filter(ch -> ch == '\n').count() + 1;
     }
 
     @Test
@@ -372,6 +425,14 @@ class SourceConventionTest {
         // 非目标：LocalDateTime、java.sql.Date、注释里的说明
         assertThat(BARE_DATE_TYPE.matcher("import java.time.LocalDateTime;").find()).isFalse();
         assertThat(BARE_DATE_TYPE.matcher("private LocalDateTime createdAt;").find()).isFalse();
+
+        // 通配导入下的裸 Date 使用必须能抓到（显式 import 之外的漏判路径）
+        String wildcardUse = "import java.util.*;\nclass A {\n    private Date createdAt;\n}\n";
+        assertThat(bareDateLines(wildcardUse)).hasSize(1);
+        // 通配导入但未用 Date（含 LocalDateTime）不应误判
+        String wildcardNoDate = "import java.util.*;\nclass A {\n    private List<String> tags;\n"
+            + "    private LocalDateTime createdAt;\n}\n";
+        assertThat(bareDateLines(wildcardNoDate)).isEmpty();
     }
 
     /** Controller 单文件行数上限（铁律：Controller 极薄，单类严禁超 400 行） */
@@ -379,7 +440,9 @@ class SourceConventionTest {
 
     /** Controller 中的私有方法声明（铁律：严禁私有长方法，逻辑应下沉到 Service） */
     private static final Pattern PRIVATE_METHOD = Pattern.compile(
-        "^\\s*private\\s+(?!static\\s+final\\b)[\\w<>,.\\[\\]\\s]*\\s+\\w+\\s*\\(", Pattern.MULTILINE);
+        "^[ \\t]*(?:@\\w+(?:\\([^)]*\\))?[ \\t]+)*private\\s+(?!static\\s+final\\b)"
+            + "[\\w<>,.\\[\\]\\s]*\\s+\\w+\\s*\\(",
+        Pattern.MULTILINE);
 
     @Test
     @DisplayName("Controller 必须极薄：单文件 ≤400 行且不得有私有方法")
@@ -411,6 +474,9 @@ class SourceConventionTest {
     void privateMethodPatternShouldCatchViolation() {
         assertThat(PRIVATE_METHOD.matcher("    private String buildKey(Long id) {").find()).isTrue();
         assertThat(PRIVATE_METHOD.matcher("private void check() throws Exception {").find()).isTrue();
+        // 注解与签名同行（原正则同样漏判）
+        assertThat(PRIVATE_METHOD.matcher("@Override private void hook() {").find()).isTrue();
+        assertThat(PRIVATE_METHOD.matcher("    @PostConstruct private void init() {").find()).isTrue();
         // 非目标：public 方法、常量字段（无括号）
         assertThat(PRIVATE_METHOD.matcher("    public R<Void> save() {").find()).isFalse();
         assertThat(PRIVATE_METHOD.matcher("    private static final String PREFIX = \"x\";").find()).isFalse();
@@ -422,7 +488,8 @@ class SourceConventionTest {
 
     /** 未经约束的 Lombok 等值注解（未声明 onlyExplicitlyIncluded 时默认纳入全部字段） */
     private static final Pattern UNCONSTRAINED_EQUALS_ANNOTATION = Pattern.compile(
-        "@EqualsAndHashCode\\s*(?!\\()|@EqualsAndHashCode\\s*\\((?![^)]*onlyExplicitlyIncluded\\s*=\\s*true)");
+        "@EqualsAndHashCode\\s*(?:$|\\((?![^)]*(?:onlyExplicitlyIncluded\\s*=\\s*true|of\\s*=)))",
+        Pattern.MULTILINE);
 
     /** 手写 equals/hashCode */
     private static final Pattern HANDWRITTEN_EQUALS = Pattern.compile(
@@ -461,22 +528,32 @@ class SourceConventionTest {
         assertThat(ENTITY_DECLARATION.matcher("@TableName(\"sys_user\")\nclass SysUser {").find()).isTrue();
         assertThat(UNCONSTRAINED_EQUALS_ANNOTATION.matcher("@EqualsAndHashCode\nclass A {}").find()).isTrue();
         assertThat(UNCONSTRAINED_EQUALS_ANNOTATION.matcher("@EqualsAndHashCode(callSuper = true)").find()).isTrue();
-        // 非目标：显式限定只纳入 Include 字段
+        // 非目标：显式限定只纳入 Include 字段，或用 of 明确指定字段（等价合法写法，原实现误判）
         assertThat(UNCONSTRAINED_EQUALS_ANNOTATION
             .matcher("@EqualsAndHashCode(onlyExplicitlyIncluded = true)").find()).isFalse();
+        assertThat(UNCONSTRAINED_EQUALS_ANNOTATION.matcher("@EqualsAndHashCode(of = \"id\")").find()).isFalse();
         assertThat(HANDWRITTEN_EQUALS.matcher("public boolean equals(Object o) {").find()).isTrue();
         assertThat(HANDWRITTEN_EQUALS.matcher("public int hashCode() {").find()).isTrue();
     }
 
+    /**
+     * 方法签名前缀：允许「同行注解 + 访问修饰符」。
+     *
+     * <p>原实现以 {@code ^[ \t]*(?:public|protected|private)} 起锚，导致
+     * {@code @Override private void x()} 这类「注解与签名同行」的写法完全漏判。</p>
+     */
+    private static final String MODIFIER_PREFIX =
+        "^[ \\t]*(?:@\\w+(?:\\([^)]*\\))?[ \\t]+)*(?:public|protected|private)[ \\t]+"
+            + "(?:static[ \\t]+)?(?:final[ \\t]+)?(?:synchronized[ \\t]+)*";
+
     /** 集合返回类型的方法签名；group(1)=返回类型，group(2)=方法名 */
     private static final Pattern COLLECTION_METHOD_SIGNATURE = Pattern.compile(
-        "^[ \\t]*(?:public|protected|private)[ \\t]+(?:static[ \\t]+)?(?:final[ \\t]+)?(?:synchronized[ \\t]+)*"
-            + "([^;{}=\\n]*?)[ \\t]+(\\w+)[ \\t]*\\(",
+        MODIFIER_PREFIX + "([^;{}=\\n]*?)[ \\t]+(\\w+)[ \\t]*\\(",
         Pattern.MULTILINE);
 
-    /** 返回类型中出现集合类型（含泛型与嵌套泛型） */
+    /** 返回类型中出现集合类型：泛型（含 {@code Optional<集合>} 嵌套）与 raw 类型都要覆盖 */
     private static final Pattern COLLECTION_RETURN_TYPE = Pattern.compile(
-        "\\b(?:List|Set|Map|Collection|Iterable|Queue|Deque)\\s*<");
+        "\\b(?:List|Set|Map|Collection|Iterable|Queue|Deque)\\b");
 
     /** 方法体内的 return null */
     private static final Pattern RETURN_NULL = Pattern.compile("\\breturn\\s+null\\s*;");
@@ -493,8 +570,8 @@ class SourceConventionTest {
             }
         }
         assertThat(violations)
-            .as("返回 List/Set/Map 的方法查到空数据时一律返回 List.of()/Map.of()/Set.of()；"
-                + "若语义是「无结果/解析失败」而非「空集合」，请改用 Optional 表达（调用方也更难漏判）")
+            .as("返回集合的方法（含 Optional<集合>、raw 集合类型）查到空数据时一律返回 List.of()/Map.of()/Set.of()；"
+                + "若语义是「无结果/解析失败」而非「空集合」，请用 Optional 包裹集合本体（Optional<List<X>> 而非 Optional.empty() 之外的空值）")
             .isEmpty();
     }
 
@@ -505,9 +582,25 @@ class SourceConventionTest {
             + "        return null;\n    }\n}\n";
         assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(violation))).hasSize(1);
 
-        // Optional 表达「无结果」不应被判违规
-        String optional = "public Optional<List<String>> list() {\n    return Optional.empty();\n}\n";
-        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(optional))).isEmpty();
+        // Optional 包裹集合本体：返回 Optional.empty() 不违规，但返回 null 仍违规（口径已写进规则文案）
+        String optionalOk = "public Optional<List<String>> list() {\n    return Optional.empty();\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(optionalOk))).isEmpty();
+        String optionalNull = "public Optional<List<String>> list() {\n    return null;\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(optionalNull))).hasSize(1);
+
+        // 注解与签名同行（原正则要求行首即修饰符 → 曾漏判）
+        String annotated = "@Override\n@SuppressWarnings(\"unchecked\")\npublic List<String> b() { return null; }\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(annotated))).hasSize(1);
+        String annotatedSameLine = "@SuppressWarnings(\"unchecked\") public List<String> b() { return null; }\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(annotatedSameLine))).hasSize(1);
+
+        // 参数里带注解数组：旧实现会把注解的 { 当成方法体起点而漏判
+        String annotatedParam = "public List<String> i(@Foo({1, 2}) int a) {\n    return null;\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(annotatedParam))).hasSize(1);
+
+        // raw 集合类型（无泛型）也要判
+        String rawType = "public Map c() {\n    return null;\n}\n";
+        assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(rawType))).hasSize(1);
 
         // 非集合返回类型不参与判定
         String scalar = "private String name() {\n    return null;\n}\n";
@@ -518,6 +611,34 @@ class SourceConventionTest {
         assertThat(collectionMethodsReturningNull(stripCommentsAndLiterals(inComment))).isEmpty();
     }
 
+    /**
+     * 定位方法体起始的 {@code \{}：先扫到参数表闭合的 {@code )}，再取其后的第一个 {@code \{}。
+     *
+     * <p>直接 {@code indexOf('{')} 会被参数里的注解数组（如 {@code @Foo({1,2})}）截胡，
+     * 把「方法体」取成注解内容，从而漏判。</p>
+     *
+     * @param code          已剥离注释/字面量的源码
+     * @param afterOpenParen 方法名后 {@code (} 之后的下标
+     * @return 方法体起始下标；无方法体返回 -1
+     */
+    private static int methodBodyStart(String code, int afterOpenParen) {
+        int depth = 0;
+        int i = afterOpenParen - 1;
+        for (; i < code.length(); i++) {
+            char ch = code.charAt(i);
+            if (ch == '(') {
+                depth++;
+            } else if (ch == ')') {
+                depth--;
+                if (depth == 0) {
+                    i++;
+                    break;
+                }
+            }
+        }
+        return code.indexOf('{', i);
+    }
+
     /** 返回「集合返回类型且方法体内出现 return null」所在行号（1-based） */
     static List<Integer> collectionMethodsReturningNull(String code) {
         List<Integer> lines = new ArrayList<>();
@@ -526,7 +647,7 @@ class SourceConventionTest {
             if (!COLLECTION_RETURN_TYPE.matcher(signature.group(1)).find()) {
                 continue;
             }
-            int brace = code.indexOf('{', signature.end());
+            int brace = methodBodyStart(code, signature.end());
             if (brace < 0) {
                 continue; // 接口/抽象方法：无方法体
             }
@@ -552,6 +673,36 @@ class SourceConventionTest {
             }
         }
         return lines;
+    }
+
+    @Test
+    @DisplayName("源码剥离后大括号必须平衡（否则多条规则会静默失明）")
+    void strippingShouldPreserveBraceBalance() throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path file : mainSources()) {
+            String code = stripCommentsAndLiterals(Files.readString(file, StandardCharsets.UTF_8));
+            long open = code.chars().filter(ch -> ch == '{').count();
+            long close = code.chars().filter(ch -> ch == '}').count();
+            if (open != close) {
+                violations.add(repoRoot.relativize(file) + " → 剥离后 { =" + open + " 而 } =" + close);
+            }
+        }
+        assertThat(violations)
+            .as("剥离器一旦吞掉代码，内联 FQCN/Date/Controller/实体/集合等规则会静默失效；"
+                + "常见成因是字符串/字符/文本块字面量未被正确跳过")
+            .isEmpty();
+    }
+
+    @Test
+    @DisplayName("文本块剥离正误样例（规则有效性自检）")
+    void textBlockStrippingShouldBeAccurate() {
+        // 文本块内含奇数个引号：旧实现会从这里开始与后续代码错位，把 hidden 整段吞掉
+        String source = "class A {\n    String s = \"\"\"\n    he said \"hi and left\n    \"\"\";\n"
+            + "    void hidden() {}\n}\n";
+        String stripped = stripCommentsAndLiterals(source);
+        assertThat(stripped).contains("void hidden()");
+        assertThat(stripped.chars().filter(ch -> ch == '{').count())
+            .isEqualTo(stripped.chars().filter(ch -> ch == '}').count());
     }
 
     /** 从源码文件回溯所属模块目录（repo/<module>/src/main/java/...） */

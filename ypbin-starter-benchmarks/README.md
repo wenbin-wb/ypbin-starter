@@ -24,9 +24,21 @@ java -jar target/benchmarks.jar 'RequestIdUtilsBenchmark.*'
 
 | 基准 | 度量对象 | 关注点 |
 |---|---|---|
-| `TreeUtilsBenchmark` | `TreeUtils.build(flatList)` | 树组装是否为 O(n)：节点规模 1k → 10k，耗时增长应接近线性 |
+| `TreeUtilsBenchmark` | `TreeUtils.build`，**父在前 / 父在后两种形态** | 复杂度是否为 O(n)：只测「父在前」会因内部扫描提前命中而把 O(n²) 掩盖成线性（本项目真踩过，见下） |
 | `RequestIdUtilsBenchmark` | `RequestIdUtils.sanitize` / `generate` | 每请求热路径：合法值、含控制字符（提前拒绝）、超长、生成四档成本 |
 | `RedisSerializerBenchmark` | `RedisJsonSerializerFactory.create(null)` 的写/读 | 缓存未命中写路径（含不可变集合规范化）与读路径（多态还原）开销 |
+
+## 为什么复杂度不靠这里的数字来守
+
+本模块早期版本曾用 `rootId * 1_000_000 + child` 造节点 ID，子 ID 与根 ID 撞号，使 `TreeUtils.build` 内部的
+逐节点线性扫描提前命中，于是测出「规模 10 倍、耗时 11.1 倍」并据此断言 O(n)——**而它当时实际是 O(n²)**
+（最坏形态下 `getId()` 调用量 ≈ 1.0·n²，n=4000 时约 1600 万次）。修复后已降到约 2n。
+
+因此约定：
+
+1. 涉及复杂度的基准**必须覆盖最坏形态**（数据顺序/分布会决定扫描是否提前命中）；
+2. 能用**确定性计数**断言的复杂度，就用单测守（如 `TreeUtilsTest#buildShouldBeLinearInNodeCount`
+   按 `getId()` 调用次数断言 < 6n），挂钟数字只作量级参考，不进 CI 门禁。
 
 ## 使用约定
 

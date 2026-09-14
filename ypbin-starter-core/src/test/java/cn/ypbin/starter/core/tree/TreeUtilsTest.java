@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,6 +29,71 @@ import org.junit.jupiter.api.Test;
  * @since 2026-07-30
  */
 class TreeUtilsTest {
+
+    /**
+     * 统计 {@code getId()} 调用次数的节点：把复杂度从「挂钟耗时」变成「确定性计数」。
+     *
+     * <p>实现若对每个节点线性扫描父节点，调用次数会按 n² 增长；守卫测试据此断言线性。</p>
+     */
+    static class CountingNode implements TreeNode<CountingNode, Long> {
+
+        static final AtomicLong GET_ID_CALLS = new AtomicLong();
+
+        final Long id;
+        final Long parentId;
+        List<CountingNode> children = List.of();
+
+        CountingNode(Long id, Long parentId) {
+            this.id = id;
+            this.parentId = parentId;
+        }
+
+        @Override
+        public Long getId() {
+            GET_ID_CALLS.incrementAndGet();
+            return id;
+        }
+
+        @Override
+        public Long getParentId() {
+            return parentId;
+        }
+
+        @Override
+        public void setChildren(List<CountingNode> children) {
+            this.children = children;
+        }
+
+        @Override
+        public List<CountingNode> getChildren() {
+            return children;
+        }
+    }
+
+    /**
+     * 最坏形态：全部子节点在前、父节点在列表末尾（每个子节点都要扫到最后才找到父节点）。
+     */
+    private static long getIdCallsForWorstCase(int size) {
+        List<CountingNode> nodes = new ArrayList<>(size + 1);
+        for (int i = 1; i <= size; i++) {
+            // 子节点 id 与父节点 id 不撞号（避免「恰好提前命中」掩盖线性扫描）
+            nodes.add(new CountingNode(1_000_000L + i, 0L));
+        }
+        nodes.add(new CountingNode(0L, null));
+
+        CountingNode.GET_ID_CALLS.set(0);
+        List<CountingNode> roots = TreeUtils.build(nodes);
+        assertThat(roots).hasSize(1);
+        return CountingNode.GET_ID_CALLS.get();
+    }
+
+    @Test
+    void buildShouldBeLinearInNodeCount() {
+        // 当前实现为「ID 集合一次 + setChildren 一次」≈ 2n 次 getId；阈值取 6n：
+        // 既给实现留 3 倍常数空间，又与 O(n²)（n=4000 时约 n·n ≈ 1600 万次）相差 600 倍以上。
+        assertThat(getIdCallsForWorstCase(4_000)).isLessThan(6L * 4_000);
+        assertThat(getIdCallsForWorstCase(16_000)).isLessThan(6L * 16_000);
+    }
 
     static class Node implements TreeNode<Node, Long> {
         final Long id;

@@ -48,11 +48,11 @@ public final class RequestIdUtils {
     /**
      * 校验并返回可信的链路 ID；不合法时返回 {@code null} 由调用方生成新值。
      *
-     * @param candidate 客户端传入的链路 ID
+     * @param candidate 客户端传入的链路 ID（允许为 {@code null}）
      * @return 合法链路 ID，或 {@code null}
      */
     @Nullable
-    public static String sanitize(String candidate) {
+    public static String sanitize(@Nullable String candidate) {
         if (candidate == null) {
             return null;
         }
