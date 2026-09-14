@@ -54,6 +54,8 @@ class LayeringRulesTest {
     /** 聚合/示例应用包：允许横跨各层（它们的作用就是把能力组装成可运行应用） */
     private static final String[] AGGREGATE = {
         "cn.ypbin.starter.app..",
+        // 性能基线模块（JMH，不发布）：度量对象可能落在任意层，属开发工具而非运行时依赖
+        "cn.ypbin.starter.benchmarks..",
     };
 
     private static JavaClasses classes;

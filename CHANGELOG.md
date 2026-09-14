@@ -9,6 +9,17 @@
 
 ## [未发布]
 
+### 新增
+- **性能基线模块 `ypbin-starter-benchmarks`**（不发布）：JMH 微基准覆盖三类热路径——树组装
+  （`TreeUtils.build`）、链路 ID 校验与生成（`RequestIdUtils`）、缓存值序列化
+  （`RedisJsonSerializerFactory` 写路径含不可变集合规范化、读路径多态还原）。
+  刻意**不做 CI 挂钟门禁**（共享 runner 必然抖动、只会带来假失败）：基准只量化，
+  可精确断言的复杂度/正确性由单元测试兜底。实测节点规模放大 10 倍、`TreeUtils.build`
+  耗时放大 11.1 倍 ≈ 线性，印证 O(n) 声明。
+  配套：分层规则把 `cn.ypbin.starter.benchmarks..` 列入「可横跨各层」的开发工具；
+  根 pom 的非发布模块 profile 由 `arch-tests` 更名为 `dev-only` 并纳入本模块，
+  使 `-Prelease` 同时排除它与架构测试模块（避免重演 3.0.0 首次发布因混入未签名模块而失败）。
+
 ### 变更
 - **测试基座新增 Nacos 容器支持**（`ypbin-starter-test`）：`ContainerSupport.nacosServerAddress()`
   统一「外部地址优先 → 容器回退 → 条件跳过」，新增 `@EnabledIfNacosAvailable`。

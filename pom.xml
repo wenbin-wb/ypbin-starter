@@ -142,17 +142,18 @@
 
     <profiles>
         <!--
-          架构约束测试模块（纯测试、不发布）：由 activeByDefault 提供，使默认构建包含它，
-          而 `-Prelease` 激活 release profile 后本 profile 失效 → 该模块不进入发布反应堆。
-          这样它的空 jar（无签名、无 sources/javadoc）绝不会被 staged 进 Central 上传包。
+          非发布的开发/度量模块（架构约束测试、JMH 性能基线）：由 activeByDefault 提供，使默认构建包含它们，
+          而 `-Prelease` 激活 release profile 后本 profile 失效 → 这些模块不进入发布反应堆。
+          这样它们的空 jar（无签名、无 sources/javadoc）绝不会被 staged 进 Central 上传包。
         -->
         <profile>
-            <id>arch-tests</id>
+            <id>dev-only</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
             <modules>
                 <module>ypbin-starter-architecture-tests</module>
+                <module>ypbin-starter-benchmarks</module>
             </modules>
         </profile>
 
@@ -165,6 +166,7 @@
                  保证只有 release 会排除它（SBOM 仍覆盖全部模块）。 -->
             <modules>
                 <module>ypbin-starter-architecture-tests</module>
+                <module>ypbin-starter-benchmarks</module>
             </modules>
             <build>
                 <plugins>
