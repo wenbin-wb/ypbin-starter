@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.log.aspect;
 
+import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.log.autoconfigure.AccessLogProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -99,12 +100,14 @@ public class AccessLogAspect {
         // 请求块
         log.info("================  Request Start  ================");
         log.info("===Handler===  {}.{}", signature.getDeclaringType().getSimpleName(), signature.getName());
-        log.info("===> {}: {} Parameters: {}", method, uri, buildParams(point));
+        log.info("===> {}: {} Parameters: {}", LogSanitizer.sanitize(method), LogSanitizer.sanitize(uri),
+            LogSanitizer.sanitize(buildParams(point)));
         log.info("===Headers===");
         for (Map.Entry<String, String> header : resolveHeaders(request).entrySet()) {
-            log.info("  {}: {}", header.getKey(), maskIfSensitive(header.getKey(), header.getValue()));
+            log.info("  {}: {}", LogSanitizer.sanitize(header.getKey()),
+                LogSanitizer.sanitize(maskIfSensitive(header.getKey(), header.getValue())));
         }
-        log.info("===IP===  {}", resolveIp(request));
+        log.info("===IP===  {}", LogSanitizer.sanitize(resolveIp(request)));
         log.info("================   Request End   ================");
         log.info("");
 
@@ -114,7 +117,7 @@ public class AccessLogAspect {
             // 响应块
             log.info("================  Response Start  ================");
             log.info("===Result===  {}", serializeResult(result));
-            log.info("<=== {}: {} ({} ms)", method, uri, cost);
+            log.info("<=== {}: {} ({} ms)", LogSanitizer.sanitize(method), LogSanitizer.sanitize(uri), cost);
             log.info("================   Response End   ================");
             return result;
         } catch (Throwable t) {

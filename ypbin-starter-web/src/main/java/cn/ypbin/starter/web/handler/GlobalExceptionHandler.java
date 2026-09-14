@@ -19,6 +19,7 @@ import cn.ypbin.starter.core.exception.BaseException;
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
+import cn.ypbin.starter.core.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
@@ -59,7 +60,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BusinessException.class)
     public R<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
-        log.warn("[业务异常] {} -> {}", request.getRequestURI(), e.getMessage());
+        log.warn("[业务异常] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+            LogSanitizer.sanitize(e.getMessage()));
         return R.fail(e.getCode(), e.getMessage());
     }
 
@@ -68,7 +70,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BaseException.class)
     public R<Void> handleBaseException(BaseException e, HttpServletRequest request) {
-        log.warn("[框架异常] {} -> {}", request.getRequestURI(), e.getMessage());
+        log.warn("[框架异常] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+            LogSanitizer.sanitize(e.getMessage()));
         return R.fail(e.getCode(), e.getMessage());
     }
 
@@ -127,7 +130,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     public R<Void> handleNotFound(Exception e, HttpServletRequest request) {
-        log.warn("[接口不存在] {}", request.getRequestURI());
+        log.warn("[接口不存在] {}", LogSanitizer.sanitize(request.getRequestURI()));
         return R.fail(GlobalErrorCode.NOT_FOUND.getCode(), "接口不存在");
     }
 
@@ -139,7 +142,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(AsyncRequestTimeoutException.class)
     public void handleAsyncRequestTimeout(AsyncRequestTimeoutException e, HttpServletRequest request) {
-        log.warn("[SSE 超时回收] {} -> {}", request.getRequestURI(), e.getMessage());
+        log.warn("[SSE 超时回收] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+                LogSanitizer.sanitize(e.getMessage()));
     }
 
     /**
@@ -154,10 +158,11 @@ public class GlobalExceptionHandler {
     public R<Void> handleException(Exception e, HttpServletRequest request) {
         BaseException cause = findBaseException(e);
         if (cause != null) {
-            log.warn("[业务异常-被包装] {} -> {}", request.getRequestURI(), cause.getMessage(), e);
+            log.warn("[业务异常-被包装] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+                LogSanitizer.sanitize(cause.getMessage()), e);
             return R.fail(cause.getCode(), cause.getMessage());
         }
-        log.error("[系统异常] {} ", request.getRequestURI(), e);
+        log.error("[系统异常] {} ", LogSanitizer.sanitize(request.getRequestURI()), e);
         return R.fail(GlobalErrorCode.INTERNAL_ERROR);
     }
 

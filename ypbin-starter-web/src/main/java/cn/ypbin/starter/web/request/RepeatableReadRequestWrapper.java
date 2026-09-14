@@ -17,6 +17,7 @@ package cn.ypbin.starter.web.request;
 
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
+import cn.ypbin.starter.core.util.LogSanitizer;
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -92,7 +93,8 @@ public class RepeatableReadRequestWrapper extends HttpServletRequestWrapper {
         }
         if (body.length > maxBodyBytes) {
             log.error("[ypbin-starter] 请求体超过可重复读缓存上限（{} 字节），拒绝缓存并中止读取：{} {}",
-                maxBodyBytes, request.getMethod(), request.getRequestURI());
+                maxBodyBytes, LogSanitizer.sanitize(request.getMethod()),
+                LogSanitizer.sanitize(request.getRequestURI()));
             throw new BusinessException(GlobalErrorCode.PAYLOAD_TOO_LARGE,
                 "请求体超过可重复读缓存上限（" + maxBodyBytes + " 字节）");
         }

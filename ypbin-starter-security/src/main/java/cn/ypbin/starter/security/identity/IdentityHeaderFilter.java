@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.security.identity;
 
+import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.security.core.LoginUser;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -61,7 +62,7 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
             if (userId == null) {
                 // userId 是身份锚点：解析失败视同无有效身份头，不构建登录用户，放行请求
                 log.debug("[ypbin-starter] 身份头 {} 非合法 Long（{}），本次请求按无身份放行",
-                    IdentityHeaders.USER_ID, userIdHeader);
+                    IdentityHeaders.USER_ID, LogSanitizer.sanitize(userIdHeader));
             } else {
                 LoginUser loginUser = new LoginUser();
                 loginUser.setId(userId);
@@ -107,7 +108,8 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
         try {
             return Long.valueOf(headerValue.trim());
         } catch (NumberFormatException e) {
-            log.debug("[ypbin-starter] 身份头 {} 非合法 Long（{}），忽略该字段", headerName, headerValue);
+            log.debug("[ypbin-starter] 身份头 {} 非合法 Long（{}），忽略该字段",
+                LogSanitizer.sanitize(headerName), LogSanitizer.sanitize(headerValue));
             return null;
         }
     }

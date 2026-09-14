@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.sign.core;
 
+import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
@@ -134,7 +135,7 @@ public class SignChecker {
         String expected = SignGenerator.generate(params, app.getSecretKey(), properties.getAlgorithm());
         // 恒定时间比较，避免逐字符短路带来的时序侧信道；不记录明文签名，防泄漏
         if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8))) {
-            log.warn("[ypbin-starter] 签名验证失败 accessKey={}", accessKey);
+            log.warn("[ypbin-starter] 签名验证失败 accessKey={}", LogSanitizer.sanitize(accessKey));
             return SignResult.fail("签名验证失败");
         }
         return SignResult.ok(accessKey);
