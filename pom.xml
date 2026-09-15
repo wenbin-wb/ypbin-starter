@@ -57,6 +57,7 @@
         <module>ypbin-starter-api-doc</module>
         <module>ypbin-starter-storage</module>
         <module>ypbin-starter-log</module>
+        <module>ypbin-starter-tracking</module>
         <module>ypbin-starter-tools</module>
         <module>ypbin-starter-extension-tenant</module>
         <module>ypbin-starter-extension-crud</module>

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-14T10:21:11.639Z",
+  "generatedAt": "2026-09-15T16:49:59.376Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -11,11 +11,11 @@
     "本文件由 tools/export-config-metadata.mjs 生成，禁止手工编辑"
   ],
   "summary": {
-    "moduleCount": 39,
-    "modulesWithConfigCount": 30,
-    "customPropertyCount": 317,
+    "moduleCount": 40,
+    "modulesWithConfigCount": 31,
+    "customPropertyCount": 329,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 357,
+    "totalEntryCount": 369,
     "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
@@ -48,6 +48,7 @@
     "ypbin.storage",
     "ypbin.tenant",
     "ypbin.tools",
+    "ypbin.tracking",
     "ypbin.web",
     "ypbin.websocket",
     "ypbin.xxl-job"
@@ -10306,6 +10307,395 @@
             }
           ],
           "group": "ypbin.tools",
+          "deprecation": null
+        }
+      ],
+      "standardHostProperties": []
+    },
+    "ypbin-starter-tracking": {
+      "configurationProperties": [
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.allowed-origins",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "允许的上报来源白名单；为空表示不校验来源（仅作降噪，不构成安全边界）",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 79
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 79
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.anonymize-ip",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否对客户端 IP 做截断脱敏（IPv4 保留 /24、IPv6 保留 /64），默认开启",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 76
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 76
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.batch-size",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 200,
+          "required": false,
+          "requiredWhen": null,
+          "description": "单批落库条数",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 53
+            }
+          ],
+          "default": 200,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 53
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": false,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用埋点能力（装配 TrackEventSink 等内核 Bean），默认关闭",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 36
+            }
+          ],
+          "default": false,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 36
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.flush-interval-ms",
+          "type": "java.lang.Long",
+          "defaultDefined": true,
+          "defaultValue": 1000,
+          "required": false,
+          "requiredWhen": null,
+          "description": "定时刷新间隔（毫秒）",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 56
+            }
+          ],
+          "default": 1000,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 56
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.ingest-enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": false,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用采集端点，默认关闭。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 44
+            }
+          ],
+          "default": false,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 44
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.max-events-per-request",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 50,
+          "required": false,
+          "requiredWhen": null,
+          "description": "单个请求允许携带的最大事件数，超出部分拒绝并计数",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 59
+            }
+          ],
+          "default": 50,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 59
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.max-payload-bytes",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 8192,
+          "required": false,
+          "requiredWhen": null,
+          "description": "单个事件属性的最大字节数（UTF-8），超出即拒绝该事件",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 62
+            }
+          ],
+          "default": 8192,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 62
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.max-request-bytes",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 262144,
+          "required": false,
+          "requiredWhen": null,
+          "description": "单个请求体最大字节数，超出即整体拒绝。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 70
+            }
+          ],
+          "default": 262144,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 70
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.path",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "/tracking/ingest",
+          "required": false,
+          "requiredWhen": null,
+          "description": "采集端点路径（网关前带服务短名，如 /system/tracking/ingest）",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 47
+            }
+          ],
+          "default": "/tracking/ingest",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 47
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.queue-capacity",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 10000,
+          "required": false,
+          "requiredWhen": null,
+          "description": "有界队列容量，满即丢弃新事件并计数（严禁无界队列）",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 50
+            }
+          ],
+          "default": 10000,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 50
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.sample-rate",
+          "type": "java.lang.Double",
+          "defaultDefined": true,
+          "defaultValue": 1,
+          "required": false,
+          "requiredWhen": null,
+          "description": "服务端采样率（0 表示不采样即全部丢弃，1 表示全量保留）",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 73
+            }
+          ],
+          "default": 1,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 73
+            }
+          ],
+          "group": "ypbin.tracking",
           "deprecation": null
         }
       ],

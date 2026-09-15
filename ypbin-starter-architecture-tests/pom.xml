@@ -72,6 +72,11 @@
         </dependency>
         <dependency>
             <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-tracking</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-tools</artifactId>
             <scope>test</scope>
         </dependency>

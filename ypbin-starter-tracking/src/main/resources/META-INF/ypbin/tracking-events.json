@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "events": [
+    {
+      "code": "api.request.end",
+      "description": "接口调用结束：含耗时与业务结果",
+      "source": "web",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "apiPath",
+          "type": "string",
+          "maxLength": 256,
+          "description": "接口路径（不含查询参数）"
+        },
+        {
+          "name": "bizCode",
+          "type": "integer",
+          "description": "业务响应码"
+        },
+        {
+          "name": "httpMethod",
+          "type": "string",
+          "maxLength": 16,
+          "description": "HTTP 方法"
+        }
+      ]
+    },
+    {
+      "code": "auth.user.login",
+      "description": "登录成功",
+      "source": "backend",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "authType",
+          "type": "string",
+          "maxLength": 32,
+          "description": "认证方式（账号 / 短信 / 社交）"
+        }
+      ]
+    },
+    {
+      "code": "auth.user.logout",
+      "description": "用户登出",
+      "source": "backend",
+      "since": "3.2.0",
+      "properties": []
+    },
+    {
+      "code": "iot.collector.error",
+      "description": "IoT 采集异常（异常分类必须取有限枚举值，避免标签基数爆炸）",
+      "source": "iot",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "errorType",
+          "type": "string",
+          "maxLength": 64,
+          "description": "异常分类（有限枚举值）"
+        },
+        {
+          "name": "protocolCode",
+          "type": "string",
+          "maxLength": 32,
+          "description": "协议 code"
+        }
+      ]
+    },
+    {
+      "code": "iot.collector.read",
+      "description": "IoT 采集读取结果（由平台侧适配器装饰器上报）",
+      "source": "iot",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "pointCount",
+          "type": "integer",
+          "description": "读取点位数"
+        },
+        {
+          "name": "protocolCode",
+          "type": "string",
+          "maxLength": 32,
+          "description": "协议 code"
+        },
+        {
+          "name": "successCount",
+          "type": "integer",
+          "description": "成功点位数"
+        }
+      ]
+    },
+    {
+      "code": "system.user.export",
+      "description": "用户数据导出（业务事件示例）",
+      "source": "backend",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "rowCount",
+          "type": "integer",
+          "description": "导出行数"
+        }
+      ]
+    },
+    {
+      "code": "ui.click.action",
+      "description": "白名单点击：元素需显式声明 data-track 属性才会采集",
+      "source": "web",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "actionKey",
+          "type": "string",
+          "maxLength": 128,
+          "description": "data-track 声明的动作标识"
+        },
+        {
+          "name": "targetTag",
+          "type": "string",
+          "maxLength": 32,
+          "description": "触发元素的标签名"
+        }
+      ]
+    },
+    {
+      "code": "ui.page.leave",
+      "description": "页面离开：携带本次停留时长",
+      "source": "web",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "routeKey",
+          "type": "string",
+          "maxLength": 128,
+          "description": "路由标识（不含查询参数）"
+        },
+        {
+          "name": "stayMs",
+          "type": "integer",
+          "description": "停留毫秒数"
+        }
+      ]
+    },
+    {
+      "code": "ui.page.view",
+      "description": "页面浏览：路由进入后上报一次",
+      "source": "web",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "routeKey",
+          "type": "string",
+          "maxLength": 128,
+          "description": "路由标识（不含查询参数）"
+        },
+        {
+          "name": "routeTitle",
+          "type": "string",
+          "maxLength": 128,
+          "description": "页面标题"
+        }
+      ]
+    },
+    {
+      "code": "web.error.js",
+      "description": "前端 JS 运行时异常",
+      "source": "web",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "errorMessage",
+          "type": "string",
+          "maxLength": 512,
+          "description": "异常信息（已截断）"
+        },
+        {
+          "name": "errorType",
+          "type": "string",
+          "maxLength": 64,
+          "description": "异常类型"
+        },
+        {
+          "name": "stackDigest",
+          "type": "string",
+          "maxLength": 512,
+          "description": "调用栈摘要（已截断）"
+        }
+      ]
+    },
+    {
+      "code": "web.error.resource",
+      "description": "前端资源加载失败",
+      "source": "web",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "resourceType",
+          "type": "string",
+          "maxLength": 32,
+          "description": "资源类型（script / link / img 等）"
+        },
+        {
+          "name": "resourceUrl",
+          "type": "string",
+          "maxLength": 512,
+          "description": "资源地址（已脱敏）"
+        }
+      ]
+    },
+    {
+      "code": "web.vital.report",
+      "description": "Web Vitals 指标上报（LCP / INP / CLS / TTFB）",
+      "source": "web",
+      "since": "3.2.0",
+      "properties": [
+        {
+          "name": "metric",
+          "type": "string",
+          "maxLength": 16,
+          "description": "指标名"
+        },
+        {
+          "name": "rating",
+          "type": "string",
+          "maxLength": 16,
+          "description": "评级（good / needs-improvement / poor）"
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "description": "指标值"
+        }
+      ]
+    }
+  ]
+}

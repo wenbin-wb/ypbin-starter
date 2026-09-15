@@ -300,6 +300,11 @@
             </dependency>
             <dependency>
                 <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-tracking</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-tools</artifactId>
                 <version>${revision}</version>
             </dependency>

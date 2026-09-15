@@ -694,6 +694,53 @@ public class LoginReq {
 
 `@Log` 精准采集业务操作（可落库），访问日志是全量流水（打印到日志），按需选用或并用。
 
+### tracking — 埋点
+
+面向「用户怎么用、卡在哪一步、哪个页面慢」的行为事件采集内核。它与相邻能力是**三条不同的线**，不要混用：
+
+| 能力 | 回答的问题 | 可丢？ | 主体 |
+|---|---|---|---|
+| `log`（审计） | 谁对什么做了什么 | 否 | 必须已认证 |
+| 监控指标（actuator / Micrometer） | 系统是否健康 | 是 | 无 |
+| `tracking`（埋点） | 用户怎么用、卡在哪 | **是** | 可匿名 |
+
+**默认关闭**（`ypbin.tracking.enabled=false`，采集端点另有 `ingest-enabled`）：埋点会引入一个匿名可写入口，默认开启不是合理的默认值。开启后应覆盖 `TrackEventSink` 落库；未覆盖时装配期会打印一次 WARN 并只把事件打到应用日志——刻意不静默，避免「配了埋点却没有数据」。
+
+```yaml
+ypbin:
+  tracking:
+    enabled: true
+    ingest-enabled: false        # 采集端点单独开关
+    batch-size: 200
+    queue-capacity: 10000        # 有界队列，满即丢弃并计数（严禁无界）
+    max-events-per-request: 50
+    max-payload-bytes: 8192
+    max-request-bytes: 262144    # 采集端点与业务共用 Servlet 线程池，限制请求体是防挤占手段之一
+    sample-rate: 1.0
+    anonymize-ip: true           # IPv4 保留 /24、IPv6 保留 /64
+```
+
+**事件目录是唯一事实源**（`docs/tracking-events.json`）：事件码形如 `{domain}.{object}.{action}`，**禁止动态拼接**，未登记的事件码在采集入口即被拒绝、不会静默入库。改动目录后必须重新生成：
+
+```bash
+node tools/export-tracking-events.mjs           # 生成 Java 常量 + 运行时资源
+node tools/export-tracking-events.mjs --check   # 漂移门禁（改目录忘记重生成会被 CI 拦下）
+```
+
+生成物为 `TrackingEventCodes`（编译期常量）与 `META-INF/ypbin/tracking-events.json`（运行期校验用）。
+
+**持久化扩展点**（在采集消费者线程被调用，与业务请求线程隔离，允许阻塞）：
+
+```java
+@Bean
+public TrackEventSink trackEventSink(TrackEventMapper mapper) {
+    return events -> mapper.batchInsert(events);
+}
+```
+
+> ⚠️ 落库实现必须**幂等**：同一 `eventId` 重复写入不得产生重复行。批量插入请用 `ON DUPLICATE KEY UPDATE`，
+> **不要**用 `INSERT IGNORE`——后者会把数据截断等错误一并降级为告警，属于静默数据丢失。
+
 ### tools — 常用工具
 
 **分布式限流** `@RateLimit`（有 Redis 时自动用 Redis+Lua 原子限流，否则内存限流）：
