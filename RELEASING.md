@@ -89,6 +89,17 @@ git tag v1.0.0
 git push && git push --tags
 ```
 
+**5b. 创建 GitHub Release（不能只打 tag）**：在 `v1.0.0` 标签上创建 Release（发布说明取 CHANGELOG 对应小节）。
+
+> ⚠️ **这一步是下游 CI 的硬依赖**：`ypbin-admin` 的流水线有一道「防版本漂移」门禁，
+> 它用 `https://api.github.com/repos/wenbin-wb/ypbin-starter/releases/latest` 的 `tag_name`
+> 与 admin pom 里固定的 `ypbin-starter.version` 比对。**只打 tag 不建 Release，`releases/latest`
+> 仍指向上一版**，admin 的构建会直接失败（3.1.0 发布时就是这样被门禁拦下的）。
+> 用 API 一步完成：
+> ```bash
+> gh release create v1.0.0 --title 1.0.0 --notes-file <(sed -n '/^## \[1\.0\.0\]/,/^## \[/p' CHANGELOG.md)
+> ```
+
 **6. 开启下一个开发版本**：把 `<revision>` 改为下一迭代的快照，如 `1.1.0-SNAPSHOT`，提交。
 
 > 这一步**不能省**：`revision` 停留在已发布版本号会让本地构建产出与中央仓库同坐标、不同内容的产物，
