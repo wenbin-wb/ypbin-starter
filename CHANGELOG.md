@@ -9,7 +9,19 @@
 
 ## [未发布]
 
-（下一迭代的开发变更记录在此）
+### 新增
+
+- **埋点模块 `ypbin-starter-tracking`（契约与骨架）**：面向「用户怎么用、卡在哪一步、哪个页面慢」的行为事件采集内核，
+  与审计日志（`log`）、监控指标是三套不同语义的能力——埋点**允许丢弃**、主体**可匿名**、用途是理解用户而非追责或报警。
+  - **事件目录是唯一事实源**（`docs/tracking-events.json`）：由 `tools/export-tracking-events.mjs` 生成 Java 常量
+    `TrackingEventCodes` 与运行时资源 `META-INF/ypbin/tracking-events.json`；CI 与 `tools/preflight.sh`
+    均增设「埋点事件目录未漂移」门禁（事实源改了而生成物未更新即失败）。
+  - **默认关闭**：`ypbin.tracking.enabled` 与 `ypbin.tracking.ingest-enabled` 默认均为 `false`
+    ——采集端点是一个匿名可写入口，不作为默认值；微服务下多服务共用本模块时也不会把端点散布到每个服务。
+  - **不静默降级**：宿主未覆盖 `TrackEventSink` 时装配期打印一次 WARN 并仅打印到应用日志，
+    而不是让「配了埋点却没有数据」悄悄发生。
+  - 本版本仅交付契约与骨架（事件目录、生成器、`TrackEvent` / `TrackEventSink`、装配与全部配置项）；
+    采集端点、有界队列与批量落库链路随后续版本提供。
 
 ## [3.1.0] - 2026-09-14
 

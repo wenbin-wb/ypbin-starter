@@ -72,6 +72,11 @@ jobs:
       - name: 校验配置元数据未漂移
         run: node tools/export-config-metadata.mjs --check
 
+      # 埋点事件目录是前后端共用的契约（docs/tracking-events.json 为事实源），
+      # 手工改生成物或改目录后忘记重生成都必须在这里被拦下。
+      - name: 校验埋点事件目录未漂移
+        run: node tools/export-tracking-events.mjs --check
+
       - name: 生成 CycloneDX SBOM（软件物料清单）
         run: mvn -B -Psbom -DskipTests verify
 

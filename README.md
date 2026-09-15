@@ -186,6 +186,7 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
 | `cache` | Redis 缓存 + 三重防护 + 多级缓存 | `ypbin.cache` |
 | `security` | Sa-Token 封装、登录客户端、密码策略 | `ypbin.security` |
 | `log` | `@Log` 操作日志 + 访问日志切面 | `ypbin.log` |
+| `tracking` | 埋点：事件契约 + 采集内核，`TrackEventSink` 扩展落库 | `ypbin.tracking` |
 | `tools` | 限流 `@RateLimit`、幂等 `@Idempotent`、分布式锁、加解密 | `ypbin.tools` |
 | `async` | 统一线程池、`@Async` 接管、上下文透传 | `ypbin.async` |
 | `job` | 动态定时任务、分布式锁防重、执行监听 | `ypbin.job` |
