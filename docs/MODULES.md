@@ -169,7 +169,9 @@ public class DbDictProvider implements DictProvider {
 }
 ```
 
-`DictCache` 带缓存（字典维护后调 `DictUtils.refresh()` 即时生效）；`DictUtils.translate(type, value)` / `getItems(type)` 供任意层静态调用；未接入 `DictProvider` 时翻译安全退化为原值。
+`DictCache` 带缓存与 TTL（配 `ypbin.json.dict.ttl-seconds` 默认 5 分钟 / `max-size` 默认 1 万；任一设为 0 表示关闭缓存、每次回源）；`DictUtils.translate(type, value)` / `getItems(type)` 供任意层静态调用；未接入 `DictProvider` 时翻译安全退化为原值。
+
+> **刷新语义**：`DictUtils.refresh()` / `refresh(type)` **只清当前 JVM 的本地缓存**，不会通知其它实例。多实例部署下，其它实例的字典文案陈旧时间由 `ttl-seconds` 兜底（TTL 即单个实例的最长陈旧时间）；若要「维护后全实例即时生效」，需业务方自行广播（MQ / 配置中心推送）并在各实例调用 `DictUtils.refresh(type)`——starter 不引入 Redis / 消息广播等外部依赖。
 
 **引用翻译** `@RefText`：实体存引用 ID（如 createUser、deptId），序列化时**保留原字段原值**、并**额外输出**展示名称字段。适合"存 ID、展示中文名"场景。数据源（用户表、部门表）由 admin 实现 `RefTextProvider`，starter 负责缓存与批量：
 

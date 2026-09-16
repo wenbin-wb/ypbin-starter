@@ -77,6 +77,11 @@ public final class DictUtils {
 
     /**
      * 刷新全部字典缓存。
+     *
+     * <p><b>只清空当前 JVM 的本地缓存，不会通知其它实例</b>：多实例部署下，其它实例的字典文案
+     * 陈旧时间取决于 TTL（{@code ypbin.json.dict.ttl-seconds} 默认 5 分钟）或各实例自身的刷新调用，
+     * 不存在「维护一次、全实例即时生效」。需要全实例即时生效时，由业务方广播后在各实例调用本方法。
+     * 详见 {@link DictCache} 类级 Javadoc 的「刷新语义」。</p>
      */
     public static void refresh() {
         if (cache != null) {
@@ -86,6 +91,9 @@ public final class DictUtils {
 
     /**
      * 刷新指定字典类型缓存。
+     *
+     * <p><b>只清空当前 JVM 的本地缓存，不会通知其它实例</b>：多实例下的语义与兜底方式同
+     * {@link #refresh()}。</p>
      *
      * @param dictType 字典类型
      */

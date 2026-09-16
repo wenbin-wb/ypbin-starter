@@ -49,6 +49,9 @@ public class JacksonProperties {
     /** 引用翻译（@RefText）配置 */
     private RefText refText = new RefText();
 
+    /** 字典翻译（@DictText / DictUtils）配置 */
+    private Dict dict = new Dict();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -97,6 +100,14 @@ public class JacksonProperties {
         this.refText = refText;
     }
 
+    public Dict getDict() {
+        return dict;
+    }
+
+    public void setDict(Dict dict) {
+        this.dict = dict;
+    }
+
     /**
      * 引用翻译缓存配置。
      */
@@ -118,6 +129,42 @@ public class JacksonProperties {
         public void setAutoResolve(boolean autoResolve) {
             this.autoResolve = autoResolve;
         }
+
+        public long getTtlSeconds() {
+            return ttlSeconds;
+        }
+
+        public void setTtlSeconds(long ttlSeconds) {
+            this.ttlSeconds = ttlSeconds;
+        }
+
+        public int getMaxSize() {
+            return maxSize;
+        }
+
+        public void setMaxSize(int maxSize) {
+            this.maxSize = maxSize;
+        }
+    }
+
+    /**
+     * 字典缓存配置。
+     */
+    public static class Dict {
+
+        /**
+         * 字典缓存有效期（秒），默认 5 分钟。多实例部署下，单个实例的字典文案最长陈旧时间即为该值
+         * （refresh 只清当前 JVM 缓存）。设为 0 或负数表示关闭字典缓存（每次读取都回源），
+         * 与 ref-text.ttl-seconds 的 0 值语义一致；本模块不提供「永不过期」开关，需要长缓存请给一个大值。
+         */
+        // 字面量写法与 RefText 一致：引用跨类常量会让配置元数据无法解析出 defaultValue
+        private long ttlSeconds = 300L;
+
+        /**
+         * 缓存容量上限（不同字典类型数），默认 1 万。超出时先清理过期条目，仍满则淘汰最早到期的一条，
+         * 保证新字典类型仍可缓存。设为 0 或负数表示关闭字典缓存（每次读取都回源）。
+         */
+        private int maxSize = 10000;
 
         public long getTtlSeconds() {
             return ttlSeconds;

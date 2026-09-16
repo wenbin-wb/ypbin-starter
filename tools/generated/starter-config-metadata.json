@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-16T02:13:56.081Z",
+  "generatedAt": "2026-09-16T14:03:19.775Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 40,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 330,
+    "customPropertyCount": 332,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 370,
+    "totalEntryCount": 372,
     "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
@@ -5438,6 +5438,46 @@
               "line": 41
             }
           ],
+          "group": "ypbin.json",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-json",
+          "key": "ypbin.json.dict.max-size",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 10000,
+          "required": false,
+          "requiredWhen": null,
+          "description": "缓存容量上限（不同字典类型数），默认 1 万。超出时先清理过期条目，仍满则淘汰最早到期的一条， 保证新字典类型仍可缓存。设为 0 或负数表示关闭字典缓存（每次读取都回源）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": 10000,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.json",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-json",
+          "key": "ypbin.json.dict.ttl-seconds",
+          "type": "java.lang.Long",
+          "defaultDefined": true,
+          "defaultValue": 300,
+          "required": false,
+          "requiredWhen": null,
+          "description": "字典缓存有效期（秒），默认 5 分钟。多实例部署下，单个实例的字典文案最长陈旧时间即为该值 （refresh 只清当前 JVM 缓存）。设为 0 或负数表示关闭字典缓存（每次读取都回源）， 与 ref-text.ttl-seconds 的 0 值语义一致；本模块不提供「永不过期」开关，需要长缓存请给一个大值。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": 300,
+          "values": [],
+          "notes": [],
+          "source": [],
           "group": "ypbin.json",
           "deprecation": null
         },

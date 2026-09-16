@@ -127,16 +127,22 @@ public class JacksonAutoConfiguration {
      * 字典缓存：仅当业务方提供 {@link DictProvider}（如从字典表读）时装配，并绑定到 {@link DictUtils}
      * 供 {@code @DictText} 序列化器与静态调用使用。未接入字典时不装配，翻译安全退化为原值。
      *
+     * <p>缓存带 TTL 与容量上限（{@code ypbin.json.dict.ttl-seconds} / {@code ypbin.json.dict.max-size}）：
+     * 多实例部署下 refresh 只能清当前 JVM，其它实例的陈旧时间由 TTL 兜底。</p>
+     *
      * @param dictProvider 字典数据来源
+     * @param properties   JSON 配置
      * @return 字典缓存
      */
     @Bean
     @ConditionalOnBean(DictProvider.class)
     @ConditionalOnMissingBean
-    public DictCache dictCache(DictProvider dictProvider) {
-        DictCache dictCache = new DictCache(dictProvider);
+    public DictCache dictCache(DictProvider dictProvider, JacksonProperties properties) {
+        JacksonProperties.Dict config = properties.getDict();
+        DictCache dictCache = new DictCache(dictProvider, config.getTtlSeconds(), config.getMaxSize());
         DictUtils.bind(dictCache);
-        log.debug("[ypbin-starter] dict cache initialized.");
+        log.debug("[ypbin-starter] dict cache initialized, ttlSeconds={}, maxSize={}.",
+            config.getTtlSeconds(), config.getMaxSize());
         return dictCache;
     }
 
