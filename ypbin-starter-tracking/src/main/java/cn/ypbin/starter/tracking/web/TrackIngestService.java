@@ -18,6 +18,7 @@ package cn.ypbin.starter.tracking.web;
 import cn.ypbin.starter.tracking.core.TrackEvent;
 import cn.ypbin.starter.tracking.core.TrackRecorder;
 import cn.ypbin.starter.tracking.core.TrackRejectionReason;
+import cn.ypbin.starter.tracking.core.TrackRequestContext;
 import cn.ypbin.starter.tracking.core.TrackingEventCatalog;
 import cn.ypbin.starter.tracking.core.TrackingEventCatalog.EventSchema;
 import cn.ypbin.starter.tracking.core.TrackingEventCatalog.PropertySchema;
@@ -53,6 +54,12 @@ public class TrackIngestService {
 
     private static final int MAX_APP_ID_LENGTH = 64;
 
+    /** User-Agent 原串上限（与落库列宽一致） */
+    private static final int MAX_USER_AGENT_LENGTH = 512;
+
+    /** 链路 ID 上限（与落库列宽一致） */
+    private static final int MAX_TRACE_ID_LENGTH = 64;
+
     private final TrackRecorder recorder;
 
     private final TrackCounters counters;
@@ -65,8 +72,10 @@ public class TrackIngestService {
 
     private final @Nullable String defaultAppId;
 
+    private final boolean anonymizeClientIp;
+
     /**
-     * 创建采集服务。
+     * 创建采集服务（客户端 IP 按默认策略脱敏）。
      *
      * @param recorder            采集门面
      * @param counters            计数器
@@ -77,21 +86,53 @@ public class TrackIngestService {
      */
     public TrackIngestService(TrackRecorder recorder, TrackCounters counters, TrackingEventCatalog catalog,
                               int maxEventsPerRequest, int maxPayloadBytes, @Nullable String defaultAppId) {
+        this(recorder, counters, catalog, maxEventsPerRequest, maxPayloadBytes, defaultAppId, true);
+    }
+
+    /**
+     * 创建采集服务。
+     *
+     * @param recorder            采集门面
+     * @param counters            计数器
+     * @param catalog             事件目录
+     * @param maxEventsPerRequest 单请求事件数上限
+     * @param maxPayloadBytes     单事件属性体积上限（估算字节）
+     * @param defaultAppId        缺省应用标识；为空表示不写该维度
+     * @param anonymizeClientIp   是否对客户端 IP 脱敏（IPv4 保留 /24、IPv6 保留 /64）
+     */
+    public TrackIngestService(TrackRecorder recorder, TrackCounters counters, TrackingEventCatalog catalog,
+                              int maxEventsPerRequest, int maxPayloadBytes, @Nullable String defaultAppId,
+                              boolean anonymizeClientIp) {
         this.recorder = recorder;
         this.counters = counters;
         this.catalog = catalog;
         this.maxEventsPerRequest = maxEventsPerRequest;
         this.maxPayloadBytes = maxPayloadBytes;
         this.defaultAppId = defaultAppId;
+        this.anonymizeClientIp = anonymizeClientIp;
     }
 
     /**
-     * 处理一次批量上报。
+     * 处理一次批量上报（不携带请求上下文）。
      *
      * @param request 请求体；为 {@code null} 时按空批次处理
      * @return 逐项计数结果
      */
     public TrackIngestResp ingest(@Nullable TrackIngestReq request) {
+        return ingest(request, TrackRequestContext.EMPTY);
+    }
+
+    /**
+     * 处理一次批量上报（携带采集时刻的请求上下文）。
+     *
+     * <p>IP 与 UA 只能从 HTTP 请求上取，而落库发生在消费者线程上——那时请求早已结束。
+     * 因此必须在请求线程上捕获、随事件带下去。</p>
+     *
+     * @param request 请求体；为 {@code null} 时按空批次处理
+     * @param context 采集时刻捕获的 IP / User-Agent / 链路 ID
+     * @return 逐项计数结果
+     */
+    public TrackIngestResp ingest(@Nullable TrackIngestReq request, TrackRequestContext context) {
         List<TrackIngestEvent> events = resolveEvents(request);
         int received = events.size();
         Map<TrackRejectionReason, Integer> reasons = new EnumMap<>(TrackRejectionReason.class);
@@ -103,7 +144,7 @@ public class TrackIngestService {
         String appId = resolveAppId(request);
         List<TrackEvent> accepted = new ArrayList<>(processLimit);
         for (int index = 0; index < processLimit; index++) {
-            convert(events.get(index), appId, reasons).ifPresent(accepted::add);
+            convert(events.get(index), appId, context, reasons).ifPresent(accepted::add);
         }
 
         int queued = recorder.record(accepted);
@@ -115,6 +156,7 @@ public class TrackIngestService {
     }
 
     private Optional<TrackEvent> convert(TrackIngestEvent raw, @Nullable String appId,
+                                         TrackRequestContext context,
                                          Map<TrackRejectionReason, Integer> reasons) {
         String eventId = raw.eventId();
         String eventCode = raw.eventCode();
@@ -150,7 +192,29 @@ public class TrackIngestService {
         }
         return Optional.of(new TrackEvent(eventId, eventCode, eventTime, appId,
             raw.sessionId(), raw.anonId(), raw.pageUrl(), raw.referrer(),
-            raw.durationMs(), raw.success(), payload.payload()));
+            raw.durationMs(), raw.success(), payload.payload(),
+            maskIp(context.clientIp()), truncate(context.userAgent(), MAX_USER_AGENT_LENGTH),
+            truncate(context.traceId(), MAX_TRACE_ID_LENGTH)));
+    }
+
+    /**
+     * 客户端 IP 脱敏：IPv4 保留前三段（/24）、IPv6 保留前四段（/64）。
+     *
+     * <p>识别不出形态时<strong>原样返回</strong>：宁可留一个未脱敏的异常值，也不要把它错改成另一段网段。</p>
+     */
+    private @Nullable String maskIp(@Nullable String ip) {
+        if (!anonymizeClientIp || ip == null || ip.isBlank()) {
+            return ip;
+        }
+        if (ip.indexOf('.') >= 0) {
+            int lastDot = ip.lastIndexOf('.');
+            return lastDot > 0 ? ip.substring(0, lastDot) + ".0" : ip;
+        }
+        String[] segments = ip.split(":", -1);
+        if (segments.length < 4) {
+            return ip;
+        }
+        return String.join(":", segments[0], segments[1], segments[2], segments[3]) + "::";
     }
 
     private PayloadResult prunePayload(@Nullable Map<String, Object> rawPayload, EventSchema schema) {
@@ -190,8 +254,16 @@ public class TrackIngestService {
         };
     }
 
-    private String truncate(String text, int maxLength) {
-        return maxLength > 0 && text.length() > maxLength ? text.substring(0, maxLength) : text;
+    /**
+     * 按上限截断文本。
+     *
+     * <p>刻意接受 {@code null} 并原样返回：调用点大量来自可空的采集上下文（IP/UA/链路 ID），
+     * 让每个调用点各自判空只会把同一件事写很多遍。</p>
+     */
+    private @Nullable String truncate(@Nullable String text, int maxLength) {
+        return text == null || maxLength <= 0 || text.length() <= maxLength
+            ? text
+            : text.substring(0, maxLength);
     }
 
     private @Nullable Instant parseEventTime(String eventTime) {

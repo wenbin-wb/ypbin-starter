@@ -84,6 +84,14 @@ public class TrackingProperties {
     /** 允许的上报来源白名单；为空表示不校验来源（仅作降噪，不构成安全边界） */
     private List<String> allowedOrigins = List.of();
 
+    /**
+     * 记录客户端 IP 时是否信任反向代理注入的转发头（X-Forwarded-For / X-Real-IP），默认不信任。
+     *
+     * <p>部署在网关之后必须开启，否则记录到的是网关自身的地址（与 {@code ypbin.tools.rate-limit.trust-forwarded}
+     * 是同一类问题，但两者的取值互不影响：限流是安全敏感场景，埋点记录是分析场景）。</p>
+     */
+    private boolean trustForwarded = false;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -194,5 +202,13 @@ public class TrackingProperties {
 
     public void setAllowedOrigins(List<String> allowedOrigins) {
         this.allowedOrigins = allowedOrigins;
+    }
+
+    public boolean isTrustForwarded() {
+        return trustForwarded;
+    }
+
+    public void setTrustForwarded(boolean trustForwarded) {
+        this.trustForwarded = trustForwarded;
     }
 }

@@ -70,19 +70,33 @@ public class TrackingIngestAutoConfiguration {
                                                  TrackingEventCatalog catalog, TrackingProperties properties) {
         String appId = properties.getAppId().isBlank() ? null : properties.getAppId();
         return new TrackIngestService(recorder, counters, catalog, properties.getMaxEventsPerRequest(),
-            properties.getMaxPayloadBytes(), appId);
+            properties.getMaxPayloadBytes(), appId, properties.isAnonymizeIp());
+    }
+
+    /**
+     * 采集上下文解析器：在请求线程上取 IP / User-Agent / 链路 ID。
+     *
+     * @param properties 配置项
+     * @return 解析器
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public TrackRequestContextResolver trackRequestContextResolver(TrackingProperties properties) {
+        return new TrackRequestContextResolver(properties.isTrustForwarded());
     }
 
     /**
      * 采集端点。
      *
-     * @param ingestService 采集服务
+     * @param ingestService   采集服务
+     * @param contextResolver 采集上下文解析器
      * @return 端点
      */
     @Bean
     @ConditionalOnMissingBean
-    public TrackIngestController trackIngestController(TrackIngestService ingestService) {
-        return new TrackIngestController(ingestService);
+    public TrackIngestController trackIngestController(TrackIngestService ingestService,
+                                                       TrackRequestContextResolver contextResolver) {
+        return new TrackIngestController(ingestService, contextResolver);
     }
 
     /**
