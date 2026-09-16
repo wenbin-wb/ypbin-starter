@@ -15,47 +15,52 @@
  */
 package cn.ypbin.starter.tracking.core;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
-import org.springframework.core.io.ClassPathResource;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * 事件目录注册表：采集入口判定「事件码是否已登记、属性是否在白名单内」的唯一依据。
  *
- * <p>目录来源是生成物 {@code META-INF/ypbin/tracking-events.json}（事实源为仓库内
- * {@code docs/tracking-events.json}，由 {@code tools/export-tracking-events.mjs} 生成），
- * 在构造期一次性载入并转为不可变结构。</p>
+ * <p>目录分两层加载，两者共用同一个类路径位置 {@code META-INF/ypbin/tracking-events.json}
+ * （base 的事实源为仓库内 {@code docs/tracking-events.json}，由 {@code tools/export-tracking-events.mjs} 生成）：</p>
+ * <ul>
+ *   <li><strong>base</strong>：starter jar 内自带的那份，平台通用事件；</li>
+ *   <li><strong>project</strong>：宿主项目 jar 内的同名资源，宿主自有事件。存在时<strong>叠加在 base 之上</strong>，
+ *       同一事件码<strong>以 project 为准</strong>；覆盖发生时由 {@link TrackingCatalogMerger} 逐字段打印差异，
+ *       绝不静默覆盖。</li>
+ * </ul>
  *
- * <p><strong>载入失败即失败</strong>（缺资源、schemaVersion 不识别、事件重复）：不做「空目录照常运行」
- * 的降级——那样会让所有事件静默变成「未登记」而被丢弃，是典型的静默失效。</p>
+ * <p>两层资源<strong>显式各读一份再合并</strong>：同名资源同时存在于两个 jar 时，
+ * {@code ClassLoader#getResource} 只返回命中顺序里的一个，而顺序不可靠，故不使用单资源读取。</p>
+ *
+ * <p>构造期一次性载入并转为不可变结构。<strong>载入失败即失败</strong>（缺 base、project 多份、schemaVersion
+ * 不识别、资源损坏、事件重复）：不做「空目录照常运行」的降级——那样会让所有事件静默变成「未登记」而被丢弃，
+ * 是典型的静默失效。</p>
  *
  * @author wenbin
  * @since 2026-09-15
  */
 public final class TrackingEventCatalog {
 
-    /** 运行时资源路径（生成物） */
+    /** 运行时资源路径（生成物）；base 与 project 两层共用同一路径，靠资源所在归档区分 */
     public static final String RESOURCE_PATH = "META-INF/ypbin/tracking-events.json";
-
-    /** 当前支持的目录 schema 版本 */
-    private static final int SUPPORTED_SCHEMA_VERSION = 1;
 
     private final Map<String, EventSchema> schemas;
 
+    /** 被宿主项目目录覆盖且 schema 确有变化的事件码（可观测的覆盖标注） */
+    private final Set<String> overriddenCodes;
+
     /**
-     * 创建注册表。
+     * 创建注册表：加载 base 并叠加宿主项目目录（若类路径上存在）。
      *
      * @param objectMapper 用于解析目录资源的 Jackson 3 映射器
      */
     public TrackingEventCatalog(ObjectMapper objectMapper) {
-        this.schemas = load(objectMapper);
+        TrackingCatalogMerger.MergeResult merged = TrackingCatalogLoader.load(objectMapper);
+        this.schemas = merged.schemas();
+        this.overriddenCodes = merged.overriddenCodes();
     }
 
     /**
@@ -65,10 +70,14 @@ public final class TrackingEventCatalog {
      * 生成资源，**刻意不提供「运行时追加」**——让宿主显式给出完整集合，比暴露一个可变的全局注册表更可控
      * （后者会让「目录是唯一事实源」这条不变量失效）。</p>
      *
+     * <p>以本构造器构造时<strong>不读 classpath、也不做两层合并</strong>：宿主给出的集合即完整目录，
+     * {@link #overriddenCodes()} 恒为空集。</p>
+     *
      * @param schemas 事件码到 schema 的映射（构造期做不可变复制）
      */
     public TrackingEventCatalog(Map<String, EventSchema> schemas) {
         this.schemas = Map.copyOf(schemas);
+        this.overriddenCodes = Set.of();
     }
 
     /**
@@ -100,38 +109,17 @@ public final class TrackingEventCatalog {
         return schemas.keySet();
     }
 
-    private static Map<String, EventSchema> load(ObjectMapper objectMapper) {
-        ClassPathResource resource = new ClassPathResource(RESOURCE_PATH);
-        if (!resource.exists()) {
-            throw new IllegalStateException(
-                "[ypbin-starter] tracking event catalog resource not found: " + RESOURCE_PATH
-                    + "；请执行 node tools/export-tracking-events.mjs 重新生成后重新构建");
-        }
-        CatalogDocument document;
-        try (InputStream inputStream = resource.getInputStream()) {
-            document = objectMapper.readValue(inputStream, CatalogDocument.class);
-        } catch (IOException ex) {
-            throw new UncheckedIOException("[ypbin-starter] failed to read tracking event catalog: " + RESOURCE_PATH, ex);
-        }
-        if (document == null || document.schemaVersion() != SUPPORTED_SCHEMA_VERSION) {
-            throw new IllegalStateException("[ypbin-starter] unsupported tracking catalog schemaVersion: "
-                + (document == null ? "null" : document.schemaVersion()));
-        }
-        Map<String, EventSchema> loaded = new LinkedHashMap<>();
-        for (EventDefinition definition : document.events()) {
-            Map<String, PropertySchema> properties = new LinkedHashMap<>();
-            for (PropertyDefinition property : definition.properties()) {
-                // 目录只为字符串属性声明 maxLength；非字符串缺省视为不限制（0）
-                int maxLength = property.maxLength() == null ? 0 : property.maxLength();
-                properties.put(property.name(), new PropertySchema(property.type(), maxLength));
-            }
-            EventSchema previous = loaded.put(definition.code(),
-                new EventSchema(definition.description(), Map.copyOf(properties)));
-            if (previous != null) {
-                throw new IllegalStateException("[ypbin-starter] duplicated tracking event code: " + definition.code());
-            }
-        }
-        return Map.copyOf(loaded);
+    /**
+     * 被宿主项目目录覆盖、且 schema 相对 base 确有变化的事件码。
+     *
+     * <p>覆盖差异在加载期已按字段打印 WARN 日志，本方法把同一事实暴露给程序化使用方
+     * （监控指标、管理界面等），使「该条已被项目覆盖」始终可观测。以
+     * {@link #TrackingEventCatalog(Map)} 构造时不读两层目录，恒为空集。</p>
+     *
+     * @return 不可变事件码集合；无覆盖时为空集合
+     */
+    public Set<String> overriddenCodes() {
+        return overriddenCodes;
     }
 
     /**
@@ -154,41 +142,5 @@ public final class TrackingEventCatalog {
      * @since 2026-09-15
      */
     public record PropertySchema(String type, int maxLength) {
-    }
-
-    /**
-     * 目录资源文档结构（仅供 Jackson 绑定，不对外暴露）。
-     *
-     * @param schemaVersion 目录版本
-     * @param events        事件定义列表
-     * @author wenbin
-     * @since 2026-09-15
-     */
-    private record CatalogDocument(int schemaVersion, List<EventDefinition> events) {
-    }
-
-    /**
-     * 事件定义（仅供 Jackson 绑定）。
-     *
-     * @param code        事件码
-     * @param description 事件说明
-     * @param properties  属性定义
-     * @author wenbin
-     * @since 2026-09-15
-     */
-    private record EventDefinition(String code, String description, List<PropertyDefinition> properties) {
-    }
-
-    /**
-     * 属性定义（仅供 Jackson 绑定）。
-     *
-     * @param name        属性名
-     * @param type        属性类型
-     * @param maxLength   最大长度；目录只为 string 类型声明，其余类型缺省（故可空）
-     * @param description 属性说明
-     * @author wenbin
-     * @since 2026-09-15
-     */
-    private record PropertyDefinition(String name, String type, @Nullable Integer maxLength, String description) {
     }
 }

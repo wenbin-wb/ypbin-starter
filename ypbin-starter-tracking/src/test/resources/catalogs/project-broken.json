@@ -1,0 +1,1 @@
+{ "schemaVersion": 1, "events": [ { "code": "admin.broken.event", "description": "截断的 JSON" 

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "description": "单测夹具：与 base 完全一致的事件定义，用于验证不产生差异噪音",
+  "events": [
+    {
+      "code": "ui.page.view",
+      "description": "页面浏览：路由进入后上报一次",
+      "properties": [
+        { "name": "routeKey", "type": "string", "maxLength": 128, "description": "路由标识（不含查询参数）" },
+        { "name": "routeTitle", "type": "string", "maxLength": 128, "description": "页面标题" }
+      ]
+    }
+  ]
+}

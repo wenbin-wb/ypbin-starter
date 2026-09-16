@@ -18,7 +18,9 @@ package cn.ypbin.starter.tracking.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.tracking.core.TrackEventSink;
+import cn.ypbin.starter.tracking.core.TrackingEventCatalog;
 import cn.ypbin.starter.tracking.sink.LoggingTrackEventSink;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -58,6 +60,22 @@ class TrackingAutoConfigurationTest {
         runner.withPropertyValues("ypbin.tracking.enabled=true")
             .withBean(TrackEventSink.class, () -> customized)
             .run(context -> assertThat(context.getBean(TrackEventSink.class)).isSameAs(customized));
+    }
+
+    @Test
+    void shouldBackOffWhenHostProvidesCatalog() {
+        // 宿主覆盖目录 Bean 时两层合并完全不介入：宿主给出的集合即完整目录
+        TrackingEventCatalog customized = new TrackingEventCatalog(
+            Map.of("host.event.custom", new TrackingEventCatalog.EventSchema("宿主自有事件", Map.of())));
+
+        runner.withPropertyValues("ypbin.tracking.enabled=true")
+            .withBean(TrackingEventCatalog.class, () -> customized)
+            .run(context -> {
+                TrackingEventCatalog catalog = context.getBean(TrackingEventCatalog.class);
+                assertThat(catalog).isSameAs(customized);
+                assertThat(catalog.codes()).containsExactly("host.event.custom");
+                assertThat(catalog.overriddenCodes()).isEmpty();
+            });
     }
 
     @Test
