@@ -46,7 +46,9 @@ public class LogEventListener {
         try {
             logDao.add(event.getLogRecord());
         } catch (Exception e) {
-            log.warn("[ypbin-starter] operation log persist failed: {}", e.getMessage());
+            // 必须带完整堆栈：落库失败是"操作日志查库为空"的直接原因，只打 message 无法定位是哪个实现、哪条 SQL。
+            log.warn("[ypbin-starter] 操作日志未落库：持久化失败，该条日志丢失（不影响业务请求）: logDao={}, reason={}",
+                logDao.getClass().getName(), e.getMessage(), e);
         }
     }
 }

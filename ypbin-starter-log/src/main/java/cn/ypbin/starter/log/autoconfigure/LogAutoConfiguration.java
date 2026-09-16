@@ -61,6 +61,10 @@ public class LogAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public LogDao logDao() {
+        // 启动期显式告知：默认实现只把操作日志打到日志文件、不落库。否则宿主"以为已落库、查库/查表为空"
+        // 属于最难排查的一类静默失效（无异常、无提示），这里用一行 INFO 把事实摆出来。
+        log.info("[ypbin-starter] 未检测到自定义 LogDao，操作日志不会落库，仅打印到 ypbin.access-log 日志；"
+            + "需要持久化请提供 LogDao Bean。");
         return new DefaultLogDao();
     }
 
@@ -107,7 +111,10 @@ public class LogAutoConfiguration {
         Set<Include> includes = (properties.getIncludes() != null && !properties.getIncludes().isEmpty())
             ? properties.getIncludes()
             : Include.defaultIncludes();
-        log.debug("[ypbin-starter] operation log aspect enabled, includes={}.", includes);
+        // INFO 级：让运维能在启动日志里确认"切面确实注册了"，以及用的哪个采集器。
+        // 采集器由本配置类的 logCollector() 兜底提供（@ConditionalOnMissingBean），宿主无需自行实现 LogCollector。
+        log.info("[ypbin-starter] 操作日志切面已启用：collector={}, includes={}。",
+            collector.getClass().getName(), includes);
         return new LogAspect(collector, eventPublisher, includes);
     }
 }

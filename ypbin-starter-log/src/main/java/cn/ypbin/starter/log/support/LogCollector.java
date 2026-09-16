@@ -109,7 +109,9 @@ public class LogCollector {
                 try {
                     record.setLocation(ipLocationResolver.resolve(ip));
                 } catch (Exception e) {
-                    log.debug("[ypbin-starter] IP 归属地解析失败: {}", e.getMessage());
+                    // 可选字段增强失败：本条操作日志本身照常记录，仅 location 字段留空。
+                    // 保留 debug 级（该处按请求触发，宿主解析器故障时升 WARN 会按请求量刷堆栈放大日志），但必须带完整堆栈以便开启 debug 即可定位。
+                    log.debug("[ypbin-starter] IP 归属地解析失败，location 字段留空: {}", e.getMessage(), e);
                 }
             }
             if (includes.contains(Include.REQUEST_PARAM)) {
@@ -152,7 +154,7 @@ public class LogCollector {
             }
         } catch (Exception e) {
             // 无 Web 上下文时记录调试日志，便于排查日志采集链路异常
-            log.debug("[ypbin-starter] 当前线程不存在请求上下文，跳过请求信息采集: {}", e.getMessage());
+            log.debug("[ypbin-starter] 当前线程不存在请求上下文，跳过请求信息采集: {}", e.getMessage(), e);
         }
         return null;
     }
@@ -253,7 +255,8 @@ public class LogCollector {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
-            log.debug("[ypbin-starter] log payload serialize failed: {}", e.getMessage());
+            // 请求/响应体属可选采集内容，序列化失败即降级为不记录该字段；保留 debug 级但必须带完整堆栈
+            log.debug("[ypbin-starter] log payload serialize failed: {}", e.getMessage(), e);
             return null;
         }
     }

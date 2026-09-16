@@ -124,6 +124,9 @@ public class AccessLogAspect {
         } catch (Throwable t) {
             long cost = System.currentTimeMillis() - start;
             log.info("================  Response Start  ================");
+            // 此处刻意只打异常 message 不打堆栈：本块末尾把异常原样 rethrow，异常并未被吞掉，
+            // 访问日志只负责流水块格式；若在此打堆栈，会让每个失败请求的日志量翻倍，
+            // 真实堆栈由全局异常处理器/框架统一打印。
             log.info("===Result===  exception: {}", LogSanitizer.sanitize(t.getMessage()));
             log.info("<=== {}: {} ({} ms)", method, uri, cost);
             log.info("================   Response End   ================");
@@ -315,7 +318,8 @@ public class AccessLogAspect {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
-            log.debug("[ypbin-starter] access log serialize failed: {}", e.getMessage());
+            // 响应体属可选采集内容，序列化失败即降级为输出 "{}"；保留 debug 级但必须带完整堆栈
+            log.debug("[ypbin-starter] access log serialize failed: {}", e.getMessage(), e);
             return null;
         }
     }

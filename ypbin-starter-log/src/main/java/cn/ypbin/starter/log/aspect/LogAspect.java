@@ -91,9 +91,12 @@ public class LogAspect {
                 collector.collect(record, resolveIncludes(methodLog, classLog), point.getArgs(), result, null);
                 // 仅发布事件，持久化由异步监听器完成，不占用业务请求线程
                 eventPublisher.publishEvent(new LogEvent(record));
-            } catch (Exception e) {
-                // 日志采集异常绝不能影响业务
-                log.warn("[ypbin-starter] operation log collect failed: {}", e.getMessage());
+            } catch (Throwable t) {
+                // 采集链路异常绝不能影响业务，但必须留下可诊断的记录：本条操作日志不会发布事件、也就不会落库。
+                // 此处捕获 Throwable 而非 Exception：该 catch 位于 finally 中，宿主自定义的 LogUserProvider /
+                // LogClientProvider / IpLocationResolver 若抛出 Error（如 NoClassDefFoundError），放行会顶替掉
+                // 业务原本的返回值或业务异常，与"采集失败不影响业务"的契约相反。
+                log.warn("[ypbin-starter] 操作日志未记录：采集失败，本条日志不会落库（业务方法不受影响）: {}", t.getMessage(), t);
             }
         }
     }
