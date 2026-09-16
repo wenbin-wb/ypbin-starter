@@ -77,6 +77,18 @@ public class TrackFlusher implements AutoCloseable {
      */
     public TrackFlusher(BoundedEventQueue queue, TrackEventSink sink, TrackCounters counters,
                         int batchSize, long flushIntervalMillis, long retryBackoffMillis) {
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException("tracking batchSize must be positive, but was " + batchSize);
+        }
+        if (flushIntervalMillis <= 0L) {
+            // 非正数的轮询间隔会让 poll 立刻返回、消费者空转烧满一个核
+            throw new IllegalArgumentException(
+                "tracking flushIntervalMillis must be positive, but was " + flushIntervalMillis);
+        }
+        if (retryBackoffMillis < 0L) {
+            throw new IllegalArgumentException(
+                "tracking retryBackoffMillis must not be negative, but was " + retryBackoffMillis);
+        }
         this.queue = queue;
         this.sink = sink;
         this.counters = counters;

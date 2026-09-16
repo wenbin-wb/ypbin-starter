@@ -16,6 +16,7 @@
 package cn.ypbin.starter.tracking.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import cn.ypbin.starter.tracking.core.TrackEvent;
 import cn.ypbin.starter.tracking.core.TrackRecorder;
@@ -33,7 +34,9 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * 采集上下文与客户端 IP 脱敏测试。
  *
- * <p>IP/UA 必须由请求线程捕获并随事件带下去——消费者线程上取不到请求，本测试即验证「带下去了」。</p>
+ * <p>IP/UA 必须由请求线程捕获并随事件带下去——消费者线程上取不到请求，本测试即验证「带下去了」。
+ * IPv6 用例刻意覆盖 {@code ::} 压缩形态：只按「段数」判断的实现会在这里同时出现「漏脱敏」与
+ * 「拼出非法地址」两种问题。</p>
  *
  * @author wenbin
  * @since 2026-09-15
@@ -65,69 +68,84 @@ class TrackIngestContextTest {
             "sess-1", "anon-1", "/system/user", null, 120L, Boolean.TRUE, Map.of());
     }
 
-    @Test
-    void shouldCarryContextAndMaskIpv4() throws InterruptedException {
-        service(true).ingest(new TrackIngestReq(null, List.of(event())),
-            new TrackRequestContext("203.0.113.45", "UA/1.0", "trace-1"));
-
+    private TrackRequestContext ingestAndGetContext(boolean anonymizeIp, TrackRequestContext context)
+        throws InterruptedException {
+        service(anonymizeIp).ingest(new TrackIngestReq(null, List.of(event())), context);
         TrackEvent event = queue.poll(10L);
         assertThat(event).isNotNull();
-        // IPv4 保留 /24
-        assertThat(event.clientIp()).isEqualTo("203.0.113.0");
-        assertThat(event.userAgent()).isEqualTo("UA/1.0");
-        assertThat(event.traceId()).isEqualTo("trace-1");
+        assertThat(event.context()).isNotNull();
+        return event.context();
     }
 
     @Test
-    void shouldMaskIpv6ToFirstFourHextets() throws InterruptedException {
-        service(true).ingest(new TrackIngestReq(null, List.of(event())),
-            new TrackRequestContext("2001:db8:1:2:3:4:5:6", null, null));
+    void shouldCarryContextAndMaskIpv4() throws InterruptedException {
+        TrackRequestContext context = ingestAndGetContext(true,
+            new TrackRequestContext("203.0.113.45", "UA/1.0", "trace-1", 7L, 1L));
 
-        TrackEvent event = queue.poll(10L);
-        assertThat(event).isNotNull();
-        assertThat(event.clientIp()).isEqualTo("2001:db8:1:2::");
+        assertThat(context.clientIp()).isEqualTo("203.0.113.0");
+        assertThat(context.userAgent()).isEqualTo("UA/1.0");
+        assertThat(context.traceId()).isEqualTo("trace-1");
+        assertThat(context.userId()).isEqualTo(7L);
+        assertThat(context.tenantId()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldMaskFullyExpandedIpv6() throws InterruptedException {
+        TrackRequestContext context = ingestAndGetContext(true,
+            new TrackRequestContext("2001:db8:1:2:3:4:5:6", null, null, null, null));
+
+        // /64：保留前四段
+        assertThat(context.clientIp()).isEqualTo("2001:db8:1:2:0:0:0:0");
+    }
+
+    @Test
+    void shouldMaskCompressedIpv6InsteadOfLeakingIt() throws InterruptedException {
+        // 压缩形态：只按段数判断会把 fe80::1（3 段）整串放过 = 完全没脱敏
+        assertThat(ingestAndGetContext(true,
+            new TrackRequestContext("fe80::1", null, null, null, null)).clientIp())
+            .isEqualTo("fe80:0:0:0:0:0:0:0");
+        assertThat(ingestAndGetContext(true,
+            new TrackRequestContext("2001:db8::1", null, null, null, null)).clientIp())
+            .isEqualTo("2001:db8:0:0:0:0:0:0");
+        assertThat(ingestAndGetContext(true,
+            new TrackRequestContext("::1", null, null, null, null)).clientIp())
+            .isEqualTo("0:0:0:0:0:0:0:0");
     }
 
     @Test
     void shouldKeepIpWhenAnonymizationDisabled() throws InterruptedException {
-        service(false).ingest(new TrackIngestReq(null, List.of(event())),
-            new TrackRequestContext("203.0.113.45", null, null));
-
-        TrackEvent event = queue.poll(10L);
-        assertThat(event).isNotNull();
-        assertThat(event.clientIp()).isEqualTo("203.0.113.45");
+        assertThat(ingestAndGetContext(false,
+            new TrackRequestContext("203.0.113.45", null, null, null, null)).clientIp())
+            .isEqualTo("203.0.113.45");
+        assertThat(ingestAndGetContext(false,
+            new TrackRequestContext("2001:db8::1", null, null, null, null)).clientIp())
+            .isEqualTo("2001:db8::1");
     }
 
     @Test
     void shouldTolerateEmptyContext() throws InterruptedException {
-        service(true).ingest(new TrackIngestReq(null, List.of(event())), TrackRequestContext.EMPTY);
+        TrackRequestContext context = ingestAndGetContext(true, TrackRequestContext.EMPTY);
 
-        TrackEvent event = queue.poll(10L);
-        assertThat(event).isNotNull();
-        assertThat(event.clientIp()).isNull();
-        assertThat(event.userAgent()).isNull();
-        assertThat(event.traceId()).isNull();
+        assertThat(context.clientIp()).isNull();
+        assertThat(context.userAgent()).isNull();
+        assertThat(context.traceId()).isNull();
+        assertThat(context.userId()).isNull();
     }
 
     @Test
     void shouldNotInventMaskWhenIpIsUnrecognizable() throws InterruptedException {
-        service(true).ingest(new TrackIngestReq(null, List.of(event())),
-            new TrackRequestContext("not-an-ip", null, null));
-
-        TrackEvent event = queue.poll(10L);
-        assertThat(event).isNotNull();
         // 识别不出形态时原样保留：宁可留一个异常值，也不要错改成另一段网段
-        assertThat(event.clientIp()).isEqualTo("not-an-ip");
+        assertThat(ingestAndGetContext(true,
+            new TrackRequestContext("not-an-ip", null, null, null, null)).clientIp())
+            .isEqualTo("not-an-ip");
+        // IPv4 内嵌形态不在处理范围内，同样原样保留
+        assertThat(ingestAndGetContext(true,
+            new TrackRequestContext("::ffff:10.1.2.3", null, null, null, null)).clientIp())
+            .isEqualTo("::ffff:10.1.2.3");
     }
 
     @Test
-    void shouldTruncateUserAgentAndTraceId() throws InterruptedException {
-        service(true).ingest(new TrackIngestReq(null, List.of(event())),
-            new TrackRequestContext(null, "u".repeat(600), "t".repeat(100)));
-
-        TrackEvent event = queue.poll(10L);
-        assertThat(event).isNotNull();
-        assertThat(event.userAgent()).hasSize(512);
-        assertThat(event.traceId()).hasSize(64);
+    void shouldThrowOnInvalidQueueCapacity() {
+        assertThatThrownBy(() -> new BoundedEventQueue(0)).isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -15,7 +15,6 @@
  */
 package cn.ypbin.starter.tracking.autoconfigure;
 
-import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -75,14 +74,8 @@ public class TrackingProperties {
     /** 应用标识；请求体未提供 appId 时使用，仍为空则该维度不写 */
     private String appId = "";
 
-    /** 服务端采样率（0 表示不采样即全部丢弃，1 表示全量保留） */
-    private double sampleRate = 1.0D;
-
     /** 是否对客户端 IP 做截断脱敏（IPv4 保留 /24、IPv6 保留 /64），默认开启 */
     private boolean anonymizeIp = true;
-
-    /** 允许的上报来源白名单；为空表示不校验来源（仅作降噪，不构成安全边界） */
-    private List<String> allowedOrigins = List.of();
 
     /**
      * 记录客户端 IP 时是否信任反向代理注入的转发头（X-Forwarded-For / X-Real-IP），默认不信任。
@@ -180,28 +173,12 @@ public class TrackingProperties {
         this.appId = appId;
     }
 
-    public double getSampleRate() {
-        return sampleRate;
-    }
-
-    public void setSampleRate(double sampleRate) {
-        this.sampleRate = sampleRate;
-    }
-
     public boolean isAnonymizeIp() {
         return anonymizeIp;
     }
 
     public void setAnonymizeIp(boolean anonymizeIp) {
         this.anonymizeIp = anonymizeIp;
-    }
-
-    public List<String> getAllowedOrigins() {
-        return allowedOrigins;
-    }
-
-    public void setAllowedOrigins(List<String> allowedOrigins) {
-        this.allowedOrigins = allowedOrigins;
     }
 
     public boolean isTrustForwarded() {

@@ -76,7 +76,7 @@
 | 门禁 | 拦住什么 | 本地命令 |
 |---|---|---|
 | **架构约束测试**（ArchUnit，35 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失 | `mvn -pl ypbin-starter-architecture-tests test` |
-| **空值语义静态检查**（NullAway + Error Prone，覆盖**全部 33 个模块的主源码**） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
+| **空值语义静态检查**（NullAway + Error Prone，覆盖**全部 35 个模块的主源码**） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
 | **依赖版本收敛**（enforcer `dependencyConvergence`） | 同一依赖出现多个版本（Maven 会静默按声明顺序择一，不报错） | `mvn -Pdep-convergence validate` |
 | **集成测试体系**（外部实例优先 → Testcontainers 回退 → 条件跳过） | 只在真机才暴露的问题（Redis 序列化、Nacos 注册、Feign 跨服务） | `mvn -Pit verify` |
 | **配置元数据漂移** | 配置项增删改后文档未同步（清单由构建产物生成，不手工维护） | `node tools/export-config-metadata.mjs --check` |
@@ -84,7 +84,7 @@
 | **静态安全扫描**（CodeQL，仓库 CI） | 注入、敏感信息落日志、不安全随机数、弱算法误用 | GitHub Actions（推送后自动跑） |
 | **覆盖率**（JaCoCo，`haltOnFailure`） | 用「没测到」冒充「没问题」 | `mvn test` |
 
-发布前用 `tools/preflight.sh` **一次跑全五道硬门禁**（全量构建含架构测试、NullAway、依赖收敛、集成测试、
+发布前用 `tools/preflight.sh` **一次跑全六道硬门禁**（全量构建含架构测试、NullAway、依赖收敛、集成测试、
 配置元数据），任一门禁不通过即中止发布；脚本在 Docker 不可用时**显式失败**而非静默跳过集成测试。
 
 新增模块时用 `node tools/rollout-nullaway.mjs <模块>` 一键补齐空值检查样板（包根 `package-info` +
@@ -289,7 +289,7 @@ mvn -Pnullaway -pl <改动模块> clean compile
 # 架构约束（35 项铁律）
 mvn -pl ypbin-starter-architecture-tests test
 
-# 发布前：一次跑全五道硬门禁
+# 发布前：一次跑全六道硬门禁
 bash tools/preflight.sh
 ```
 

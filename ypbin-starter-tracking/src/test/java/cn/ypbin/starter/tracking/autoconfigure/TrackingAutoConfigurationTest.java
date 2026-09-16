@@ -19,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.tracking.core.TrackEventSink;
 import cn.ypbin.starter.tracking.sink.LoggingTrackEventSink;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -73,9 +72,8 @@ class TrackingAutoConfigurationTest {
             "ypbin.tracking.max-events-per-request=10",
             "ypbin.tracking.max-payload-bytes=1024",
             "ypbin.tracking.max-request-bytes=2048",
-            "ypbin.tracking.sample-rate=0.5",
             "ypbin.tracking.anonymize-ip=false",
-            "ypbin.tracking.allowed-origins[0]=https://admin.example")
+            "ypbin.tracking.trust-forwarded=true")
             .run(context -> {
                 TrackingProperties properties = context.getBean(TrackingProperties.class);
                 assertThat(properties.isEnabled()).isTrue();
@@ -87,9 +85,8 @@ class TrackingAutoConfigurationTest {
                 assertThat(properties.getMaxEventsPerRequest()).isEqualTo(10);
                 assertThat(properties.getMaxPayloadBytes()).isEqualTo(1024);
                 assertThat(properties.getMaxRequestBytes()).isEqualTo(2048);
-                assertThat(properties.getSampleRate()).isEqualTo(0.5D);
                 assertThat(properties.isAnonymizeIp()).isFalse();
-                assertThat(properties.getAllowedOrigins()).containsExactly("https://admin.example");
+                assertThat(properties.isTrustForwarded()).isTrue();
             });
     }
 
@@ -106,9 +103,8 @@ class TrackingAutoConfigurationTest {
         assertThat(properties.getMaxEventsPerRequest()).isEqualTo(50);
         assertThat(properties.getMaxPayloadBytes()).isEqualTo(8192);
         assertThat(properties.getMaxRequestBytes()).isEqualTo(262144);
-        assertThat(properties.getSampleRate()).isEqualTo(1.0D);
         assertThat(properties.isAnonymizeIp()).isTrue();
-        assertThat(properties.getAllowedOrigins()).isEqualTo(List.of());
+        assertThat(properties.isTrustForwarded()).isFalse();
 
         properties.setEnabled(true);
         properties.setIngestEnabled(true);
@@ -119,9 +115,8 @@ class TrackingAutoConfigurationTest {
         properties.setMaxEventsPerRequest(4);
         properties.setMaxPayloadBytes(5);
         properties.setMaxRequestBytes(6);
-        properties.setSampleRate(0.25D);
         properties.setAnonymizeIp(false);
-        properties.setAllowedOrigins(List.of("https://a.example"));
+        properties.setTrustForwarded(true);
 
         assertThat(properties.isEnabled()).isTrue();
         assertThat(properties.isIngestEnabled()).isTrue();
@@ -132,8 +127,7 @@ class TrackingAutoConfigurationTest {
         assertThat(properties.getMaxEventsPerRequest()).isEqualTo(4);
         assertThat(properties.getMaxPayloadBytes()).isEqualTo(5);
         assertThat(properties.getMaxRequestBytes()).isEqualTo(6);
-        assertThat(properties.getSampleRate()).isEqualTo(0.25D);
         assertThat(properties.isAnonymizeIp()).isFalse();
-        assertThat(properties.getAllowedOrigins()).containsExactly("https://a.example");
+        assertThat(properties.isTrustForwarded()).isTrue();
     }
 }

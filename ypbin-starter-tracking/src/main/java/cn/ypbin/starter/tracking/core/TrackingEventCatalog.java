@@ -59,6 +59,19 @@ public final class TrackingEventCatalog {
     }
 
     /**
+     * 用给定的 schema 直接创建注册表（宿主扩展点）。
+     *
+     * <p>宿主若要在目录之外登记自己的事件码，可以构造一份覆盖本模块的 Bean：默认实现只认 classpath 上的
+     * 生成资源，**刻意不提供「运行时追加」**——让宿主显式给出完整集合，比暴露一个可变的全局注册表更可控
+     * （后者会让「目录是唯一事实源」这条不变量失效）。</p>
+     *
+     * @param schemas 事件码到 schema 的映射（构造期做不可变复制）
+     */
+    public TrackingEventCatalog(Map<String, EventSchema> schemas) {
+        this.schemas = Map.copyOf(schemas);
+    }
+
+    /**
      * 查询事件码对应的 schema。
      *
      * @param eventCode 事件码

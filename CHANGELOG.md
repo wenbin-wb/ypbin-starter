@@ -20,6 +20,17 @@
     ——IP 与 UA 只能从 HTTP 请求上取，而落库发生在消费者线程上，事后再补是补不到的。
     三项均由服务端取值（不采信客户端），客户端 IP 默认脱敏（IPv4 保留 /24、IPv6 保留 /64），
     新增 `ypbin.tracking.trust-forwarded`（默认 `false`）控制是否信任转发头。
+  - **发布前硬化（由一次独立审计驱动，均为发布前最后的契约调整）**：
+    - 采集上下文集中为 `TrackRequestContext`（IP / UA / 链路 ID / 用户 / 租户），`TrackEvent` 只带一个 `context` 分量；
+      新增 `TrackIdentityProvider` 扩展点——用户与租户只能在**请求线程**取到，宿主不提供时事件照常采集、只是缺这两个维度。
+    - **事件级拒绝与属性级问题分开统计**：`rejected` 只统计未被接收的事件，属性名/类型问题进 `attributeIssues`，
+      从而保证 `received = accepted + rejected + dropped` 成立（此前会出现 `accepted=1` 同时 `rejected=2`）。
+    - **修正 IPv6 脱敏**：压缩形态（`fe80::1`）此前整串放过等于没脱敏、`2001:db8::1` 又会被拼成非法地址；现按 8 段展开后掩码。
+    - **体积闸门改为读流限长**：此前只看 `Content-Length`，分块传输可直接绕过；现实际读取并强制上限，并以缓存包装回放请求体。
+    - **消费者参数 fail-fast**：`flush-interval-ms<=0` 会让消费者空转烧 CPU、`batch-size<0` 会让埋点**静默永久失效**，现构造期抛错。
+    - **两个 `trust-forwarded` 错配告警**：限流侧与埋点侧各有一个开关，只开一个会静默劣化（限流退化为全局单桶 / 记录到网关地址），装配期显式告警。
+    - 移除两个**未实现**的配置项 `sample-rate` 与 `allowed-origins`（避免"配了不生效"）；`ypbin-starter-tracking` 的配置项为 12 项。
+    - 日志降噪：默认落点由每批 INFO 改为 DEBUG，未登记事件码与队列满的告警改为**按原因只报一次**（计数始终准确）。
   - **默认关闭**：`ypbin.tracking.enabled` 与 `ypbin.tracking.ingest-enabled` 默认均为 `false`
     ——采集端点是一个匿名可写入口，不作为默认值；微服务下多服务共用本模块时也不会把端点散布到每个服务。
   - **采集链路与背压**：采集门面 → 有界队列 → 独立平台线程消费者 → `TrackEventSink`。

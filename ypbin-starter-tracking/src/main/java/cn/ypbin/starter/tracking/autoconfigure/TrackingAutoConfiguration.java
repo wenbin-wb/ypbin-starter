@@ -17,6 +17,7 @@ package cn.ypbin.starter.tracking.autoconfigure;
 
 import cn.ypbin.starter.tracking.aspect.TrackedAspect;
 import cn.ypbin.starter.tracking.core.TrackEventSink;
+import cn.ypbin.starter.tracking.core.TrackIdentityProvider;
 import cn.ypbin.starter.tracking.core.TrackRecorder;
 import cn.ypbin.starter.tracking.core.TrackingEventCatalog;
 import cn.ypbin.starter.tracking.sink.LoggingTrackEventSink;
@@ -90,6 +91,21 @@ public class TrackingAutoConfiguration {
     @ConditionalOnMissingBean
     public TrackCounters trackCounters() {
         return new TrackCounters();
+    }
+
+    /**
+     * 登录身份提供者：缺省不提供身份维度。
+     *
+     * <p>用户与租户只能在**请求线程**上取到（消费者线程既没有登录会话也没有租户上下文），
+     * 所以必须由宿主实现本接口，采集侧在请求线程取值并随事件带下去；不提供时事件照常采集，
+     * 只是缺少这两个分组维度。</p>
+     *
+     * @return 身份提供者
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public TrackIdentityProvider trackIdentityProvider() {
+        return TrackIdentityProvider.NONE;
     }
 
     /**

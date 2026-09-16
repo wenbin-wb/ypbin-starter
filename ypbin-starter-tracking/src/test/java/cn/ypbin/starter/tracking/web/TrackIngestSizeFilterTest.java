@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import cn.ypbin.starter.tracking.support.TrackCounters;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -33,7 +34,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 class TrackIngestSizeFilterTest {
 
-    private static final long MAX_BYTES = 128L;
+    private static final int MAX_BYTES = 128;
 
     private final TrackCounters counters = new TrackCounters();
 
@@ -43,7 +44,7 @@ class TrackIngestSizeFilterTest {
     @Test
     void shouldRejectOversizedRequest() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/tracking/ingest");
-        request.setContent(new byte[(int) MAX_BYTES + 1]);
+        request.setContent(new byte[MAX_BYTES + 1]);
         MockHttpServletResponse response = new MockHttpServletResponse();
         AtomicBoolean chained = new AtomicBoolean(false);
 
@@ -53,6 +54,46 @@ class TrackIngestSizeFilterTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString(StandardCharsets.UTF_8)).contains("413");
         assertThat(counters.snapshot().rejectedByReason()).containsEntry("requestTooLarge", 1L);
+    }
+
+    @Test
+    void shouldRejectOversizedChunkedRequestWithoutContentLength() throws Exception {
+        // 分块传输时长度未知（-1）：只看 Content-Length 的实现会直接放行，这里必须靠读流拦下
+        // 用匿名子类把长度伪装成未知（-1），模拟 Transfer-Encoding: chunked
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/tracking/ingest") {
+            @Override
+            public long getContentLengthLong() {
+                return -1L;
+            }
+
+            @Override
+            public int getContentLength() {
+                return -1;
+            }
+        };
+        request.setContent(new byte[MAX_BYTES + 64]);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean chained = new AtomicBoolean(false);
+
+        filter.doFilter(request, response, (req, res) -> chained.set(true));
+
+        assertThat(chained).isFalse();
+        assertThat(response.getContentAsString(StandardCharsets.UTF_8)).contains("413");
+        assertThat(counters.snapshot().rejectedByReason()).containsEntry("requestTooLarge", 1L);
+    }
+
+    @Test
+    void shouldReplayBodyToDownstreamChain() throws Exception {
+        // 缓存包装必须把请求体原样传给后续链路，否则控制器会读不到 body
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/tracking/ingest");
+        request.setContent("{\"appId\":\"x\"}".getBytes(StandardCharsets.UTF_8));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicReference<String> received = new AtomicReference<>();
+
+        filter.doFilter(request, response, (req, res) ->
+            received.set(new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8)));
+
+        assertThat(received.get()).isEqualTo("{\"appId\":\"x\"}");
     }
 
     @Test

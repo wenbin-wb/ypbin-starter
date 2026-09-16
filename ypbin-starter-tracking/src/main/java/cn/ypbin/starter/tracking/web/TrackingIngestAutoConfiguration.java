@@ -15,11 +15,14 @@
  */
 package cn.ypbin.starter.tracking.web;
 
+import cn.ypbin.starter.tools.limiter.RateLimitProperties;
 import cn.ypbin.starter.tracking.autoconfigure.TrackingAutoConfiguration;
 import cn.ypbin.starter.tracking.autoconfigure.TrackingProperties;
+import cn.ypbin.starter.tracking.core.TrackIdentityProvider;
 import cn.ypbin.starter.tracking.core.TrackRecorder;
 import cn.ypbin.starter.tracking.core.TrackingEventCatalog;
 import cn.ypbin.starter.tracking.support.TrackCounters;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -74,29 +77,60 @@ public class TrackingIngestAutoConfiguration {
     }
 
     /**
-     * 采集上下文解析器：在请求线程上取 IP / User-Agent / 链路 ID。
+     * 采集上下文解析器：在请求线程上取 IP / User-Agent / 链路 ID / 登录身份。
      *
-     * @param properties 配置项
+     * @param properties       配置项
+     * @param identityProvider 身份提供者（宿主可覆盖；缺省不提供身份维度）
      * @return 解析器
      */
     @Bean
     @ConditionalOnMissingBean
-    public TrackRequestContextResolver trackRequestContextResolver(TrackingProperties properties) {
-        return new TrackRequestContextResolver(properties.isTrustForwarded());
+    public TrackRequestContextResolver trackRequestContextResolver(TrackingProperties properties,
+                                                                   TrackIdentityProvider identityProvider) {
+        return new TrackRequestContextResolver(properties.isTrustForwarded(), identityProvider);
     }
 
     /**
      * 采集端点。
      *
-     * @param ingestService   采集服务
-     * @param contextResolver 采集上下文解析器
+     * @param ingestService        采集服务
+     * @param contextResolver      采集上下文解析器
+     * @param rateLimitProperties  限流配置（仅用于装配期一致性告警）
+     * @param properties           埋点配置项
      * @return 端点
      */
     @Bean
     @ConditionalOnMissingBean
     public TrackIngestController trackIngestController(TrackIngestService ingestService,
-                                                       TrackRequestContextResolver contextResolver) {
+                                                       TrackRequestContextResolver contextResolver,
+                                                       ObjectProvider<RateLimitProperties> rateLimitProperties,
+                                                       TrackingProperties properties) {
+        warnOnForwardedHeaderMismatch(rateLimitProperties.getIfAvailable(), properties);
         return new TrackIngestController(ingestService, contextResolver);
+    }
+
+    /**
+     * 转发头信任开关的装配期一致性告警。
+     *
+     * <p>限流与埋点各自有一个 {@code trust-forwarded}（前者的取值影响安全性，不能由埋点模块代为决定），
+     * 于是很容易「只开一个」：</p>
+     * <ul>
+     *   <li>只开限流侧：事件的 {@code clientIp} 恒为网关地址，脱敏后彻底失真；</li>
+     *   <li>只开埋点侧：限流键退化为「方法 + 网关地址」单桶，匿名方可以低成本让正常上报全部被限流。</li>
+     * </ul>
+     * <p>这两条都不会报错、只会静默劣化，所以在此显式告警。</p>
+     */
+    private static void warnOnForwardedHeaderMismatch(@Nullable RateLimitProperties rateLimit,
+                                                      TrackingProperties tracking) {
+        boolean rateLimitTrusts = rateLimit != null && rateLimit.isTrustForwarded();
+        if (rateLimitTrusts && tracking.isTrustForwarded()) {
+            return;
+        }
+        log.warn("[ypbin-starter] tracking ingest endpoint is enabled, but forwarded-header trust is not fully "
+                + "configured: ypbin.tools.rate-limit.trust-forwarded={}, ypbin.tracking.trust-forwarded={}. "
+                + "Behind a gateway you should enable BOTH, otherwise the rate-limit bucket degrades to a single "
+                + "global bucket keyed by the gateway address and/or recorded client IPs are the gateway itself.",
+            rateLimitTrusts, tracking.isTrustForwarded());
     }
 
     /**
