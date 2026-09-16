@@ -87,6 +87,7 @@ public class TrackedAspect {
     private void recordQuietly(String eventCode, long elapsedNanos, boolean success) {
         try {
             long durationMillis = Duration.ofNanos(elapsedNanos).toMillis();
+            // 后端切面没有 HTTP 请求上下文（IP/UA 无法获取），故用少参构造器显式表达「不带请求维度」
             recorder.record(new TrackEvent(UUID.randomUUID().toString(), eventCode, Instant.now(), appId,
                 null, null, null, null, durationMillis, success, Map.of()));
         } catch (RuntimeException ex) {

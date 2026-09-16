@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-16T00:17:25.171Z",
+  "generatedAt": "2026-09-16T01:52:59.389Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 40,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 331,
+    "customPropertyCount": 332,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 371,
+    "totalEntryCount": 372,
     "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
@@ -10757,6 +10757,38 @@
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
               "line": 59
+            }
+          ],
+          "group": "ypbin.tracking",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tracking",
+          "key": "ypbin.tracking.trust-forwarded",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": false,
+          "required": false,
+          "requiredWhen": null,
+          "description": "记录客户端 IP 时是否信任反向代理注入的转发头（X-Forwarded-For / X-Real-IP），默认不信任。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 93
+            }
+          ],
+          "default": false,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
+              "line": 93
             }
           ],
           "group": "ypbin.tracking",

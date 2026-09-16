@@ -16,6 +16,10 @@
   - **事件目录是唯一事实源**（`docs/tracking-events.json`）：由 `tools/export-tracking-events.mjs` 生成 Java 常量
     `TrackingEventCodes` 与运行时资源 `META-INF/ypbin/tracking-events.json`；CI 与 `tools/preflight.sh`
     均增设「埋点事件目录未漂移」门禁（事实源改了而生成物未更新即失败）。
+  - **采集时刻捕获请求上下文**：`clientIp` / `userAgent` / `traceId` 在请求线程上取值并随事件带下去
+    ——IP 与 UA 只能从 HTTP 请求上取，而落库发生在消费者线程上，事后再补是补不到的。
+    三项均由服务端取值（不采信客户端），客户端 IP 默认脱敏（IPv4 保留 /24、IPv6 保留 /64），
+    新增 `ypbin.tracking.trust-forwarded`（默认 `false`）控制是否信任转发头。
   - **默认关闭**：`ypbin.tracking.enabled` 与 `ypbin.tracking.ingest-enabled` 默认均为 `false`
     ——采集端点是一个匿名可写入口，不作为默认值；微服务下多服务共用本模块时也不会把端点散布到每个服务。
   - **采集链路与背压**：采集门面 → 有界队列 → 独立平台线程消费者 → `TrackEventSink`。

@@ -43,13 +43,18 @@ public class TrackIngestController {
 
     private final TrackIngestService ingestService;
 
+    private final TrackRequestContextResolver contextResolver;
+
     /**
      * 创建采集端点。
      *
-     * @param ingestService 校验与入队服务
+     * @param ingestService   校验与入队服务
+     * @param contextResolver 采集上下文解析器（IP / UA / 链路 ID）
      */
-    public TrackIngestController(TrackIngestService ingestService) {
+    public TrackIngestController(TrackIngestService ingestService,
+                                 TrackRequestContextResolver contextResolver) {
         this.ingestService = ingestService;
+        this.contextResolver = contextResolver;
     }
 
     /**
@@ -62,6 +67,6 @@ public class TrackIngestController {
     @RateLimit(key = "ypbin-tracking-ingest", window = 1, count = 20, byIp = true,
         message = "埋点上报过于频繁，请稍后再试")
     public R<TrackIngestResp> ingest(@RequestBody TrackIngestReq request) {
-        return R.ok(ingestService.ingest(request));
+        return R.ok(ingestService.ingest(request, contextResolver.resolve()));
     }
 }
