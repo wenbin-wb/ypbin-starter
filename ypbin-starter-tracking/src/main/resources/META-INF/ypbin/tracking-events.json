@@ -48,50 +48,6 @@
       "properties": []
     },
     {
-      "code": "iot.collector.error",
-      "description": "IoT 采集异常（异常分类必须取有限枚举值，避免标签基数爆炸）",
-      "source": "iot",
-      "since": "3.2.0",
-      "properties": [
-        {
-          "name": "errorType",
-          "type": "string",
-          "maxLength": 64,
-          "description": "异常分类（有限枚举值）"
-        },
-        {
-          "name": "protocolCode",
-          "type": "string",
-          "maxLength": 32,
-          "description": "协议 code"
-        }
-      ]
-    },
-    {
-      "code": "iot.collector.read",
-      "description": "IoT 采集读取结果（由平台侧适配器装饰器上报）",
-      "source": "iot",
-      "since": "3.2.0",
-      "properties": [
-        {
-          "name": "pointCount",
-          "type": "integer",
-          "description": "读取点位数"
-        },
-        {
-          "name": "protocolCode",
-          "type": "string",
-          "maxLength": 32,
-          "description": "协议 code"
-        },
-        {
-          "name": "successCount",
-          "type": "integer",
-          "description": "成功点位数"
-        }
-      ]
-    },
-    {
       "code": "system.user.export",
       "description": "用户数据导出（业务事件示例）",
       "source": "backend",
