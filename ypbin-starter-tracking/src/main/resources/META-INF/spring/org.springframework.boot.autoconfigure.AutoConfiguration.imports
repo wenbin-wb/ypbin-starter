@@ -1,1 +1,2 @@
 cn.ypbin.starter.tracking.autoconfigure.TrackingAutoConfiguration
+cn.ypbin.starter.tracking.web.TrackingIngestAutoConfiguration

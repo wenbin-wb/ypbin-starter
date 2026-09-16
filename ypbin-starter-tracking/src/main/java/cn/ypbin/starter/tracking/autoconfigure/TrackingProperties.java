@@ -55,6 +55,9 @@ public class TrackingProperties {
     /** 定时刷新间隔（毫秒） */
     private long flushIntervalMs = 1000L;
 
+    /** 落点写入失败后、重试前的退避毫秒数；重试一次仍失败即整批丢弃并计数（不无限重试） */
+    private long sinkRetryBackoffMs = 100L;
+
     /** 单个请求允许携带的最大事件数，超出部分拒绝并计数 */
     private int maxEventsPerRequest = 50;
 
@@ -68,6 +71,9 @@ public class TrackingProperties {
      * 限制请求体大小是避免匿名流量挤占业务线程的手段之一。</p>
      */
     private int maxRequestBytes = 262144;
+
+    /** 应用标识；请求体未提供 appId 时使用，仍为空则该维度不写 */
+    private String appId = "";
 
     /** 服务端采样率（0 表示不采样即全部丢弃，1 表示全量保留） */
     private double sampleRate = 1.0D;
@@ -126,6 +132,14 @@ public class TrackingProperties {
         this.flushIntervalMs = flushIntervalMs;
     }
 
+    public long getSinkRetryBackoffMs() {
+        return sinkRetryBackoffMs;
+    }
+
+    public void setSinkRetryBackoffMs(long sinkRetryBackoffMs) {
+        this.sinkRetryBackoffMs = sinkRetryBackoffMs;
+    }
+
     public int getMaxEventsPerRequest() {
         return maxEventsPerRequest;
     }
@@ -148,6 +162,14 @@ public class TrackingProperties {
 
     public void setMaxRequestBytes(int maxRequestBytes) {
         this.maxRequestBytes = maxRequestBytes;
+    }
+
+    public String getAppId() {
+        return appId;
+    }
+
+    public void setAppId(String appId) {
+        this.appId = appId;
     }
 
     public double getSampleRate() {
