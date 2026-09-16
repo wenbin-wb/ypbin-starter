@@ -123,8 +123,10 @@ class TrackIngestServiceTest {
         TrackIngestResp resp = service.ingest(new TrackIngestReq(null, List.of(
             pageView("evt-1", Map.of("password", "secret", "routeKey", 42, "routeTitle", "用户管理")))));
 
+        // 属性级问题不拒绝事件：事件被接收，问题单独统计（否则会出现 accepted=1 同时 rejected=2）
         assertThat(resp.accepted()).isEqualTo(1);
-        assertThat(resp.reasons()).containsEntry("payloadKeyNotAllowed", 1)
+        assertThat(resp.rejected()).isZero();
+        assertThat(resp.attributeIssues()).containsEntry("payloadKeyNotAllowed", 1)
             .containsEntry("payloadTypeMismatch", 1);
 
         TrackEvent queued = queue.poll(10L);

@@ -60,6 +60,15 @@ public class TrackIngestService {
     /** 链路 ID 上限（与落库列宽一致） */
     private static final int MAX_TRACE_ID_LENGTH = 64;
 
+    /** IPv6 总段数 */
+    private static final int IPV6_GROUP_COUNT = 8;
+
+    /** IPv6 保留前缀段数（/64） */
+    private static final int IPV6_PREFIX_GROUPS = 4;
+
+    /** 单个 IPv6 段的最大字符数 */
+    private static final int MAX_HEXTET_LENGTH = 4;
+
     private final TrackRecorder recorder;
 
     private final TrackCounters counters;
@@ -135,66 +144,77 @@ public class TrackIngestService {
     public TrackIngestResp ingest(@Nullable TrackIngestReq request, TrackRequestContext context) {
         List<TrackIngestEvent> events = resolveEvents(request);
         int received = events.size();
-        Map<TrackRejectionReason, Integer> reasons = new EnumMap<>(TrackRejectionReason.class);
+        // 事件级拒绝（事件未被接收）与属性级问题（事件仍被接收，只是丢了个别属性）分开统计：
+        // 混在一起会产出「received=1 / accepted=1 / rejected=2」这种自相矛盾的结果
+        Map<TrackRejectionReason, Integer> rejections = new EnumMap<>(TrackRejectionReason.class);
+        Map<TrackRejectionReason, Integer> attributeIssues = new EnumMap<>(TrackRejectionReason.class);
 
         if (received > maxEventsPerRequest) {
-            addReason(reasons, TrackRejectionReason.OVER_REQUEST_LIMIT, received - maxEventsPerRequest);
+            addReason(rejections, attributeIssues, TrackRejectionReason.OVER_REQUEST_LIMIT,
+                received - maxEventsPerRequest);
         }
         int processLimit = Math.min(received, maxEventsPerRequest);
         String appId = resolveAppId(request);
         List<TrackEvent> accepted = new ArrayList<>(processLimit);
         for (int index = 0; index < processLimit; index++) {
-            convert(events.get(index), appId, context, reasons).ifPresent(accepted::add);
+            convert(events.get(index), appId, context, rejections, attributeIssues).ifPresent(accepted::add);
         }
 
         int queued = recorder.record(accepted);
-        int rejected = sum(reasons);
+        int rejected = sum(rejections);
         if (rejected > 0) {
-            rejectCounters(reasons);
+            rejectCounters(rejections);
         }
-        return new TrackIngestResp(received, queued, rejected, accepted.size() - queued, toCodeMap(reasons));
+        if (!attributeIssues.isEmpty()) {
+            attributeIssueCounters(attributeIssues);
+        }
+        return new TrackIngestResp(received, queued, rejected, accepted.size() - queued,
+            toCodeMap(rejections), toCodeMap(attributeIssues));
     }
 
     private Optional<TrackEvent> convert(TrackIngestEvent raw, @Nullable String appId,
                                          TrackRequestContext context,
-                                         Map<TrackRejectionReason, Integer> reasons) {
+                                         Map<TrackRejectionReason, Integer> rejections,
+                                         Map<TrackRejectionReason, Integer> attributeIssues) {
         String eventId = raw.eventId();
         String eventCode = raw.eventCode();
         if (eventId == null || eventId.isBlank() || eventCode == null || eventCode.isBlank()) {
-            addReason(reasons, TrackRejectionReason.MISSING_REQUIRED_FIELD, 1);
+            addReason(rejections, attributeIssues, TrackRejectionReason.MISSING_REQUIRED_FIELD, 1);
             return Optional.empty();
         }
         EventSchema schema = catalog.schema(eventCode);
         if (schema == null) {
-            addReason(reasons, TrackRejectionReason.UNREGISTERED, 1);
+            addReason(rejections, attributeIssues, TrackRejectionReason.UNREGISTERED, 1);
             return Optional.empty();
         }
         String rawEventTime = raw.eventTime();
         if (rawEventTime == null || rawEventTime.isBlank()) {
-            addReason(reasons, TrackRejectionReason.MISSING_REQUIRED_FIELD, 1);
+            addReason(rejections, attributeIssues, TrackRejectionReason.MISSING_REQUIRED_FIELD, 1);
             return Optional.empty();
         }
         Instant eventTime = parseEventTime(rawEventTime);
         if (eventTime == null) {
-            addReason(reasons, TrackRejectionReason.INVALID_EVENT_TIME, 1);
+            addReason(rejections, attributeIssues, TrackRejectionReason.INVALID_EVENT_TIME, 1);
             return Optional.empty();
         }
         PayloadResult payload = prunePayload(raw.payload(), schema);
         if (payload.notAllowed() > 0) {
-            addReason(reasons, TrackRejectionReason.PAYLOAD_KEY_NOT_ALLOWED, payload.notAllowed());
+            addReason(rejections, attributeIssues, TrackRejectionReason.PAYLOAD_KEY_NOT_ALLOWED,
+                payload.notAllowed());
         }
         if (payload.typeMismatch() > 0) {
-            addReason(reasons, TrackRejectionReason.PAYLOAD_TYPE_MISMATCH, payload.typeMismatch());
+            addReason(rejections, attributeIssues, TrackRejectionReason.PAYLOAD_TYPE_MISMATCH,
+                payload.typeMismatch());
         }
         if (estimatePayloadBytes(payload.payload()) > maxPayloadBytes) {
-            addReason(reasons, TrackRejectionReason.PAYLOAD_TOO_LARGE, 1);
+            addReason(rejections, attributeIssues, TrackRejectionReason.PAYLOAD_TOO_LARGE, 1);
             return Optional.empty();
         }
+        TrackRequestContext eventContext = anonymizeClientIp ? context.withClientIp(maskIp(context.clientIp()))
+            : context;
         return Optional.of(new TrackEvent(eventId, eventCode, eventTime, appId,
             raw.sessionId(), raw.anonId(), raw.pageUrl(), raw.referrer(),
-            raw.durationMs(), raw.success(), payload.payload(),
-            maskIp(context.clientIp()), truncate(context.userAgent(), MAX_USER_AGENT_LENGTH),
-            truncate(context.traceId(), MAX_TRACE_ID_LENGTH)));
+            raw.durationMs(), raw.success(), payload.payload(), eventContext));
     }
 
     /**
@@ -202,19 +222,102 @@ public class TrackIngestService {
      *
      * <p>识别不出形态时<strong>原样返回</strong>：宁可留一个未脱敏的异常值，也不要把它错改成另一段网段。</p>
      */
+    /**
+     * 客户端 IP 脱敏：IPv4 保留 /24、IPv6 保留 /64。
+     *
+     * <p>IPv6 必须先把 {@code ::} 压缩形态展开再按段掩码——只按「段数」判断会同时踩两个坑：
+     * {@code fe80::1} 只有 3 段会被整串放过（等于没脱敏），而 {@code 2001:db8::1} 恰好 4 段又会被拼成
+     * {@code 2001:db8::1::}（非法地址）。</p>
+     *
+     * <p>识别不出形态时<strong>原样返回</strong>：宁可留一个异常值，也不要把它错改成另一段网段。</p>
+     */
     private @Nullable String maskIp(@Nullable String ip) {
-        if (!anonymizeClientIp || ip == null || ip.isBlank()) {
+        if (ip == null || ip.isBlank()) {
             return ip;
         }
+        return ip.indexOf(':') >= 0 ? maskIpv6(ip) : maskIpv4(ip);
+    }
+
+    private String maskIpv4(String ip) {
+        int lastDot = ip.lastIndexOf('.');
+        return lastDot > 0 ? ip.substring(0, lastDot) + ".0" : ip;
+    }
+
+    private String maskIpv6(String ip) {
+        Optional<List<String>> parsed = expandIpv6(ip);
+        if (parsed.isEmpty()) {
+            return ip;
+        }
+        List<String> groups = parsed.get();
+        for (int index = IPV6_PREFIX_GROUPS; index < groups.size(); index++) {
+            groups.set(index, "0");
+        }
+        return String.join(":", groups);
+    }
+
+    /**
+     * 把 IPv6 地址展开成固定 8 段。
+     *
+     * @param ip 地址字面量
+     * @return 展开后的 8 段；形态不合法（含 IPv4 内嵌、段数不符、非法字符）时为空
+     */
+    private Optional<List<String>> expandIpv6(String ip) {
         if (ip.indexOf('.') >= 0) {
-            int lastDot = ip.lastIndexOf('.');
-            return lastDot > 0 ? ip.substring(0, lastDot) + ".0" : ip;
+            // IPv4 内嵌形态（如 ::ffff:10.1.2.3）不在处理范围内，原样返回交由上层决策
+            return Optional.empty();
         }
-        String[] segments = ip.split(":", -1);
-        if (segments.length < 4) {
-            return ip;
+        String[] halves = ip.split("::", -1);
+        if (halves.length > 2) {
+            return Optional.empty();
         }
-        return String.join(":", segments[0], segments[1], segments[2], segments[3]) + "::";
+        Optional<List<String>> head = toHextets(halves[0]);
+        Optional<List<String>> tail = halves.length == 2 ? toHextets(halves[1]) : Optional.of(List.of());
+        if (head.isEmpty() || tail.isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> headGroups = head.get();
+        List<String> tailGroups = tail.get();
+        int present = headGroups.size() + tailGroups.size();
+        if (halves.length == 2) {
+            if (present > IPV6_GROUP_COUNT) {
+                return Optional.empty();
+            }
+            List<String> groups = new ArrayList<>(headGroups);
+            for (int index = present; index < IPV6_GROUP_COUNT; index++) {
+                groups.add("0");
+            }
+            groups.addAll(tailGroups);
+            return Optional.of(groups);
+        }
+        return present == IPV6_GROUP_COUNT ? Optional.of(headGroups) : Optional.empty();
+    }
+
+    private Optional<List<String>> toHextets(String part) {
+        if (part.isEmpty()) {
+            return Optional.of(List.of());
+        }
+        List<String> groups = new ArrayList<>();
+        for (String group : part.split(":", -1)) {
+            if (!isHextet(group)) {
+                return Optional.empty();
+            }
+            groups.add(group);
+        }
+        return Optional.of(groups);
+    }
+
+    private static boolean isHextet(String group) {
+        if (group.isEmpty() || group.length() > MAX_HEXTET_LENGTH) {
+            return false;
+        }
+        for (int index = 0; index < group.length(); index++) {
+            char ch = group.charAt(index);
+            boolean hex = (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+            if (!hex) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private PayloadResult prunePayload(@Nullable Map<String, Object> rawPayload, EventSchema schema) {
@@ -312,8 +415,23 @@ public class TrackIngestService {
         }
     }
 
-    private static void addReason(Map<TrackRejectionReason, Integer> reasons, TrackRejectionReason reason, int count) {
-        reasons.merge(reason, count, Integer::sum);
+    private void attributeIssueCounters(Map<TrackRejectionReason, Integer> issues) {
+        for (Map.Entry<TrackRejectionReason, Integer> entry : issues.entrySet()) {
+            counters.attributeIssue(entry.getKey(), entry.getValue());
+        }
+    }
+
+    /**
+     * 按原因自带的级别路由到「事件级拒绝」或「属性级问题」两个桶。
+     *
+     * <p>路由依据写在枚举上，调用点只需给原因与条数——避免每个调用点各自判断级别而写错。</p>
+     */
+    private static void addReason(Map<TrackRejectionReason, Integer> rejections,
+                                  Map<TrackRejectionReason, Integer> attributeIssues,
+                                  TrackRejectionReason reason, int count) {
+        Map<TrackRejectionReason, Integer> target =
+            reason.getLevel() == TrackRejectionReason.Level.EVENT ? rejections : attributeIssues;
+        target.merge(reason, count, Integer::sum);
     }
 
     private static int sum(Map<TrackRejectionReason, Integer> reasons) {

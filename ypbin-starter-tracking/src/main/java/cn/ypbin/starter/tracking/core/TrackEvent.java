@@ -24,9 +24,8 @@ import org.jspecify.annotations.Nullable;
  * 一条埋点事件（不可变值对象）。
  *
  * <p><strong>字段可信度分级</strong>：{@code eventId} / {@code eventCode} / {@code eventTime} 来自客户端，
- * 仅 {@code eventId} 用于去重；{@code clientIp} / {@code userAgent} / {@code traceId} 以及
- * 用户、租户等权威维度<strong>不在客户端上报范围内</strong>，由服务端在采集时刻捕获或按身份上下文补齐
- * （客户端上报的同名值一律不可信）。</p>
+ * 仅 {@code eventId} 用于去重；IP、User-Agent、链路 ID、用户、租户等权威维度全部放在
+ * {@link TrackRequestContext} 里，由服务端在采集时刻捕获（客户端上报的同名值一律不可信）。</p>
  *
  * <p><strong>不可丢与可丢</strong>：埋点语义允许丢弃（队列满即丢并计数），但一旦构造出本对象，
  * 其字段完整性必须成立——因此构造期即校验必填项，不做静默兜底。</p>
@@ -42,9 +41,7 @@ import org.jspecify.annotations.Nullable;
  * @param durationMs 耗时毫秒（停留 / 接口 / 采集），可空
  * @param success    结果是否成功，可空
  * @param payload    事件属性（已在采集入口按白名单裁剪，非空且不可变）
- * @param clientIp   客户端 IP（采集时刻由服务端捕获并按配置脱敏），可空
- * @param userAgent  客户端 User-Agent 原串（采集时刻由服务端捕获，解析留给落库侧），可空
- * @param traceId    链路 ID（沿用网关的 {@code X-Request-Id}），可空
+ * @param context    采集时刻捕获的请求上下文（IP / UA / 链路 ID / 用户 / 租户）；非请求场景为空
  * @author wenbin
  * @since 2026-09-15
  */
@@ -60,9 +57,7 @@ public record TrackEvent(
     @Nullable Long durationMs,
     @Nullable Boolean success,
     Map<String, Object> payload,
-    @Nullable String clientIp,
-    @Nullable String userAgent,
-    @Nullable String traceId) {
+    @Nullable TrackRequestContext context) {
 
     /**
      * 不含请求上下文的构造器：后端切面、IoT 适配器等**没有 HTTP 请求**的场景使用。
@@ -86,7 +81,7 @@ public record TrackEvent(
                       @Nullable String referrer, @Nullable Long durationMs, @Nullable Boolean success,
                       Map<String, Object> payload) {
         this(eventId, eventCode, eventTime, appId, sessionId, anonId, pageUrl, referrer,
-            durationMs, success, payload, null, null, null);
+            durationMs, success, payload, null);
     }
 
     /**

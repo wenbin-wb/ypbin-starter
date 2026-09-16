@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-16T01:52:59.389Z",
+  "generatedAt": "2026-09-16T02:13:56.081Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 40,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 332,
+    "customPropertyCount": 330,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 372,
+    "totalEntryCount": 370,
     "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
@@ -10316,38 +10316,6 @@
       "configurationProperties": [
         {
           "module": "ypbin-starter-tracking",
-          "key": "ypbin.tracking.allowed-origins",
-          "type": "java.util.List<java.lang.String>",
-          "defaultDefined": false,
-          "defaultValue": null,
-          "required": false,
-          "requiredWhen": null,
-          "description": "允许的上报来源白名单；为空表示不校验来源（仅作降噪，不构成安全边界）",
-          "allowedValues": [],
-          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
-          "safetyNotes": [],
-          "sources": [
-            {
-              "kind": "java-property",
-              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 85
-            }
-          ],
-          "default": null,
-          "values": [],
-          "notes": [],
-          "source": [
-            {
-              "kind": "java-property",
-              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 85
-            }
-          ],
-          "group": "ypbin.tracking",
-          "deprecation": null
-        },
-        {
-          "module": "ypbin-starter-tracking",
           "key": "ypbin.tracking.anonymize-ip",
           "type": "java.lang.Boolean",
           "defaultDefined": true,
@@ -10362,7 +10330,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 82
+              "line": 78
             }
           ],
           "default": true,
@@ -10372,7 +10340,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 82
+              "line": 78
             }
           ],
           "group": "ypbin.tracking",
@@ -10394,7 +10362,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 76
+              "line": 75
             }
           ],
           "default": "",
@@ -10404,7 +10372,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 76
+              "line": 75
             }
           ],
           "group": "ypbin.tracking",
@@ -10426,7 +10394,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 53
+              "line": 52
             }
           ],
           "default": 200,
@@ -10436,7 +10404,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 53
+              "line": 52
             }
           ],
           "group": "ypbin.tracking",
@@ -10458,7 +10426,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 36
+              "line": 35
             }
           ],
           "default": false,
@@ -10468,7 +10436,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 36
+              "line": 35
             }
           ],
           "group": "ypbin.tracking",
@@ -10490,7 +10458,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 56
+              "line": 55
             }
           ],
           "default": 1000,
@@ -10500,7 +10468,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 56
+              "line": 55
             }
           ],
           "group": "ypbin.tracking",
@@ -10522,7 +10490,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 44
+              "line": 43
             }
           ],
           "default": false,
@@ -10532,7 +10500,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 44
+              "line": 43
             }
           ],
           "group": "ypbin.tracking",
@@ -10554,7 +10522,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 62
+              "line": 61
             }
           ],
           "default": 50,
@@ -10564,7 +10532,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 62
+              "line": 61
             }
           ],
           "group": "ypbin.tracking",
@@ -10586,7 +10554,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 65
+              "line": 64
             }
           ],
           "default": 8192,
@@ -10596,7 +10564,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 65
+              "line": 64
             }
           ],
           "group": "ypbin.tracking",
@@ -10618,7 +10586,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 73
+              "line": 72
             }
           ],
           "default": 262144,
@@ -10628,7 +10596,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 73
+              "line": 72
             }
           ],
           "group": "ypbin.tracking",
@@ -10650,7 +10618,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 47
+              "line": 46
             }
           ],
           "default": "/tracking/ingest",
@@ -10660,7 +10628,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 47
+              "line": 46
             }
           ],
           "group": "ypbin.tracking",
@@ -10682,7 +10650,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 50
+              "line": 49
             }
           ],
           "default": 10000,
@@ -10692,39 +10660,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 50
-            }
-          ],
-          "group": "ypbin.tracking",
-          "deprecation": null
-        },
-        {
-          "module": "ypbin-starter-tracking",
-          "key": "ypbin.tracking.sample-rate",
-          "type": "java.lang.Double",
-          "defaultDefined": true,
-          "defaultValue": 1,
-          "required": false,
-          "requiredWhen": null,
-          "description": "服务端采样率（0 表示不采样即全部丢弃，1 表示全量保留）",
-          "allowedValues": [],
-          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
-          "safetyNotes": [],
-          "sources": [
-            {
-              "kind": "java-property",
-              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 79
-            }
-          ],
-          "default": 1,
-          "values": [],
-          "notes": [],
-          "source": [
-            {
-              "kind": "java-property",
-              "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 79
+              "line": 49
             }
           ],
           "group": "ypbin.tracking",
@@ -10746,7 +10682,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 59
+              "line": 58
             }
           ],
           "default": 100,
@@ -10756,7 +10692,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 59
+              "line": 58
             }
           ],
           "group": "ypbin.tracking",
@@ -10778,7 +10714,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 93
+              "line": 86
             }
           ],
           "default": false,
@@ -10788,7 +10724,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-tracking/src/main/java/cn/ypbin/starter/tracking/autoconfigure/TrackingProperties.java",
-              "line": 93
+              "line": 86
             }
           ],
           "group": "ypbin.tracking",

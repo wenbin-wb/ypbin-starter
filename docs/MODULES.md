@@ -715,9 +715,13 @@ ypbin:
     queue-capacity: 10000        # 有界队列，满即丢弃并计数（严禁无界）
     max-events-per-request: 50
     max-payload-bytes: 8192
-    max-request-bytes: 262144    # 采集端点与业务共用 Servlet 线程池，限制请求体是防挤占手段之一
-    sample-rate: 1.0
-    anonymize-ip: true           # IPv4 保留 /24、IPv6 保留 /64
+    max-request-bytes: 262144    # 实际读流限长（chunked 也拦得住）；与业务共用 Servlet 线程池
+    anonymize-ip: true           # IPv4 保留 /24、IPv6 保留 /64（:: 压缩形态同样处理）
+    path: /tracking/ingest       # 端点路径（网关前带服务短名，如 /system/tracking/ingest）
+    app-id: ypbin-admin-ui       # 事件的应用维度（请求体未带 appId 时使用）
+    flush-interval-ms: 1000
+    sink-retry-backoff-ms: 100   # 落点写入失败后重试一次的退避
+    trust-forwarded: false       # 网关之后需开启，否则记录到的是网关地址
 ```
 
 **事件目录是唯一事实源**（`docs/tracking-events.json`）：事件码形如 `{domain}.{object}.{action}`，**禁止动态拼接**，未登记的事件码在采集入口即被拒绝、不会静默入库。改动目录后必须重新生成：
@@ -753,8 +757,12 @@ POST /tracking/ingest          # 微服务下经网关为 /system/tracking/inges
       "payload": { "routeKey": "system_user" } }
   ]
 }
-→ R.data = { "received": 1, "accepted": 1, "rejected": 0, "dropped": 0, "reasons": {} }
+→ R.data = { "received": 1, "accepted": 1, "rejected": 0, "dropped": 0,
+             "reasons": {}, "attributeIssues": {} }
 ```
+
+三个计数满足 `received = accepted + rejected + dropped`；**属性级问题不计入 `rejected`**——它们对应的事件是被正常
+接收的，只是丢了个别属性，单独放在 `attributeIssues` 里（否则会出现 `accepted=1` 同时 `rejected=2` 这种自相矛盾的结果）。
 
 - `eventId` / `eventCode` / `eventTime`（ISO-8601）必填；`payload` 的键必须在该事件白名单内，
   类型必须与目录声明一致，字符串超长按目录声明长度**截断**（明确契约，不是静默降级）。
@@ -765,8 +773,12 @@ POST /tracking/ingest          # 微服务下经网关为 /system/tracking/inges
 **部署要点（三条缺一不可）**：
 
 1. **网关免登录白名单**：把端点路径加入 `ypbin.gateway.auth.exclude-paths`，否则未登录事件会被网关拒绝（属预期行为）。
-2. **按 IP 限流需信任转发头**：网关之后所有请求的对端都是网关本身，需设
-   `ypbin.tools.rate-limit.trust-forwarded=true`，否则按 IP 限流会退化成全局单桶。
+2. **两个 `trust-forwarded` 要一起开**：网关之后所有请求的对端都是网关本身，而限流与埋点各有自己的开关——
+   `ypbin.tools.rate-limit.trust-forwarded=true`（限流按真实客户端 IP 分桶）与
+   `ypbin.tracking.trust-forwarded=true`（事件记录的 clientIp 才是真实客户端）。
+   **只开限流侧**：事件的 `clientIp` 恒为网关地址，脱敏后彻底失真；
+   **只开埋点侧**：限流键退化为「方法 + 网关地址」单桶，匿名方可以低成本让正常上报全部被限流。
+   装配期会检测这种错配并打印告警。
 3. **多租户**：开启 `ypbin.tenant` 时采集链路本身没有租户上下文（`fail-on-missing-tenant=true` 下会直接抛错），
    宿主需把埋点相关表登记进 `ypbin.tenant.ignore-tables`。
 

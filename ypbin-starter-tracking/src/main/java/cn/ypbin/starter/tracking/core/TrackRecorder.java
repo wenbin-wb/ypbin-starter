@@ -19,6 +19,8 @@ import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.tracking.support.BoundedEventQueue;
 import cn.ypbin.starter.tracking.support.TrackCounters;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +47,9 @@ public class TrackRecorder {
     private final TrackCounters counters;
 
     private final TrackingEventCatalog catalog;
+
+    /** 已告警过的原因；每个原因只告警一次，计数始终准确，避免过载时日志刷屏 */
+    private final Set<String> warnedOnce = ConcurrentHashMap.newKeySet();
 
     /**
      * 创建采集门面。
@@ -96,14 +101,20 @@ public class TrackRecorder {
             }
             if (unregistered > 0) {
                 counters.rejected(TrackRejectionReason.UNREGISTERED, unregistered);
-                log.warn("[ypbin-starter] {} tracking event(s) rejected: code not registered in catalog, e.g. {}",
-                    unregistered, LogSanitizer.sanitize(sampleCode));
+                if (warnedOnce.add("unregistered")) {
+                    log.warn("[ypbin-starter] {} tracking event(s) rejected: code not registered in catalog, "
+                        + "e.g. {} (同类问题只告警一次，请以计数为准)",
+                        unregistered, LogSanitizer.sanitize(sampleCode));
+                }
             }
             int dropped = events.size() - accepted - unregistered;
             counters.accepted(accepted);
             if (dropped > 0) {
                 counters.droppedOnQueueFull(dropped);
-                log.warn("[ypbin-starter] tracking queue is full, {} of {} event(s) dropped.", dropped, events.size());
+                if (warnedOnce.add("queueFull")) {
+                    log.warn("[ypbin-starter] tracking queue is full, {} of {} event(s) dropped "
+                        + "(同类问题只告警一次，请以计数为准).", dropped, events.size());
+                }
             }
             return accepted;
         } catch (RuntimeException ex) {

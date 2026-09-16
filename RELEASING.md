@@ -59,7 +59,7 @@ gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>   # 公钥上传（供�
 
 以发布 `1.0.0` 为例：
 
-**1. 确认版本号**：把根聚合 `pom.xml` 里 `<revision>` 改为正式版（去掉 `-SNAPSHOT`），全部 34 个子模块通过 parent 继承自动生效：
+**1. 确认版本号**：把根聚合 `pom.xml` 里 `<revision>` 改为正式版（去掉 `-SNAPSHOT`），全部 40 个子模块通过 parent 继承自动生效：
 ```xml
 <revision>1.0.0</revision>
 ```
@@ -156,6 +156,7 @@ mvn clean deploy    # revision 为 x.y.z-SNAPSHOT 时走 snapshot 仓库
 1. **一个开发周期只发一个版本**：从打 tag 到下一 tag 之间，所有改动累积在同一个版本号（`revision` 保持，不中途改号）。
 2. **版本号随变更类型走，不随日期走**：有破坏性变更才升 MAJOR，有功能新增升 MINOR，纯修复升 PATCH；没有值得发布的变更就不发。
 3. **发布前自查清单**（在打 tag 前逐项确认）：
+   - `bash tools/preflight.sh` 六道门禁全绿（全量构建 / NullAway / 依赖收敛 / 集成测试 / 配置元数据 / 埋点事件目录）；
    - `mvn clean install` 全绿（含覆盖率门禁）；
    - CHANGELOG 已补该版本条目（含破坏性迁移说明）；
    - site 文档版本口径已同步（`releases.json` 由发布流水线自动更新）；

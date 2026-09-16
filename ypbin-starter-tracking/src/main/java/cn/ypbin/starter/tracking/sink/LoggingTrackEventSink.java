@@ -44,7 +44,9 @@ public class LoggingTrackEventSink implements TrackEventSink {
         if (events.isEmpty()) {
             return;
         }
-        log.info("[ypbin-starter] tracking sink is not configured, {} event(s) written to log only.", events.size());
+        // 刻意用 DEBUG：未配置落点时每批打一条 INFO 会在生产日志里永不停止地刷屏，
+        // 「没有落库实现」这件事已在装配期用一次 WARN 说明过
+        log.debug("[ypbin-starter] tracking sink is not configured, {} event(s) written to log only.", events.size());
         for (TrackEvent event : events) {
             log.debug("[ypbin-starter] tracking event: code={}, eventId={}",
                 LogSanitizer.sanitize(event.eventCode()), LogSanitizer.sanitize(event.eventId()));
