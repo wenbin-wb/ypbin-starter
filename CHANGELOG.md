@@ -9,7 +9,15 @@
 
 ## [未发布]
 
-（下一迭代的开发变更记录在此）
+### 变更（不兼容）
+
+- **埋点事件目录移除 2 个 IoT 事件**（`iot.collector.read`、`iot.collector.error`，共 12 → **10** 个事件）。
+  本仓定位是 Web/后端平台的埋点内核，IoT 采集由独立项目承载；动手前已核实 `ypbin-iot-starter`
+  对这两个事件**零引用**（`grep -rn "iot.collector" ypbin-iot-starter` = 0 处），删除不影响该仓。
+  - **属不兼容变更**：随下一个小版本发布后，采集端上报这两个事件码会被目录校验拒绝；
+    由于它们仅存在于 3.2.0 起的目录中且无引用方，按 MINOR 发布并在本文件显式标注。
+  - 同步改动：事实源 `docs/tracking-events.json`、Java 常量 `TrackingEventCodes`、
+    运行时资源 `META-INF/ypbin/tracking-events.json`、以及显式断言事件码的单测。
 
 ## [3.3.0] - 2026-09-16
 

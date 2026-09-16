@@ -45,7 +45,7 @@ class TrackingEventCodesTest {
     @Test
     void shouldExposeAllRegisteredCodes() {
         assertThat(TrackingEventCodes.ALL).isNotEmpty().hasSize(TrackingEventCodes.DESCRIPTIONS.size());
-        assertThat(TrackingEventCodes.ALL).contains("ui.page.view", "web.error.js", "iot.collector.read");
+        assertThat(TrackingEventCodes.ALL).contains("ui.page.view", "web.error.js", "auth.user.login");
     }
 
     @Test

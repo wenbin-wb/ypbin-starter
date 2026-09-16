@@ -39,12 +39,6 @@ public final class TrackingEventCodes {
     /** auth.user.logout：用户登出。 */
     public static final String AUTH_USER_LOGOUT = "auth.user.logout";
 
-    /** iot.collector.error：IoT 采集异常（异常分类必须取有限枚举值，避免标签基数爆炸）。 */
-    public static final String IOT_COLLECTOR_ERROR = "iot.collector.error";
-
-    /** iot.collector.read：IoT 采集读取结果（由平台侧适配器装饰器上报）。 */
-    public static final String IOT_COLLECTOR_READ = "iot.collector.read";
-
     /** system.user.export：用户数据导出（业务事件示例）。 */
     public static final String SYSTEM_USER_EXPORT = "system.user.export";
 
@@ -71,8 +65,6 @@ public final class TrackingEventCodes {
         API_REQUEST_END,
         AUTH_USER_LOGIN,
         AUTH_USER_LOGOUT,
-        IOT_COLLECTOR_ERROR,
-        IOT_COLLECTOR_READ,
         SYSTEM_USER_EXPORT,
         UI_CLICK_ACTION,
         UI_PAGE_LEAVE,
@@ -87,8 +79,6 @@ public final class TrackingEventCodes {
             Map.entry(API_REQUEST_END, "接口调用结束：含耗时与业务结果"),
             Map.entry(AUTH_USER_LOGIN, "登录成功"),
             Map.entry(AUTH_USER_LOGOUT, "用户登出"),
-            Map.entry(IOT_COLLECTOR_ERROR, "IoT 采集异常（异常分类必须取有限枚举值，避免标签基数爆炸）"),
-            Map.entry(IOT_COLLECTOR_READ, "IoT 采集读取结果（由平台侧适配器装饰器上报）"),
             Map.entry(SYSTEM_USER_EXPORT, "用户数据导出（业务事件示例）"),
             Map.entry(UI_CLICK_ACTION, "白名单点击：元素需显式声明 data-track 属性才会采集"),
             Map.entry(UI_PAGE_LEAVE, "页面离开：携带本次停留时长"),
