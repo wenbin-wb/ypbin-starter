@@ -28,7 +28,8 @@ import tools.jackson.databind.ObjectMapper;
  * <ul>
  *   <li><strong>base</strong>：starter jar 内自带的那份，平台通用事件；</li>
  *   <li><strong>project</strong>：宿主项目 jar 内的同名资源，宿主自有事件。存在时<strong>叠加在 base 之上</strong>，
- *       同一事件码<strong>以 project 为准</strong>；覆盖发生时由 {@link TrackingCatalogMerger} 逐字段打印差异，
+ *       同一事件码<strong>以 project 为准</strong>；覆盖发生时由 {@link TrackingCatalogMerger} 逐字段生成差异，
+ *       经加载器日志以 WARN 输出（logger 名为 {@code cn.ypbin.starter.tracking.core.TrackingCatalogLoader}），
  *       绝不静默覆盖。</li>
  * </ul>
  *

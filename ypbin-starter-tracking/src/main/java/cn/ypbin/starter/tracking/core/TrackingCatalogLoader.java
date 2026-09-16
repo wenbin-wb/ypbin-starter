@@ -50,6 +50,12 @@ import tools.jackson.databind.ObjectMapper;
  * <p><strong>不降级</strong>：base 缺失、project 出现多份（无法确定覆盖优先级）、资源无法解析或
  * schemaVersion 不支持，全部直接抛错并带完整堆栈，绝不「空目录照常运行」或忽略宿主文件。</p>
  *
+ * <p><strong>已知边界（归档判定成立的前提）</strong>：判定依赖「starter 的目录资源与
+ * {@link TrackingEventCatalog} 类文件处于同一归档」这一事实。若宿主用 uber/shade 打包，把 starter 的
+ * 目录资源与宿主自己的同名资源合并进<strong>同一个</strong>归档，两层会退化为一份（被判为 base），
+ * 此时无从区分——需要分层能力的宿主请勿合并该资源。宿主侧出现两份及以上同名资源则直接启动失败，
+ * 避免按不可靠顺序静默择一。</p>
+ *
  * @author wenbin
  * @since 2026-09-16
  */
