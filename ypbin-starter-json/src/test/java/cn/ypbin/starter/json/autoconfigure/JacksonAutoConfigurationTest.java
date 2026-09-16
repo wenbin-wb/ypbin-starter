@@ -17,12 +17,14 @@ package cn.ypbin.starter.json.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.ypbin.starter.json.dict.DictCache;
 import cn.ypbin.starter.json.dict.DictItem;
 import cn.ypbin.starter.json.dict.DictProvider;
 import cn.ypbin.starter.json.dict.DictUtils;
 import cn.ypbin.starter.json.ref.RefTextManager;
 import cn.ypbin.starter.json.ref.RefTextResolver;
 import cn.ypbin.starter.json.ref.RefTextUtils;
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,8 @@ import tools.jackson.databind.json.JsonMapper;
 })
 @TestPropertySource(properties = {
     "ypbin.json.date-time-format=yyyy-MM-dd HH:mm:ss",
+    "ypbin.json.dict.ttl-seconds=1",
+    "ypbin.json.dict.max-size=7",
 })
 class JacksonAutoConfigurationTest {
 
@@ -99,11 +103,36 @@ class JacksonAutoConfigurationTest {
     @Autowired
     private RefTextResolver refTextResolver;
 
+    @Autowired
+    private JacksonProperties jacksonProperties;
+
+    @Autowired
+    private DictCache dictCache;
+
     @Test
     void shouldWireJacksonBeans() {
         assertThat(objectMapper).isNotNull();
         assertThat(refTextManager).isNotNull();
         assertThat(refTextResolver).isNotNull();
+    }
+
+    /**
+     * 字典缓存的 TTL / 容量上限必须由 {@code ypbin.json.dict.*} 真实驱动到 {@link DictCache} 实例上。
+     *
+     * <p>只断言属性绑定不足以证明接线（装配处误用 {@code getRefText()} 同样会通过），
+     * 故直接读取 {@link DictCache} 内部生效值：ttl=1s、maxSize=7。</p>
+     */
+    @Test
+    void shouldWireDictCachePropertiesIntoCacheInstance() throws Exception {
+        assertThat(jacksonProperties.getDict().getTtlSeconds()).isEqualTo(1L);
+        assertThat(jacksonProperties.getDict().getMaxSize()).isEqualTo(7);
+
+        Field ttlMillis = DictCache.class.getDeclaredField("ttlMillis");
+        ttlMillis.setAccessible(true);
+        Field maxSize = DictCache.class.getDeclaredField("maxSize");
+        maxSize.setAccessible(true);
+        assertThat((long) ttlMillis.get(dictCache)).isEqualTo(1000L);
+        assertThat((int) maxSize.get(dictCache)).isEqualTo(7);
     }
 
     @Test

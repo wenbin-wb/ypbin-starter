@@ -9,6 +9,24 @@
 
 ## [未发布]
 
+### 修复
+
+- **字典缓存补 TTL 与容量上限，多实例陈旧不再只能靠重启**（`ypbin-starter-json`）。
+  `DictCache` 原先是各实例本地 `ConcurrentHashMap` 且**无过期**，而 `DictUtils.refresh*()` 只清
+  **当前 JVM**——多实例部署下，字典维护后其它实例的文案会一直陈旧到重启（调用点注释写的「即时生效」
+  只在单实例成立）。现与同模块引用翻译缓存 `RefTextCache` 对齐：条目带到期时间戳（读取时惰性判定，
+  `now >= expireAt` 即过期）、带容量上限（达上限先清理过期项，仍满则淘汰最早到期的一条）。
+  - 新增配置项 `ypbin.json.dict.ttl-seconds`（默认 **300 秒**）与 `ypbin.json.dict.max-size`（默认 **10000**，
+    即不同字典类型数），并明确写入配置元数据与文档。
+  - 默认 TTL 5 分钟 = **多实例下单实例字典文案的最长陈旧时间**；`ttl-seconds <= 0` 或
+    `max-size <= 0` 表示**关闭字典缓存**（每次读取回源），与 `ypbin.json.ref-text.*` 的 0 值语义保持一致
+    （本模块不提供「永不过期」开关，需要长缓存请给一个很大的 TTL——否则会把「多实例陈旧」重新引回来）。
+  - `refresh` 语义（**只作用于当前 JVM**）写进 `DictCache` / `DictUtils` Javadoc 与 `docs/MODULES.md`，
+    不再暗示「全实例即时生效」；未引入 Redis / 消息广播等外部依赖。
+  - 新增 `DictCacheTest`（14 例）：未过期命中、正好到期与差一毫秒的 TTL 边界、过期后重新装载、
+    容量淘汰与过期优先清理、0 值关闭缓存、巨大 TTL 的溢出钳位、同类型并发只回源一次、
+    `refresh` 只影响本实例/本绑定——时钟可注入（`Clock`），全程无 sleep。
+
 ### 变更（不兼容）
 
 - **埋点事件目录移除 2 个 IoT 事件**（`iot.collector.read`、`iot.collector.error`，共 12 → **10** 个事件）。
