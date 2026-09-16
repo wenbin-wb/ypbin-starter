@@ -26,11 +26,38 @@
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
+        <!-- @RateLimit：采集端点是匿名可写入口，限流是必备防护而非可选装饰 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-tools</artifactId>
+        </dependency>
+
+        <!-- Jackson 3：启动期解析事件目录资源，并按真实字节数校验 payload 体积 -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
 
         <!-- @AutoConfiguration / @ConditionalOnMissingBean 等自动装配注解 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <!-- 采集端点所需的 Servlet/MVC 类型；宿主未引入时为可选 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

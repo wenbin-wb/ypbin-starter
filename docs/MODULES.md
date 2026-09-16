@@ -741,6 +741,49 @@ public TrackEventSink trackEventSink(TrackEventMapper mapper) {
 > ⚠️ 落库实现必须**幂等**：同一 `eventId` 重复写入不得产生重复行。批量插入请用 `ON DUPLICATE KEY UPDATE`，
 > **不要**用 `INSERT IGNORE`——后者会把数据截断等错误一并降级为告警，属于静默数据丢失。
 
+**采集端点**（`ingest-enabled=true` 才注册，路径由 `ypbin.tracking.path` 决定）：
+
+```
+POST /tracking/ingest          # 微服务下经网关为 /system/tracking/ingest（URL 第一段=服务短名）
+{
+  "appId": "ypbin-admin-ui",
+  "events": [
+    { "eventId": "<UUID>", "eventCode": "ui.page.view", "eventTime": "2026-09-15T10:00:00Z",
+      "sessionId": "s1", "anonId": "a1", "pageUrl": "/system/user", "durationMs": 1200,
+      "payload": { "routeKey": "system_user" } }
+  ]
+}
+→ R.data = { "received": 1, "accepted": 1, "rejected": 0, "dropped": 0, "reasons": {} }
+```
+
+- `eventId` / `eventCode` / `eventTime`（ISO-8601）必填；`payload` 的键必须在该事件白名单内，
+  类型必须与目录声明一致，字符串超长按目录声明长度**截断**（明确契约，不是静默降级）。
+- `reasons` 的取值：`unregistered`、`missingRequiredField`、`invalidEventTime`、`payloadKeyNotAllowed`、
+  `payloadTypeMismatch`、`payloadTooLarge`、`requestTooLarge`、`overRequestLimit`。
+- `dropped` 是队列满导致的丢弃：埋点允许丢弃，但**必须可见**。
+
+**部署要点（三条缺一不可）**：
+
+1. **网关免登录白名单**：把端点路径加入 `ypbin.gateway.auth.exclude-paths`，否则未登录事件会被网关拒绝（属预期行为）。
+2. **按 IP 限流需信任转发头**：网关之后所有请求的对端都是网关本身，需设
+   `ypbin.tools.rate-limit.trust-forwarded=true`，否则按 IP 限流会退化成全局单桶。
+3. **多租户**：开启 `ypbin.tenant` 时采集链路本身没有租户上下文（`fail-on-missing-tenant=true` 下会直接抛错），
+   宿主需把埋点相关表登记进 `ypbin.tenant.ignore-tables`。
+
+**后端业务事件**：
+
+```java
+@Tracked("auth.user.login")
+public R<LoginResp> login(@RequestBody LoginReq req) { ... }
+```
+
+方法抛异常时同样产出 `success=false` 的事件，异常**原样透传**；本注解不携带事件属性
+（属性白名单由目录定义），需要属性的事件请直接调用 `TrackRecorder#record`。
+
+**链路健康度**：`TrackCounters#snapshot()` 返回
+`accepted / droppedOnQueueFull / flushed / flushFailed / rejectedTotal / rejectedByReason`——
+埋点自身的丢弃与失败属于**技术指标**，应接入你的监控体系。
+
 ### tools — 常用工具
 
 **分布式限流** `@RateLimit`（有 Redis 时自动用 Redis+Lua 原子限流，否则内存限流）：

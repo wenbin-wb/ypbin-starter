@@ -11,17 +11,25 @@
 
 ### 新增
 
-- **埋点模块 `ypbin-starter-tracking`（契约与骨架）**：面向「用户怎么用、卡在哪一步、哪个页面慢」的行为事件采集内核，
+- **埋点模块 `ypbin-starter-tracking`**：面向「用户怎么用、卡在哪一步、哪个页面慢」的行为事件采集内核，
   与审计日志（`log`）、监控指标是三套不同语义的能力——埋点**允许丢弃**、主体**可匿名**、用途是理解用户而非追责或报警。
   - **事件目录是唯一事实源**（`docs/tracking-events.json`）：由 `tools/export-tracking-events.mjs` 生成 Java 常量
     `TrackingEventCodes` 与运行时资源 `META-INF/ypbin/tracking-events.json`；CI 与 `tools/preflight.sh`
     均增设「埋点事件目录未漂移」门禁（事实源改了而生成物未更新即失败）。
   - **默认关闭**：`ypbin.tracking.enabled` 与 `ypbin.tracking.ingest-enabled` 默认均为 `false`
     ——采集端点是一个匿名可写入口，不作为默认值；微服务下多服务共用本模块时也不会把端点散布到每个服务。
+  - **采集链路与背压**：采集门面 → 有界队列 → 独立平台线程消费者 → `TrackEventSink`。
+    业务线程只做入队（永不阻塞、永不抛异常），队列满按「丢新」处理并计数；落点写入失败退避重试一次、
+    仍失败则整批丢弃并计数，不无限重试。**刻意不复用 `ypbin.async`**：其 `CALLER_RUNS` 拒绝策略会把反压
+    打回业务请求线程，与埋点「可丢」的语义相反。
+  - **采集端点**（`POST {ypbin.tracking.path}`，默认 `/tracking/ingest`）：逐项返回
+    `received/accepted/rejected/dropped/reasons`；按事件目录做属性白名单裁剪与长度截断、按字节估算限制单事件体积、
+    限制单请求事件数与请求体大小；`@RateLimit` 按 IP 限流。
+  - **后端埋点**：`@Tracked("event.code")` 采集方法耗时与成功/失败，异常原样透传；
+    未登记的事件码在**唯一写入口**（`TrackRecorder`）被统一拒绝并计数，拼错的事件码不会静默入库。
+  - **可观测**：`TrackCounters` 按拒绝原因分桶计数并暴露快照，丢弃在埋点语义下必须可见。
   - **不静默降级**：宿主未覆盖 `TrackEventSink` 时装配期打印一次 WARN 并仅打印到应用日志，
-    而不是让「配了埋点却没有数据」悄悄发生。
-  - 本版本仅交付契约与骨架（事件目录、生成器、`TrackEvent` / `TrackEventSink`、装配与全部配置项）；
-    采集端点、有界队列与批量落库链路随后续版本提供。
+    而不是让「配了埋点却没有数据」悄悄发生；事件目录资源缺失或损坏时直接启动失败，不做「空目录照常运行」。
 
 ## [3.1.0] - 2026-09-14
 
