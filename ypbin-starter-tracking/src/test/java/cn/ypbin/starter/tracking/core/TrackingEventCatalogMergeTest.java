@@ -31,6 +31,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -171,6 +172,21 @@ class TrackingEventCatalogMergeTest {
             List.of(baseCatalog(), projectCatalog("project-duplicate.json"))))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("duplicated tracking event code: admin.dup.event");
+    }
+
+    @Test
+    void shouldNotFailWhenOverriddenSchemaMissesDescription() throws Exception {
+        // 目录里的 description 缺失时运行时模型为 null（Jackson 绑定，NullAway 看不到），
+        // 差异比较必须容忍 null，否则覆盖路径会抛 NPE
+        EventSchema baseSchema = objectMapper.readValue("{\"properties\":{}}", EventSchema.class);
+        MergeResult merged = TrackingCatalogMerger.merge(Map.of("admin.null.desc", baseSchema),
+            Map.of("admin.null.desc", new EventSchema("宿主重新定义", Map.of())), mergerLogger);
+
+        assertThat(merged.schemas().get("admin.null.desc").description()).isEqualTo("宿主重新定义");
+        assertThat(merged.overriddenCodes()).containsExactly("admin.null.desc");
+        assertThat(warnMessages()).anySatisfy(message -> assertThat(message)
+            .contains("admin.null.desc")
+            .contains("description: \"null\" -> \"宿主重新定义\""));
     }
 
     @Test

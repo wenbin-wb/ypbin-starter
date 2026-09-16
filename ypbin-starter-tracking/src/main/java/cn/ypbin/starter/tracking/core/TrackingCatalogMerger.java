@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -37,8 +38,13 @@ import org.slf4j.Logger;
  * {@link OverrideDiff}，供调用方在日志之外的可观测位置（如监控、管理界面）继续标注。
  * 两边定义完全相同的事件码不产生任何差异输出（避免噪音），也没有字段被改动。</p>
  *
+ * <p><strong>差异口径的边界</strong>：只比较<strong>运行时模型内</strong>的字段（事件 description、
+ * 属性名集合、属性 type/maxLength）。目录 JSON 里还存在但不入运行时模型的内容——属性的 description、
+ * 事件的 source/since——既不参与采集校验，也不会产生覆盖告警；改动它们只影响文档表述，不影响目录行为。</p>
+ *
  * <p>本类只做纯映射合并，<strong>不触碰类路径</strong>：资源发现与解析由
- * {@code TrackingCatalogLoader} 负责，故合并逻辑可脱离 Spring 容器直接单测。</p>
+ * {@code TrackingCatalogLoader} 负责，故合并逻辑可脱离 Spring 容器直接单测；日志经调用方传入的
+ * {@link Logger} 输出（生产链路上即加载器的 logger）。</p>
  *
  * @author wenbin
  * @since 2026-09-16
@@ -96,7 +102,7 @@ public final class TrackingCatalogMerger {
      */
     private static List<String> describeChanges(EventSchema baseSchema, EventSchema projectSchema) {
         List<String> changes = new ArrayList<>();
-        if (!baseSchema.description().equals(projectSchema.description())) {
+        if (!Objects.equals(baseSchema.description(), projectSchema.description())) {
             changes.add("description: \"" + baseSchema.description() + "\" -> \"" + projectSchema.description() + "\"");
         }
         Set<String> baseNames = baseSchema.properties().keySet();
