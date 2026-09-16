@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 99,
+  "events": [
+    {
+      "code": "admin.other.event",
+      "description": "schemaVersion 不受支持",
+      "properties": []
+    }
+  ]
+}

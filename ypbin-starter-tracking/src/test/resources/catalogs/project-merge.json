@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "description": "单测夹具：宿主项目目录（覆盖 + 新增 + 无属性事件），不参与生成器",
+  "events": [
+    {
+      "code": "ui.page.view",
+      "description": "页面浏览（项目自定义说明）",
+      "properties": [
+        { "name": "routeKey", "type": "string", "maxLength": 256, "description": "路由标识" },
+        { "name": "deviceId", "type": "string", "maxLength": 64, "description": "设备标识" }
+      ]
+    },
+    {
+      "code": "api.request.end",
+      "description": "接口调用结束（项目覆盖为字符串业务码）",
+      "properties": [
+        { "name": "apiPath", "type": "string", "maxLength": 256, "description": "接口路径" },
+        { "name": "httpMethod", "type": "string", "maxLength": 16, "description": "HTTP 方法" },
+        { "name": "bizCode", "type": "string", "maxLength": 32, "description": "业务响应码（项目侧为字符串）" }
+      ]
+    },
+    {
+      "code": "admin.report.download",
+      "description": "报表下载（项目自有事件）",
+      "properties": [
+        { "name": "reportType", "type": "string", "maxLength": 32, "description": "报表类型" },
+        { "name": "rowCount", "type": "integer", "description": "导出行数" }
+      ]
+    },
+    {
+      "code": "admin.cache.clear",
+      "description": "缓存清理（项目自有事件，无属性）"
+    }
+  ]
+}

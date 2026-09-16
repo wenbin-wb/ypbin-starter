@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "description": "单测夹具：第二份宿主目录，用于验证多份宿主文件直接失败",
+  "events": [
+    {
+      "code": "admin.other.event",
+      "description": "另一份宿主目录自有事件",
+      "properties": []
+    }
+  ]
+}

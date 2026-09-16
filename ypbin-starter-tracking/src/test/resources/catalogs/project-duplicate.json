@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "events": [
+    {
+      "code": "admin.dup.event",
+      "description": "重复事件码之一",
+      "properties": []
+    },
+    {
+      "code": "admin.dup.event",
+      "description": "重复事件码之二",
+      "properties": []
+    }
+  ]
+}
