@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "ypbin 埋点事件目录（唯一事实源）。修改本文件后必须执行 `node tools/export-tracking-events.mjs` 重新生成 Java 常量与运行时资源，否则 CI 的「校验埋点事件目录未漂移」步骤会失败。事件码格式：{domain}.{object}.{action}，全小写、段内下划线；禁止动态拼接事件码。",
+  "description": "ypbin 埋点事件目录的 base 层（平台通用事件，唯一事实源）。只登记「任何宿主都会用」的事件：web 行为 / API / 错误 / 性能 / 认证（auth.user.login、auth.user.logout 由 starter-tracking 的宿主侧录制、各宿主都有）。宿主自己的业务事件请登记在**宿主仓库**的 META-INF/ypbin/tracking-events.json（project 层），运行时按 classpath*: 合并、同一事件码以 project 为准。修改本文件后必须执行 `node tools/export-tracking-events.mjs` 重新生成 Java 常量与运行时资源，否则 CI 的「校验埋点事件目录未漂移」步骤会失败。事件码格式：{domain}.{object}.{action}，全小写、段内下划线；禁止动态拼接事件码。",
   "events": [
     {
       "code": "ui.page.view",
@@ -90,15 +90,6 @@
       "source": "backend",
       "since": "3.2.0",
       "properties": []
-    },
-    {
-      "code": "system.user.export",
-      "description": "用户数据导出（业务事件示例）",
-      "source": "backend",
-      "since": "3.2.0",
-      "properties": [
-        { "name": "rowCount", "type": "integer", "description": "导出行数" }
-      ]
     }
   ]
 }
