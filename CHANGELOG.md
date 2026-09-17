@@ -11,6 +11,20 @@
 
 ### 修复
 
+- **架构门禁「`@Transactional` 必须显式 `rollbackFor`」长期假绿，已改为按取值判定并补规则自检**
+  （`ypbin-starter-architecture-tests`）。原判定用 `annotation.getProperties().containsKey("rollbackFor")`
+  来判断「是否显式声明」，而 ArchUnit 会把注解**默认值**一并填入 `getProperties()`
+  （`@Transactional.rollbackFor` 默认是空数组），该 `containsKey` 对任何 `@Transactional` **恒为真**——
+  规则永远放行。合成违规实测：普通 `@Transactional` 方法逐字跑原判定逻辑得到 **0 违规**。
+  现改为按取值判定（必须显式声明 `rollbackFor = Exception.class`；空数组、仅含 `RuntimeException`
+  等更窄类型均判违规），并把检查由「只查方法级」扩展为**类级 + 方法级**（原实现完全未检查类级）；
+  判定逻辑抽到 `TransactionalRules`，由真实规则与 `ArchRuleSelfCheckTest` **共用同一份实现**
+  （自检不再复刻副本，否则规则改错自检仍会绿），自检覆盖「缺 rollbackFor / 类级缺 /
+  取值过窄 / 只显式声明了其它属性 → 必须转红」与「写对 → 必须转绿」。
+  另：本仓主源码当前 **0 处 `@Transactional`**，该规则此前既是假绿、也无实际覆盖对象，修严后无存量违规。
+  同源写法排查：`grep -rn "getProperties()" ypbin-starter-architecture-tests/` 仅此一处
+  （其余注解判定用 `isAnnotatedWith`/`tryGetAnnotationOfType`，读的是注解**是否出现**，不受默认值影响）。
+
 - **字典缓存补 TTL 与容量上限，多实例陈旧不再只能靠重启**（`ypbin-starter-json`）。
   `DictCache` 原先是各实例本地 `ConcurrentHashMap` 且**无过期**，而 `DictUtils.refresh*()` 只清
   **当前 JVM**——多实例部署下，字典维护后其它实例的文案会一直陈旧到重启（调用点注释写的「即时生效」

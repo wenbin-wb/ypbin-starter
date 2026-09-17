@@ -110,28 +110,14 @@ class CodingRulesTest {
     }
 
     @Test
-    @DisplayName("@Transactional 必须显式声明 rollbackFor")
+    @DisplayName("@Transactional 必须显式声明 rollbackFor = Exception.class（类级与方法级）")
     void transactionalShouldAlwaysDeclareRollbackFor() {
-        String transactionalType = "org.springframework.transaction.annotation.Transactional";
-        List<String> violations = new ArrayList<>();
-        for (JavaClass clazz : classes) {
-            for (JavaMethod method : clazz.getMethods()) {
-                boolean annotated = method.getAnnotations().stream()
-                    .anyMatch(annotation -> annotation.getRawType().getName().equals(transactionalType));
-                if (!annotated) {
-                    continue;
-                }
-                // 用 JavaAnnotation#getProperties 判定「是否显式声明」——注解代理无法区分默认值与显式值
-                boolean declared = method.getAnnotations().stream()
-                    .filter(annotation -> annotation.getRawType().getName().equals(transactionalType))
-                    .anyMatch(annotation -> annotation.getProperties().containsKey("rollbackFor"));
-                if (!declared) {
-                    violations.add(clazz.getName() + "#" + method.getName());
-                }
-            }
-        }
-        assertThat(violations)
-            .as("@Transactional 未显式声明 rollbackFor（受检异常将导致漏回滚）")
+        // 判定逻辑抽到 TransactionalRules，供本测试与 ArchRuleSelfCheckTest 共用同一份实现：
+        // 曾经这里用 annotation.getProperties().containsKey("rollbackFor") 判定「是否显式声明」，
+        // 而 ArchUnit 会把注解默认值一并填入 getProperties()，导致 containsKey 恒为 true —— 规则假绿。
+        // 详见 TransactionalRules 的类级说明与其自检用例。
+        assertThat(TransactionalRules.findMissingRollbackFor(classes))
+            .as("@Transactional 未显式声明 rollbackFor = Exception.class（受检异常将导致漏回滚）")
             .isEmpty();
     }
 
