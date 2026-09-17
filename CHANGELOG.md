@@ -11,6 +11,32 @@
 
 ### 修复
 
+- **在线用户 IP/浏览器/操作系统/登录时间恒为空（Sa-Token 会话多态反序列化白名单漏登记，读取侧静默降级）**
+  （`ypbin-starter-security`）。根因：Sa-Token 1.46 的会话 JSON 由 `sa-token-jackson3` 的
+  `SaJsonTemplateForJackson3` 处理，它开启默认类型信息（`@class`）并用 `BasicPolymorphicTypeValidator`
+  做白名单校验，白名单来自 `META-INF/satoken/sa-json-type.list`；`OnlineUserHelper$Terminal` 从未登记，
+  于是**写侧完全正常**（Redis 里数据完好）、**读侧**在还原 Token-Session 时被类型校验拒绝抛异常，而异常被
+  `DefaultOnlineUserService` 的 `catch` 吞成 `log.debug`，对外表现为「四个字段全为空且无从排查」。
+  三处修复：① 登记 `OnlineUserHelper$Terminal` 到白名单（根因）；② `DefaultOnlineUserService` 的终端
+  信息/设备类型/会话/创建时间四处读取失败由 debug 升为 **WARN + 完整堆栈**，并写明「该用户哪些字段会为空」；
+  ③ `OnlineUserHelper$Terminal` 的登录时间改为与 Jackson/时间类型配置无关的存储形态
+  （`loginTimeMillis` + `loginTimeText`），同时保留历史形态字段 `loginTime` 的读写：旧 Redis 数据（ISO
+  字符串）由 `Terminal#resolveLoginTime()` 解析，不因形态变化而变空；新数据额外写出历史形态字段，让按旧
+  `LocalDateTime` 形态读取的**旧版本服务**在滚动升级期间仍能读到登录时间。⚠️ **对 Java 调用方属源码不
+  兼容**：`Terminal#getLoginTime()` 返回类型由 `LocalDateTime` 变为 `String`（该 getter 现为历史形态
+  字段的访问器，改为 `setLoginTime(String)`），取 `LocalDateTime` 请改用 `Terminal#resolveLoginTime()`；
+  读取还把「退化为 `Map`/未知类型」的形态按「能取多少取多少」还原（WARN 给出实际类名），不再因形态异常
+  丢掉整条在线记录。新增 `OnlineUserHelperTest`（含线上实测旧形态会话 JSON 的读回用例与真写→真读往返
+  用例，同时是白名单的防回归门禁）与 `DefaultOnlineUserServiceTest`（断言失败 WARN 且带堆栈、记录不丢）。
+- **同类静默降级/静默不生效排查与处置**（多模块）：日志`message`-only 且失败影响正确性/可观测性的升级为
+  带完整堆栈（`RefTextManager` 引用翻译回源、`SignChecker` 验签参数解析、`PersistCoordinator` 向量持久化、
+  `JobLockFactory` 分布式锁 tryLock/unlock、`RedisPasswordAttemptStore` 错误计数键值非法、`DefaultSmsService`
+  配置读取失败）；会话中的登录用户退化为非 `LoginUser` 形态时补 WARN（原先静默返回 null，与终端信息同一
+  族失败模态）；启动期告警补齐「已开启但能力未生效」：敏感词词库为空、AI `rag-enabled` 无 `VectorStore`、
+  `ypbin.gateway.auth.enabled=true` 无 `GatewayAuthProvider`、数据权限 `enabled=true` 无 `DataScopeHandler`、
+  接口加解密无 `ApiCryptoProvider`、SSE 端点无 `SseUserIdResolver`。属预期降级而保留低级别的（SSE 心跳失败、
+  可选依赖探测等）已在代码注释写明理由。
+
 - **架构门禁「`@Transactional` 必须显式 `rollbackFor`」长期假绿，已改为按取值判定并补规则自检**
   （`ypbin-starter-architecture-tests`）。原判定用 `annotation.getProperties().containsKey("rollbackFor")`
   来判断「是否显式声明」，而 ArchUnit 会把注解**默认值**一并填入 `getProperties()`

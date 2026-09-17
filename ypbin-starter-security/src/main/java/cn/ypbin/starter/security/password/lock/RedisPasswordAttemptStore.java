@@ -18,6 +18,8 @@ package cn.ypbin.starter.security.password.lock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.ScanOptions;
@@ -35,6 +37,8 @@ import org.springframework.scripting.support.ResourceScriptSource;
  * @since 2026-08-01
  */
 public class RedisPasswordAttemptStore implements PasswordAttemptStore {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisPasswordAttemptStore.class);
 
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> incrScript;
@@ -66,6 +70,10 @@ public class RedisPasswordAttemptStore implements PasswordAttemptStore {
         try {
             return Long.parseLong(value);
         } catch (NumberFormatException e) {
+            // 计数键被写入非数字（篡改/格式变更）时按 0 处理 = 该账号看起来「未失败」，锁定判定会失效：
+            // 属安全相关的失败，必须带完整堆栈暴露（保留按 0 的语义是为避免篡改值直接锁死所有登录）
+            log.warn("[ypbin-starter] 密码错误计数键值非法（非数字），本次按 0 次处理，该账号的错误锁定判定可能失效，"
+                + "请检查 key={} 的写入来源", key, e);
             return 0L;
         }
     }

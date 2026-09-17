@@ -21,6 +21,8 @@ import java.util.Map;
 import org.dromara.sms4j.api.SmsBlend;
 import org.dromara.sms4j.api.entity.SmsResponse;
 import org.dromara.sms4j.core.factory.SmsFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 基于 sms4j 的短信发送服务默认实现。
@@ -33,11 +35,16 @@ import org.dromara.sms4j.core.factory.SmsFactory;
  */
 public class DefaultSmsService implements SmsService {
 
+    private static final Logger log = LoggerFactory.getLogger(DefaultSmsService.class);
+
     @Override
     public boolean isConfigured() {
         try {
             return SmsFactory.getSmsBlend() != null;
         } catch (Exception e) {
+            // 配置读取本身异常时按「未配置」返回是接口契约（调用方据此提示未配置），但必须留痕：
+            // 否则真实故障（如 sms4j 配置损坏）会被误读成「没配短信」，无从定位
+            log.warn("[ypbin-starter] 读取短信配置失败，本次按「未配置」处理，短信不会发送", e);
             return false;
         }
     }

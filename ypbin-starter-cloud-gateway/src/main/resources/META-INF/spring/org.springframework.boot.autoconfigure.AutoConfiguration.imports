@@ -1,3 +1,4 @@
 cn.ypbin.starter.gateway.autoconfigure.GatewayAutoConfiguration
 cn.ypbin.starter.gateway.swagger.GatewaySwaggerAutoConfiguration
 cn.ypbin.starter.gateway.route.NacosRouteAutoConfiguration
+cn.ypbin.starter.gateway.autoconfigure.GatewayAuthMissingProviderAutoConfiguration

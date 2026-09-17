@@ -3,3 +3,4 @@ cn.ypbin.starter.messaging.autoconfigure.WebSocketAutoConfiguration
 cn.ypbin.starter.messaging.autoconfigure.MqttAutoConfiguration
 cn.ypbin.starter.messaging.autoconfigure.SseAutoConfiguration
 cn.ypbin.starter.messaging.autoconfigure.SmsAutoConfiguration
+cn.ypbin.starter.messaging.autoconfigure.SseMissingUserIdResolverAutoConfiguration

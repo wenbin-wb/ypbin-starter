@@ -1,1 +1,10 @@
+# Sa-Token 会话 JSON 多态反序列化白名单（cn.dev33.satoken.strategy.SaJsonStrategy#loadSpiAllowTypeList）。
+# 凡写入 Sa-Token 会话且需要被反序列化还原的类型，必须在此逐行登记；漏登记时写侧正常、
+# 读侧抛类型校验异常，表现为「Redis 里数据完好、读出来字段全为空」。
+# 一行一个类名（嵌套类用 $ 分隔），# 开头为注释，空行忽略。
+
+# 登录用户信息（会话键 cn.ypbin.starter.security.core.UserContext#KEY_LOGIN_USER）
 cn.ypbin.starter.security.core.LoginUser
+
+# 在线用户终端信息（Token-Session 键 cn.ypbin.starter.security.online.OnlineUserHelper#KEY_TERMINAL）
+cn.ypbin.starter.security.online.OnlineUserHelper$Terminal

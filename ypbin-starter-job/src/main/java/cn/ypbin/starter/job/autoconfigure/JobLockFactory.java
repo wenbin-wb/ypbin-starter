@@ -97,7 +97,8 @@ final class JobLockFactory {
             try {
                 return (boolean) tryLock.invoke(lockService, key, owner, ttl);
             } catch (ReflectiveOperationException e) {
-                log.warn("[ypbin-starter] 分布式锁 tryLock 调用失败，本次按未抢到处理: {}", e.getMessage());
+                log.warn("[ypbin-starter] 分布式锁 tryLock 调用失败，本次按未抢到处理（该任务本次不执行）: {}",
+                    e.getMessage(), e);
                 return false;
             }
         }
@@ -107,7 +108,8 @@ final class JobLockFactory {
             try {
                 return (boolean) unlock.invoke(lockService, key, owner);
             } catch (ReflectiveOperationException e) {
-                log.warn("[ypbin-starter] 分布式锁 unlock 调用失败，锁将等待 TTL 过期: {}", e.getMessage());
+                log.warn("[ypbin-starter] 分布式锁 unlock 调用失败，锁将等待 TTL 过期（该任务在 TTL 内不会再执行）: {}",
+                    e.getMessage(), e);
                 return false;
             }
         }

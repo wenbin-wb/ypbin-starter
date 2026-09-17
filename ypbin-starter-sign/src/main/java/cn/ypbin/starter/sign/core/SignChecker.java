@@ -192,7 +192,7 @@ public class SignChecker {
                 params.put(entry.getKey(), strVal);
             }
         } catch (Exception e) {
-            log.warn("[ypbin-starter] 解析 JSON 请求体用于签名失败: {}", e.getMessage());
+            log.warn("[ypbin-starter] 解析 JSON 请求体用于签名失败，本次验签将缺少 JSON 参数: {}", e.getMessage(), e);
         }
     }
 
