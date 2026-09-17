@@ -27,6 +27,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 架构规则「有效性自检」。
@@ -34,9 +35,11 @@ import org.junit.jupiter.api.Test;
  * <p>架构测试最大的风险是**规则写错却永远通过**（例如 ArchUnit 匹配不到目标方法，断言恒真）——
  * 这种测试给出虚假安全感，比没有测试更危险。本测试用合成的违规类反向验证每条关键规则确实会失败。</p>
  *
- * <p>这些自检并非形式主义，它们已实际发现两处规则缺陷：调用点 owner 是子类导致
+ * <p>这些自检并非形式主义，它们已实际发现三处规则缺陷：调用点 owner 是子类导致
  * {@code callMethod(Throwable.class, ...)} 全部漏判；Lombok {@code @Data} 为 SOURCE 保留、
- * 字节码层无法校验（故该规则改为源码扫描）。</p>
+ * 字节码层无法校验（故该规则改为源码扫描）；ArchUnit 的 {@code JavaAnnotation#getProperties()}
+ * 会填入注解**默认值**，使 {@code containsKey("rollbackFor")} 恒为真、
+ * 「{@code @Transactional} 必须显式 rollbackFor」规则长期假绿（故改为按取值判定）。</p>
  *
  * @author wenbin
  * @since 2026-09-13
@@ -105,6 +108,81 @@ class ArchRuleSelfCheckTest {
 
         void report(String message) {
             System.out.println(message);
+        }
+    }
+
+    @Test
+    @DisplayName("@Transactional 缺 rollbackFor 规则应能捕获违规（取值判定，而非 getProperties().containsKey）")
+    void transactionalRollbackForRuleShouldCatchViolation() {
+        // 本自检针对的正是曾经的假绿：ArchUnit 的 getProperties() 会填入注解默认值，
+        // 使 containsKey("rollbackFor") 恒为 true；这四个类在旧实现下全部被判合规。
+        JavaClasses violating = new ClassFileImporter().importClasses(
+            TransactionalWithoutRollbackForViolation.class,
+            TransactionalClassLevelWithoutRollbackForViolation.class,
+            TransactionalWithNarrowRollbackForViolation.class,
+            TransactionalWithOtherPropertyViolation.class);
+
+        assertThat(TransactionalRules.findMissingRollbackFor(violating))
+            .as("缺 rollbackFor / 类级缺 rollbackFor / rollbackFor 过窄 / 只显式声明了其它属性，都必须转红")
+            .hasSize(4);
+    }
+
+    @Test
+    @DisplayName("@Transactional 显式 rollbackFor = Exception.class 必须转绿（避免规则恒红）")
+    void transactionalRollbackForRuleShouldPassWhenExplicit() {
+        JavaClasses compliant = new ClassFileImporter().importClasses(
+            TransactionalWithRollbackForOk.class, TransactionalClassLevelWithRollbackForOk.class);
+
+        assertThat(TransactionalRules.findMissingRollbackFor(compliant))
+            .as("方法级与类级都显式声明 rollbackFor = Exception.class 时应无违规")
+            .isEmpty();
+    }
+
+    /** 合成违规：方法级 {@code @Transactional} 未声明 rollbackFor（默认值为空数组） */
+    static class TransactionalWithoutRollbackForViolation {
+
+        @Transactional
+        public void save() {
+        }
+    }
+
+    /** 合成违规：类级 {@code @Transactional} 未声明 rollbackFor（原实现完全未检查类级） */
+    @Transactional
+    static class TransactionalClassLevelWithoutRollbackForViolation {
+
+        public void save() {
+        }
+    }
+
+    /** 合成违规：rollbackFor 过窄（只回滚运行时异常，受检异常仍会漏回滚） */
+    static class TransactionalWithNarrowRollbackForViolation {
+
+        @Transactional(rollbackFor = RuntimeException.class)
+        public void save() {
+        }
+    }
+
+    /** 合成违规：显式声明了其它属性但没写 rollbackFor（可识破「有任意显式属性即通过」的弱判定） */
+    static class TransactionalWithOtherPropertyViolation {
+
+        @Transactional(readOnly = true)
+        public void save() {
+        }
+    }
+
+    /** 合成合规：方法级显式 {@code rollbackFor = Exception.class} */
+    static class TransactionalWithRollbackForOk {
+
+        @Transactional(rollbackFor = Exception.class)
+        public void save() {
+        }
+    }
+
+    /** 合成合规：类级显式 {@code rollbackFor = Exception.class} */
+    @Transactional(rollbackFor = Exception.class)
+    static class TransactionalClassLevelWithRollbackForOk {
+
+        public void save() {
         }
     }
 }
