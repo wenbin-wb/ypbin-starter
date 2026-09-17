@@ -97,6 +97,8 @@ public class SaTokenWebConfigurer implements WebMvcConfigurer {
             Class.forName(SPRINGDOC_MARKER, false, getClass().getClassLoader());
             return true;
         } catch (ClassNotFoundException e) {
+            // 保留：这是「SpringDoc 是否存在」的显式能力探测，ClassNotFoundException 即「不存在」本身，
+            // 不是失败；不存在时不追加文档路径放行也符合语义（那些路径本就不存在）
             return false;
         }
     }

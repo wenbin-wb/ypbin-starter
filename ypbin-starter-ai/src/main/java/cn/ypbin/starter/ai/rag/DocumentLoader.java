@@ -122,7 +122,10 @@ public final class DocumentLoader {
         try {
             Class.forName("org.springframework.ai.reader.pdf.PagePdfDocumentReader");
         } catch (ClassNotFoundException e) {
-            log.warn("[ypbin-ai] spring-ai-pdf-document-reader 未引入，PDF 文件 {} 退化为纯文本解析", filename);
+            // 保留 message-only（不打堆栈）：这是「可选依赖是否存在」的探测，ClassNotFoundException 的堆栈
+            // 无诊断价值；WARN 文案已给出缺失的依赖名＝启用方式，且降级结果（纯文本解析）对使用者可见
+            log.warn("[ypbin-ai] spring-ai-pdf-document-reader 未引入，PDF 文件 {} 退化为纯文本解析"
+                + "（如需按 PDF 结构解析请引入 spring-ai-pdf-document-reader）", filename);
             String text = new String(bytes, StandardCharsets.UTF_8);
             return List.of(new Document(text, Map.of("source", filename != null ? filename : "")));
         }

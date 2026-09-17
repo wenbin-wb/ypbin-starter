@@ -214,8 +214,10 @@ final class PersistCoordinator {
             moveAtomically(temp.toPath(), target.toPath());
             log.debug("[ypbin-ai] SimpleVectorStore saved to {}", storePath);
         } catch (RuntimeException e) {
-            // 序列化失败不阻断本次会话的向量检索，仅记录日志（持久化是尽力而为）
-            log.warn("[ypbin-ai] 向量持久化失败（不影响本次会话检索）: {}", e.getMessage());
+            // 序列化失败不阻断本次会话的向量检索，仅记录日志（持久化是尽力而为）；磁盘上仍是上一次成功写入
+            // 的内容，必须带完整堆栈，否则「重启后向量回到旧版本」无从定位
+            log.warn("[ypbin-ai] 向量持久化失败（不影响本次会话检索，磁盘内容保持上一次成功写入）: {}",
+                e.getMessage(), e);
             deleteQuietly(temp);
         }
     }

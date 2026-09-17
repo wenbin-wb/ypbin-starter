@@ -129,7 +129,9 @@ public class SseEmitterManager implements DisposableBean {
             try {
                 emitter.send(SseEmitter.event().comment("ping"));
             } catch (Exception e) {
-                log.debug("[ypbin-starter] SSE 心跳失败，回收连接：userId={}", userId);
+                // 保留 debug 且不带堆栈：心跳失败绝大多数是客户端已断开（每次断开必现，属高频预期降级），
+                // 升 WARN 会按连接数刷屏；连接回收本身是正确处置，不影响功能正确性
+                log.debug("[ypbin-starter] SSE 心跳失败，回收连接：userId={}", userId, e);
                 if (self[0] != null) {
                     self[0].cancel(false);
                 }

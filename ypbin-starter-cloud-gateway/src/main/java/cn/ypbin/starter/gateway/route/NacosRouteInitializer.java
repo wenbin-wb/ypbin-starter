@@ -205,6 +205,10 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
         try {
             return Optional.ofNullable(objectMapper.readValue(config, ROUTE_LIST_TYPE));
         } catch (JacksonException e) {
+            // 解析失败即「本次 Nacos 路由配置被整体忽略、继续沿用现有路由」：属可观测性关键失败，
+            // 必须带完整堆栈（曾出现推送了非法 JSON 但日志里什么都看不到的情况）
+            log.warn("[ypbin-starter] Nacos 路由配置解析失败，本次配置被忽略并继续沿用现有路由（请检查推送的 "
+                + "JSON 是否为合法路由数组）", e);
             return Optional.empty();
         }
     }

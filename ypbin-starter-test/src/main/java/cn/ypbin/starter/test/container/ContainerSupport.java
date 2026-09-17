@@ -145,6 +145,9 @@ public final class ContainerSupport {
                     try {
                         cached = DockerClientFactory.instance().isDockerAvailable();
                     } catch (RuntimeException e) {
+                        // 保留 debug：这是「环境是否具备 Docker」的显式能力探测，返回值即契约（调用方据此
+                        // 决定跳过或失败）；CI 侧由 tools/preflight.sh 在 Docker 缺失时显式失败兜底，
+                        // 不依赖本日志，故不升 WARN（避免无 Docker 的机器上每次探测刷屏）
                         log.debug("[ypbin-test] Docker 不可用：{}", e.getMessage());
                         cached = false;
                     }

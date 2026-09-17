@@ -148,7 +148,8 @@ public class RefTextManager {
             Map<Object, String> names = provider.getNames(new ArrayList<>(ids));
             return names == null ? Map.of() : names;
         } catch (Exception e) {
-            log.warn("[ypbin-starter] 引用翻译回源失败 type={}: {}", provider.type(), e.getMessage());
+            log.warn("[ypbin-starter] 引用翻译回源失败 type={}，相关引用文本将回退为原始 ID: {}", provider.type(),
+                e.getMessage(), e);
             return Map.of();
         }
     }

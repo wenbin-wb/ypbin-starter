@@ -1,1 +1,2 @@
 cn.ypbin.starter.datapermission.autoconfigure.DataPermissionAutoConfiguration
+cn.ypbin.starter.datapermission.autoconfigure.DataPermissionMissingHandlerAutoConfiguration

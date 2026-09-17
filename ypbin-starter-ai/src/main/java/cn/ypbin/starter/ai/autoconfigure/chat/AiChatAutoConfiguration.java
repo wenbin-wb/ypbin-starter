@@ -97,7 +97,11 @@ public class AiChatAutoConfiguration {
         // 切换时自动快照并还原 ThreadLocal（幂等，重复调用安全）
         Hooks.enableAutomaticContextPropagation();
         VectorStore vectorStore = vectorStoreProvider.getIfAvailable();
-        if (vectorStore != null && props.isRagEnabled()) {
+        if (props.isRagEnabled() && vectorStore == null) {
+            // 开关已开但没有向量库：RAG 会静默失效（对话不注入检索上下文），故启动期显式 WARN
+            log.warn("[ypbin-ai] 已开启 ypbin.ai.chat.rag-enabled=true，但容器中没有 VectorStore，"
+                + "RAG 不会生效（对话不会注入检索上下文）；请开启 ypbin.ai.rag.enabled 并提供可用的嵌入模型配置。");
+        } else if (vectorStore != null && props.isRagEnabled()) {
             log.debug("[ypbin-ai] VectorStore detected, global RAG enabled");
         }
         return new DefaultAiChatService(chatClientProvider.getIfAvailable(), chatMemory, vectorStore,
