@@ -9,7 +9,31 @@
 
 ## [未发布]
 
-（下一迭代的开发变更记录在此）
+### 新增
+
+- **`tools/export-tracking-events.mjs` 支持读两份目录并输出联合结果**（分层方案第 4 步；运行时合并能力已于 3.4.0 发布）。
+  新增 `--host <宿主资源目录或文件>`（目录按约定取 `META-INF/ypbin/tracking-events.json`）与
+  `--merged-out <文件|->`（`-` 即 stdout，此时人类可读日志自动改走 stderr 以免污染管道消费方）。
+  合并口径与运行时 `TrackingCatalogMerger` **完全一致**（同一事件码以 project 为准；属性 `maxLength` 按
+  「未声明即 0＝不限制」归一后比较），覆盖差异逐字段打印；联合结果顶层新增 `overriddenCodes` 字段标注
+  「被覆盖且确有字段变化」的事件码——放顶层而非事件对象里，使 `events` 数组仍能被运行时目录解析器直接读取。
+  **向后兼容**：不传 `--host` 时逻辑与产物与原先**逐字节一致**，`--check` 漂移门禁照旧；
+  宿主不存在、`--merged-out` 缺 `--host` 等误用一律 exit 1（不静默降级为「没有宿主目录」）。
+
+### 变更（不兼容）
+
+- **`system.user.export` 从 base 目录迁出**（`docs/tracking-events.json`，事件数 10 → 9）。它是**业务示例事件**：
+  目录里登记着、但全仓（starter / admin / admin-ui）**没有任何发送方**，属死事件。按分层方案，这类事件应登记在
+  **宿主自己的 project 目录**（admin 已新增 `ypbin-common/src/main/resources/META-INF/ypbin/tracking-events.json` 承接它）。
+  不兼容点：**目录里 `TrackingEventCodes.SYSTEM_USER_EXPORT` 常量随之删除**；只依赖 starter 而没在自己的 project
+  目录里登记该码的宿主，其采集端会按「未登记」拒收该事件码（这正是分层的语义：事件码归生产者维护）。
+  ⚠️ **升级顺序**：新增 project 目录的宿主需与升级本版本**同批**上线，否则中间态会短暂拒收该码。
+  `auth.user.login` / `auth.user.logout` **保留在 base**（登录/登出是所有宿主都有的通用事件，admin 的
+  `LoginEventTracker` 已是它们的真实发送方）。
+
+### 文档
+
+- `docs/MODULES.md` 的 tracking 一节补「两层目录 + 覆盖规则 + 已知边界」；README 模块表同步标注分层。
 
 ## [3.4.0] - 2026-09-17
 

@@ -39,9 +39,6 @@ public final class TrackingEventCodes {
     /** auth.user.logout：用户登出。 */
     public static final String AUTH_USER_LOGOUT = "auth.user.logout";
 
-    /** system.user.export：用户数据导出（业务事件示例）。 */
-    public static final String SYSTEM_USER_EXPORT = "system.user.export";
-
     /** ui.click.action：白名单点击：元素需显式声明 data-track 属性才会采集。 */
     public static final String UI_CLICK_ACTION = "ui.click.action";
 
@@ -65,7 +62,6 @@ public final class TrackingEventCodes {
         API_REQUEST_END,
         AUTH_USER_LOGIN,
         AUTH_USER_LOGOUT,
-        SYSTEM_USER_EXPORT,
         UI_CLICK_ACTION,
         UI_PAGE_LEAVE,
         UI_PAGE_VIEW,
@@ -79,7 +75,6 @@ public final class TrackingEventCodes {
             Map.entry(API_REQUEST_END, "接口调用结束：含耗时与业务结果"),
             Map.entry(AUTH_USER_LOGIN, "登录成功"),
             Map.entry(AUTH_USER_LOGOUT, "用户登出"),
-            Map.entry(SYSTEM_USER_EXPORT, "用户数据导出（业务事件示例）"),
             Map.entry(UI_CLICK_ACTION, "白名单点击：元素需显式声明 data-track 属性才会采集"),
             Map.entry(UI_PAGE_LEAVE, "页面离开：携带本次停留时长"),
             Map.entry(UI_PAGE_VIEW, "页面浏览：路由进入后上报一次"),

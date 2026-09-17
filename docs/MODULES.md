@@ -726,14 +726,34 @@ ypbin:
     trust-forwarded: false       # 网关之后需开启，否则记录到的是网关地址
 ```
 
-**事件目录是唯一事实源**（`docs/tracking-events.json`）：事件码形如 `{domain}.{object}.{action}`，**禁止动态拼接**，未登记的事件码在采集入口即被拒绝、不会静默入库。改动目录后必须重新生成：
+**事件目录是唯一事实源**：事件码形如 `{domain}.{object}.{action}`，**禁止动态拼接**，未登记的事件码在采集入口即被拒绝、不会静默入库。目录分**两层**，运行时合并：
+
+| 层 | 位置（谁维护） | 放什么 |
+|---|---|---|
+| **base** | starter 仓的 `docs/tracking-events.json`（平台维护） | **任何宿主都会用**的事件：web 行为（页面/点击/性能/错误）、API 调用、认证（`auth.user.login` / `auth.user.logout` —— 宿主的登录/登出录制方直接引用它们） |
+| **project** | **宿主项目仓**的 `src/main/resources/META-INF/ypbin/tracking-events.json`（宿主维护，随宿主 jar 打包） | 宿主**自己的业务事件**（如 `system.user.export`）。starter 不替任何人预置业务示例事件 |
+
+**为什么分层**：事件码是「生产者（客户端）与平台（采集端）之间的接口」。目录原先由平台单方持有，别的项目要加事件只能改 starter（于是诞生了无人发送的公共事件），或整个覆盖目录（覆盖者须自行维护全部事件）。分层后宿主只维护自己那一份，**未提供 project 文件的宿主 = 纯 base，零破坏**。
+
+**合并规则（决定 ②）**：两层资源**同名同路径、不同 jar**，运行时由 `classpath*:` 取回**全部**同名资源、再按「资源所在归档是否为 starter 自身归档」区分两层后合并（不能用 `getResource` 只取其一——类路径命中顺序不可靠）。
+
+- 同一事件码**以 project 为准**；
+- 覆盖发生时**必定逐字段打印差异**（`description` 变化、`properties` 新增/删除、属性 `type`/`maxLength` 变化），logger 名为 `cn.ypbin.starter.tracking.core.TrackingCatalogLoader`；`TrackingEventCatalog#overriddenCodes()` 把同一事实暴露给程序化使用方（监控、管理界面），使「该条已被覆盖」始终可观测。**这是本仓唯一有意偏离「禁静默降级」的地方：用「必须打印差异 + 可编程标注」替代「直接失败」，故实现时不得省略打印。**
+- 载入失败一律失败，不降级：base 缺失、宿主侧出现**两份及以上**同名目录（无法确定优先级）、schemaVersion 不识别、资源损坏、同一文件内事件码重复，均在启动期直接抛错。**已知边界**：宿主若用 uber/shade 打包，把 starter 的目录资源与自己的同名资源合并进**同一个**归档，两层会退化为一份；需要分层能力的宿主请勿合并该资源。
+
+改动目录后必须重新生成 / 校验：
 
 ```bash
-node tools/export-tracking-events.mjs           # 生成 Java 常量 + 运行时资源
+node tools/export-tracking-events.mjs           # 从 base 生成 Java 常量 + 运行时资源
 node tools/export-tracking-events.mjs --check   # 漂移门禁（改目录忘记重生成会被 CI 拦下）
+
+# 读两份（base + 宿主 project）并输出联合结果；覆盖差异必定打印到 stderr
+node tools/export-tracking-events.mjs --host <宿主资源目录或文件> --merged-out <文件|->   # `-` 即 stdout
+node tools/export-tracking-events.mjs --check --host <...> --merged-out <文件>            # 校验联合结果未漂移
 ```
 
-生成物为 `TrackingEventCodes`（编译期常量）与 `META-INF/ypbin/tracking-events.json`（运行期校验用）。
+- 生成物为 `TrackingEventCodes`（编译期常量）与 `META-INF/ypbin/tracking-events.json`（运行期校验用）；**starter 只生成 base 的那份**（现有常量名不删不改），宿主自有事件的常量请宿主自己的工具生成到宿主源码树，**不要复用 starter 的包名**（避免两类事实源混在一起）。
+- 联合结果里的顶层 `overriddenCodes` 字段即「被 project 覆盖且字段确有变化」的事件码标注；该字段刻意放在顶层，使 `events` 数组仍能被运行时的 `TrackingEventCatalog` 直接解析。
 
 **持久化扩展点**（在采集消费者线程被调用，与业务请求线程隔离，允许阻塞）：
 

@@ -48,19 +48,6 @@
       "properties": []
     },
     {
-      "code": "system.user.export",
-      "description": "用户数据导出（业务事件示例）",
-      "source": "backend",
-      "since": "3.2.0",
-      "properties": [
-        {
-          "name": "rowCount",
-          "type": "integer",
-          "description": "导出行数"
-        }
-      ]
-    },
-    {
       "code": "ui.click.action",
       "description": "白名单点击：元素需显式声明 data-track 属性才会采集",
       "source": "web",
