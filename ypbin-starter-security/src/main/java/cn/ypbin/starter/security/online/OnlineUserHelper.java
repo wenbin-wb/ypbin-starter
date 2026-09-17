@@ -292,15 +292,19 @@ public final class OnlineUserHelper {
         private static final long serialVersionUID = 1L;
 
         /** 登录 IP */
+        @Nullable
         private String ip;
 
         /** IP 归属地 */
+        @Nullable
         private String location;
 
         /** 浏览器 */
+        @Nullable
         private String browser;
 
         /** 操作系统 */
+        @Nullable
         private String os;
 
         /** 登录时间（epoch 毫秒）：与 Jackson/时间类型配置无关的存储形态 */
@@ -343,6 +347,7 @@ public final class OnlineUserHelper {
             return fromText != null ? fromText : parseLoginTimeText(loginTime);
         }
 
+        @Nullable
         public String getIp() {
             return ip;
         }
@@ -351,6 +356,7 @@ public final class OnlineUserHelper {
             this.ip = ip;
         }
 
+        @Nullable
         public String getLocation() {
             return location;
         }
@@ -359,6 +365,7 @@ public final class OnlineUserHelper {
             this.location = location;
         }
 
+        @Nullable
         public String getBrowser() {
             return browser;
         }
@@ -367,6 +374,7 @@ public final class OnlineUserHelper {
             this.browser = browser;
         }
 
+        @Nullable
         public String getOs() {
             return os;
         }
