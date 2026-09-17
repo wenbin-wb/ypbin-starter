@@ -60,16 +60,20 @@ public class OnlineUser implements Serializable {
     @Nullable
     private String deviceType;
 
-    /** 登录 IP */
+    /** 登录 IP（终端信息未记录/不可读时为空） */
+    @Nullable
     private String ip;
 
-    /** IP 归属地 */
+    /** IP 归属地（未接入离线 IP 库时为空） */
+    @Nullable
     private String location;
 
-    /** 浏览器 */
+    /** 浏览器（User-Agent 缺失或无法解析时为空） */
+    @Nullable
     private String browser;
 
-    /** 操作系统 */
+    /** 操作系统（User-Agent 缺失或无法解析时为空） */
+    @Nullable
     private String os;
 
     /** 登录时间 */
@@ -134,35 +138,39 @@ public class OnlineUser implements Serializable {
         this.deviceType = deviceType;
     }
 
+    @Nullable
     public String getIp() {
         return ip;
     }
 
-    public void setIp(String ip) {
+    public void setIp(@Nullable String ip) {
         this.ip = ip;
     }
 
+    @Nullable
     public String getLocation() {
         return location;
     }
 
-    public void setLocation(String location) {
+    public void setLocation(@Nullable String location) {
         this.location = location;
     }
 
+    @Nullable
     public String getBrowser() {
         return browser;
     }
 
-    public void setBrowser(String browser) {
+    public void setBrowser(@Nullable String browser) {
         this.browser = browser;
     }
 
+    @Nullable
     public String getOs() {
         return os;
     }
 
-    public void setOs(String os) {
+    public void setOs(@Nullable String os) {
         this.os = os;
     }
 
