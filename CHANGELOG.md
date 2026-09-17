@@ -11,6 +11,48 @@
 
 ### 修复
 
+- **AI 用量回调在三条路径上均未触发 / 用量恒为 0**（`ypbin-starter-ai`）。根因三处：
+  ① `DefaultAiChatService` 只在非流式 `chat()` 触发 `AiUsageListener`，流式三方法
+  （`chatStream` / `chatWithKnowledge` / `chatWithSystemPrompt`）完全不触发；
+  ② 唯一触发点把 token 硬编码为 `0`（`AiUsageInfo.of(model, conversationId, 0, 0, 0, duration)`），
+  宿主即便实现监听器也只能拿到假数据；③ 失败与取消（SSE 断开）无任何事件，形成「有请求、无记录」黑洞。
+  修复：四个对话方法共用一条埋点链路 `trackUsage`，对**原始** `ChatResponse` 分片（含无文本的用量分片）
+  采集上游 `ChatResponseMetadata#getUsage()`，完成/异常/取消分别以
+  `AiUsageOutcome.SUCCESS/FAILURE/CANCELLED` **各恰好上报一次**（`doOnComplete`/`doOnError`/`doOnCancel`
+  + `AtomicBoolean` 去重；取消事件通过 `doOnCancel` 发出）；埋点异常全部隔离在回调内并
+  `log.error(..., ex)` 记录完整堆栈，不影响主流式输出。
+  **超时语义**：超时由埋点链路内的 `Flux.timeout` 产生（位于三个终局回调的上游），故一律按
+  **失败**（`TimeoutException`）上报，不是取消；实现上同步 `chat()` 必须让 `block` 的截止时间比
+  `Flux.timeout` 多留 1s 传播余量，否则两者同时到点、`block` 自己的取消会先把超时记成 `CANCELLED`
+  （独立复核实测 20/20 复现，并已补 `chat_timeout_isReportedAsFailure_andEventArrivesBeforeException`
+  用例与反向验证）。同步路径始终启用硬截止（`stream-timeout-ms<=0` 时兜底 60s），流式路径尊重
+  `ypbin.ai.chat.stream-timeout-ms` 的「0＝不超时」语义。
+  **注意四个方法底层都走 `ChatClient#stream()`**（同步 `chat()` 是流式结果聚合后阻塞返回），
+  故用量只能来自流式分片。
+  **Token 语义修正**：`AiUsageInfo` 的三个 token 字段由 `long` 改为可空 `Long`——Spring AI 2.0.1 在
+  「上游未返回 usage」时给的是 `0`（`EmptyUsage#getPromptTokens()` 返回 0；框架自带判据
+  `UsageCalculator.isEmpty(usage)` 判的也是 `totalTokens == 0`；累计后的 `DefaultUsage` 同样是 0 且已
+  不是 `EmptyUsage`），0 与真实 0 token 用任何判据都不可区分，故一律把 0 视为「未回报」并上报 `null`
+  （**绝不填 0 冒充**），并新增 `outcome`/`errorMessage` 字段与 `usageReported()` 判定。
+  **契约变更**：`AiUsageInfo` 记录组件类型/个数变更（宿主侧实现需同步调整；当前宿主尚未实现该 SPI）。
+  新增 `AiUsageOutcome` 枚举与 13 项单测（成功/失败/取消/超时各恰好一次、上游无用量时不伪造 0、
+  回调抛异常时主流程不受影响且 ERROR 带完整堆栈）。验证依据取自依赖版本字节码（Spring AI 2.0.1：
+  `ChatResponse#getMetadata()` 可空、`#getUsage()`、`OpenAiChatModel` 仅当 `streamOptions == null` 时才
+  默认 `includeUsage(true)`、`UsageCalculator#getCumulativeUsage`/`isEmpty` 语义、
+  `MessageAggregator` 只做观测聚合而原样透传分片）。
+  **已知限制（本轮未改）**：① 宿主若自行配置 `spring.ai.openai.chat.options.stream-options.*` 且未把
+  `include-usage` 显式设为 `true`，上游不再回传用量，此时如实上报 `null`（不会静默变 0，但宿主会失去
+  用量数据，建议显式开启）；② RAG 检索与文档入库的 **embedding** token 仍无埋点
+  （`SimpleVectorStore.doAdd`→`EmbeddingModel.embed(Document)`、`doSimilaritySearch`→
+  `EmbeddingModel.embed(String)`），需给 SPI 增加「调用类型」维度并包装 `LazySimpleVectorStore` 内构建的
+  `OpenAiEmbeddingModel` 才可覆盖，另行立项。
+- **`PersistCoordinatorTest` 并发合并断言依赖调度时序（偶发假红，已改为确定性构造）**（`ypbin-starter-ai`）。
+  原用例把「16 个线程是否真正重叠」交给调度器，一旦各自串行进入临界区，写透模式下落盘次数就是 16 次
+  （正常语义），断言 `writes <= 16` 便随机报 `17 > 16`（本机实测在新增上述用例、同 JVM 内 JIT/调度状态
+  改变后约 50% 概率复现）。现由用例内闩锁显式构造重叠（胜出线程在 write 回调内等待其余 15 个线程完成
+  `markDirty`），断言收紧为确定性的 `writes <= 3`；已用变异验证（去掉 `drain()` 的单飞 CAS）确认用例
+  仍会变红。
+
 - **在线用户 IP/浏览器/操作系统/登录时间恒为空（Sa-Token 会话多态反序列化白名单漏登记，读取侧静默降级）**
   （`ypbin-starter-security`）。根因：Sa-Token 1.46 的会话 JSON 由 `sa-token-jackson3` 的
   `SaJsonTemplateForJackson3` 处理，它开启默认类型信息（`@class`）并用 `BasicPolymorphicTypeValidator`

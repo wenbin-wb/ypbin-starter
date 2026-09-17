@@ -43,7 +43,7 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class PersistCoordinatorTest {
 
-    /** 覆盖 10 轮，降低并发时序偶然性；每轮写入内容为当轮序号 */
+    /** 并发线程数（= 变更次数）；「并发重叠」由用例内的闩锁显式构造，不依赖调度器时序 */
     private static final int CONCURRENT_THREADS = 16;
 
     @Test
@@ -68,8 +68,17 @@ class PersistCoordinatorTest {
         Path target = dir.resolve("store.json");
         AtomicInteger writes = new AtomicInteger();
         AtomicReference<String> latest = new AtomicReference<>("init");
+        // 并发重叠必须由测试自己构造，不能交给调度器：
+        // 抢到单飞标志的线程会阻塞在 write() 回调里，等「其余 15 个线程都已完成 markDirty」，
+        // 从而保证 16 次变更确实重叠。原实现依赖线程唤醒顺序与临界区耗时，一旦 16 个线程
+        // 各自串行进入临界区，写透模式下落盘次数就是 16 次（正常语义，不是缺陷），断言便随机变红
+        // （本机实测：同 JVM 内新增用例改变 JIT/调度状态后，该断言曾以约 50% 概率报 17 > 16）。
+        // 注意闩锁只等 CONCURRENT_THREADS - 1 个线程：胜出线程永远走不到自己的 countDown
+        // （它正阻塞在 write() 内），若按 16 计数必然死锁。
+        CountDownLatch otherThreadsMarked = new CountDownLatch(CONCURRENT_THREADS - 1);
         PersistCoordinator coordinator = new PersistCoordinator(target.toString(), 0, file -> {
             writes.incrementAndGet();
+            awaitOtherThreadsMarked(otherThreadsMarked);
             writeText(file, latest.get());
         });
 
@@ -81,6 +90,8 @@ class PersistCoordinatorTest {
                     await(start);
                     latest.set("v" + index);
                     coordinator.markDirty();
+                    // 落败线程（CAS 失败后立即返回）在此报到；胜出线程阻塞在 write() 内，天然不报到
+                    otherThreadsMarked.countDown();
                 });
             }
             start.countDown();
@@ -91,8 +102,27 @@ class PersistCoordinatorTest {
         coordinator.flush();
 
         assertThat(readText(target)).isEqualTo(latest.get());
-        // 无论并发多少，单飞 + 合并都不应退化为「每个线程各写一次」
-        assertThat(writes.get()).isLessThanOrEqualTo(CONCURRENT_THREADS);
+        // 确定性判定：并发阶段 2 次（首写 + 观察到脏标记后的复查写），flush 再补 1 次 ⇒ 恰好 3 次。
+        // 回归防护（已用变异验证：去掉 drain() 的单飞 CAS）——单飞失效时用例必然变红：
+        // ① 其余线程会阻塞在 write() 内直到闩锁 30s 超时，pool.awaitTermination 断言先失败；
+        // ② 若退化成「每次变更各写一次」（16 + flush = 17 次），此处写入计数断言失败。
+        assertThat(writes.get()).isLessThanOrEqualTo(3);
+    }
+
+    /**
+     * 阻塞直到其余线程都完成 {@code markDirty()}（带超时与中断处理，不静默降级）。
+     *
+     * @param latch 其余线程的完成闩锁
+     */
+    private static void awaitOtherThreadsMarked(CountDownLatch latch) {
+        try {
+            if (!latch.await(30, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("等待其余线程 markDirty 超时（30s），并发重叠未被构造出来");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("等待其余线程 markDirty 时被中断", ex);
+        }
     }
 
     @Test
