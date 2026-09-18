@@ -188,4 +188,22 @@ starter 的改动**一律先攒进 `CHANGELOG.md` 的 `[未发布]` 段**，不�
    - admin 依赖版本已指向新版本（CI 防漂移校验会兜底）；
    - 仓库工作区干净、无未提交改动。
 4. **禁止同日连续发布多个版本**：若当天发现刚发布的版本有遗漏，优先在下一周期合入；确需紧急修复，走 PATCH 并说明理由。
-5. **下游（admin/site）的版本联动**由各仓库 `sync-starter-version` workflow 自动完成，发布者无需手动改下游。
+5. **下游（admin/site）的版本联动**由各仓库 `sync-starter-version` workflow 完成——本仓发布时用
+   `repository_dispatch`（事件 `starter-release`）通知 `wenbin-wb/ypbin-admin` 与 `wenbin-wb/ypbin-site`。
+   ⚠️ **但它只覆盖「默认分支」**：`repository_dispatch` 只在接收方的默认分支（admin/site 的 `main`）触发。
+6. **发布后必须手动跟进「非默认分支」**（2026-09-18 新增，源自一次真实踩坑）：
+   admin 除 `main` 外还有 `boot`（单体）与 `feature/miniapp-backend` 两条长期分支，它们**不会**收到自动同步。
+   而 admin 的 CI 有一条硬断言——`ypbin-starter.version` 必须等于 `releases/latest`——
+   于是**每次发版都会让未跟进的这些分支变成「一 push 就红」**（现象很迷惑：分支自己什么都没改，CI 却红）。
+   发布后请逐个核对并升级：
+   ```bash
+   # 逐个分支核对固定版本（在 admin 仓执行）
+   for b in main boot feature/miniapp-backend; do
+     echo -n "$b: "; git show origin/$b:pom.xml | grep -oP '(?<=<ypbin-starter.version>)[^<]+'
+   done
+   ```
+   > 实测经验：这类「跨版本升级」的代价常常**远小于直觉**——2026-09-18 把 `boot` 从 3.1.0 直接升到 3.4.0
+   > 是零代码改动（编译通过 + 29 项测试全绿）。**别因为「跨了几个版本」就默认它很贵**，先实测再决定。
+7. **别只看发布 workflow 是绿的**：`release.yml` 里通知下游的那一步是
+   `... && echo 已通知 || echo 通知失败（忽略）`——**失败会被吞掉**。发布后请到下游仓确认
+   `sync-starter-version` 真的产生了同步提交（本仓记忆「教训二十二」）。
