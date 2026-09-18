@@ -19,6 +19,18 @@
   「被覆盖且确有字段变化」的事件码——放顶层而非事件对象里，使 `events` 数组仍能被运行时目录解析器直接读取。
   **向后兼容**：不传 `--host` 时逻辑与产物与原先**逐字节一致**，`--check` 漂移门禁照旧；
   宿主不存在、`--merged-out` 缺 `--host` 等误用一律 exit 1（不静默降级为「没有宿主目录」）。
+- **启动期自检：自定义了 `stream-options` 却没开 `include-usage` ⇒ 启动期 WARN**（`ypbin-starter-ai`）。
+  新增 `AiStreamOptionsMissingIncludeUsageAutoConfiguration`：宿主配置了
+  `spring.ai.openai.chat.options.stream-options.*` 下**任意一项**（含 `additional-properties.*`）却没把
+  `include-usage` 显式设为 `true` 时，启动期打一条 WARN 说清三件事——① 现象：AI 用量将无法统计，用量回调里的
+  三个 token 会被如实记为 `null`（未知）而不是 0；② 原因：Spring AI 2.0.1 仅在宿主**未配置**该组时才默认请求
+  `stream_options.include_usage=true`，配置了任意一项后是否请求用量就只由组内的 `include-usage` 决定（不写＝
+  不回传）；③ 动作：显式补上 `spring.ai.openai.chat.options.stream-options.include-usage: true`。
+  **宿主完全没配该组时保持安静**（框架会替其默认请求用量，属正常情形，打日志只会变成噪音）；**只告警、不替宿主
+  自动补配置**（自动补会把「我配了却没生效」变成隐形行为）。该组属性仅作用于 yml 装配的 OpenAI 模型，
+  模型配置表驱动的主路径不受影响。含 7 项单测（6 项告警行为，含 relaxed 驼峰写法不误报、
+  `additional-properties` 也算「配了」；1 项「只设模型名时 stream-options 为空」的框架契约哨兵，
+  框架升级若改变该默认即转红）。
 
 ### 变更（不兼容）
 
