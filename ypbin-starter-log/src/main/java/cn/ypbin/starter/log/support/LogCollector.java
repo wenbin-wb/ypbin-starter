@@ -84,7 +84,10 @@ public class LogCollector {
      * @param includes 采集项集合
      * @param args     方法入参（用于采集 JSON 请求体，绕开 Servlet 流只能读一次的限制）
      * @param result   方法返回值（用于响应体，可空）
-     * @param error    异常（可空）
+     * @param error    异常（可空）。<b>参数保留为公开 API 的一部分</b>：异常文本由
+     *                 {@code LogAspect} 直接写入 {@code record.errorMsg}（它同时负责设置状态码与耗时），
+     *                 这里不再重复设置；删除该参数属于对已发布库的破坏性变更，故保留并在此说明。
+     *                 （CodeQL {@code java/unused-parameter} 对此外报 note，已按「won't fix」结案。）
      */
     public void collect(LogRecord record, Set<Include> includes, Object[] args, @Nullable Object result,
             @Nullable Throwable error) {
