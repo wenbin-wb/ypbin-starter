@@ -223,6 +223,10 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         // 明确拒绝：重置放行计数（服务端可达且给出明确答复），不缓存，直接阻断
         consecutiveFailOpenCount = 0;
         failOpenUntil = 0;
+        // 这里的 `data == null` 看似冗余（语义上 valid != null 已蕴含 data != null），
+        // 但 **NullAway 不做跨变量的路径敏感推断**，它仍视 data 为 @Nullable —— 去掉该判空会被
+        // 空值安全门禁判红（实测：`[NullAway] dereferenced expression 'data' is @Nullable`）。
+        // 因此保留该判空，并把 CodeQL 的 `java/useless-null-check` 按「与 NullAway 门禁冲突的误报」结案。
         String reason = data == null || data.reason() == null ? "" : data.reason();
         throw new LicenseException(LicenseErrorCode.LICENSE_REMOTE_REJECTED,
             "联机授权校验未通过：" + (reason.isBlank() ? "授权可能已被吊销" : reason));
