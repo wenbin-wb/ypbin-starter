@@ -30,10 +30,11 @@ import org.slf4j.LoggerFactory;
  *
  * <p><strong>平台超管约定 ≠ Sa-Token 通配符</strong>：本仓与下游宿主用 {@link #SUPER_ADMIN}
  * （{@code *:*:*}）表示平台超管，而 Sa-Token 的「全权限」通配符是 {@link #ANY}（单个 {@code *}）。
- * {@code *:*:*} 在 Sa-Token 内部只作为普通权限码参与模糊匹配，实测只能命中「恰好两段」的权限码
- * （{@code system:user:add} 能过，而 {@code user:add} 不能）——于是超管反而被挡在两段权限码之外。
- * 本适配器在返回前为含 {@code *:*:*} 的集合补上 {@code *}，保留超管语义；原始权限码原样保留，
- * 不做删除或改写。</p>
+ * {@code *:*:*} 在 Sa-Token 内部只作为普通权限码参与模糊匹配（账号权限码当 pattern 走
+ * {@code SaFoxUtil.vagueMatch}），实测只能命中<strong>含两个及以上冒号</strong>的权限码：
+ * {@code system:user:add}（2 个冒号）、{@code a:b:c:d}（3 个）能过，而 {@code user:add}（1 个）、
+ * {@code single}（0 个）不能——于是超管反而被挡在短权限码之外。本适配器在返回前为含 {@code *:*:*} 的集合
+ * 补上 {@code *}，保留超管语义；原始权限码原样保留，不做删除或改写。</p>
  *
  * @author wenbin
  * @since 2026-07-30

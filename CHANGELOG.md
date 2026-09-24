@@ -68,11 +68,12 @@
   「值不匹配即不装配」；注册内容仍由两个开关在 `SaTokenWebConfigurer` 内决定。
   身份模式的能力边界已在 `IdentityStpLogic` Javadoc 写明：按 token 反查的 API（`isValidToken` /
   `getLoginIdByToken`）只认与当前请求身份一致的 token（不再把调用者身份冒充成任意 token 的主人）；
-  `renewTimeout` 在「有身份头但无会话」时明确抛异常（无身份头时按基类语义静默返回，不会假装续期成功）；
+  `renewTimeout` 在「有身份头但无会话」时明确抛异常；无身份头时按基类语义静默返回（该方法是 `void`，
+  调用方无法据此判断是否真的续期，因此不要依赖它）；
   `@SaCheckSafe` fail-closed 拒绝。`SaTokenExceptionHandler` 同时补了
   `NotSafeException` 与 `SaTokenException` 兜底，避免这类「当前模式不支持」落到 web 兜底被误报成 500。
   ⚠️ 行为变更见上方「变更（不兼容）」。
-- **平台超管 `*:*:*` 命不中一段权限码**（`ypbin-starter-security`）。本仓与下游用 `*:*:*` 约定平台超管，
+- **平台超管 `*:*:*` 命不中短权限码**（`ypbin-starter-security`）。本仓与下游用 `*:*:*` 约定平台超管，
   但 Sa-Token 的「全权限」通配符是单个 `*`：`*:*:*` 只作为普通权限码参与模糊匹配，实测**只能命中含两个及以上
   冒号的权限码**（`system:user:add`、`a:b:c:d` 能过；`user:add`、`single` 不能）——超管反而被挡在短权限码之外。
   `StpPermissionAdapter` 现在会在返回前为含 `*:*:*` 的权限码/角色码集合补上 `*`（原始码原样保留，不删除不改写），
