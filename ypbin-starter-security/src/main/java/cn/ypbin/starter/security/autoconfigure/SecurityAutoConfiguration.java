@@ -18,6 +18,8 @@ package cn.ypbin.starter.security.autoconfigure;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.listener.SaTokenEventCenter;
 import cn.dev33.satoken.stp.StpInterface;
+import cn.dev33.satoken.stp.StpLogic;
+import cn.dev33.satoken.stp.StpUtil;
 import cn.ypbin.starter.security.client.DefaultLoginClientProvider;
 import cn.ypbin.starter.security.client.DefaultLoginClientService;
 import cn.ypbin.starter.security.client.LoginClientHolder;
@@ -26,6 +28,7 @@ import cn.ypbin.starter.security.client.LoginClientService;
 import cn.ypbin.starter.security.core.LoginVerifyProvider;
 import cn.ypbin.starter.security.core.PermissionProvider;
 import cn.ypbin.starter.security.handler.SaTokenExceptionHandler;
+import cn.ypbin.starter.security.identity.IdentityStpLogic;
 import cn.ypbin.starter.security.online.DefaultOnlineUserService;
 import cn.ypbin.starter.security.online.OnlineUserService;
 import cn.ypbin.starter.security.password.lock.InMemoryPasswordAttemptStore;
@@ -206,20 +209,49 @@ public class SecurityAutoConfiguration {
     }
 
     /**
-     * 全局登录校验拦截器配置。
+     * Sa-Token 拦截器配置（登录校验与注解鉴权由两个相互独立的开关控制）。
      *
-     * <p>仅在 Servlet Web 环境、类路径存在 {@link SaInterceptor} 与 {@link WebMvcConfigurer}、且
-     * {@code ypbin.security.interceptor=true}（默认）时装配。业务方提供自定义 {@link WebMvcConfigurer}
-     * 或关闭该开关即可覆盖/停用。</p>
+     * <p>Servlet Web 环境、类路径存在 {@link SaInterceptor} 与 {@link WebMvcConfigurer} 时装配，
+     * <strong>装配与否不看开关值</strong>——由 {@link SaTokenWebConfigurer} 在注册阶段按
+     * {@code ypbin.security.interceptor} / {@code ypbin.security.annotation-check} 决定注册内容，
+     * 两个开关都为 {@code false} 时不注册任何拦截器。这里刻意不用 {@code @ConditionalOnExpression}
+     * 做装配条件：SpEL 对 {@code yes}/{@code on}/{@code 1} 这类非布尔字面量会抛异常并让应用**启动失败**，
+     * 而 {@code @ConditionalOnProperty} 的既有语义是「值不匹配即不装配」（不影响启动）。</p>
      */
     @Bean
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnClass({SaInterceptor.class, WebMvcConfigurer.class})
-    @ConditionalOnProperty(prefix = "ypbin.security", name = "interceptor", havingValue = "true", matchIfMissing = true)
     @ConditionalOnMissingBean(SaTokenWebConfigurer.class)
     public SaTokenWebConfigurer saTokenWebConfigurer(SecurityProperties properties,
         ObjectProvider<SecurityExcludePathProvider> excludePathProviders) {
         return new SaTokenWebConfigurer(properties, excludePathProviders.orderedStream().toList());
+    }
+
+    /**
+     * 微服务下游的身份头账号体系桥。
+     *
+     * <p>仅当 {@code ypbin.security.identity.enabled=true}（宿主显式声明自己位于可信网关之后、网关负责
+     * 清洗并签发身份头）时装配，并把 {@link IdentityStpLogic} 注册为 Sa-Token 默认账号体系实现：注解鉴权
+     * （{@code @SaCheckPermission} 等）因此以网关签发的身份头为账号来源，无需 Sa-Token 会话即可工作。
+     * 这是「下游关掉登录拦截后仍保留注解鉴权」的另一半（拦截器侧见 {@link SaTokenWebConfigurer}）。</p>
+     *
+     * <p>按类型让位：宿主自定义了任意 {@link StpLogic} Bean 时本 Bean 不装配（Sa-Token 的 Bean 注入机制
+     * 会把宿主的实现装进 {@code StpUtil}，此时身份头桥由宿主自行决定是否保留）。这里显式调用
+     * {@code StpUtil.setStpLogic(...)} 而不是只依赖 Sa-Token 的自动注入：注册是注解鉴权能否生效的前提，
+     * 不允许因自动注入缺席而静默退化成「注解不生效」。</p>
+     *
+     * <p>注册是进程级静态状态，因此该模式下无 token-session，token 活跃度冻结与自动续期不生效，
+     * token 生命周期由网关侧承担。</p>
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "ypbin.security.identity", name = "enabled", havingValue = "true")
+    @ConditionalOnMissingBean(StpLogic.class)
+    public IdentityStpLogic identityStpLogic() {
+        IdentityStpLogic stpLogic = new IdentityStpLogic();
+        StpUtil.setStpLogic(stpLogic);
+        log.info("[ypbin-starter] 已启用身份头账号体系（IdentityStpLogic）：注解鉴权以身份头为账号来源，"
+            + "token 活跃度校验与自动续期在该模式下不生效");
+        return stpLogic;
     }
 
     /**

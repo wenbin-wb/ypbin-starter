@@ -9,7 +9,7 @@
     {
       "name": "ypbin.security.interceptor",
       "type": "java.lang.Boolean",
-      "description": "是否注册全局登录校验拦截器（SaInterceptor）。",
+      "description": "是否执行全局「登录态」校验（StpUtil.checkLogin）。与 annotation-check 相互独立：本项只管登录态，方法级注解鉴权由 annotation-check 控制。",
       "defaultValue": true
     },
     {

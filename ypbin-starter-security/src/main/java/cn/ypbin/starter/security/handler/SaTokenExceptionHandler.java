@@ -19,6 +19,8 @@ import cn.dev33.satoken.exception.DisableServiceException;
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
+import cn.dev33.satoken.exception.NotSafeException;
+import cn.dev33.satoken.exception.SaTokenException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import org.slf4j.Logger;
@@ -82,6 +84,31 @@ public class SaTokenExceptionHandler {
     public R<Void> handleDisableService(DisableServiceException e) {
         log.warn("[账号被封] service={}, level={}, disableTime={}", e.getService(), e.getLevel(), e.getDisableTime());
         return R.fail(GlobalErrorCode.FORBIDDEN.getCode(), "账号已被封禁，请稍后再试");
+    }
+
+    /**
+     * 二级认证未通过（如 {@code @SaCheckSafe}）。
+     *
+     * <p>无状态身份模式（{@code cn.ypbin.starter.security.identity.IdentityStpLogic}）下没有安全会话，
+     * 该注解一律拒绝——方向是「拒绝」而不是放行，这里给出明确的 403 文案而不是落到兜底 500。</p>
+     */
+    @ExceptionHandler(NotSafeException.class)
+    public R<Void> handleNotSafe(NotSafeException e) {
+        log.warn("[二级认证未通过] {}", e.getMessage());
+        return R.fail(GlobalErrorCode.FORBIDDEN.getCode(), "需要完成二级认证");
+    }
+
+    /**
+     * 其它 Sa-Token 异常兜底。
+     *
+     * <p>例如无状态身份模式下 {@code renewTimeout} 抛出的「未能查询到对应终端信息，无法续期」——
+     * 这类异常表达的是「当前鉴权模式下该能力不可用」。若不在此兜底，它会落到 web 模块
+     * {@code GlobalExceptionHandler} 的 {@code Exception} 分支被当成 500，把能力边界误报成服务端故障。</p>
+     */
+    @ExceptionHandler(SaTokenException.class)
+    public R<Void> handleSaTokenException(SaTokenException e) {
+        log.warn("[鉴权异常] {}: {}", e.getClass().getSimpleName(), e.getMessage());
+        return R.fail(GlobalErrorCode.FORBIDDEN.getCode(), "当前鉴权模式下该操作不可用");
     }
 
     private String resolveNotLoginMessage(NotLoginException e) {

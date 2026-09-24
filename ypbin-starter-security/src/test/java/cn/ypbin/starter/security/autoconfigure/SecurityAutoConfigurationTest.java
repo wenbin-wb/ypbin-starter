@@ -17,9 +17,14 @@ package cn.ypbin.starter.security.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.dev33.satoken.stp.StpLogic;
+import cn.dev33.satoken.stp.StpUtil;
+import cn.ypbin.starter.security.identity.IdentityStpLogic;
 import cn.ypbin.starter.security.password.lock.InMemoryPasswordAttemptStore;
 import cn.ypbin.starter.security.password.lock.PasswordAttemptStore;
 import cn.ypbin.starter.security.password.lock.RedisPasswordAttemptStore;
+import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -66,6 +71,64 @@ class SecurityAutoConfigurationTest {
                 // @Import 保证 Redis 实现先注册，内存兜底的 @ConditionalOnMissingBean 退让
                 assertThat(context).getBean(PasswordAttemptStore.class).isInstanceOf(RedisPasswordAttemptStore.class);
             });
+    }
+
+    @Test
+    void interceptorOff_butAnnotationCheckOn_stillRegistersConfigurer() {
+        runner.withPropertyValues("ypbin.security.interceptor=false")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                // 注解鉴权仍开启 ⇒ 必须装配拦截器配置（否则下游的 @SaCheckPermission 又会静默失效）
+                assertThat(context).hasSingleBean(SaTokenWebConfigurer.class);
+            });
+    }
+
+    @Test
+    void bothSwitchesOff_stillRegistersConfigurerButNoInterceptor() {
+        runner.withPropertyValues("ypbin.security.interceptor=false", "ypbin.security.annotation-check=false")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                // 装配与否不再由开关决定（@ConditionalOnExpression 对 yes/1/on 会让应用启动失败）；
+                // 「两个开关都关 ⇒ 不注册任何拦截器」由 SaTokenWebConfigurerTest 行为断言
+                assertThat(context).hasSingleBean(SaTokenWebConfigurer.class);
+            });
+    }
+
+    @Test
+    void nonBooleanSwitchValues_doNotBreakStartup() {
+        for (String value : List.of("yes", "on", "1")) {
+            runner.withPropertyValues("ypbin.security.interceptor=" + value)
+                .run(context -> {
+                    assertThat(context).as("interceptor=%s 不应导致启动失败", value).hasNotFailed();
+                    assertThat(context).hasSingleBean(SaTokenWebConfigurer.class);
+                });
+        }
+    }
+
+    @Test
+    void identityEnabled_registersIdentityStpLogic() {
+        StpLogic original = StpUtil.stpLogic;
+        try {
+            runner.withPropertyValues("ypbin.security.identity.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(IdentityStpLogic.class);
+                    // 显式注册进 StpUtil 是注解鉴权能否生效的前提，不能只依赖 Sa-Token 的 Bean 自动注入
+                    assertThat(StpUtil.stpLogic).isInstanceOf(IdentityStpLogic.class);
+                });
+        } finally {
+            StpUtil.setStpLogic(original);
+        }
+    }
+
+    @Test
+    void identityDisabled_keepsDefaultStpLogic() {
+        StpLogic original = StpUtil.stpLogic;
+        runner.run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context).doesNotHaveBean(IdentityStpLogic.class);
+            assertThat(StpUtil.stpLogic).isSameAs(original);
+        });
     }
 
     @Configuration(proxyBeanMethods = false)

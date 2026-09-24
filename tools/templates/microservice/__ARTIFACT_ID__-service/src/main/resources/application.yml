@@ -13,7 +13,8 @@ ypbin:
     date-time-format: yyyy-MM-dd HH:mm:ss
     write-big-number-as-string: true
   security:
-    # 下游服务：登录态由网关校验并注入身份头，本服务不装 Sa-Token 全局拦截
+    # 下游服务：登录态由网关校验并注入身份头，故关掉「登录态」校验；
+    # 方法级注解鉴权（@SaCheckPermission 等）保持默认开启，账号来源为下面的身份头
     interceptor: false
     identity:
       # 仅在可信网关之后开启；若服务可被外部直连，请保持关闭或配置来源校验

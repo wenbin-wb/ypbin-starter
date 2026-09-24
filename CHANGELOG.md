@@ -42,10 +42,60 @@
   ⚠️ **升级顺序**：新增 project 目录的宿主需与升级本版本**同批**上线，否则中间态会短暂拒收该码。
   `auth.user.login` / `auth.user.logout` **保留在 base**（登录/登出是所有宿主都有的通用事件，admin 的
   `LoginEventTracker` 已是它们的真实发送方）。
+- **下游服务「静默失效的注解鉴权」开始真正生效**（`ypbin-starter-security`；技术细节见下方「修复」第一条）。
+  此前 `ypbin.security.interceptor=false` 的服务（微服务下游的常见配置）其 `@SaCheckPermission` / `@SaCheckRole` /
+  `@SaCheckLogin` **一律不执行**；本版本把它们与登录校验拆开后，这些注解会开始生效。
+  ⚠️ **升级前必须确认两件事**：① 服务有可用身份来源（`ypbin.security.identity.enabled=true`，且确实位于可信网关
+  之后、网关负责清洗并签发身份头），否则注解鉴权会因解析不到账号返回 **401**；② 权限数据（宿主
+  `PermissionProvider` 与角色/菜单数据）已配齐，否则原本「看起来能调用」的端点会开始返回 **403**。
+  已知本工作区的宿主均满足 ①（`ypbin-admin` 与 `ypbin-iot` 的 Nacos 公共配置都显式 `identity.enabled: true`，
+  其下游服务均为 `interceptor: false`），② 需按服务逐项回归。
+  确需暂时保留旧行为时显式配 `ypbin.security.annotation-check=false`（不推荐，会重新打开该安全缺口）。
+  按语义化版本口径，本变更建议按 **MINOR** 发布。
+
+### 修复
+
+- **微服务下游的 `@SaCheckPermission` 实际不生效：注解鉴权与登录拦截此前被同一个开关绑死**（`ypbin-starter-security`）。
+  下游服务没有 Sa-Token 会话（身份来自网关注入的身份头），`SaInterceptor` 默认的 `StpUtil.checkLogin()` 必然失败，
+  宿主于是只能在配置里把 `ypbin.security.interceptor` 关掉——而 Sa-Token 的**注解鉴权正是由这个拦截器执行**的，
+  关掉它等于让下游所有 `@SaCheckPermission` 变成装饰性的：任何已登录用户都能调用带权限码的写端点。
+  现在两件事由相互独立的开关承载：`ypbin.security.interceptor`（登录态校验，默认开）与
+  `ypbin.security.annotation-check`（方法级注解鉴权，默认开），下游只关前者即可保留后者。
+  配套新增身份头账号体系桥 `IdentityStpLogic`（仅在 `ypbin.security.identity.enabled=true` 时装配）：把身份头
+  接进 Sa-Token 的账号解析（`getTokenValue*` / `getLoginIdNotHandle`），使注解鉴权无需会话即可工作。
+  装配条件只看「Servlet Web + 类路径有 `SaInterceptor`」，**不再用 `@ConditionalOnExpression` 做装配条件**——
+  SpEL 遇到 `yes`/`on`/`1` 这类非布尔字面量会抛异常并让应用**启动失败**，而 `@ConditionalOnProperty` 的语义是
+  「值不匹配即不装配」；注册内容仍由两个开关在 `SaTokenWebConfigurer` 内决定。
+  身份模式的能力边界已在 `IdentityStpLogic` Javadoc 写明：按 token 反查的 API（`isValidToken` /
+  `getLoginIdByToken`）只认与当前请求身份一致的 token（不再把调用者身份冒充成任意 token 的主人）；
+  `renewTimeout` 在「有身份头但无会话」时明确抛异常；无身份头时按基类语义静默返回（该方法是 `void`，
+  调用方无法据此判断是否真的续期，因此不要依赖它）；
+  `@SaCheckSafe` fail-closed 拒绝。`SaTokenExceptionHandler` 同时补了
+  `NotSafeException` 与 `SaTokenException` 兜底，避免这类「当前模式不支持」落到 web 兜底被误报成 500。
+  ⚠️ 行为变更见上方「变更（不兼容）」。
+- **平台超管 `*:*:*` 命不中短权限码**（`ypbin-starter-security`）。本仓与下游用 `*:*:*` 约定平台超管，
+  但 Sa-Token 的「全权限」通配符是单个 `*`：`*:*:*` 只作为普通权限码参与模糊匹配，实测**只能命中含两个及以上
+  冒号的权限码**（`system:user:add`、`a:b:c:d` 能过；`user:add`、`single` 不能）——超管反而被挡在短权限码之外。
+  `StpPermissionAdapter` 现在会在返回前为含 `*:*:*` 的权限码/角色码集合补上 `*`（原始码原样保留，不删除不改写），
+  超管语义得以保留。
+- **`@Idempotent` 的默认幂等键对没有 `equals/hashCode` 的 Req DTO 形同虚设**（`ypbin-starter-tools`）。
+  默认键原为 `Arrays.deepHashCode(参数)`，而本仓规范禁止给 Req/Resp 加 `@Data`（避免污染 equals/hashCode），
+  于是两次**内容完全相同**的请求会得到不同的键、幂等注解不生效。现改为按字段值展开后取**摘要**（新增包私有
+  `ArgumentFingerprint`）：字符串/数字/时间等叶子类型用其 `toString`；数组/集合/`Map`/`Optional` 递归展开并带
+  容器语义前缀（`list[...]` 保序，`set[...]` / `collection[...]` / `map{...}` 排序，`opt(...)`），业务对象用
+  **全限定类名**加按字段名排序的字段列表（含父类字段，跳过 `static`/`transient`/合成字段）。展开结果做 SHA-256
+  并截取前 32 个十六进制字符作为键——**键里不含入参明文**（键会进存储与失败路径日志，而参数可能含口令、身份证号），
+  键长也因此有界。循环引用、超过 4 层的对象图与无法反射读取的字段都在展开结果里留下**可见**标记
+  （`!cycle` / `!truncated` / `!inaccessible`）而不是被当成正常值。边界：本类只保证「内容相同 ⇒ 键相同」，
+  **不保证「内容不同 ⇒ 键不同」**（深度截断、`transient`/不可读字段、叶子类型 `toString` 的局限），
+  需要精确控制幂等维度时仍用 `@Idempotent(key = "...")` 的 SpEL。
+- **`LoginUser` 缺少 `getUserId()/setUserId()` 别名，且与 `IdentityContext` 同名易 import 错**（`ypbin-starter-security`，DX）。
+  新增等价别名（读写同一个 `id` 字段，无双份状态），并在两个类的 Javadoc 中互相指明职责差异。
 
 ### 文档
 
 - `docs/MODULES.md` 的 tracking 一节补「两层目录 + 覆盖规则 + 已知边界」；README 模块表同步标注分层。
+- `docs/MODULES.md` 的 security 一节补「登录校验与注解鉴权是两个独立开关 + 下游身份头模式」的配置与边界说明。
 
 ## [3.4.0] - 2026-09-17
 

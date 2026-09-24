@@ -27,6 +27,11 @@ import java.util.Set;
  *
  * <p>starter 只约定通用字段；业务自有字段（如岗位、数据范围）用 {@link UserContext#setAttribute} 另存。</p>
  *
+ * <p><strong>命名提示</strong>：用户 ID 的字段名是 {@code id}（{@link #getId()}），另提供
+ * {@link #getUserId()}/{@link #setUserId(Long)} 别名以贴合「userId」这一常见写法——两者读写同一字段，
+ * 不存在双份状态。注意本类与 {@link cn.ypbin.starter.security.identity.IdentityContext} 同名易混：
+ * 本类承载用户数据，{@code IdentityContext} 承载「当前请求的身份上下文」（微服务下游由身份头填充）。</p>
+ *
  * @author wenbin
  * @since 2026-07-31
  */
@@ -78,6 +83,27 @@ public class LoginUser implements Serializable {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    /**
+     * 用户 ID 的别名读方法（与 {@link #getId()} 完全等价）。
+     *
+     * <p>业务侧习惯写 {@code userId}；本别名避免「以为有 {@code getUserId()} 而编译失败」。实体字段仍只有
+     * {@code id} 一个，两者读写同一字段。</p>
+     *
+     * @return 用户 ID
+     */
+    public Long getUserId() {
+        return id;
+    }
+
+    /**
+     * 用户 ID 的别名写方法（与 {@link #setId(Long)} 完全等价）。
+     *
+     * @param userId 用户 ID
+     */
+    public void setUserId(Long userId) {
+        this.id = userId;
     }
 
     public String getUsername() {
