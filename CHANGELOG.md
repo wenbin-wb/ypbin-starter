@@ -7,6 +7,8 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [未发布]
+
 ## [3.5.0] - 2026-09-24
 
 ### 新增
