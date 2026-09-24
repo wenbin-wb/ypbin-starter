@@ -29,9 +29,19 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Sa-Token 全局登录校验拦截器配置。
  *
- * <p>注册 {@link SaInterceptor} 做全局登录校验：拦截 {@code includes} 路径、放行 {@code excludes} 路径。
- * 拦截器只做「登录态」校验（{@code StpUtil.checkLogin}），细粒度的权限/角色校验交给方法上的 Sa-Token
- * 注解（{@code @SaCheckPermission} 等）与 {@link StpPermissionAdapter}。</p>
+ * <p>按两个<strong>相互独立</strong>的开关决定注册内容，统一拦截 {@code includes} 路径、放行
+ * {@code excludes} 路径：</p>
+ * <ul>
+ *     <li>{@code ypbin.security.interceptor}（默认开启）：是否执行「登录态」校验
+ *     （{@code StpUtil.checkLogin}）；</li>
+ *     <li>{@code ypbin.security.annotation-check}（默认开启）：是否执行方法上的 Sa-Token 注解鉴权
+ *     （{@code @SaCheckPermission} 等，由 {@link SaInterceptor#isAnnotation(boolean)} 控制），
+ *     权限数据来自 {@link StpPermissionAdapter}。</li>
+ * </ul>
+ *
+ * <p>两者都关闭时不注册任何拦截器。拆分前注解鉴权与登录校验共用一个开关：微服务下游服务没有 Sa-Token
+ * 会话（身份来自网关注入的身份头），为不让登录校验必然失败只能关掉那个开关，注解鉴权因此一并失效。
+ * 现在下游可只关 {@code interceptor} 而保留注解鉴权。</p>
  *
  * <p>检测到类路径存在 SpringDoc 时，自动追加 Swagger / 文档相关路径到放行列表，避免文档页被登录拦截。</p>
  *
@@ -63,6 +73,12 @@ public class SaTokenWebConfigurer implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        boolean loginCheck = properties.isInterceptor();
+        boolean annotationCheck = properties.isAnnotationCheck();
+        if (!loginCheck && !annotationCheck) {
+            // 两个开关都关闭：宿主自行接管鉴权，注册一个什么都不做的拦截器只会增加每请求开销
+            return;
+        }
         List<String> excludes = new ArrayList<>(properties.getExcludes());
         if (properties.isExcludeApiDoc() && isSpringDocPresent()) {
             excludes.addAll(API_DOC_EXCLUDES);
@@ -74,7 +90,9 @@ public class SaTokenWebConfigurer implements WebMvcConfigurer {
                 excludes.addAll(paths);
             }
         }
-        registry.addInterceptor(new SaInterceptor(handle -> StpUtil.checkLogin()) {
+        // 用无参构造：它自带 no-op 鉴权回调（SaInterceptor.preHandle 对 auth 字段无判空，不能传 null），
+        // 只在需要登录校验时才覆盖为 StpUtil.checkLogin()；注解鉴权由 isAnnotation 开关单独控制
+        SaInterceptor interceptor = new SaInterceptor() {
             /**
              * 非 REQUEST 分发（ERROR/ASYNC）直接放行：异步流（如 SSE）出错后的错误分发
              * 不在请求线程上，Sa-Token 上下文未初始化，二次登录校验会误报并掩盖真实错误。
@@ -87,7 +105,12 @@ public class SaTokenWebConfigurer implements WebMvcConfigurer {
                 }
                 return super.preHandle(request, response, handler);
             }
-        })
+        };
+        if (loginCheck) {
+            interceptor.setAuth(handle -> StpUtil.checkLogin());
+        }
+        interceptor.isAnnotation(annotationCheck);
+        registry.addInterceptor(interceptor)
             .addPathPatterns(properties.getIncludes())
             .excludePathPatterns(excludes);
     }

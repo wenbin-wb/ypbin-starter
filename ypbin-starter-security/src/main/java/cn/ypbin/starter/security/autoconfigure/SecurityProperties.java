@@ -40,6 +40,18 @@ public class SecurityProperties {
     /** 是否注册全局登录校验拦截器（SaInterceptor），默认开启 */
     private boolean interceptor = true;
 
+    /**
+     * 是否启用方法级注解鉴权（{@code @SaCheckPermission} / {@code @SaCheckRole} /
+     * {@code @SaCheckLogin} 等 Sa-Token 注解），默认开启。
+     *
+     * <p>与 {@link #interceptor} <strong>相互独立</strong>：{@code interceptor} 只决定是否做
+     * 「登录态」校验（{@code StpUtil.checkLogin()}），本项决定注解鉴权是否执行。二者此前由同一个
+     * 开关承载，导致微服务下游服务（没有 Sa-Token 会话，身份来自网关注入的身份头）为了不让登录校验
+     * 必然失败而关闭 {@code interceptor} 时，把注解鉴权一并关掉——下游所有
+     * {@code @SaCheckPermission} 因此变成装饰性的。拆分后下游可只关登录拦截、保留注解鉴权。</p>
+     */
+    private boolean annotationCheck = true;
+
     /** 拦截路径，默认拦截全部 */
     private List<String> includes = new ArrayList<>(List.of("/**"));
 
@@ -84,6 +96,14 @@ public class SecurityProperties {
 
     public void setInterceptor(boolean interceptor) {
         this.interceptor = interceptor;
+    }
+
+    public boolean isAnnotationCheck() {
+        return annotationCheck;
+    }
+
+    public void setAnnotationCheck(boolean annotationCheck) {
+        this.annotationCheck = annotationCheck;
     }
 
     public List<String> getIncludes() {

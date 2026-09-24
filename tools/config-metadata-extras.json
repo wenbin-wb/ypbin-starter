@@ -46,8 +46,10 @@
     "ypbin.sse.enabled": "配置值为 true 时满足该自动装配条件。",
     "ypbin.sse.register-endpoint": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
     "ypbin.websocket.enabled": "配置值为 true 时满足该自动装配条件。",
+    "ypbin.security.annotation-check": "配置值为 true（默认）时执行方法级注解鉴权（@SaCheckPermission/@SaCheckRole/@SaCheckLogin）；与 ypbin.security.interceptor 相互独立——微服务下游可只关登录校验而保留注解鉴权。",
     "ypbin.security.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
-    "ypbin.security.interceptor": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+    "ypbin.security.identity.enabled": "配置值为 true 时装配身份头信任过滤器（IdentityHeaderFilter）与身份头账号体系（IdentityStpLogic）；未配置即不信任任何外部身份头。",
+    "ypbin.security.interceptor": "配置值为 true（默认）时执行全局「登录态」校验（StpUtil.checkLogin）；与 ypbin.security.annotation-check 相互独立。",
     "ypbin.sensitive-words.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
     "ypbin.sign.enabled": "配置值为 true 时满足该自动装配条件。",
     "ypbin.social.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
@@ -142,6 +144,13 @@
     ],
     "ypbin.websocket.allowed-origin-patterns": [
       "默认 * 适合开发，生产环境应收敛为可信域名。"
+    ],
+    "ypbin.security.annotation-check": [
+      "关闭注解鉴权会让 @SaCheckPermission/@SaCheckRole/@SaCheckLogin 变成装饰性的（微服务下游尤其危险：任何已登录用户都能调用带权限码的写端点）；仅在宿主自行实现方法级鉴权时才应关闭。"
+    ],
+    "ypbin.security.identity.enabled": [
+      "仅当服务位于可信网关之后、且网关负责清洗外部 X-User-Id/X-Roles 等头并签发内部身份头时才可开启；服务可被外部直接访问时开启等于信任伪造身份。",
+      "开启后本服务不再依赖 Sa-Token 会话：token 活跃度冻结与自动续期不生效（token 生命周期由网关侧承担），@SaCheckSafe 等依赖会话的校验一律拒绝。"
     ],
     "ypbin.security.clients[].client-secret": [
       "不要提交明文密钥；使用环境变量或密钥管理服务。",

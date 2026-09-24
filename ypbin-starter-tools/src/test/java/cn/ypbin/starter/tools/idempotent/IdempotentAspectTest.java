@@ -63,6 +63,20 @@ class IdempotentAspectTest {
         assertThat(service.submit("order-B")).isEqualTo("done");
     }
 
+    @Test
+    void defaultKey_comparesFieldValues() {
+        // 内容相同的两个**不同实例**：第二次必须被幂等拦截。
+        // 此前默认键用 Arrays.deepHashCode(args)，对无 equals/hashCode 的 Req DTO 会得到不同的键而放行。
+        assertThat(service.submitReq(new OrderReq(1L, "open"))).isEqualTo("done");
+        assertThatThrownBy(() -> service.submitReq(new OrderReq(1L, "open")))
+            .isInstanceOf(IdempotentException.class)
+            .hasMessageContaining("重复");
+
+        // 内容不同的请求不受影响（不能把不同请求误判为重复提交）
+        assertThat(service.submitReq(new OrderReq(1L, "close"))).isEqualTo("done");
+        assertThat(service.submitReq(new OrderReq(2L, "open"))).isEqualTo("done");
+    }
+
     @EnableAspectJAutoProxy
     static class Config {
         @Bean
@@ -82,9 +96,36 @@ class IdempotentAspectTest {
     }
 
     static class OrderService {
+
         @Idempotent(key = "#orderNo", interval = 60, message = "请勿重复提交")
         public String submit(String orderNo) {
             return "done";
+        }
+
+        @Idempotent(interval = 60, message = "请勿重复提交")
+        public String submitReq(OrderReq req) {
+            return "done";
+        }
+    }
+
+    /** 模拟 Req DTO：只有 getter，没有 equals/hashCode（本仓规范：Req/Resp 一律 @Getter @Setter）。 */
+    static class OrderReq {
+
+        private final Long deviceId;
+
+        private final String action;
+
+        OrderReq(Long deviceId, String action) {
+            this.deviceId = deviceId;
+            this.action = action;
+        }
+
+        public Long getDeviceId() {
+            return deviceId;
+        }
+
+        public String getAction() {
+            return action;
         }
     }
 }

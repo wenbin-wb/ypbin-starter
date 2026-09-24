@@ -27,6 +27,10 @@ import java.util.Optional;
  * <p>与单体版 {@code cn.ypbin.starter.security.core.UserContext}（绑定 sa-token 会话）
  * 职责对等但实现无关：微服务版依赖网关签发的可信头，不依赖 sa-token 会话。</p>
  *
+ * <p><strong>命名提示</strong>：本类与 {@link LoginUser} 名字相近、分属
+ * {@code cn.ypbin.starter.security.identity} 与 {@code cn.ypbin.starter.security.core} 两个包，容易 import
+ * 错——本类是「当前请求的身份上下文」（{@link ThreadLocal} 持有），{@code LoginUser} 是用户数据载体。</p>
+ *
  * @author wenbin
  * @since 2026-09-01
  */

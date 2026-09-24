@@ -43,9 +43,40 @@
   `auth.user.login` / `auth.user.logout` **保留在 base**（登录/登出是所有宿主都有的通用事件，admin 的
   `LoginEventTracker` 已是它们的真实发送方）。
 
+### 修复
+
+- **微服务下游的 `@SaCheckPermission` 实际不生效：注解鉴权与登录拦截此前被同一个开关绑死**（`ypbin-starter-security`）。
+  下游服务没有 Sa-Token 会话（身份来自网关注入的身份头），`SaInterceptor` 默认的 `StpUtil.checkLogin()` 必然失败，
+  宿主于是只能在配置里把 `ypbin.security.interceptor` 关掉——而 Sa-Token 的**注解鉴权正是由这个拦截器执行**的，
+  关掉它等于让下游所有 `@SaCheckPermission` 变成装饰性的：任何已登录用户都能调用带权限码的写端点。
+  现在两件事由相互独立的开关承载：`ypbin.security.interceptor`（登录态校验，默认开）与
+  `ypbin.security.annotation-check`（方法级注解鉴权，默认开），下游只关前者即可保留后者。
+  配套新增身份头账号体系桥 `IdentityStpLogic`（仅在 `ypbin.security.identity.enabled=true` 时装配）：把身份头
+  接进 Sa-Token 的账号解析（`getTokenValue*` / `getLoginIdNotHandle`），使注解鉴权无需会话即可工作。
+  ⚠️ **行为变更（对下游是修复、对「靠失效换可用」的现状是收紧）**：此前 `interceptor=false` 的宿主其注解鉴权是
+  **静默失效**的，升级后同名注解会真正生效——若宿主的权限码或 `PermissionProvider` 尚未配好，原来看起来「能调用」
+  的端点会开始返回 403。这本就是权限码应有的语义；确需暂时保留旧行为时显式配 `ypbin.security.annotation-check=false`
+  （不推荐，且会重新打开该安全缺口）。该模式下无 token-session，`sa-token.active-timeout` 与自动续期不生效
+  （token 生命周期由网关侧承担），`@SaCheckSafe` 等依赖会话的校验一律拒绝（fail-closed）。
+- **平台超管 `*:*:*` 反而过不了两段权限码**（`ypbin-starter-security`）。本仓与下游用 `*:*:*` 约定平台超管，
+  但 Sa-Token 的「全权限」通配符是单个 `*`：`*:*:*` 只作为普通权限码参与模糊匹配，实测只能命中「恰好两段」的权限码
+  （`system:user:add` 能过、`user:add` 不能）——超管被挡在两段权限码之外。`StpPermissionAdapter` 现在会在返回前为
+  含 `*:*:*` 的权限码/角色码集合补上 `*`（原始码原样保留，不删除不改写），超管语义得以保留。
+- **`@Idempotent` 的默认幂等键对没有 `equals/hashCode` 的 Req DTO 形同虚设**（`ypbin-starter-tools`）。
+  默认键原为 `Arrays.deepHashCode(参数)`，而本仓规范禁止给 Req/Resp 加 `@Data`（避免污染 equals/hashCode），
+  于是两次**内容完全相同**的请求会得到不同的键、幂等注解不生效。现改为按字段值展开的指纹（新增包私有
+  `ArgumentFingerprint`）：字符串/数字/时间等叶子类型用其 `toString`；数组/集合/`Map`/`Optional` 递归展开，
+  其中 `List` 保序、`Set` 与 `Map` 条目排序以保证「跨实例、同内容」稳定；业务对象按字段名排序逐字段展开（含父类
+  字段，跳过 `static`/`transient`/合成字段）。循环引用、超过 4 层的对象图与无法反射读取的字段都在指纹里留下
+  **可见**标记（`!cycle` / `!truncated` / `!inaccessible`）而不是被当成正常值。需要精确控制幂等维度时仍用
+  `@Idempotent(key = "...")` 的 SpEL。
+- **`LoginUser` 缺少 `getUserId()/setUserId()` 别名，且与 `IdentityContext` 同名易 import 错**（`ypbin-starter-security`，DX）。
+  新增等价别名（读写同一个 `id` 字段，无双份状态），并在两个类的 Javadoc 中互相指明职责差异。
+
 ### 文档
 
 - `docs/MODULES.md` 的 tracking 一节补「两层目录 + 覆盖规则 + 已知边界」；README 模块表同步标注分层。
+- `docs/MODULES.md` 的 security 一节补「登录校验与注解鉴权是两个独立开关 + 下游身份头模式」的配置与边界说明。
 
 ## [3.4.0] - 2026-09-17
 

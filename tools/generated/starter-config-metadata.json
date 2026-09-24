@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-16T14:03:19.775Z",
+  "generatedAt": "2026-09-24T07:58:26.930Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 40,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 332,
+    "customPropertyCount": 333,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 372,
+    "totalEntryCount": 373,
     "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
@@ -7590,6 +7590,42 @@
       "configurationProperties": [
         {
           "module": "ypbin-starter-security",
+          "key": "ypbin.security.annotation-check",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用方法级注解鉴权（@SaCheckPermission / @SaCheckRole / @SaCheckLogin 等 Sa-Token 注解），默认开启。",
+          "allowedValues": [],
+          "enablement": "配置值为 true（默认）时执行方法级注解鉴权（@SaCheckPermission/@SaCheckRole/@SaCheckLogin）；与 ypbin.security.interceptor 相互独立——微服务下游可只关登录校验而保留注解鉴权。",
+          "safetyNotes": [
+            "关闭注解鉴权会让 @SaCheckPermission/@SaCheckRole/@SaCheckLogin 变成装饰性的（微服务下游尤其危险：任何已登录用户都能调用带权限码的写端点）；仅在宿主自行实现方法级鉴权时才应关闭。"
+          ],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
+              "line": 53
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [
+            "关闭注解鉴权会让 @SaCheckPermission/@SaCheckRole/@SaCheckLogin 变成装饰性的（微服务下游尤其危险：任何已登录用户都能调用带权限码的写端点）；仅在宿主自行实现方法级鉴权时才应关闭。"
+          ],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
+              "line": 53
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-security",
           "key": "ypbin.security.client-enabled",
           "type": "java.lang.Boolean",
           "defaultDefined": true,
@@ -7604,7 +7640,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 53
+              "line": 65
             }
           ],
           "default": true,
@@ -7614,7 +7650,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 53
+              "line": 65
             }
           ],
           "group": "ypbin.security",
@@ -7636,7 +7672,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 59
+              "line": 71
             }
           ],
           "default": null,
@@ -7646,7 +7682,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 59
+              "line": 71
             }
           ],
           "group": "ypbin.security",
@@ -8154,7 +8190,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 56
+              "line": 68
             }
           ],
           "default": "web-admin",
@@ -8164,7 +8200,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 56
+              "line": 68
             }
           ],
           "group": "ypbin.security",
@@ -8218,7 +8254,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 50
+              "line": 62
             }
           ],
           "default": true,
@@ -8228,7 +8264,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 50
+              "line": 62
             }
           ],
           "group": "ypbin.security",
@@ -8250,7 +8286,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 47
+              "line": 59
             }
           ],
           "default": null,
@@ -8260,7 +8296,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 47
+              "line": 59
             }
           ],
           "group": "ypbin.security",
@@ -8274,29 +8310,35 @@
           "defaultValue": null,
           "required": false,
           "requiredWhen": null,
-          "description": "条件开关：ypbin.security.identity.enabled=true 时装配 IdentityAutoConfiguration。",
+          "description": "条件开关：ypbin.security.identity.enabled=true 时装配 SecurityAutoConfiguration。",
           "allowedValues": [
             "true"
           ],
-          "enablement": "需显式满足该条件（IdentityAutoConfiguration）。",
-          "safetyNotes": [],
+          "enablement": "配置值为 true 时装配身份头信任过滤器（IdentityHeaderFilter）与身份头账号体系（IdentityStpLogic）；未配置即不信任任何外部身份头。",
+          "safetyNotes": [
+            "仅当服务位于可信网关之后、且网关负责清洗外部 X-User-Id/X-Roles 等头并签发内部身份头时才可开启；服务可被外部直接访问时开启等于信任伪造身份。",
+            "开启后本服务不再依赖 Sa-Token 会话：token 活跃度冻结与自动续期不生效（token 生命周期由网关侧承担），@SaCheckSafe 等依赖会话的校验一律拒绝。"
+          ],
           "sources": [
             {
               "kind": "conditional-on-property",
-              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityAutoConfiguration.java",
-              "line": 42
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityAutoConfiguration.java",
+              "line": 247
             }
           ],
           "default": null,
           "values": [
             "true"
           ],
-          "notes": [],
+          "notes": [
+            "仅当服务位于可信网关之后、且网关负责清洗外部 X-User-Id/X-Roles 等头并签发内部身份头时才可开启；服务可被外部直接访问时开启等于信任伪造身份。",
+            "开启后本服务不再依赖 Sa-Token 会话：token 活跃度冻结与自动续期不生效（token 生命周期由网关侧承担），@SaCheckSafe 等依赖会话的校验一律拒绝。"
+          ],
           "source": [
             {
               "kind": "conditional-on-property",
-              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityAutoConfiguration.java",
-              "line": 42
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityAutoConfiguration.java",
+              "line": 247
             }
           ],
           "group": "ypbin.security",
@@ -8318,7 +8360,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 44
+              "line": 56
             }
           ],
           "default": null,
@@ -8328,7 +8370,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 44
+              "line": 56
             }
           ],
           "group": "ypbin.security",
@@ -8344,7 +8386,7 @@
           "requiredWhen": null,
           "description": "是否注册全局登录校验拦截器（SaInterceptor）。",
           "allowedValues": [],
-          "enablement": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
+          "enablement": "配置值为 true（默认）时执行全局「登录态」校验（StpUtil.checkLogin）；与 ypbin.security.annotation-check 相互独立。",
           "safetyNotes": [],
           "sources": [
             {
@@ -8384,7 +8426,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 62
+              "line": 74
             }
           ],
           "default": null,
@@ -8396,7 +8438,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 62
+              "line": 74
             }
           ],
           "group": "ypbin.security",

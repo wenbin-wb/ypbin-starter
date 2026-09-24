@@ -18,7 +18,6 @@ package cn.ypbin.starter.tools.idempotent;
 import cn.ypbin.starter.tools.support.SpelKeyResolver;
 import java.lang.reflect.Method;
 import java.time.Duration;
-import java.util.Arrays;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -30,7 +29,12 @@ import org.slf4j.LoggerFactory;
  * 幂等切面。
  *
  * <p>拦截 {@link Idempotent} 方法，占位成功放行，命中重复抛 {@link IdempotentException}。
- * 幂等键支持 SpEL；未指定时用「目标类名 + 方法名 + 参数指纹」。</p>
+ * 幂等键支持 SpEL；未指定时用「目标类名 + 方法名 + 参数<strong>值</strong>指纹」（{@link ArgumentFingerprint}）。</p>
+ *
+ * <p><strong>为什么不用 {@code Arrays.deepHashCode(args)}</strong>：它只对数组元素调用 {@code hashCode()}，
+ * 而按本仓规范 Req/Resp DTO 一律 {@code @Getter @Setter}（不带 {@code equals}/{@code hashCode}），
+ * 于是两次内容完全相同的请求会得到不同的键——幂等注解形同虚设。{@link ArgumentFingerprint} 按字段值展开，
+ * 使「内容相同」稳定映射到同一个键。</p>
  *
  * <p><strong>用户维度边界</strong>：本模块（tools）不依赖 security，无法在默认键中自动拼入当前
  * 用户维度——同一窗口内不同用户对同参方法的调用会互相拦截。需要在用户间隔离防重的场景，
@@ -75,9 +79,9 @@ public class IdempotentAspect {
         String suffix;
         String rawKey = idempotent.key();
         if (rawKey.isBlank()) {
-            // 用目标类（非代理类）+ 方法 + 参数指纹
+            // 用目标类（非代理类）+ 方法 + 参数值指纹
             suffix = point.getTarget().getClass().getName() + "#" + method.getName()
-                + ":" + Arrays.deepHashCode(point.getArgs());
+                + ":" + ArgumentFingerprint.of(point.getArgs());
         } else {
             suffix = SpelKeyResolver.resolve(rawKey, method, point.getArgs());
         }
