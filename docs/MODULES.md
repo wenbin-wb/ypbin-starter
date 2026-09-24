@@ -275,7 +275,7 @@ Set<Object> top10 = RedisUtils.zReverseRange("rank", 0, 9);
 
 基于 Sa-Token 封装：
 
-- **全局登录拦截**：Servlet Web 环境下自动注册 `SaInterceptor` 做全局登录校验，无需自己写 `WebMvcConfigurer`。默认拦截 `/**`，放行 `ypbin.security.excludes`；检测到 api-doc 时自动放行 Swagger/`doc.html`/`v3/api-docs`/`webjars` 等文档路径。
+- **全局拦截器**：Servlet Web 环境下自动注册一个 `SaInterceptor`，**做什么由两个开关决定**：`interceptor` 开启时执行全局登录校验，`annotation-check` 开启时执行方法级注解鉴权，两个都关闭时不注册任何拦截器。默认拦截 `/**`，放行 `ypbin.security.excludes`；检测到 api-doc 时自动放行 Swagger/`doc.html`/`v3/api-docs`/`webjars` 等文档路径。
 
 ```yaml
 ypbin:
@@ -299,9 +299,9 @@ ypbin:
       enabled: true              # 仅当服务位于可信网关之后、且网关负责清洗外部身份头时才可开启
 ```
 
-`identity.enabled: true` 时 starter 会把 `IdentityStpLogic` 注册为 Sa-Token 账号体系实现：注解鉴权以身份头为账号来源，权限数据仍走宿主的 `PermissionProvider`。`StpPermissionAdapter` 会把平台超管约定的 `*:*:*` 归一为 Sa-Token 的 `*` 通配符——`*:*:*` **不是** Sa-Token 的官方通配符（官方「全权限」是单个 `*`），它只按普通权限码参与模糊匹配：能命中含两个及以上冒号的码（如 `system:user:add`），却命不中 `user:add` 这种一段码，不归一就会出现「超管反而没权限」。
+`identity.enabled: true` 时 starter 会把 `IdentityStpLogic` 注册为 Sa-Token 账号体系实现：注解鉴权以身份头为账号来源，权限数据仍走宿主的 `PermissionProvider`。`StpPermissionAdapter` 会把平台超管约定的 `*:*:*` 归一为 Sa-Token 的 `*` 通配符——`*:*:*` **不是** Sa-Token 的官方通配符（官方「全权限」是单个 `*`），它只按普通权限码参与模糊匹配：能命中含两个及以上冒号的码（如 `system:user:add`），却命不中 `user:add`（只有一个冒号），不归一就会出现「超管反而没权限」。
 
-该模式下 token 生命周期由网关侧承担：`sa-token.active-timeout` 与自动续期不适用（`renewTimeout` 会明确抛异常而不是静默成功），`logout` 不改变登录态，`@SaCheckSafe` 等依赖会话的校验一律拒绝（fail-closed，由 `SaTokenExceptionHandler` 返回 403）；按 token 反查的 API（`isValidToken` / `getLoginIdByToken`）只认与当前请求身份一致的 token。
+该模式下 token 生命周期由网关侧承担：`sa-token.active-timeout` 与自动续期不适用——**有身份头但无 Sa-Token 会话**时 `renewTimeout` 会抛 `SaTokenException`（由 `SaTokenExceptionHandler` 映射为 403），无身份头时按 Sa-Token 基类语义静默返回；`logout` 不改变登录态；`@SaCheckSafe` 等依赖会话的校验一律拒绝（fail-closed，返回 403）；按 token 反查的 API（`isValidToken` / `getLoginIdByToken`）只认与当前请求身份一致的 token。
 
 装配可被覆盖：自定义 `SaTokenWebConfigurer` Bean 可整体替换本配置；自定义 `StpLogic` Bean 会让身份头桥让位（此时账号体系由宿主负责）。**注意**：提供自定义 `WebMvcConfigurer` **不会**替代本配置——两者是并列注册的拦截器。
 

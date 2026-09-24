@@ -38,8 +38,8 @@ import cn.dev33.satoken.stp.StpUtil;
  *     <li><b>按 token 反查</b>（{@code getLoginIdByToken} / {@code isValidToken} /
  *     {@code getTokenSessionByToken}）：只认与当前请求身份一致的 token，其它 token 一律按无效处理——
  *     不这样做会让「任意 token 的主人」被回答成当前调用者身份；</li>
- *     <li><b>续期</b>（{@code renewTimeout}）：没有终端信息可续，调用会抛
- *     {@code SaTokenException}（明确失败，不静默成功）；</li>
+ *     <li><b>续期</b>（{@code renewTimeout}）：本模式没有终端信息可续——有身份头但无会话时抛
+ *     {@code SaTokenException}（不会静默成功），无身份头时按基类语义静默返回；</li>
  *     <li><b>token 会话</b>（{@code getTokenSession}）：仍会访问 SaTokenDao（生产上通常是 Redis），
  *     本模式不保证其语义；</li>
  *     <li><b>登出</b>（{@code logout}）：不影响 {@code isLogin()}（身份生命周期由网关承担）；</li>

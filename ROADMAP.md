@@ -249,7 +249,7 @@ ypbin 已有 11 项更轻量或更完整的能力——限流 @RateLimit、幂�
 ### 全局登录拦截器（admin 建议：security 自动注册 SaInterceptor 消费 excludes）
 - ✅ security 新增 `SaTokenWebConfigurer`（WebMvcConfigurer 注册 SaInterceptor 做全局登录校验），消费 `ypbin.security.includes/excludes`；`SecurityProperties` 补 interceptor/includes/excludeApiDoc 开关。
 - ✅ 检测到 SpringDoc 时自动放行 Swagger/doc.html/v3/api-docs/webjars 等文档路径（Class.forName 探测，不硬依赖）。
-- ✅ `@ConditionalOnWebApplication(SERVLET)` + `@ConditionalOnClass(SaInterceptor)` + `@ConditionalOnMissingBean` 守卫，spring-webmvc optional；业务方自定义 WebMvcConfigurer 或 `interceptor=false` 可覆盖/停用。admin 的自建 SaTokenConfigurer 可删。
+- ✅ `@ConditionalOnWebApplication(SERVLET)` + `@ConditionalOnClass(SaInterceptor)` + `@ConditionalOnMissingBean` 守卫，spring-webmvc optional；关掉 `interceptor` 停用「登录态」校验、两个开关都关则不注册任何拦截器。**注意**：自定义 `WebMvcConfigurer` **不会**替代本配置（两者并列注册；装配条件只看 `SaTokenWebConfigurer` 自身是否存在）。admin 的自建 SaTokenConfigurer 可删。
 - 核实：admin 建议的 TreeUtils「tools 里没有树形工具」是找错模块——core 早有 `tree/TreeUtils`（含 flatten/getDescendantIds/findNode），不重复做。
 
 ### 基类与当前用户增强（用户提问：BaseEntity 加 id/逻辑删除/租户，如何获取当前登录人）
