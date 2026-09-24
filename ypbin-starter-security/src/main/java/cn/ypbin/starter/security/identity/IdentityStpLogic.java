@@ -25,18 +25,29 @@ import cn.dev33.satoken.stp.StpUtil;
  * 「当前账号」（{@code StpLogic#getLoginId()}），而默认实现要求请求携带可查到 token-session 的 token。
  * 微服务下游服务没有 Sa-Token 会话——身份由可信网关清洗并签发的内部身份头承载（见
  * {@link IdentityHeaderFilter}）——于是注解鉴权只能抛「未登录」，权限码成为装饰。本类把
- * <strong>身份头当作账号来源</strong>接进 Sa-Token：token 值即当前账号标识，不再访问任何 token 存储，
- * 从而让下游既能关掉登录拦截（{@code ypbin.security.interceptor=false}），又保留注解鉴权
+ * <strong>身份头当作账号来源</strong>接进 Sa-Token：当前请求身份的 token 值即当前账号标识，不再访问
+ * token 存储，从而让下游既能关掉登录拦截（{@code ypbin.security.interceptor=false}），又保留注解鉴权
  * （{@code ypbin.security.annotation-check=true}）。</p>
  *
  * <p><strong>适用前提</strong>：仅在 {@code ypbin.security.identity.enabled=true}（即宿主已声明自己位于
  * 可信网关之后、且网关负责清洗外部身份头）时装配。此处信任的是网关已校验过的身份头，本类自身
  * 不做任何签名校验——若服务可被外部直接访问，开启该开关等于信任伪造身份。</p>
  *
- * <p><strong>能力边界</strong>：下游为无状态身份，没有 token-session，因此 token 活跃度冻结与自动续期
- * （{@code sa-token.active-timeout} / {@code dynamic-active-timeout}）在本模式下不生效——token 的生命周期
- * 由网关侧承担；需要二次安全验证的注解（如 {@code @SaCheckSafe}）因无安全会话一律拒绝（fail-closed，
- * 方向是「拒绝」而不是「放行」）。</p>
+ * <p><strong>能力边界（无状态身份模式，宿主不要在这些能力上依赖本类）</strong>：</p>
+ * <ul>
+ *     <li><b>按 token 反查</b>（{@code getLoginIdByToken} / {@code isValidToken} /
+ *     {@code getTokenSessionByToken}）：只认与当前请求身份一致的 token，其它 token 一律按无效处理——
+ *     不这样做会让「任意 token 的主人」被回答成当前调用者身份；</li>
+ *     <li><b>续期</b>（{@code renewTimeout}）：没有终端信息可续，调用会抛
+ *     {@code SaTokenException}（明确失败，不静默成功）；</li>
+ *     <li><b>token 会话</b>（{@code getTokenSession}）：仍会访问 SaTokenDao（生产上通常是 Redis），
+ *     本模式不保证其语义；</li>
+ *     <li><b>登出</b>（{@code logout}）：不影响 {@code isLogin()}（身份生命周期由网关承担）；</li>
+ *     <li><b>二级认证</b>（{@code @SaCheckSafe}）：一律拒绝（fail-closed）；</li>
+ *     <li><b>临时身份切换</b>（{@code switchTo}）：Sa-Token 的切换身份优先级高于身份头；</li>
+ *     <li><b>账号标识</b>：loginId 为 userId 的十进制字符串，因此 userId 若为 {@code -3}/{@code -4}/{@code -5}
+ *     会与 Sa-Token 内部哨兵值冲突（正常业务主键不受影响）。</li>
+ * </ul>
  *
  * @author wenbin
  * @since 2026-09-24
@@ -77,8 +88,11 @@ public class IdentityStpLogic extends StpLogic {
 
     @Override
     public String getLoginIdNotHandle(String tokenValue) {
-        // 身份头已由网关校验并签发，token 即账号标识；无 token 存储可查，也不应去查
-        return currentToken();
+        // 只认「与当前请求身份一致」的 token，绝不忽略入参：
+        // 若忽略，getLoginIdByToken/isValidToken 会对任意 token 作答（把调用者身份冒充成 token 的主人），
+        // 在线用户管理等按 token 反查的能力会因此给出错误答案。
+        String token = currentToken();
+        return token.equals(tokenValue) ? token : NO_IDENTITY_TOKEN;
     }
 
     @Override

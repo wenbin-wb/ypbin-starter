@@ -155,6 +155,16 @@ class IdentityStpLogicTest {
         assertThatThrownBy(StpUtil::getLoginId).isInstanceOf(NotLoginException.class);
     }
 
+    @Test
+    @DisplayName("按 token 反查只认当前请求身份：不会把调用者身份冒充成其它 token 的主人")
+    void tokenLookup_doesNotImpersonateCaller() {
+        IdentityContext.setLoginUser(loginUser(42L));
+
+        assertThat(StpUtil.getStpLogic().isValidToken("999")).isFalse();
+        assertThat(StpUtil.getStpLogic().getLoginIdByToken("999")).isNull();
+        assertThat(StpUtil.getStpLogic().getLoginIdByTokenNotThinkFreeze("999")).isNull();
+    }
+
     private static SaInterceptor annotationInterceptor() {
         return new SaInterceptor().isAnnotation(true);
     }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T07:58:26.930Z",
+  "generatedAt": "2026-09-24T08:32:40.671Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -7606,7 +7606,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 53
+              "line": 59
             }
           ],
           "default": true,
@@ -7618,7 +7618,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 53
+              "line": 59
             }
           ],
           "group": "ypbin.security",
@@ -7640,7 +7640,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 65
+              "line": 71
             }
           ],
           "default": true,
@@ -7650,7 +7650,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 65
+              "line": 71
             }
           ],
           "group": "ypbin.security",
@@ -7672,7 +7672,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 71
+              "line": 77
             }
           ],
           "default": null,
@@ -7682,7 +7682,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 71
+              "line": 77
             }
           ],
           "group": "ypbin.security",
@@ -8190,7 +8190,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 68
+              "line": 74
             }
           ],
           "default": "web-admin",
@@ -8200,7 +8200,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 68
+              "line": 74
             }
           ],
           "group": "ypbin.security",
@@ -8254,7 +8254,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 62
+              "line": 68
             }
           ],
           "default": true,
@@ -8264,7 +8264,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 62
+              "line": 68
             }
           ],
           "group": "ypbin.security",
@@ -8286,7 +8286,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 59
+              "line": 65
             }
           ],
           "default": null,
@@ -8296,7 +8296,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 59
+              "line": 65
             }
           ],
           "group": "ypbin.security",
@@ -8360,7 +8360,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 56
+              "line": 62
             }
           ],
           "default": null,
@@ -8370,7 +8370,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 56
+              "line": 62
             }
           ],
           "group": "ypbin.security",
@@ -8384,7 +8384,7 @@
           "defaultValue": true,
           "required": false,
           "requiredWhen": null,
-          "description": "是否注册全局登录校验拦截器（SaInterceptor）。",
+          "description": "是否执行全局「登录态」校验（StpUtil.checkLogin）。与 annotation-check 相互独立：本项只管登录态，方法级注解鉴权由 annotation-check 控制。",
           "allowedValues": [],
           "enablement": "配置值为 true（默认）时执行全局「登录态」校验（StpUtil.checkLogin）；与 ypbin.security.annotation-check 相互独立。",
           "safetyNotes": [],
@@ -8392,7 +8392,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 41
+              "line": 47
             }
           ],
           "default": true,
@@ -8402,7 +8402,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 41
+              "line": 47
             }
           ],
           "group": "ypbin.security",
@@ -8426,7 +8426,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 74
+              "line": 80
             }
           ],
           "default": null,
@@ -8438,7 +8438,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
-              "line": 74
+              "line": 80
             }
           ],
           "group": "ypbin.security",

@@ -50,7 +50,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -212,15 +211,16 @@ public class SecurityAutoConfiguration {
     /**
      * Sa-Token 拦截器配置（登录校验与注解鉴权由两个相互独立的开关控制）。
      *
-     * <p>仅在 Servlet Web 环境、类路径存在 {@link SaInterceptor} 与 {@link WebMvcConfigurer}，且
-     * {@code ypbin.security.interceptor} 或 {@code ypbin.security.annotation-check} 任一为 {@code true}
-     * 时装配（两者默认均为 {@code true}）。两者都为 {@code false} 时不装配——宿主自行接管鉴权。
-     * {@link SaTokenWebConfigurer} 内部再按开关决定注册的拦截器行为。</p>
+     * <p>Servlet Web 环境、类路径存在 {@link SaInterceptor} 与 {@link WebMvcConfigurer} 时装配，
+     * <strong>装配与否不看开关值</strong>——由 {@link SaTokenWebConfigurer} 在注册阶段按
+     * {@code ypbin.security.interceptor} / {@code ypbin.security.annotation-check} 决定注册内容，
+     * 两个开关都为 {@code false} 时不注册任何拦截器。这里刻意不用 {@code @ConditionalOnExpression}
+     * 做装配条件：SpEL 对 {@code yes}/{@code on}/{@code 1} 这类非布尔字面量会抛异常并让应用**启动失败**，
+     * 而 {@code @ConditionalOnProperty} 的既有语义是「值不匹配即不装配」（不影响启动）。</p>
      */
     @Bean
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnClass({SaInterceptor.class, WebMvcConfigurer.class})
-    @ConditionalOnExpression("${ypbin.security.interceptor:true} || ${ypbin.security.annotation-check:true}")
     @ConditionalOnMissingBean(SaTokenWebConfigurer.class)
     public SaTokenWebConfigurer saTokenWebConfigurer(SecurityProperties properties,
         ObjectProvider<SecurityExcludePathProvider> excludePathProviders) {

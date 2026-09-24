@@ -37,7 +37,13 @@ public class SecurityProperties {
     /** 是否启用安全模块，默认开启 */
     private boolean enabled = true;
 
-    /** 是否注册全局登录校验拦截器（SaInterceptor），默认开启 */
+    /**
+     * 是否执行全局「登录态」校验（{@code StpUtil.checkLogin()}），默认开启。
+     *
+     * <p>与 {@link #annotationCheck} <strong>相互独立</strong>：本项只管「当前请求是否已登录」，
+     * 方法级注解鉴权（{@code @SaCheckPermission} 等）由 {@code annotation-check} 单独控制。
+     * 微服务下游服务没有 Sa-Token 会话，应关闭本项（否则登录校验必然失败），同时保留注解鉴权。</p>
+     */
     private boolean interceptor = true;
 
     /**

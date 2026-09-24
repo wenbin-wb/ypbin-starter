@@ -24,6 +24,7 @@ import cn.ypbin.starter.security.password.lock.InMemoryPasswordAttemptStore;
 import cn.ypbin.starter.security.password.lock.PasswordAttemptStore;
 import cn.ypbin.starter.security.password.lock.RedisPasswordAttemptStore;
 import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -83,12 +84,25 @@ class SecurityAutoConfigurationTest {
     }
 
     @Test
-    void bothSwitchesOff_skipsConfigurer() {
+    void bothSwitchesOff_stillRegistersConfigurerButNoInterceptor() {
         runner.withPropertyValues("ypbin.security.interceptor=false", "ypbin.security.annotation-check=false")
             .run(context -> {
                 assertThat(context).hasNotFailed();
-                assertThat(context).doesNotHaveBean(SaTokenWebConfigurer.class);
+                // 装配与否不再由开关决定（@ConditionalOnExpression 对 yes/1/on 会让应用启动失败）；
+                // 「两个开关都关 ⇒ 不注册任何拦截器」由 SaTokenWebConfigurerTest 行为断言
+                assertThat(context).hasSingleBean(SaTokenWebConfigurer.class);
             });
+    }
+
+    @Test
+    void nonBooleanSwitchValues_doNotBreakStartup() {
+        for (String value : List.of("yes", "on", "1")) {
+            runner.withPropertyValues("ypbin.security.interceptor=" + value)
+                .run(context -> {
+                    assertThat(context).as("interceptor=%s 不应导致启动失败", value).hasNotFailed();
+                    assertThat(context).hasSingleBean(SaTokenWebConfigurer.class);
+                });
+        }
     }
 
     @Test

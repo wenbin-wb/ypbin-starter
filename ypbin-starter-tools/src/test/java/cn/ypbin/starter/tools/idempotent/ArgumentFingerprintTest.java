@@ -27,10 +27,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link ArgumentFingerprint} 的值语义测试。
+ * {@link ArgumentFingerprint} 的值语义与摘要性质测试。
  *
- * <p>核心诉求：**内容相同 ⇒ 指纹相同**（与对象实例无关），这正是 {@code Arrays.deepHashCode} 做不到、
- * 导致 {@code @Idempotent} 对 Req DTO 形同虚设的原因。同时钉住边界行为（保序/排序/循环/截断）。</p>
+ * <p>两件事分别锁住：①**语义**——内容相同 ⇒ 指纹相同（{@code Arrays.deepHashCode} 做不到的那一条），
+ * 用包内可见的 {@link ArgumentFingerprint#describe(Object[])} 断言可读展开结果；②**安全性质**——
+ * 对外返回的 {@link ArgumentFingerprint#of(Object[])} 是定长摘要，**不含入参明文**（键会进 Redis 与日志）。</p>
  *
  * @author wenbin
  * @since 2026-09-24
@@ -40,10 +41,8 @@ class ArgumentFingerprintTest {
     @Test
     @DisplayName("内容相同的两个 DTO 实例：指纹相同（本次修复的核心）")
     void sameContentDifferentInstances_sameFingerprint() {
-        String first = ArgumentFingerprint.of(new Object[] {new Req(1L, "open")});
-        String second = ArgumentFingerprint.of(new Object[] {new Req(1L, "open")});
-
-        assertThat(first).isEqualTo(second);
+        assertThat(ArgumentFingerprint.of(new Object[] {new Req(1L, "open")}))
+            .isEqualTo(ArgumentFingerprint.of(new Object[] {new Req(1L, "open")}));
     }
 
     @Test
@@ -56,14 +55,33 @@ class ArgumentFingerprintTest {
     }
 
     @Test
+    @DisplayName("对外指纹是定长摘要，且不含入参明文（键会进 Redis 键空间与日志）")
+    void digest_isOpaqueAndFixedLength() {
+        String fingerprint = ArgumentFingerprint.of(new Object[] {
+            new SecretReq("P@ssw0rd-明文口令", "110101199001011234")});
+
+        assertThat(fingerprint)
+            .as("SHA-256 前 32 位十六进制")
+            .hasSize(32)
+            .matches("[0-9a-f]{32}")
+            .as("明文绝不能出现在键里")
+            .doesNotContain("P@ssw0rd")
+            .doesNotContain("110101199001011234");
+        assertThat(ArgumentFingerprint.describe(new Object[] {
+            new SecretReq("P@ssw0rd-明文口令", "110101199001011234")}))
+            .as("展开结果仅供包内调试，必须能读到值（否则上面的「不含明文」就是恒真断言）")
+            .contains("P@ssw0rd-明文口令");
+    }
+
+    @Test
     @DisplayName("多参数：顺序敏感，null 与空参数稳定")
     void multiArguments_andNull() {
-        assertThat(ArgumentFingerprint.of(new Object[] {1L, "open"}))
-            .isNotEqualTo(ArgumentFingerprint.of(new Object[] {"open", 1L}));
-        assertThat(ArgumentFingerprint.of(new Object[] {null})).isEqualTo("null");
-        assertThat(ArgumentFingerprint.of(new Object[] {null, null})).isEqualTo("null&null");
-        assertThat(ArgumentFingerprint.of(null)).isEmpty();
-        assertThat(ArgumentFingerprint.of(new Object[0])).isEmpty();
+        assertThat(ArgumentFingerprint.describe(new Object[] {1L, "open"}))
+            .isNotEqualTo(ArgumentFingerprint.describe(new Object[] {"open", 1L}));
+        assertThat(ArgumentFingerprint.describe(new Object[] {null})).isEqualTo("null");
+        assertThat(ArgumentFingerprint.describe(new Object[] {null, null})).isEqualTo("null&null");
+        assertThat(ArgumentFingerprint.describe(null)).isEmpty();
+        assertThat(ArgumentFingerprint.describe(new Object[0])).isEmpty();
     }
 
     @Test
@@ -91,6 +109,17 @@ class ArgumentFingerprintTest {
     }
 
     @Test
+    @DisplayName("容器语义不同即指纹不同：List vs Set、Optional 包裹 vs 裸值")
+    void containerSemantics_areDistinguished() {
+        assertThat(ArgumentFingerprint.describe(new Object[] {List.of("a", "b")}))
+            .as("List 与 Set 同元素不能得到同一指纹（否则不同请求会被误判为重复）")
+            .isNotEqualTo(ArgumentFingerprint.describe(
+                new Object[] {new LinkedHashSet<>(List.of("a", "b"))}));
+        assertThat(ArgumentFingerprint.describe(new Object[] {Optional.of("x")}))
+            .isNotEqualTo(ArgumentFingerprint.describe(new Object[] {"x"}));
+    }
+
+    @Test
     @DisplayName("数组与 Optional 递归展开")
     void arraysAndOptional() {
         assertThat(ArgumentFingerprint.of(new Object[] {new String[] {"a", "b"}}))
@@ -102,11 +131,14 @@ class ArgumentFingerprintTest {
     }
 
     @Test
-    @DisplayName("嵌套对象逐层展开")
+    @DisplayName("嵌套对象逐层展开，且类名带包名（跨包同名类不会撞 fingerprint）")
     void nestedObjects() {
         assertThat(ArgumentFingerprint.of(new Object[] {new Outer(new Req(1L, "open"), "x")}))
             .isEqualTo(ArgumentFingerprint.of(new Object[] {new Outer(new Req(1L, "open"), "x")}))
             .isNotEqualTo(ArgumentFingerprint.of(new Object[] {new Outer(new Req(1L, "close"), "x")}));
+        assertThat(ArgumentFingerprint.describe(new Object[] {new Req(1L, "open")}))
+            .as("用全限定类名，避免不同包的同类名对象撞指纹")
+            .contains(Req.class.getName());
     }
 
     @Test
@@ -117,7 +149,8 @@ class ArgumentFingerprintTest {
         first.next = second;
         second.next = first;
 
-        assertThat(ArgumentFingerprint.of(new Object[] {first})).contains("!cycle");
+        assertThat(ArgumentFingerprint.describe(new Object[] {first})).contains("!cycle");
+        assertThat(ArgumentFingerprint.of(new Object[] {first})).hasSize(32);
     }
 
     @Test
@@ -130,7 +163,7 @@ class ArgumentFingerprintTest {
             node = parent;
         }
 
-        assertThat(ArgumentFingerprint.of(new Object[] {node})).contains("!truncated");
+        assertThat(ArgumentFingerprint.describe(new Object[] {node})).contains("!truncated");
     }
 
     /** 模拟业务 Req DTO：只有 getter/setter，没有 equals/hashCode。 */
@@ -151,6 +184,27 @@ class ArgumentFingerprintTest {
 
         public String getAction() {
             return action;
+        }
+    }
+
+    /** 含敏感字段的请求：用于证明摘要不落明文。 */
+    static class SecretReq {
+
+        private final String password;
+
+        private final String idCard;
+
+        SecretReq(String password, String idCard) {
+            this.password = password;
+            this.idCard = idCard;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public String getIdCard() {
+            return idCard;
         }
     }
 
