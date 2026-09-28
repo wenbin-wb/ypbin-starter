@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T08:32:40.671Z",
+  "generatedAt": "2026-09-28T15:48:46.432Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 40,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 333,
+    "customPropertyCount": 339,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 373,
+    "totalEntryCount": 379,
     "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
@@ -8306,14 +8306,12 @@
           "module": "ypbin-starter-security",
           "key": "ypbin.security.identity.enabled",
           "type": "java.lang.Boolean",
-          "defaultDefined": false,
-          "defaultValue": null,
+          "defaultDefined": true,
+          "defaultValue": false,
           "required": false,
           "requiredWhen": null,
-          "description": "条件开关：ypbin.security.identity.enabled=true 时装配 SecurityAutoConfiguration。",
-          "allowedValues": [
-            "true"
-          ],
+          "description": "是否启用身份头模式（网关签发身份头、下游以身份头为登录态），默认关闭",
+          "allowedValues": [],
           "enablement": "配置值为 true 时装配身份头信任过滤器（IdentityHeaderFilter）与身份头账号体系（IdentityStpLogic）；未配置即不信任任何外部身份头。",
           "safetyNotes": [
             "仅当服务位于可信网关之后、且网关负责清洗外部 X-User-Id/X-Roles 等头并签发内部身份头时才可开启；服务可被外部直接访问时开启等于信任伪造身份。",
@@ -8321,24 +8319,86 @@
           ],
           "sources": [
             {
-              "kind": "conditional-on-property",
-              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityAutoConfiguration.java",
-              "line": 247
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityProperties.java",
+              "line": 38
             }
           ],
-          "default": null,
-          "values": [
-            "true"
-          ],
+          "default": false,
+          "values": [],
           "notes": [
             "仅当服务位于可信网关之后、且网关负责清洗外部 X-User-Id/X-Roles 等头并签发内部身份头时才可开启；服务可被外部直接访问时开启等于信任伪造身份。",
             "开启后本服务不再依赖 Sa-Token 会话：token 活跃度冻结与自动续期不生效（token 生命周期由网关侧承担），@SaCheckSafe 等依赖会话的校验一律拒绝。"
           ],
           "source": [
             {
-              "kind": "conditional-on-property",
-              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityAutoConfiguration.java",
-              "line": 247
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityProperties.java",
+              "line": 38
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-security",
+          "key": "ypbin.security.identity.trusted-source-header",
+          "type": "java.lang.String",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "身份头来源标记头名（由可信网关在清洗外部身份头后签发）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityProperties.java",
+              "line": 46
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityProperties.java",
+              "line": 46
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-security",
+          "key": "ypbin.security.identity.trusted-source-token",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "",
+          "required": false,
+          "requiredWhen": null,
+          "description": "身份头来源标记期望值。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityProperties.java",
+              "line": 54
+            }
+          ],
+          "default": "",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/identity/IdentityProperties.java",
+              "line": 54
             }
           ],
           "group": "ypbin.security",
@@ -8403,6 +8463,134 @@
               "kind": "java-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/autoconfigure/SecurityProperties.java",
               "line": 47
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-security",
+          "key": "ypbin.security.management.base-path",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "/actuator",
+          "required": false,
+          "requiredWhen": null,
+          "description": "管理端点基路径，需与 management.endpoints.web.base-path 一致（Spring Boot 默认 /actuator）。守卫只对该路径下的端点做权限校验。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 52
+            }
+          ],
+          "default": "/actuator",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 52
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-security",
+          "key": "ypbin.security.management.guard-enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": false,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用管理端点权限守卫，默认关闭（显式开启，避免破坏未配置宿主）",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 46
+            }
+          ],
+          "default": false,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 46
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-security",
+          "key": "ypbin.security.management.public-paths",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "放行的公开端点（相对 #basePath 的路径，支持 Ant 风格），默认放行 health/info——这两个端点是有意公开的（可用性探针），不得误伤。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 58
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 58
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-security",
+          "key": "ypbin.security.management.required-permission",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "",
+          "required": false,
+          "requiredWhen": null,
+          "description": "访问其余管理端点所需的权限码（宿主权限体系中的码，经 PermissionProvider 校验）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 65
+            }
+          ],
+          "default": "",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/management/ManagementEndpointProperties.java",
+              "line": 65
             }
           ],
           "group": "ypbin.security",
