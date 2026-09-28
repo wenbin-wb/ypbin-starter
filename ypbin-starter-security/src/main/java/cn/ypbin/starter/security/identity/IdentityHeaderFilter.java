@@ -86,10 +86,10 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
      * 以显式来源标记构造（正常装配路径）。
      *
      * @param trustedSourceHeader 来源标记头名（默认 {@value IdentityHeaders#GATEWAY_SIGNED}）
-     * @param trustedSourceToken  来源标记期望值（与网关配置一致；非空）
+     * @param trustedSourceToken  来源标记期望值（与网关配置一致；为 {@code null} 表示不信任任何来源）
      * @param objectMapper        拒绝响应的序列化器，可为 {@code null}
      */
-    public IdentityHeaderFilter(String trustedSourceHeader, String trustedSourceToken,
+    public IdentityHeaderFilter(String trustedSourceHeader, @Nullable String trustedSourceToken,
             @Nullable ObjectMapper objectMapper) {
         this.trustedSourceHeader = trustedSourceHeader;
         this.trustedSourceToken = trustedSourceToken;

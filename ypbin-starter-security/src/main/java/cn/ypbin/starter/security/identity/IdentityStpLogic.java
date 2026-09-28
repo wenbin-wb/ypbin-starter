@@ -17,6 +17,7 @@ package cn.ypbin.starter.security.identity;
 
 import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 以 {@link IdentityContext} 为基准的 Sa-Token 账号体系实现（微服务下游专用）。
@@ -93,11 +94,23 @@ public class IdentityStpLogic extends StpLogic {
         return currentToken();
     }
 
+    /**
+     * 反查「给定 token 对应的登录账号」。
+     *
+     * <p>只认「与当前请求身份一致」的 token，绝不忽略入参：若忽略，
+     * {@code getLoginIdByToken}/{@code isValidToken} 会对任意 token 作答（把调用者身份冒充成
+     * token 的主人），在线用户管理等按 token 反查的能力会因此给出错误答案。</p>
+     *
+     * <p><strong>无身份/不匹配必须返回 {@code null}</strong>：Sa-Token 建 token 的唯一性判据是
+     * {@code getLoginIdNotHandle(候选) == null}（见 {@code StpLogic.lambda$distUsableToken$2}），
+     * 返回空串会让判据恒不成立 → 12 次重试全败 → {@code SaTokenException}（SF-4）。</p>
+     *
+     * @param tokenValue 待反查的 token
+     * @return 该 token 对应的登录账号标识；不属于当前调用者或无身份时为 {@code null}
+     */
     @Override
+    @Nullable
     public String getLoginIdNotHandle(String tokenValue) {
-        // 只认「与当前请求身份一致」的 token，绝不忽略入参：
-        // 若忽略，getLoginIdByToken/isValidToken 会对任意 token 作答（把调用者身份冒充成 token 的主人），
-        // 在线用户管理等按 token 反查的能力会因此给出错误答案。
         String token = currentToken();
         if (!NO_IDENTITY_TOKEN.equals(token)) {
             // 有身份：只对入参等于当前身份标识的 token 作答
