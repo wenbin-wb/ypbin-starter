@@ -18,6 +18,7 @@ package cn.ypbin.starter.security.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
@@ -31,12 +32,18 @@ import org.springframework.core.Ordered;
  * 身份头信任过滤器默认<strong>不装配</strong>，显式开启后才注册且保持最高优先级——
  * 防止后续改动把默认值改回隐式信任导致安全回归而测试无感知。</p>
  *
+ * <p>SF-5 起：显式开启必须同时配置 <code>ypbin.security.identity.trusted-source-token</code>
+ * （身份头来源校验），否则启动失败（fail-closed）。</p>
+ *
  * @author wenbin
  * @since 2026-09-09
  */
 class IdentityAutoConfigurationTest {
 
     private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
+        // 装配方法注入 ObjectMapper 序列化拒绝响应：测试上下文需提供（生产由 spring-boot-jackson 自动配置）
+        .withBean(tools.jackson.databind.ObjectMapper.class,
+            tools.jackson.databind.ObjectMapper::new)
         .withConfiguration(AutoConfigurations.of(IdentityAutoConfiguration.class));
 
     @Test
@@ -50,13 +57,27 @@ class IdentityAutoConfigurationTest {
     }
 
     @Test
-    void filterRegisteredWhenExplicitlyEnabled() {
-        runner.withPropertyValues("ypbin.security.identity.enabled=true")
+    void filterRegisteredWhenEnabledWithTrustedSourceToken() {
+        runner.withPropertyValues(
+                "ypbin.security.identity.enabled=true",
+                "ypbin.security.identity.trusted-source-token=shared-secret")
             .run(context -> {
                 FilterRegistrationBean<?> registration =
                     context.getBean("identityHeaderFilterRegistration", FilterRegistrationBean.class);
                 assertThat(registration.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE);
                 assertThat(registration.getFilter()).isInstanceOf(IdentityHeaderFilter.class);
+            });
+    }
+
+    @Test
+    @DisplayName("SF-5：开启身份模式但未配置 trusted-source-token → 启动失败（不允许 fail-open）")
+    void startupFailsWhenEnabledWithoutTrustedSourceToken() {
+        runner.withPropertyValues("ypbin.security.identity.enabled=true")
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure()).isNotNull();
+                assertThat(context.getStartupFailure().getMessage())
+                    .contains("trusted-source-token");
             });
     }
 

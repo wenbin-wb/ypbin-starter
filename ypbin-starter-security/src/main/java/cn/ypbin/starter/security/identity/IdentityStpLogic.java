@@ -17,6 +17,7 @@ package cn.ypbin.starter.security.identity;
 
 import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 以 {@link IdentityContext} 为基准的 Sa-Token 账号体系实现（微服务下游专用）。
@@ -57,8 +58,15 @@ public class IdentityStpLogic extends StpLogic {
     /**
      * 无身份头时返回的 token 值。
      *
-     * <p>Sa-Token 以「token 为空」判定未登录（{@code SaFoxUtil.isEmpty}），因此这里用空串而不是
-     * {@code null} 表达「无身份」——既能被 Sa-Token 正确识别为未登录，也不需要在非空返回类型上破例。</p>
+     * <p>Sa-Token 以「token 为空」判定未登录（{@code SaFoxUtil.isEmpty}），因此 {@code getTokenValue}
+     * 系列用空串而不是 {@code null} 表达「无身份」——既能被 Sa-Token 正确识别为未登录，也不需要在
+     * 非空返回类型上破例。</p>
+     *
+     * <p><strong>注意</strong>：{@link #getLoginIdNotHandle(String)} 是例外——它必须返回 {@code null}
+     * 表达「该 token 不属于当前调用者」。Sa-Token 建 token 时以
+     * {@code getLoginIdNotHandle(候选token) == null} 作为「候选 token 可用」的唯一判据（见
+     * {@code StpLogic.lambda$distUsableToken$2}），此处若返回空串会导致唯一性判据恒不成立，
+     * 建 token 重试 12 次后必然抛 {@code SaTokenException}（SF-4）。</p>
      */
     private static final String NO_IDENTITY_TOKEN = "";
 
@@ -86,13 +94,32 @@ public class IdentityStpLogic extends StpLogic {
         return currentToken();
     }
 
+    /**
+     * 反查「给定 token 对应的登录账号」。
+     *
+     * <p>只认「与当前请求身份一致」的 token，绝不忽略入参：若忽略，
+     * {@code getLoginIdByToken}/{@code isValidToken} 会对任意 token 作答（把调用者身份冒充成
+     * token 的主人），在线用户管理等按 token 反查的能力会因此给出错误答案。</p>
+     *
+     * <p><strong>无身份/不匹配必须返回 {@code null}</strong>：Sa-Token 建 token 的唯一性判据是
+     * {@code getLoginIdNotHandle(候选) == null}（见 {@code StpLogic.lambda$distUsableToken$2}），
+     * 返回空串会让判据恒不成立 → 12 次重试全败 → {@code SaTokenException}（SF-4）。</p>
+     *
+     * @param tokenValue 待反查的 token
+     * @return 该 token 对应的登录账号标识；不属于当前调用者或无身份时为 {@code null}
+     */
     @Override
+    @Nullable
     public String getLoginIdNotHandle(String tokenValue) {
-        // 只认「与当前请求身份一致」的 token，绝不忽略入参：
-        // 若忽略，getLoginIdByToken/isValidToken 会对任意 token 作答（把调用者身份冒充成 token 的主人），
-        // 在线用户管理等按 token 反查的能力会因此给出错误答案。
         String token = currentToken();
-        return token.equals(tokenValue) ? token : NO_IDENTITY_TOKEN;
+        if (!NO_IDENTITY_TOKEN.equals(token)) {
+            // 有身份：只对入参等于当前身份标识的 token 作答
+            return token.equals(tokenValue) ? token : null;
+        }
+        // 无身份：任何 token 都不属于当前调用者，必须返回 null。
+        // Sa-Token 建 token 的唯一性判据是「getLoginIdNotHandle(候选) == null」，返回空串会让
+        // 判据恒不成立 → 12 次重试全败 → SaTokenException（SF-4：identity 模式登录结构性失败）。
+        return null;
     }
 
     @Override
@@ -103,6 +130,9 @@ public class IdentityStpLogic extends StpLogic {
 
     /**
      * 由当前线程的身份头上下文派生 token 值：有身份返回账号标识，无身份返回空串（等价未登录）。
+     *
+     * <p>仅在 {@code getTokenValue} 系方法上代表「未登录」；{@link #getLoginIdNotHandle(String)}
+     * 的「无身份」语义必须由返回 {@code null} 表达（见该方法的说明）。</p>
      *
      * @return token 值，永不为 {@code null}
      */

@@ -165,6 +165,43 @@ class IdentityStpLogicTest {
         assertThat(StpUtil.getStpLogic().getLoginIdByTokenNotThinkFreeze("999")).isNull();
     }
 
+    @Test
+    @DisplayName("SF-4：无身份时 getLoginIdNotHandle 对任意入参返回 null（不能返回空串）")
+    void getLoginIdNotHandle_returnsNullWhenNoIdentity() {
+        StpLogic logic = new IdentityStpLogic();
+
+        assertThat(logic.getLoginIdNotHandle("any-candidate-token"))
+            .as("无身份时任何候选 token 都不属于当前调用者，必须返回 null")
+            .isNull();
+        assertThat(logic.getLoginIdNotHandle(""))
+            .as("连空串入参也必须返回 null（Sa-Token 建 token 判据是严格 == null）")
+            .isNull();
+    }
+
+    @Test
+    @DisplayName("SF-4：有身份时 getLoginIdNotHandle 只对匹配的 token 作答，且保留『绝不忽略入参』语义")
+    void getLoginIdNotHandle_answersOnlyMatchingIdentity() {
+        IdentityContext.setLoginUser(loginUser(42L));
+        StpLogic logic = new IdentityStpLogic();
+
+        assertThat(logic.getLoginIdNotHandle("42")).isEqualTo("42");
+        assertThat(logic.getLoginIdNotHandle("999"))
+            .as("其它 token 仍按无效作答（不得静默冒充调用者身份）")
+            .isNull();
+    }
+
+    @Test
+    @DisplayName("SF-4 回归：无身份头时创建登录会话成功（修复前 getLoginIdNotHandle 返回空串 → 12 次重试后抛异常）")
+    void createLoginSession_withoutIdentity_succeeds() {
+        StpLogic logic = new IdentityStpLogic();
+
+        // distUsableToken 判据：getLoginIdNotHandle(候选) == null 才算可用。修复前返回空串导致
+        // 判据恒不成立 → SaTokenException("token 生成失败，已尝试12次…")；修复后必须成功。
+        String token = logic.createLoginSession(42L);
+
+        assertThat(token).isNotBlank();
+    }
+
     private static SaInterceptor annotationInterceptor() {
         return new SaInterceptor().isAnnotation(true);
     }
