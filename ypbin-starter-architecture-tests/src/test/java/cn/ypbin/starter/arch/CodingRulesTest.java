@@ -143,7 +143,8 @@ class CodingRulesTest {
         "cn.ypbin.starter.security.autoconfigure.SecuritySseAutoConfiguration#sseSubscribeExcludePathProvider",
         "cn.ypbin.starter.web.autoconfigure.ApiVersionAutoConfiguration#ypbinApiVersionWebMvcConfigurer",
         // Filter 注册 Bean：宿主可自行定义同名类型覆盖，但语义上必须保证默认注册存在
-        "cn.ypbin.starter.security.identity.IdentityAutoConfiguration#identityHeaderFilterRegistration"
+        "cn.ypbin.starter.security.identity.IdentityAutoConfiguration#identityHeaderFilterRegistration",
+        "cn.ypbin.starter.security.management.ManagementEndpointGuardAutoConfiguration#managementEndpointGuardRegistration"
     );
 
     @Test
