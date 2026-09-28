@@ -33,6 +33,17 @@ public final class IdentityHeaders {
     public static final String DEPT_ID = "X-Dept-Id";
     public static final String ROLES = "X-Roles";
 
+    /**
+     * 网关身份头来源标记头名。
+     *
+     * <p>网关签发身份头时同时写出该标记（值为与下游约定的随机串），下游
+     * {@link IdentityHeaderFilter} 据此判定身份头来源可信（SF-5）；Feign 侧
+     * （{@code FeignProperties.trustedSourceHeader}）默认亦同名。该常量只是默认头名，
+     * 实际头名可通过 {@code ypbin.security.identity.trusted-source-header} 覆盖——
+     * 网关与各下游必须配置一致。</p>
+     */
+    public static final String GATEWAY_SIGNED = "X-Gateway-Signed";
+
     private IdentityHeaders() {
     }
 }
