@@ -9,6 +9,23 @@
 
 ## [未发布]
 
+### 新增
+
+- **管理端点权限守卫**（`ypbin-starter-security`，反馈 UP-5）：`/actuator/**` 此前是权限模型的"无主面"——网关只校登录、下游把 actuator 排除在 Sa-Token 拦截之外，任何已登录用户都能读平台级指标。新增 `ManagementEndpointGuard`（servlet 层过滤器，显式开启 `ypbin.security.management.guard-enabled=true`）：对 `management.endpoints.web.base-path`（默认 `/actuator`）下的端点做权限码收口（**fail-closed**——`required-permission` 未配置、未登录、权限不足一律拒绝，业务码 403），`health`/`info`（可配 `public-paths`）始终放行不误伤可用性；权限数据复用 `PermissionProvider` 扩展点，平台超管 `*:*:*` 自动放行。
+- **文档：404 包 HTTP 200 的陷阱警示与鉴别判据**（`README.md` / `docs/MODULES.md`，反馈 UP-10）：明确「HTTP 200 ≠ 健康」——未知路径/未暴露端点返回包在 200 里的业务 404（`"success":false` / `"code":404`），并给出可复制的 curl 判据（既看状态码、也看 body，判 `"status":"UP"`），探针只打真实暴露的端点。
+
+### 变更（不兼容）
+
+- **身份模式强制身份头来源签名（SF-5，`ypbin-starter-security`）**：`ypbin.security.identity.enabled=true` 的服务此前**完全不校验**网关身份头来源——只要能直连下游端口，构造 `X-User-Id` 等五个头即可绕过网关伪造任意身份。本次修复后：
+  - 开启身份模式**必须**配置 `ypbin.security.identity.trusted-source-token`（与网关 `ypbin.gateway.auth.trusted-source-token` 一致），未配置**启动失败**（不再允许"配了 token 才校验、不配就裸奔"的 fail-open）；
+  - `IdentityHeaderFilter` 对每个携带身份头的请求校验来源标记，缺失或不匹配一律拒绝（业务码 403，fail-closed）。
+  ⚠️ **升级前必须**在网关与各下游服务统一配置同一随机串（同时确认 `ypbin.gateway.auth.trusted-source-token` 已配置，网关才签发标记）。
+
+### 修复
+
+- **identity 模式登录结构性失败（SF-4，`ypbin-starter-security`）**：`IdentityStpLogic#getLoginIdNotHandle` 在"无当前身份/入参不等于当前身份"时返回空串而非 `null`，而 Sa-Token 建 token 的唯一性判据是 `getLoginIdNotHandle(候选) == null`（见 `StpLogic.lambda$distUsableToken$2`）⇒ 判据恒不成立 ⇒ 12 次重试全败 ⇒ 建 token 恒抛 `SaTokenException`，`identity.enabled=true` 的服务登录/短信登录/社交登录全部结构性不可用（业务 403「当前鉴权模式下该操作不可用」）。改为无身份返回 `null`（保留"绝不忽略入参"语义），并新增针对 `createLoginSession` 的回归测试（修复前必红）。
+- **文档/注释订正（UP-10）**：`docs/MODULES.md` 与 `GlobalExceptionHandler` Javadoc 中原先断言「本模块默认已开启 `spring.mvc.throw-exception-if-no-handler-found`」，实际**从未设置**该属性（404 由 Framework 默认抛 `NoResourceFoundException` + 本模块注入 `spring.web.resources.add-mappings=false` 兜底）——表述已订正，避免读者依赖一个不存在的配置。
+
 ## [3.5.0] - 2026-09-24
 
 ### 新增

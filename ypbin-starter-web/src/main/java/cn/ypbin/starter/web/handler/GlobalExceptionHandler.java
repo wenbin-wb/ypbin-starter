@@ -125,8 +125,15 @@ public class GlobalExceptionHandler {
      * 接口不存在（无匹配的处理器）。
      *
      * <p>纯 JSON REST 服务下，替代 Spring Boot 默认返回的 HTML Whitelabel 错误页，
-     * 保证 404 也走统一的 {@link R} 结构，前端可正常解析。需配合
-     * {@code spring.mvc.throw-exception-if-no-handler-found=true} 生效（本模块已默认开启）。</p>
+     * 保证 404 也走统一的 {@link R} 结构，前端可正常解析。
+     * Spring Framework 对无处理器路径默认抛 {@code NoResourceFoundException}；
+     * 本模块另注入 {@code spring.web.resources.add-mappings=false} 作为防御性配置，
+     * <strong>不依赖</strong> {@code spring.mvc.throw-exception-if-no-handler-found}
+     * （该属性未由本模块设置，勿依赖其改变 404 行为）。</p>
+     *
+     * <p><strong>陷阱警示</strong>：本方法返回的「业务 404」仍按全局约定包在 HTTP 200 里
+     * （{@code R.code=404}）——健康探针不能只看状态码，需同时判 body
+     * （{@code "success":false} / {@code "code":404} 即业务 404，非健康文档）。</p>
      */
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     public R<Void> handleNotFound(HttpServletRequest request) {

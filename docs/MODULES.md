@@ -50,7 +50,22 @@ List<MenuNode> tree2 = TreeUtils.build(flatList, 0L);   // 指定根父 ID
 引入即生效，无需注解：
 
 - 全局异常处理：业务/校验/系统异常统一转 `R`，**所有异常返回 HTTP 200**，由 `R.code` 区分。
-- 404 统一 JSON：访问不存在的接口返回 `R.fail(404, "接口不存在")`，而非默认 HTML 错误页（默认已开启 `throw-exception-if-no-handler-found`）。
+
+  > **陷阱警示（「HTTP 200 ≠ 健康」）**：既然所有异常都包在 HTTP 200 里，**未知路径 / 未暴露端点
+  > 也返回业务 404（`{"code":404,"message":"接口不存在",...,"success":false}`）**——把它当健康证据
+  > 会得出「不健康的服务是健康的」。判健康必须**既看状态码、也看 body**：
+  > ```bash
+  > # ❌ 不足以判健康：200 也可能是业务 404（端点未暴露）
+  > curl -s -o /dev/null -w '%{http_code}\n' http://host:port/actuator/health
+  > # ✅ 鉴别判据：业务 404 包（success=false / code=404）与真健康文档（"status":"UP"）可区分
+  > curl -s -w '\nhttp=%{http_code}\n' http://host:port/actuator/health | grep -q '"status":"UP"'
+  > # 或统一判 R：body 出现 '"success":false' / '"code":404' 即为「未暴露端点」，不是健康
+  > ```
+  > 探针只打**真实暴露**的端点，并把「业务 404 包」显式判为不健康。
+- 404 统一 JSON：访问不存在的接口返回 `R.fail(404, "接口不存在")`，而非默认 HTML 错误页。
+  （Spring Framework 对无处理器路径默认抛 `NoResourceFoundException`；本模块另注入
+  `spring.web.resources.add-mappings=false` 作为防御性配置，**不依赖**
+  `spring.mvc.throw-exception-if-no-handler-found`——该属性并未被本模块设置，切勿依赖它改变 404 行为。）
 - CORS：默认关闭，按需开启：
 
 ```yaml
@@ -289,21 +304,39 @@ ypbin:
 
 **登录校验与注解鉴权是两个独立开关**：`interceptor` 只管 `StpUtil.checkLogin()`，`annotation-check` 只管方法上的 `@SaCheckPermission` / `@SaCheckRole` / `@SaCheckLogin`。**微服务下游服务**（没有 Sa-Token 会话、身份来自网关注入的身份头）应配 `interceptor: false` 而保留 `annotation-check: true`（默认）——这样既不会因登录校验必然失败而 401，注解鉴权又真的生效。两者此前共用一个开关，下游为关登录校验只能把注解鉴权一起关掉，导致权限码全部变成装饰性的。两者都设为 `false` 时不注册任何拦截器（宿主自行接管鉴权）。
 
-下游还需要显式声明身份头信任（默认关闭）：
+下游还需要显式声明身份头信任（默认关闭），**并配置身份头来源签名**（3.5.1 起为强制项，SF-5）：
 
 ```yaml
 ypbin:
   security:
     interceptor: false
     identity:
-      enabled: true              # 仅当服务位于可信网关之后、且网关负责清洗外部身份头时才可开启
+      enabled: true                 # 仅当服务位于可信网关之后、且网关负责清洗外部身份头时才可开启
+      trusted-source-token: <与网关一致的随机串>   # 必填：校验身份头来源标记（X-Gateway-Signed）
+      # trusted-source-header: X-Gateway-Signed  # 可选：覆盖默认标记头名，需与网关一致
 ```
+
+**身份头来源签名（fail-closed，SF-5）**：身份模式把「请求携带的身份头」当作当前登录用户，因此每个携带身份头的请求都必须带上来源标记——由网关在清洗外部头后签发（`ypbin.gateway.auth.trusted-source-token`）。下游 `identity.trusted-source-token` 必须与网关配置**同一随机串**；未配置而开启身份模式会**启动失败**（不允许"配了 token 才校验、不配就裸奔"的 fail-open）；签名缺失或不匹配的请求一律**拒绝**（业务码 403）——直连下游端口 + 伪造 `X-User-Id` 等头不再能冒充身份。
 
 `identity.enabled: true` 时 starter 会把 `IdentityStpLogic` 注册为 Sa-Token 账号体系实现：注解鉴权以身份头为账号来源，权限数据仍走宿主的 `PermissionProvider`。`StpPermissionAdapter` 会把平台超管约定的 `*:*:*` 归一为 Sa-Token 的 `*` 通配符——`*:*:*` **不是** Sa-Token 的官方通配符（官方「全权限」是单个 `*`），它只按普通权限码参与模糊匹配：能命中含两个及以上冒号的码（如 `system:user:add`），却命不中 `user:add`（只有一个冒号），不归一就会出现「超管反而没权限」。
 
 该模式下 token 生命周期由网关侧承担：`sa-token.active-timeout` 与自动续期不适用——**有身份头但无 Sa-Token 会话**时 `renewTimeout` 会抛 `SaTokenException`（由 `SaTokenExceptionHandler` 映射为 403），无身份头时按 Sa-Token 基类语义静默返回；`logout` 不改变登录态；`@SaCheckSafe` 等依赖会话的校验一律拒绝（fail-closed，返回 403）；按 token 反查的 API（`isValidToken` / `getLoginIdByToken`）只认与当前请求身份一致的 token。
 
 装配可被覆盖：自定义 `SaTokenWebConfigurer` Bean 可整体替换本配置；自定义 `StpLogic` Bean 会让身份头桥让位（此时账号体系由宿主负责）。**注意**：提供自定义 `WebMvcConfigurer` **不会**替代本配置——两者是并列注册的拦截器。
+
+**管理端点权限收口**（3.5.1 起，反馈 UP-5）：`/actuator/**` 默认是权限模型里的"无主面"——网关只校验登录、下游还把 actuator 排除在 Sa-Token 拦截之外，任何已登录用户都能读平台级指标。显式开启守卫后，servlet 层对管理端点做权限码校验（**fail-closed**）：
+
+```yaml
+ypbin:
+  security:
+    management:
+      guard-enabled: true           # 显式开启（默认关，不破坏未配置宿主）
+      # base-path: /actuator        # 管理端点基路径，需与 management.endpoints.web.base-path 一致
+      # public-paths: ["/health", "/info"]   # 公开端点始终放行（可用性探针，默认 health/info）
+      required-permission: system:monitor:view   # 访问其余管理端点所需的权限码（经 PermissionProvider 校验）
+```
+
+规则：`health`/`info`（可配 `public-paths`）无条件放行；其余管理端点要求当前用户**已登录**且权限包含 `required-permission`（平台超管 `*:*:*` 自动放行）；`required-permission` 未配置、未登录、或权限不足一律拒绝（业务码 403）。权限数据复用 `PermissionProvider` 扩展点（与注解鉴权同一来源），宿主无需新接口。
 
 - `LoginHelper`：`login(userId)` / `getUserId()` / `logout()`，统一以 `Long` 用户 ID 进出。
 - `UserContext` + `LoginUser`：当前登录用户门面，登录时 `setLoginUser` 存会话，任意层 `getLoginUser`/`getUserId`/`getUsername`/`getTenantId`/`getClientId`/`getClientType`/`getAuthType` 读取。
