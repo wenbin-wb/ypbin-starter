@@ -187,6 +187,16 @@ public class SignProperties {
         private LocalDateTime expireTime;
         /** 是否启用 */
         private boolean enabled = true;
+        /** 所属租户 ID（可选；为空表示不做租户校验） */
+        private Long tenantId;
+        /** 作用域集合（可选；为空表示不限制） */
+        private List<String> scopes = new ArrayList<>();
+        /** 应用级 QPS 配额（空或 <=0 表示不限） */
+        private Integer rateLimitQps;
+        /** 应用级日调用配额（空或 <=0 表示不限） */
+        private Integer dailyQuota;
+        /** 来源 IP 白名单（CIDR 逗号分隔；空表示不限来源） */
+        private String ipWhitelist;
 
         public String getAccessKey() {
             return accessKey;
@@ -226,6 +236,46 @@ public class SignProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public Long getTenantId() {
+            return tenantId;
+        }
+
+        public void setTenantId(Long tenantId) {
+            this.tenantId = tenantId;
+        }
+
+        public List<String> getScopes() {
+            return scopes;
+        }
+
+        public void setScopes(List<String> scopes) {
+            this.scopes = (scopes == null) ? new ArrayList<>() : scopes;
+        }
+
+        public Integer getRateLimitQps() {
+            return rateLimitQps;
+        }
+
+        public void setRateLimitQps(Integer rateLimitQps) {
+            this.rateLimitQps = rateLimitQps;
+        }
+
+        public Integer getDailyQuota() {
+            return dailyQuota;
+        }
+
+        public void setDailyQuota(Integer dailyQuota) {
+            this.dailyQuota = dailyQuota;
+        }
+
+        public String getIpWhitelist() {
+            return ipWhitelist;
+        }
+
+        public void setIpWhitelist(String ipWhitelist) {
+            this.ipWhitelist = ipWhitelist;
         }
 
         /**

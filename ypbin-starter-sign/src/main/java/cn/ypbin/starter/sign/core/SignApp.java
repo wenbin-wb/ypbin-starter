@@ -54,8 +54,14 @@ public class SignApp {
     /**
      * 所属租户 ID（可选）。
      *
-     * <p>为空表示<b>不做租户校验</b>（保持旧行为）。非空时，{@link SignChecker} 会校验它
-     * 与当前请求的租户上下文一致，用于防"跨租户用同一把 Key"。</p>
+     * <p><b>本字段是"随应用信息一起承载的租户归属"，starter 自身<b>不做</b>租户一致性校验</b>——
+     * {@link SignChecker} 工作在 servlet 层、不掌握租户上下文来源（各业务的租户注入机制不同，
+     * 如网关身份头、ThreadLocal、MyBatis 插件），故校验交由调用方在其链路中完成。
+     * starter 只负责把该值透传出来，避免调用方再查一次库。</p>
+     *
+     * <p>⚠️ 独立复核曾指出本字段早前的注释声称"SignChecker 会校验租户一致"，与实际实现不符 —
+     * 已更正为上述真实语义。<b>需要跨租户防护的业务必须自行校验本字段</b>，
+     * 不能仅依赖"配了 tenantId"就认为已被防住。</p>
      */
     @Nullable
     private Long tenantId;

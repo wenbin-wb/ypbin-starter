@@ -138,27 +138,41 @@ class SignCheckerExtensionsTest {
     }
 
     @Test
-    void optionalModeShouldTreatBlankValuesAsAbsent() {
-        // 空白值经 isBlank 判定等同"未提供"：四个全空白仍属"全无"⇒ OPTIONAL 放行。
-        // 这是既有 isBlank 语义的延续（刻意不为"空白"新增一层拒绝分支，避免与既有口径分叉）。
+    void optionalModeShouldTreatBlankValuesAsPresent() {
+        // 🔴 安全语义（由独立复核纠正）：判据是"参数**是否存在**"，不是"值是否空白"。
+        //
+        // 早期实现用 isBlank() 判定"全无"，实测存在降级绕过：
+        //   - `timestamp="\u3000"`（全角空格）被 isBlank() 判为空白 ⇒ 落进放行分支；
+        //   - 而 NBSP(\u00A0)/ZWSP(\u200B) 又不算空白 ⇒ 行为还依赖字符集细节。
+        // 改为 presence 判定后：只要带了参数名就必须走完整校验，该面消失。
         SignProperties properties = baseProperties();
         properties.setSignMode(SignProperties.SignMode.OPTIONAL);
         SignChecker checker = checker(properties, new SignApp("ak-001", SECRET));
 
+        // 带参数但值为空白 ⇒ 视为"意图签名"，必须走严格校验 ⇒ 拒绝（不是放行）
         MockHttpServletRequest allBlank = new MockHttpServletRequest();
         allBlank.addParameter("accessKey", "  ");
         allBlank.addParameter("timestamp", "");
         allBlank.addParameter("nonce", "\t");
         allBlank.addParameter("sign", " ");
-        assertThat(checker.check(allBlank).success()).isTrue();
+        assertThat(checker.check(allBlank).success())
+            .as("参数存在（哪怕值为空白）即意图签名，必须校验而非放行")
+            .isFalse();
 
-        // 但只要有一个**非空白**值，就必须走严格校验（不得借"其余空白"降级）
-        MockHttpServletRequest partial = new MockHttpServletRequest();
-        partial.addParameter("accessKey", "  ");
-        partial.addParameter("timestamp", "");
-        partial.addParameter("nonce", "\t");
-        partial.addParameter("sign", "DEADBEEF");
-        assertThat(checker.check(partial).success()).isFalse();
+        // 全角空格：曾可绕过 isBlank 判定的降级载荷
+        MockHttpServletRequest fullWidth = new MockHttpServletRequest();
+        fullWidth.addParameter("accessKey", "ak-001");
+        fullWidth.addParameter("timestamp", "\u3000");
+        fullWidth.addParameter("nonce", "\u3000");
+        fullWidth.addParameter("sign", "\u3000");
+        assertThat(checker.check(fullWidth).success())
+            .as("全角空格不得被当作\"未携带\"而降级")
+            .isFalse();
+
+        // 真正一个参数都不带 ⇒ 才落入"未启用签名"分支放行
+        assertThat(checker.check(new MockHttpServletRequest()).success())
+            .as("四个参数名都不存在时才放行")
+            .isTrue();
     }
 
     // ==================== IP 白名单 ====================
@@ -591,5 +605,98 @@ class SignCheckerExtensionsTest {
         SignChecker checker = new SignChecker(baseProperties(), (key, ttl) -> true, new ObjectMapper(),
             accessKey -> Optional.of(new SignApp("ak-001", SECRET)), null);
         assertThat(checker.check(signedRequest("ak-001")).success()).isTrue();
+    }
+
+    // ==================== 配置源字段映射（防"建了字段没接线"） ====================
+
+    @Test
+    void configProviderMustMapAllNewDimensions() {
+        // 🔴 独立复核发现：DefaultSignAppProvider 早期只映射了 appName/expireTime/enabled，
+        // 新增 6 字段全部丢失 ⇒ 从 ypbin.sign.apps 配置来的应用永远走不进三条校验路径
+        // （表象是"字段建了没用"）。本用例锁死该映射，防回归。
+        SignProperties.AppInfo info = new SignProperties.AppInfo();
+        info.setAccessKey("ak-cfg");
+        info.setSecretKey(SECRET);
+        info.setAppName("配置应用");
+        info.setTenantId(9L);
+        info.setScopes(List.of("iot:device:list"));
+        info.setRateLimitQps(7);
+        info.setDailyQuota(1234);
+        info.setIpWhitelist("10.0.0.0/8");
+
+        SignProperties properties = baseProperties();
+        properties.setApps(List.of(info));
+        SignApp app = new DefaultSignAppProvider(properties).findByAccessKey("ak-cfg").orElseThrow();
+
+        assertThat(app.getTenantId()).isEqualTo(9L);
+        assertThat(app.getScopes()).containsExactly("iot:device:list");
+        assertThat(app.getRateLimitQps()).isEqualTo(7);
+        assertThat(app.getDailyQuota()).isEqualTo(1234);
+        assertThat(app.getIpWhitelist()).isEqualTo("10.0.0.0/8");
+    }
+
+    @Test
+    void configDrivenAppMustActuallyEnforceIpWhitelist() {
+        // 端到端咬合：配置来的白名单必须真的生效（不是只映射了字段）
+        SignProperties.AppInfo info = new SignProperties.AppInfo();
+        info.setAccessKey("ak-cfg");
+        info.setSecretKey(SECRET);
+        info.setIpWhitelist("10.0.0.0/8");
+
+        SignProperties properties = baseProperties();
+        properties.setApps(List.of(info));
+        SignChecker checker = new SignChecker(properties, (key, ttl) -> true, new ObjectMapper(),
+            new DefaultSignAppProvider(properties));
+
+        MockHttpServletRequest denied = signedRequest("ak-cfg");
+        denied.setRemoteAddr("192.168.1.5");
+        assertThat(checker.check(denied).success()).isFalse();
+
+        MockHttpServletRequest allowed = signedRequest("ak-cfg");
+        allowed.setRemoteAddr("10.9.9.9");
+        assertThat(checker.check(allowed).success()).isTrue();
+    }
+
+    @Test
+    void configDrivenAppMustActuallyInvokeQuotaVerifier() {
+        // 配置来的配额必须真的触发扩展点回调
+        AtomicInteger calls = new AtomicInteger();
+        SignAppVerifier counting = new SignAppVerifier() {
+            @Override
+            public QuotaDecision checkQuota(SignApp app) {
+                calls.incrementAndGet();
+                return QuotaDecision.reject("超配额");
+            }
+        };
+        SignProperties.AppInfo info = new SignProperties.AppInfo();
+        info.setAccessKey("ak-cfg");
+        info.setSecretKey(SECRET);
+        info.setRateLimitQps(5);
+
+        SignProperties properties = baseProperties();
+        properties.setApps(List.of(info));
+        SignChecker checker = new SignChecker(properties, (key, ttl) -> true, new ObjectMapper(),
+            new DefaultSignAppProvider(properties), counting);
+
+        SignResult result = checker.check(signedRequest("ak-cfg"));
+        assertThat(result.success()).isFalse();
+        assertThat(result.message()).isEqualTo("超配额");
+        assertThat(calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    void configAppWithoutNewFieldsKeepsOldBehavior() {
+        // 兼容性回归：老配置（只有 accessKey/secretKey）行为完全不变
+        SignProperties.AppInfo info = new SignProperties.AppInfo();
+        info.setAccessKey("ak-old");
+        info.setSecretKey(SECRET);
+        SignProperties properties = baseProperties();
+        properties.setApps(List.of(info));
+
+        SignChecker checker = new SignChecker(properties, (key, ttl) -> true, new ObjectMapper(),
+            new DefaultSignAppProvider(properties));
+        MockHttpServletRequest request = signedRequest("ak-old");
+        request.setRemoteAddr("8.8.8.8");
+        assertThat(checker.check(request).success()).isTrue();
     }
 }

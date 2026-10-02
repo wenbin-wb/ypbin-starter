@@ -99,8 +99,14 @@ public class SignChecker {
         String nonce = request.getParameter(NONCE);
         String sign = request.getParameter(SIGN);
 
-        if (properties.getSignMode() == SignProperties.SignMode.OPTIONAL && allBlank(accessKey, timestamp, nonce, sign)) {
-            // OPTIONAL 灰度：四个签名参数**全无**才视为"未启用签名的既有请求"而放行。
+        if (properties.getSignMode() == SignProperties.SignMode.OPTIONAL
+            && nonePresent(request, ACCESS_KEY, TIMESTAMP, NONCE, SIGN)) {
+            // OPTIONAL 灰度：四个签名参数**都不存在**才视为"未启用签名的既有请求"而放行。
+            //
+            // 🔴 判据是"参数是否存在"，**不是**"值是否为空白"：独立复核实测发现，
+            // 若用 isBlank()，客户端发 `timestamp=\u3000`（全角空格）会被 isBlank 判为空白
+            // ⇒ 落进放行分支，构成**降级绕过**（NBSP/ZWSP 又恰好不算空白，行为还依赖字符集细节）。
+            // 改为 presence 判定后，该面消失：只要带了这个参数名，就必须走完整校验。
             return SignResult.ok("");
         }
         if (isBlank(accessKey) || isBlank(timestamp) || isBlank(nonce) || isBlank(sign)) {
@@ -140,17 +146,6 @@ public class SignChecker {
             return SignResult.fail("签名已过期");
         }
 
-        if (properties.isReplayProtect()) {
-            String nonceKey = "ypbin:sign:nonce:" + accessKey + ":" + nonce;
-            // nonce 存活必须覆盖时间戳的整个有效期末尾（requestTime + timeout）。
-            // 固定 timeout+1 在时间戳偏未来时会早于时间戳失效前过期，留出重放真空期，
-            // 故按请求时间戳动态计算 TTL。abs 校验已保证该值落在 [1, 2*timeout+1]，不会为负。
-            long ttlSeconds = properties.getTimeout() + delta + 1;
-            if (!nonceStore.tryUse(nonceKey, Duration.ofSeconds(ttlSeconds))) {
-                return SignResult.fail("请求重复（nonce 已使用）");
-            }
-        }
-
         Map<String, String> params = collectParams(request);
         String secret = resolveSecret(request, app);
         if (secret.isEmpty()) {
@@ -167,6 +162,21 @@ public class SignChecker {
         if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8))) {
             log.warn("[ypbin-starter] 签名验证失败 accessKey={}", LogSanitizer.sanitize(accessKey));
             return SignResult.fail("签名验证失败");
+        }
+
+        // nonce 防重放：**刻意放在签名比对通过之后**占用。
+        // 若在验签前占用（本类早期实现如此），攻击者可用**无效签名**批量预占 nonce 键，
+        // 导致合法请求的 nonce 被误判为"已使用"而拒绝 —— 一种低成本的拒绝服务面。
+        // 与 iot 侧 OpenApiKeyService 的口径保持一致。
+        if (properties.isReplayProtect()) {
+            String nonceKey = "ypbin:sign:nonce:" + accessKey + ":" + nonce;
+            // nonce 存活必须覆盖时间戳的整个有效期末尾（requestTime + timeout）。
+            // 固定 timeout+1 在时间戳偏未来时会早于时间戳失效前过期，留出重放真空期，
+            // 故按请求时间戳动态计算 TTL。上面校验已保证该值落在 [1, 2*timeout+1]，不会为负。
+            long ttlSeconds = properties.getTimeout() + delta + 1;
+            if (!nonceStore.tryUse(nonceKey, Duration.ofSeconds(ttlSeconds))) {
+                return SignResult.fail("请求重复（nonce 已使用）");
+            }
         }
 
         // 以下为**验签通过之后**的维度校验。顺序是刻意的：
@@ -327,9 +337,19 @@ public class SignChecker {
         return null;
     }
 
-    private boolean allBlank(String... values) {
-        for (String value : values) {
-            if (!isBlank(value)) {
+    /**
+     * 判定这些参数名是否**一个都不存在**于请求中（query 或表单）。
+     *
+     * <p>刻意按"参数是否存在"而非"值是否空白"判定：空白值（尤其全角空格等
+     * {@code isBlank()} 边界字符）若被当作"未携带"，即可被用来降级绕过签名校验。</p>
+     *
+     * @param request 请求
+     * @param names   参数名
+     * @return 一个都不存在返回 {@code true}
+     */
+    private boolean nonePresent(HttpServletRequest request, String... names) {
+        for (String name : names) {
+            if (request.getParameter(name) != null || request.getParameterValues(name) != null) {
                 return false;
             }
         }
