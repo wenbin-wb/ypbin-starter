@@ -36,6 +36,25 @@ import org.jspecify.annotations.Nullable;
  * 与既有版本行为完全一致（既有接入方只配 {@code ypbin.sign.apps} 即可，不受新增维度影响）。
  * 需要更严语义的业务显式提供实现即可，starter 用 {@code @ConditionalOnMissingBean} 让业务实现优先。</p>
  *
+ * <p>🔴 <b>上线须知（避免"以为已防住"）</b>：若只配置了 {@link SignApp#getScopes()} /
+ * {@code rateLimitQps} / {@code dailyQuota} 而<b>未提供本接口的生产实现</b>，
+ * 则「作用域」与「配额」两维<b>不会真正生效</b>——{@link SignChecker} 会正常走到回调点，
+ * 但 {@code DEFAULT} 恒返回放行。</p>
+ *
+ * <table border="1">
+ *     <caption>各维度的生效条件</caption>
+ *     <tr><th>维度</th><th>是否需要业务实现</th></tr>
+ *     <tr><td>IP 白名单（{@link IpWhitelist}）</td><td><b>不需要</b>，starter 自实现，配了即生效</td></tr>
+ *     <tr><td>作用域（{@link #scopesAllowed}）</td><td><b>需要</b>；无实现时恒放行</td></tr>
+ *     <tr><td>配额（{@link #checkQuota}）</td><td><b>需要</b>；无实现时恒不限</td></tr>
+ *     <tr><td>密钥哈希（{@link #matchesSecret}）</td><td><b>需要</b>；仅当 {@code secretKey} 为空、
+ *     {@code secretHash} 非空时被调用，无实现时该路径验签必失败（fail-closed）</td></tr>
+ * </table>
+ *
+ * <p>该说明是为回应独立复核提出的"能力落空"风险：代码接线正确，但缺少业务实现时
+ * 表象与"建了字段没人用"相同。想真正启用这两维，请提供实现并把配额判定交给限流组件
+ * （如 Redis 固定窗口计数器）。</p>
+ *
  * <p><b>fail-closed 纪律</b>：实现的返回语义必须是"不通过即拒绝"。为避免"实现抛异常被吞掉后静默放行"，
  * {@link SignChecker} 对实现抛出的异常<b>按拒绝处理并记日志</b>（不 fail-open）。</p>
  *
