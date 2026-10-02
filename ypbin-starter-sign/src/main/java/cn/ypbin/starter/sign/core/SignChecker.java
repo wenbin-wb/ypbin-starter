@@ -310,7 +310,7 @@ public class SignChecker {
         try {
             if (!appVerifier.scopesAllowed(app, scopes)) {
                 log.warn("[ypbin-starter] 作用域校验未通过 accessKey={}, scopes={}",
-                    LogSanitizer.sanitize(app.getAccessKey()), scopes);
+                    LogSanitizer.sanitize(app.getAccessKey()), LogSanitizer.sanitize(scopes));
                 return SignResult.fail("作用域不被允许");
             }
         } catch (RuntimeException ex) {
@@ -415,7 +415,11 @@ public class SignChecker {
                 params.put(entry.getKey(), strVal);
             }
         } catch (Exception e) {
-            log.warn("[ypbin-starter] 解析 JSON 请求体用于签名失败，本次验签将缺少 JSON 参数: {}", e.getMessage(), e);
+            // e.getMessage() 可能内嵌**客户端请求体片段**（如 Jackson 的报错会带出错处的原文），
+            // 故与其它外部可控值一视同仁做 sanitize —— 同类问题在本批已出现两次，
+            // 统一处理避免"只修被扫出来的那一处"。
+            log.warn("[ypbin-starter] 解析 JSON 请求体用于签名失败，本次验签将缺少 JSON 参数: {}",
+                LogSanitizer.sanitize(e.getMessage()), e);
         }
     }
 
