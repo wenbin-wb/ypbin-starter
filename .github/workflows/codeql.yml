@@ -38,6 +38,9 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
+          # 排除规则与理由见该配置文件：仅排除 java/unused-parameter（接口 default 方法的
+          # 契约参数）这一条**质量**规则；**安全类告警不做任何排除**。
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: 构建（生成 CodeQL 数据库）
         run: mvn -B clean compile -DskipTests

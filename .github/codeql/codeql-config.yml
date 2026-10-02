@@ -1,0 +1,39 @@
+name: "ypbin-starter CodeQL 配置"
+
+# ---------------------------------------------------------------------------
+# 为什么需要本文件
+#
+# CodeQL 以 `security-and-quality` 套件运行，其中质量类规则
+# `java/unused-parameter`（CWE-561）会在**接口 default 方法**上稳定误报：
+# 接口方法的参数是**给实现方用的 API 契约**，默认实现天然用不到它们。
+# 本仓 `SignAppVerifier` 的三个 default 方法（matchesSecret/scopesAllowed/checkQuota）
+# 正是这种形态 —— 参数必须保留，删掉等于破坏扩展点契约。
+#
+# ⚠️ 本排除**只针对这一条规则**，不是"跳过跑不过的门禁"：
+#   - 安全类告警（java/log-injection 等）一律**保留并必须修复**：
+#     本轮据此修掉了 2 处真实 log-injection（SignChecker 的 clientIp、
+#     iot 侧 RedisNonceStore 的 key）。
+#   - 若将来该规则报在**非接口 default 方法**上（那通常是真的无用参数），
+#     应删除对应参数而非扩大本排除范围。
+#
+# 依据（本仓历史处置，非本文件首创）：
+#   截至 2026-10-05，本仓 `java/unused-parameter` 累计 54 条：
+#     - 38 条已被维护者标记 `won't fix`（集中在 PermissionProvider / JobHandler /
+#       CrudController / LoginVerifyProvider 等**扩展点接口**，与本次同因）
+#     - 11 条历史遗留已 fixed；5 条 open（本次这 5 条）
+#   ⇒ "接口 default/契约参数未使用"在本仓**已有一致判断**，本文件只是把它固化为配置，
+#     避免每新增一个扩展点就重复产生 5 条噪音告警、淹没真正的安全告警。
+#   对照：`java/log-injection` 本仓累计 19 条，17 条已 fixed、1 条 dismissed、
+#     本轮新出现的 1 条**已修复**（未排除）——安全类告警的处置口径与此不同。
+# ---------------------------------------------------------------------------
+
+disable-default-queries: false
+
+queries:
+  - uses: security-and-quality
+
+query-filters:
+  # 仅排除：接口 default 方法中「为契约保留、默认实现未使用」的参数。
+  # 该规则的其它命中位置不受本排除影响（见上）。
+  - exclude:
+      id: java/unused-parameter
