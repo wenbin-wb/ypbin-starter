@@ -701,4 +701,73 @@ class SignCheckerExtensionsTest {
         request.setRemoteAddr("8.8.8.8");
         assertThat(checker.check(request).success()).isTrue();
     }
+
+    @Test
+    void shouldSanitizeClientIpBeforeLogging() {
+        // 🔴 CodeQL java/log-injection（medium, CWE-117）：拒绝日志里的 clientIp 必须 sanitize。
+        // trust-forwarded-header=true 时该值取自 X-Forwarded-For —— **完全由客户端控制**，
+        // 可含换行/控制字符**跨行伪造日志**。
+        //
+        // 本用例**捕获 SignChecker 的真实日志输出**（而非只测 LogSanitizer 本身）：
+        // 只有真捕获到日志，才能证明"调用方确实做了 sanitize"——
+        // 否则把 sanitize 从 SignChecker 里删掉，用例仍会绿（假绿）。
+        SignProperties properties = baseProperties();
+        properties.setTrustForwardedHeader(true);
+        SignApp app = new SignApp("ak-001", SECRET);
+        app.setIpWhitelist("10.0.0.0/8");
+        SignChecker checker = checker(properties, app);
+
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setRemoteAddr("10.1.2.3");
+        String payload = "8.8.8.8\nWARN 伪造的审计行";
+        request.addHeader("X-Forwarded-For", payload);
+
+        ch.qos.logback.classic.Logger logger =
+            (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(SignChecker.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+            new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        SignResult result;
+        try {
+            result = checker.check(request);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(result.success()).isFalse();
+
+        String allLogs = appender.list.stream()
+            .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+            .collect(java.util.stream.Collectors.joining("\n"));
+
+        // 必须真的产生了这条拒绝日志（否则用例是空跑，证明不了调用方行为）
+        assertThat(allLogs).as("应产生 IP 白名单拒绝日志").contains("来源 IP 不在白名单");
+        // 且日志内不得出现裸换行带来的伪造行
+        assertThat(allLogs).as("换行必须已被 sanitize，不得出现伪造行")
+            .doesNotContain("\nWARN 伪造的审计行");
+        // sanitize 后换行被替换为 _，原始载荷的可见字符仍在
+        assertThat(allLogs).contains("8.8.8.8_");
+    }
+
+    @Test
+    void shouldRejectWhenForwardedIpIsMaliciousPayload() {
+        // 咬合：带换行载荷的 XFF 在信任模式下确实会被用于判定并被拒绝
+        SignProperties properties = baseProperties();
+        properties.setTrustForwardedHeader(true);
+        SignApp app = new SignApp("ak-001", SECRET);
+        app.setIpWhitelist("10.0.0.0/8");
+        SignChecker checker = checker(properties, app);
+
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setRemoteAddr("10.1.2.3");               // 真实来源在白名单内
+        request.addHeader("X-Forwarded-For", "8.8.8.8\nWARN forged");  // 伪造载荷不在白名单
+
+        // 取 XFF 最左值参与判定 ⇒ 不在白名单 ⇒ 拒绝（且日志已 sanitize，见上个用例）
+        SignResult result = checker.check(request);
+        assertThat(result.success()).isFalse();
+        assertThat(result.message()).isEqualTo("来源地址不在允许范围");
+    }
 }

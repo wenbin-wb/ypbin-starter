@@ -268,8 +268,13 @@ public class SignChecker {
         }
         String clientIp = resolveClientIp(request);
         if (!IpWhitelist.matches(app.getIpWhitelist(), clientIp)) {
+            // 🔴 此处 clientIp **必须 sanitize**（CodeQL java/log-injection）：
+            // 当 ypbin.sign.trust-forwarded-header=true 时它取自 X-Forwarded-For —— 那是
+            // **完全由客户端控制的字符串**，可含换行/控制字符**跨行伪造日志**
+            //（伪造出"某人被拒绝"之类的假审计痕迹）。取 RemoteAddr 时也一并 sanitize，
+            // 保持单一路径、避免将来改取值来源时漏掉。
             log.warn("[ypbin-starter] 来源 IP 不在白名单 accessKey={}, ip={}",
-                LogSanitizer.sanitize(app.getAccessKey()), clientIp);
+                LogSanitizer.sanitize(app.getAccessKey()), LogSanitizer.sanitize(clientIp));
             return SignResult.fail("来源地址不在允许范围");
         }
         return null;
