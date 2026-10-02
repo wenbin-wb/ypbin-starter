@@ -7,7 +7,7 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Unreleased]
+## [3.7.0] - 2026-10-02
 
 ### 新增
 
@@ -18,6 +18,19 @@
 
 - **网关属性驱动限流/配额过滤器**（`ypbin-starter-cloud-gateway`，`AttributeRateLimitGlobalFilter` + `RateLimitProperties` + `FixedWindowRateLimit`）：固定窗口 QPS + 自然日配额（Redis `INCR + EXPIRE`），维度键与配额由上游鉴权过滤器经 attributes 供给；Redis 异常 fail-open；默认关闭（`ypbin.gateway.rate-limit.enabled=true` 显式开），无 Redis 时不装配。
 - **API Key 凭证原语**（`ypbin-starter-sign`，`ApiKeyCredentials`）：安全随机串生成、HMAC-SHA256 存哈希（pepper 注入）、常量时间比对、前缀回显。校验失败统一 false（不区分不存在/密钥错/pepper 缺失，防枚举）。租户归属、作用域白名单、配额等业务语义由调用方承担，不在本类范围。
+
+### 修复
+
+- **签名链路的 2 处日志注入（`java/log-injection`，CWE-117）**：`SignChecker` 的 IP 白名单拒绝日志打印源自 `X-Forwarded-For`（`trust-forwarded-header=true` 时**完全由客户端控制**）的 `clientIp`，JSON 解析失败日志打印可能内嵌请求体原文的异常消息——均可被换行/控制字符**跨行伪造日志**。均已改为 `LogSanitizer.sanitize`；并对本模块全部含外部可控值的日志输出做了一次排查（共 6 处，全部 sanitize）。
+- **nonce TTL 整数下溢（`java/tainted-arithmetic`）**：`SignChecker` 以请求方提供的时间戳参与 `TTL = timeout + delta + 1` 运算，极值时间戳（`Long.MIN/MAX`）下相减会**回绕**，回绕结果可能落进"看似正常"的区间而得到一个**过早过期**的 nonce TTL ⇒ 留下重放真空期。已改为先用**差值比较**夹取合法窗口再运算（与本仓时间戳校验同口径）。
+- **空值语义（NullAway）**：`SignChecker` 三个新增校验方法（`checkIpWhitelist`/`checkScopes`/`checkQuota`）以 `return null` 表示"该维度未配置 ⇒ 放行"，属有意的三态语义，但未标注可空返回；已补 `@Nullable`，与既有 Javadoc 表述一致。
+- **配置元数据回写**：新增配置项（`SignMode`、`trustForwardedHeader`、限流过滤器的 9 项）未同步生成物，`node tools/export-config-metadata.mjs --check` 会失败；已重新生成（357 个 ypbin 配置项）。
+
+### 升级说明
+
+- **无破坏性变更**：`SignApp` 仅新增**可选**字段，缺省即保持旧行为；新增的 IP/作用域/配额三个校验点位于验签**通过之后**，且 `SignAppVerifier` 默认实现对三者一律放行 ⇒ 既有接入方升级后行为不变。
+- **需要业务实现才能生效的两维**：`scopes` 与 `rateLimitQps`/`dailyQuota` 的校验由 `SignAppVerifier` 扩展点承载，**starter 不提供生产实现**；只配置字段而不提供实现时这两维**不会生效**（IP 白名单由 starter 自实现，配了即生效）。详见 `SignAppVerifier` 类注释的逐维表格。
+- `SignApp.tenantId` 为**租户归属透传字段**，starter **不做**租户一致性校验（跨租户防护需调用方自行实现）。
 
 ## [3.6.0] - 2026-09-29
 
