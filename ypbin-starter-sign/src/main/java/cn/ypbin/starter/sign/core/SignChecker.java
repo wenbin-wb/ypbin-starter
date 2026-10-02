@@ -255,6 +255,7 @@ public class SignChecker {
     /**
      * IP 白名单校验（未配置白名单时返回 {@code null} 表示放行）。
      */
+    @Nullable
     private SignResult checkIpWhitelist(HttpServletRequest request, SignApp app) {
         if (!app.hasIpWhitelist()) {
             return null;
@@ -295,6 +296,7 @@ public class SignChecker {
     /**
      * 作用域校验（应用未声明作用域时返回 {@code null} 表示放行 = 旧行为）。
      */
+    @Nullable
     private SignResult checkScopes(SignApp app) {
         List<String> scopes = app.getScopes();
         if (scopes.isEmpty()) {
@@ -317,6 +319,7 @@ public class SignChecker {
     /**
      * 配额/限流判定（应用未配配额时返回 {@code null} 表示放行）。
      */
+    @Nullable
     private SignResult checkQuota(SignApp app) {
         if (!app.hasQuota()) {
             return null;

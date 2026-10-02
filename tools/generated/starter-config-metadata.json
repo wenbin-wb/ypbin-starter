@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-28T15:48:46.432Z",
+  "generatedAt": "2026-10-02T09:27:34.528Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 40,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 339,
+    "customPropertyCount": 357,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 379,
+    "totalEntryCount": 397,
     "modulesWithoutMetadata": 10
   },
   "prefixIndex": [
@@ -2603,6 +2603,358 @@
           "values": [],
           "notes": [],
           "source": [],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.default-qps",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 10,
+          "required": false,
+          "requiredWhen": null,
+          "description": "默认 QPS 配额。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 63
+            }
+          ],
+          "default": 10,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 63
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.default-quota",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 100000,
+          "required": false,
+          "requiredWhen": null,
+          "description": "默认日配额（0 = 不限）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 66
+            }
+          ],
+          "default": 100000,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 66
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": false,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用（默认关闭：新过滤器不得在业务方不知情时激活）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 39
+            }
+          ],
+          "default": false,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 39
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.key-attribute",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "rate-limit.key",
+          "required": false,
+          "requiredWhen": null,
+          "description": "维度键的 attribute 名（如 API Key 场景放 accessKeyId）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 45
+            }
+          ],
+          "default": "rate-limit.key",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 45
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.order",
+          "type": "java.lang.Integer",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "过滤器顺序（默认与既有鉴权链衔接：清洗 < 签发 < 鉴权 < 限流）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 69
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 69
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.path-prefixes",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "生效路径前缀（任一命中即限流；为空 = 全路径，危险，须显式配置）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 42
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 42
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.qps-attribute",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "rate-limit.qps",
+          "required": false,
+          "requiredWhen": null,
+          "description": "QPS 配额的 attribute 名（缺席用默认）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 48
+            }
+          ],
+          "default": "rate-limit.qps",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 48
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.qps-key-prefix",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "ypbin:ratelimit:qps:",
+          "required": false,
+          "requiredWhen": null,
+          "description": "QPS 计数 Redis key 前缀。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 54
+            }
+          ],
+          "default": "ypbin:ratelimit:qps:",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 54
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.quota-attribute",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "rate-limit.quota",
+          "required": false,
+          "requiredWhen": null,
+          "description": "日配额的 attribute 名（缺席用默认）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 51
+            }
+          ],
+          "default": "rate-limit.quota",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 51
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.quota-key-prefix",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "ypbin:ratelimit:quota:",
+          "required": false,
+          "requiredWhen": null,
+          "description": "日配额计数 Redis key 前缀。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 57
+            }
+          ],
+          "default": "ypbin:ratelimit:quota:",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 57
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.rate-limit.window-seconds",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 1,
+          "required": false,
+          "requiredWhen": null,
+          "description": "限流窗口秒数。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 60
+            }
+          ],
+          "default": 1,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/ratelimit/RateLimitProperties.java",
+              "line": 60
+            }
+          ],
           "group": "ypbin.gateway",
           "deprecation": null
         },
@@ -9381,7 +9733,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 51
+              "line": 79
             }
           ],
           "default": null,
@@ -9391,7 +9743,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 51
+              "line": 79
             }
           ],
           "group": "ypbin.sign",
@@ -9495,6 +9847,38 @@
         },
         {
           "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.sign-mode",
+          "type": "cn.ypbin.starter.sign.autoconfigure.SignProperties$SignMode",
+          "defaultDefined": true,
+          "defaultValue": "required",
+          "required": false,
+          "requiredWhen": null,
+          "description": "签名校验模式：REQUIRED（默认，必须带齐四件套）或 OPTIONAL（灰度期，四件套全无则放行）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 69
+            }
+          ],
+          "default": "required",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 69
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
           "key": "ypbin.sign.skip-param-names",
           "type": "java.util.List<java.lang.String>",
           "defaultDefined": false,
@@ -9509,7 +9893,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 57
+              "line": 85
             }
           ],
           "default": null,
@@ -9519,7 +9903,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 57
+              "line": 85
             }
           ],
           "group": "ypbin.sign",
@@ -9541,7 +9925,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 54
+              "line": 82
             }
           ],
           "default": null,
@@ -9551,7 +9935,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 54
+              "line": 82
             }
           ],
           "group": "ypbin.sign",
@@ -9591,6 +9975,38 @@
         },
         {
           "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.trust-forwarded-header",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": false,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否信任 X-Forwarded-For 头作为来源地址（IP 白名单用）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 76
+            }
+          ],
+          "default": false,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 76
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
           "key": "ypbin.sign.apps[].access-key",
           "type": "String",
           "defaultDefined": false,
@@ -9607,7 +10023,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 137
+              "line": 192
             }
           ],
           "default": null,
@@ -9619,7 +10035,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 137
+              "line": 192
             }
           ],
           "group": "ypbin.sign",
@@ -9644,7 +10060,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 139
+              "line": 194
             }
           ],
           "default": null,
@@ -9657,7 +10073,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 139
+              "line": 194
             }
           ],
           "group": "ypbin.sign",
@@ -9679,7 +10095,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 141
+              "line": 196
             }
           ],
           "default": null,
@@ -9689,7 +10105,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 141
+              "line": 196
             }
           ],
           "group": "ypbin.sign",
@@ -9711,7 +10127,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 143
+              "line": 198
             }
           ],
           "default": null,
@@ -9721,7 +10137,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 143
+              "line": 198
             }
           ],
           "group": "ypbin.sign",
@@ -9743,7 +10159,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 145
+              "line": 200
             }
           ],
           "default": "true",
@@ -9753,7 +10169,167 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 145
+              "line": 200
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.apps[].tenant-id",
+          "type": "Long",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "所属租户 ID（可选；为空表示不做租户校验）",
+          "allowedValues": [],
+          "enablement": "作为ypbin.sign.apps 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 202
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 202
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.apps[].scopes",
+          "type": "List<String>",
+          "defaultDefined": true,
+          "defaultValue": "new ArrayList<>()",
+          "required": false,
+          "requiredWhen": null,
+          "description": "作用域集合（可选；为空表示不限制）",
+          "allowedValues": [],
+          "enablement": "作为ypbin.sign.apps 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 204
+            }
+          ],
+          "default": "new ArrayList<>()",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 204
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.apps[].rate-limit-qps",
+          "type": "Integer",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "应用级 QPS 配额（空或 <=0 表示不限）",
+          "allowedValues": [],
+          "enablement": "作为ypbin.sign.apps 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 206
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 206
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.apps[].daily-quota",
+          "type": "Integer",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "应用级日调用配额（空或 <=0 表示不限）",
+          "allowedValues": [],
+          "enablement": "作为ypbin.sign.apps 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 208
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 208
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.apps[].ip-whitelist",
+          "type": "String",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "来源 IP 白名单（CIDR 逗号分隔；空表示不限来源）",
+          "allowedValues": [],
+          "enablement": "作为ypbin.sign.apps 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 210
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 210
             }
           ],
           "group": "ypbin.sign",
