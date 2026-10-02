@@ -18,6 +18,8 @@ package cn.ypbin.starter.sign.core;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -402,7 +404,7 @@ class SignCheckerExtensionsTest {
         app.setRateLimitQps(10);
         SignChecker checker = checker(baseProperties(), app, counting);
 
-        Map<String, String> params = new java.util.HashMap<>();
+        Map<String, String> params = new HashMap<>();
         params.put("orderNo", "A100");
         params.put("accessKey", "ak-001");
         params.put("timestamp", String.valueOf(System.currentTimeMillis() / 1000 - 99999));
@@ -435,7 +437,7 @@ class SignCheckerExtensionsTest {
         assertThat(calls.get()).isZero();
 
         SignApp expired = new SignApp("ak-001", SECRET);
-        expired.setExpireTime(java.time.LocalDateTime.now().minusDays(1));
+        expired.setExpireTime(LocalDateTime.now().minusDays(1));
         expired.setRateLimitQps(10);
         assertThat(checker(properties, expired, counting).check(signedRequest("ak-001")).success()).isFalse();
         assertThat(calls.get()).isZero();

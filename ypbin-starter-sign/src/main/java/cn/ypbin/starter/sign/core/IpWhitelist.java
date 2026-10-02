@@ -17,6 +17,9 @@ package cn.ypbin.starter.sign.core;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -93,8 +96,8 @@ public final class IpWhitelist {
      * @param whitelist 逗号分隔的白名单（可为 {@code null}）
      * @return 非法条目列表（**绝不返回 {@code null}**；保持首次出现顺序）
      */
-    public static java.util.List<String> invalidEntries(@Nullable String whitelist) {
-        java.util.List<String> out = new java.util.ArrayList<>();
+    public static List<String> invalidEntries(@Nullable String whitelist) {
+        List<String> out = new ArrayList<>();
         if (whitelist == null || whitelist.isBlank()) {
             return out;
         }
@@ -143,7 +146,7 @@ public final class IpWhitelist {
                 // 非法条目：不匹配任何地址（fail-closed）
                 return false;
             }
-            return java.util.Arrays.equals(normalize(exact), target);
+            return Arrays.equals(normalize(exact), target);
         }
         InetAddress networkAddress = parseAddress(entry.substring(0, slash));
         Integer mask = parseMask(entry.substring(slash + 1));

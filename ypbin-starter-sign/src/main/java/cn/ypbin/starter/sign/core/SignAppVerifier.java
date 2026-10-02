@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.sign.core;
 
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -61,7 +62,7 @@ public interface SignAppVerifier {
      * @param scopes 该应用声明的作用域（非空）
      * @return 全部合法返回 {@code true}
      */
-    default boolean scopesAllowed(SignApp app, java.util.List<String> scopes) {
+    default boolean scopesAllowed(SignApp app, List<String> scopes) {
         return true;
     }
 
