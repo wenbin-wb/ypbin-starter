@@ -11,6 +11,11 @@
 
 ### 新增
 
+- **接口签名多维度校验（`ypbin-starter-sign`，反哺 iot 开放 API 签名合并）**：`SignApp` 新增 `tenantId`/`scopes`/`rateLimitQps`/`dailyQuota`/`ipWhitelist`/`secretHash` 六个**可选**字段（缺省即保持旧行为，既有接入方不受影响）；`SignChecker` 在**原有验签流程之后**依次追加 IP 白名单、作用域、配额三个校验点，并新增 `SignAppVerifier` 扩展点承载"语义属业务"的三件事（密钥哈希比对、作用域白名单、配额计数）。
+  - **新增 `SignMode`（`REQUIRED` 默认 / `OPTIONAL` 灰度）**：OPTIONAL 下**四件套全无**才放行（兼容"仅 Key"的既有接入），**只要出现任一签名参数即按 REQUIRED 严格校验**——防"部分携带"降级绕过。
+  - **新增 `IpWhitelist`（纯函数）**：支持精确 IP 与 CIDR（IPv4/IPv6、IPv4-mapped 归一、非 8 位对齐掩码）；**白名单条目非法时不匹配任何地址**（fail-closed），并提供 `invalidEntries` 让"配了却不生效"可查；`X-Forwarded-For` **默认不信任**（`ypbin.sign.trust-forwarded-header` 显式开启）。
+  - **fail-closed 纪律**：密钥校验失败不再让 HMAC 抛 `Empty key`（500 级），而是按验签失败（401 语义）返回；`SignAppVerifier` 各实现抛异常一律**按拒绝处理并记完整堆栈**，不静默放行；配额判定在**验签通过之后**才调用（否则未认证请求可消耗配额 = 免费的拒绝服务面）。
+
 - **网关属性驱动限流/配额过滤器**（`ypbin-starter-cloud-gateway`，`AttributeRateLimitGlobalFilter` + `RateLimitProperties` + `FixedWindowRateLimit`）：固定窗口 QPS + 自然日配额（Redis `INCR + EXPIRE`），维度键与配额由上游鉴权过滤器经 attributes 供给；Redis 异常 fail-open；默认关闭（`ypbin.gateway.rate-limit.enabled=true` 显式开），无 Redis 时不装配。
 
 ## [3.6.0] - 2026-09-29

@@ -47,6 +47,24 @@ public class SignProperties {
     /** 是否启用 nonce 防重放 */
     private boolean replayProtect = true;
 
+    /**
+     * 签名校验模式：REQUIRED（默认，必须带齐四件套）或 OPTIONAL（灰度期，四件套全无则放行）。
+     *
+     * <p><b>灰度用途</b>：开放 API 从"仅 Key"迁移到"Key + 签名"时，先置 OPTIONAL 让既有接入方
+     * 不受影响，待其完成签名改造后再切 REQUIRED。</p>
+     *
+     * <p><b>降级防护</b>：OPTIONAL 下只有<b>四个参数全无</b>才放行；只要出现任一签名参数，
+     * 就按 REQUIRED 处理（缺失其余一律拒绝）。否则攻击者可故意只带部分参数落进放行分支。</p>
+     */
+    private SignMode signMode = SignMode.REQUIRED;
+
+    /**
+     * 是否信任 {@code X-Forwarded-For} 头作为来源地址（IP 白名单用）。
+     *
+     * <p><b>默认 false</b>：该头可被客户端伪造，仅在请求确实经过可信代理时才可开启。</p>
+     */
+    private boolean trustForwardedHeader = false;
+
     /** 应用列表 */
     private List<AppInfo> apps = new ArrayList<>();
 
@@ -96,6 +114,22 @@ public class SignProperties {
         this.replayProtect = replayProtect;
     }
 
+    public SignMode getSignMode() {
+        return signMode;
+    }
+
+    public void setSignMode(SignMode signMode) {
+        this.signMode = signMode;
+    }
+
+    public boolean isTrustForwardedHeader() {
+        return trustForwardedHeader;
+    }
+
+    public void setTrustForwardedHeader(boolean trustForwardedHeader) {
+        this.trustForwardedHeader = trustForwardedHeader;
+    }
+
     public List<AppInfo> getApps() {
         return apps;
     }
@@ -126,6 +160,17 @@ public class SignProperties {
         ANNOTATION,
         /** 全局拦截，按 skipPath 排除 */
         GLOBAL
+    }
+
+    /** 签名参数校验模式（灰度开关） */
+    public enum SignMode {
+        /** 必须带齐 accessKey/timestamp/nonce/sign 四件套 */
+        REQUIRED,
+        /**
+         * 灰度期：四件套<b>全无</b>时视为"未启用签名的既有请求"而放行；
+         * 只要出现任一签名参数，即按 {@link #REQUIRED} 严格校验（防降级绕过）。
+         */
+        OPTIONAL
     }
 
     /** 应用信息 */

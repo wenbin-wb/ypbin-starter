@@ -20,6 +20,7 @@ import cn.ypbin.starter.sign.core.InMemoryNonceStore;
 import cn.ypbin.starter.sign.core.NonceStore;
 import cn.ypbin.starter.sign.core.RedisNonceStore;
 import cn.ypbin.starter.sign.core.SignAppProvider;
+import cn.ypbin.starter.sign.core.SignAppVerifier;
 import cn.ypbin.starter.sign.core.SignChecker;
 import cn.ypbin.starter.sign.interceptor.SignInterceptor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -84,8 +85,10 @@ public class SignAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public SignChecker signChecker(SignProperties properties, NonceStore nonceStore,
-        ObjectProvider<ObjectMapper> objectMapper, SignAppProvider appProvider) {
-        return new SignChecker(properties, nonceStore, objectMapper.getIfAvailable(ObjectMapper::new), appProvider);
+        ObjectProvider<ObjectMapper> objectMapper, SignAppProvider appProvider,
+        ObjectProvider<SignAppVerifier> appVerifier) {
+        return new SignChecker(properties, nonceStore, objectMapper.getIfAvailable(ObjectMapper::new), appProvider,
+            appVerifier.getIfAvailable(() -> SignAppVerifier.DEFAULT));
     }
 
     @Bean
