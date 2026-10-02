@@ -7,6 +7,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+### 新增
+
+- **网关属性驱动限流/配额过滤器**（`ypbin-starter-cloud-gateway`，`AttributeRateLimitGlobalFilter` + `RateLimitProperties` + `FixedWindowRateLimit`）：固定窗口 QPS + 自然日配额（Redis `INCR + EXPIRE`），维度键与配额由上游鉴权过滤器经 attributes 供给；Redis 异常 fail-open；默认关闭（`ypbin.gateway.rate-limit.enabled=true` 显式开），无 Redis 时不装配。
+
 ## [3.6.0] - 2026-09-29
 
 ### 新增

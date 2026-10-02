@@ -20,6 +20,8 @@ import cn.ypbin.starter.gateway.filter.GatewayAuthGlobalFilter;
 import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
 import cn.ypbin.starter.gateway.filter.RequestIdGlobalFilter;
 import cn.ypbin.starter.gateway.handler.GatewayExceptionHandler;
+import cn.ypbin.starter.gateway.ratelimit.AttributeRateLimitGlobalFilter;
+import cn.ypbin.starter.gateway.ratelimit.RateLimitProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -30,6 +32,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -50,7 +54,7 @@ import tools.jackson.databind.ObjectMapper;
 @ConditionalOnClass(GlobalFilter.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 @ConditionalOnProperty(prefix = "ypbin.gateway", name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableConfigurationProperties(GatewayProperties.class)
+@EnableConfigurationProperties({GatewayProperties.class, RateLimitProperties.class})
 public class GatewayAutoConfiguration {
 
     @Bean
@@ -101,5 +105,30 @@ public class GatewayAutoConfiguration {
     @ConditionalOnMissingBean
     public GatewayExceptionHandler gatewayExceptionHandler(ObjectProvider<ObjectMapper> objectMapperProvider) {
         return new GatewayExceptionHandler(objectMapperProvider.getIfAvailable(ObjectMapper::new));
+    }
+
+    /**
+     * 属性驱动限流过滤器（默认关闭，须显式启用；无 Redis 时整个嵌套类被跳过）。
+     *
+     * <p>条件三重门：① 类路径有 reactive Redis（可选依赖，类级条件——方法级
+     * {@code @ConditionalOnClass} 阻止不了 Spring 内省 Bean 方法参数类型）；② 容器里有
+     * {@code ReactiveStringRedisTemplate} Bean（业务方提供连接）；③ 显式
+     * {@code ypbin.gateway.rate-limit.enabled=true}。缺一即不装配，绝不静默限流。</p>
+     */
+    @Configuration
+    @ConditionalOnClass(ReactiveStringRedisTemplate.class)
+    static class RateLimitFilterConfiguration {
+
+        @Bean
+        @ConditionalOnBean(ReactiveStringRedisTemplate.class)
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "ypbin.gateway.rate-limit", name = "enabled", havingValue = "true")
+        public AttributeRateLimitGlobalFilter attributeRateLimitGlobalFilter(
+            ReactiveStringRedisTemplate redis,
+            RateLimitProperties properties,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+            return new AttributeRateLimitGlobalFilter(redis, properties,
+                objectMapperProvider.getIfAvailable(ObjectMapper::new));
+        }
     }
 }
