@@ -17,6 +17,7 @@
   - **fail-closed 纪律**：密钥校验失败不再让 HMAC 抛 `Empty key`（500 级），而是按验签失败（401 语义）返回；`SignAppVerifier` 各实现抛异常一律**按拒绝处理并记完整堆栈**，不静默放行；配额判定在**验签通过之后**才调用（否则未认证请求可消耗配额 = 免费的拒绝服务面）。
 
 - **网关属性驱动限流/配额过滤器**（`ypbin-starter-cloud-gateway`，`AttributeRateLimitGlobalFilter` + `RateLimitProperties` + `FixedWindowRateLimit`）：固定窗口 QPS + 自然日配额（Redis `INCR + EXPIRE`），维度键与配额由上游鉴权过滤器经 attributes 供给；Redis 异常 fail-open；默认关闭（`ypbin.gateway.rate-limit.enabled=true` 显式开），无 Redis 时不装配。
+- **API Key 凭证原语**（`ypbin-starter-sign`，`ApiKeyCredentials`）：安全随机串生成、HMAC-SHA256 存哈希（pepper 注入）、常量时间比对、前缀回显。校验失败统一 false（不区分不存在/密钥错/pepper 缺失，防枚举）。租户归属、作用域白名单、配额等业务语义由调用方承担，不在本类范围。
 
 ## [3.6.0] - 2026-09-29
 
