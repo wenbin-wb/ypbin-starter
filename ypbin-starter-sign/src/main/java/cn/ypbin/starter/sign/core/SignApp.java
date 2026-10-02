@@ -16,6 +16,7 @@
 package cn.ypbin.starter.sign.core;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -23,6 +24,10 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>签名校验运行时使用的应用模型：{@link #accessKey} 为公开标识、{@link #secretKey} 为参与签名的私有密钥。
  * 由 {@link SignAppProvider} 提供，可来自配置文件或数据库。</p>
+ *
+ * <p><b>租户 / 作用域 / 配额（新增，全部可选）</b>：三个维度均为<b>可选</b>，缺省时保持
+ * <b>旧行为</b>（不做该维度校验），因此既有接入方升级后不会因新增字段而集体被拒——
+ * 这是刻意的向后兼容取舍，见各字段注释。</p>
  *
  * @author wenbin
  * @since 2026-08-01
@@ -45,6 +50,64 @@ public class SignApp {
 
     /** 是否启用 */
     private boolean enabled = true;
+
+    /**
+     * 所属租户 ID（可选）。
+     *
+     * <p><b>本字段是"随应用信息一起承载的租户归属"，starter 自身<b>不做</b>租户一致性校验</b>——
+     * {@link SignChecker} 工作在 servlet 层、不掌握租户上下文来源（各业务的租户注入机制不同，
+     * 如网关身份头、ThreadLocal、MyBatis 插件），故校验交由调用方在其链路中完成。
+     * starter 只负责把该值透传出来，避免调用方再查一次库。</p>
+     *
+     * <p>⚠️ 独立复核曾指出本字段早前的注释声称"SignChecker 会校验租户一致"，与实际实现不符 —
+     * 已更正为上述真实语义。<b>需要跨租户防护的业务必须自行校验本字段</b>，
+     * 不能仅依赖"配了 tenantId"就认为已被防住。</p>
+     */
+    @Nullable
+    private Long tenantId;
+
+    /**
+     * 作用域集合（可选）。
+     *
+     * <p>为空表示<b>不限制</b>（保持旧行为）。非空时由 {@link SignChecker} 交给调用方的
+     * 作用域校验回调判定——starter 只负责"传出去"，<b>具体白名单语义属业务</b>（不同业务
+     * 的权限码体系不同，starter 不预设）。</p>
+     */
+    private List<String> scopes = List.of();
+
+    /**
+     * 应用级 QPS 配额（可选）。
+     *
+     * <p>为空或 {@code <= 0} 表示<b>不限</b>。</p>
+     */
+    @Nullable
+    private Integer rateLimitQps;
+
+    /**
+     * 应用级日调用配额（可选）。
+     *
+     * <p>为空或 {@code <= 0} 表示<b>不限</b>。</p>
+     */
+    @Nullable
+    private Integer dailyQuota;
+
+    /**
+     * 来源 IP 白名单（CIDR 列表，逗号分隔；可选）。
+     *
+     * <p>为空表示<b>不限来源</b>（保持旧行为）。</p>
+     */
+    @Nullable
+    private String ipWhitelist;
+
+    /**
+     * Secret Key 的哈希形态（可选，与 {@link #secretKey} <b>二选一</b>）。
+     *
+     * <p>用于"库内只存哈希"的场景（如 iot 的 OpenApiKey 体系）：{@link #secretKey} 为空、
+     * 本字段非空时，{@link SignChecker} 以"调用方提供的校验回调"判定密钥是否匹配，
+     * <b>starter 自身不做哈希算法假设</b>（各业务的 pepper / 算法可能不同）。</p>
+     */
+    @Nullable
+    private String secretHash;
 
     /** 供框架反序列化/绑定使用的无参构造：字段随后由 setter 填充 */
     @SuppressWarnings("NullAway.Init")
@@ -105,5 +168,76 @@ public class SignApp {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    @Nullable
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public List<String> getScopes() {
+        return scopes;
+    }
+
+    public void setScopes(List<String> scopes) {
+        this.scopes = (scopes == null) ? List.of() : List.copyOf(scopes);
+    }
+
+    @Nullable
+    public Integer getRateLimitQps() {
+        return rateLimitQps;
+    }
+
+    public void setRateLimitQps(Integer rateLimitQps) {
+        this.rateLimitQps = rateLimitQps;
+    }
+
+    @Nullable
+    public Integer getDailyQuota() {
+        return dailyQuota;
+    }
+
+    public void setDailyQuota(Integer dailyQuota) {
+        this.dailyQuota = dailyQuota;
+    }
+
+    @Nullable
+    public String getIpWhitelist() {
+        return ipWhitelist;
+    }
+
+    public void setIpWhitelist(String ipWhitelist) {
+        this.ipWhitelist = ipWhitelist;
+    }
+
+    @Nullable
+    public String getSecretHash() {
+        return secretHash;
+    }
+
+    public void setSecretHash(String secretHash) {
+        this.secretHash = secretHash;
+    }
+
+    /**
+     * 是否配置了 IP 白名单。
+     *
+     * @return 非空白白名单返回 {@code true}
+     */
+    public boolean hasIpWhitelist() {
+        return ipWhitelist != null && !ipWhitelist.isBlank();
+    }
+
+    /**
+     * 是否启用配额/限流判定。
+     *
+     * @return QPS 或日配额任一为正数返回 {@code true}
+     */
+    public boolean hasQuota() {
+        return (rateLimitQps != null && rateLimitQps > 0) || (dailyQuota != null && dailyQuota > 0);
     }
 }

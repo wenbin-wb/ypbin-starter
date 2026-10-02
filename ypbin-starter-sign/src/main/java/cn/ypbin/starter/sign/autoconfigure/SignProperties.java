@@ -47,6 +47,34 @@ public class SignProperties {
     /** 是否启用 nonce 防重放 */
     private boolean replayProtect = true;
 
+    /**
+     * 签名校验模式：REQUIRED（默认，必须带齐四件套）或 OPTIONAL（灰度期，四件套全无则放行）。
+     *
+     * <p><b>适用范围（重要，勿误配）</b>：本开关只作用于 <b>本模块自身的 servlet 链路</b>
+     * （即 {@code @ApiSign} / GLOBAL 拦截，见 {@link #mode}）。它<b>不控制</b>经网关转发的
+     * 开放 API 链路——那条链路的灰度开关是<b>网关侧</b>的
+     * {@code ypbin.openapi.require-signature}（由网关下发到下游校验端点）。
+     * 因此若在两个不同链路间迁移，<b>两处开关需各自设置</b>：只改这里而链路走网关，
+     * 不会产生任何效果（静默无效）。</p>
+     *
+     * <p><b>默认值方向</b>：本项默认 {@code REQUIRED}（严格），而网关侧开关默认
+     * {@code false}（宽松，为兼容既有"仅 Key"接入）。两者语义一致（"全无则放行 / 部分携带即拒"）
+     * 但默认值方向相反，属刻意：本模块的既有使用者本就都在用签名，收紧默认不会误伤；
+     * 开放 API 则相反。</p>
+     *
+     * <p><b>降级防护</b>：OPTIONAL 下只有<b>四个参数名都不存在</b>才放行（按"是否存在"而非
+     * "值是否空白"判定，防全角空格等空白字符降级）；只要出现任一签名参数，
+     * 就按 REQUIRED 处理（缺失其余一律拒绝）。</p>
+     */
+    private SignMode signMode = SignMode.REQUIRED;
+
+    /**
+     * 是否信任 {@code X-Forwarded-For} 头作为来源地址（IP 白名单用）。
+     *
+     * <p><b>默认 false</b>：该头可被客户端伪造，仅在请求确实经过可信代理时才可开启。</p>
+     */
+    private boolean trustForwardedHeader = false;
+
     /** 应用列表 */
     private List<AppInfo> apps = new ArrayList<>();
 
@@ -96,6 +124,22 @@ public class SignProperties {
         this.replayProtect = replayProtect;
     }
 
+    public SignMode getSignMode() {
+        return signMode;
+    }
+
+    public void setSignMode(SignMode signMode) {
+        this.signMode = signMode;
+    }
+
+    public boolean isTrustForwardedHeader() {
+        return trustForwardedHeader;
+    }
+
+    public void setTrustForwardedHeader(boolean trustForwardedHeader) {
+        this.trustForwardedHeader = trustForwardedHeader;
+    }
+
     public List<AppInfo> getApps() {
         return apps;
     }
@@ -128,6 +172,17 @@ public class SignProperties {
         GLOBAL
     }
 
+    /** 签名参数校验模式（灰度开关） */
+    public enum SignMode {
+        /** 必须带齐 accessKey/timestamp/nonce/sign 四件套 */
+        REQUIRED,
+        /**
+         * 灰度期：四件套<b>全无</b>时视为"未启用签名的既有请求"而放行；
+         * 只要出现任一签名参数，即按 {@link #REQUIRED} 严格校验（防降级绕过）。
+         */
+        OPTIONAL
+    }
+
     /** 应用信息 */
     // 字段由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null
     @SuppressWarnings("NullAway.Init")
@@ -142,6 +197,16 @@ public class SignProperties {
         private LocalDateTime expireTime;
         /** 是否启用 */
         private boolean enabled = true;
+        /** 所属租户 ID（可选；为空表示不做租户校验） */
+        private Long tenantId;
+        /** 作用域集合（可选；为空表示不限制） */
+        private List<String> scopes = new ArrayList<>();
+        /** 应用级 QPS 配额（空或 <=0 表示不限） */
+        private Integer rateLimitQps;
+        /** 应用级日调用配额（空或 <=0 表示不限） */
+        private Integer dailyQuota;
+        /** 来源 IP 白名单（CIDR 逗号分隔；空表示不限来源） */
+        private String ipWhitelist;
 
         public String getAccessKey() {
             return accessKey;
@@ -181,6 +246,46 @@ public class SignProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public Long getTenantId() {
+            return tenantId;
+        }
+
+        public void setTenantId(Long tenantId) {
+            this.tenantId = tenantId;
+        }
+
+        public List<String> getScopes() {
+            return scopes;
+        }
+
+        public void setScopes(List<String> scopes) {
+            this.scopes = (scopes == null) ? new ArrayList<>() : scopes;
+        }
+
+        public Integer getRateLimitQps() {
+            return rateLimitQps;
+        }
+
+        public void setRateLimitQps(Integer rateLimitQps) {
+            this.rateLimitQps = rateLimitQps;
+        }
+
+        public Integer getDailyQuota() {
+            return dailyQuota;
+        }
+
+        public void setDailyQuota(Integer dailyQuota) {
+            this.dailyQuota = dailyQuota;
+        }
+
+        public String getIpWhitelist() {
+            return ipWhitelist;
+        }
+
+        public void setIpWhitelist(String ipWhitelist) {
+            this.ipWhitelist = ipWhitelist;
         }
 
         /**

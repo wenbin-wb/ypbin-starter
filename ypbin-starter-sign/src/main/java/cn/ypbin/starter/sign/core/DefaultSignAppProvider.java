@@ -53,6 +53,13 @@ public class DefaultSignAppProvider implements SignAppProvider {
         app.setAppName(info.getAppName());
         app.setExpireTime(info.getExpireTime());
         app.setEnabled(info.isEnabled());
+        // 新增维度必须在此映射，否则"配置了却不生效"——校验路径因取不到值而全部 early-return，
+        // 表象是"字段建了没用"。独立复核曾以此为由判定"能力落空"。
+        app.setTenantId(info.getTenantId());
+        app.setScopes(info.getScopes());
+        app.setRateLimitQps(info.getRateLimitQps());
+        app.setDailyQuota(info.getDailyQuota());
+        app.setIpWhitelist(info.getIpWhitelist());
         return app;
     }
 }
