@@ -67,6 +67,7 @@
         <module>ypbin-starter-messaging</module>
         <module>ypbin-starter-sensitive-words</module>
         <module>ypbin-starter-i18n</module>
+        <module>ypbin-starter-iot</module>
         <module>ypbin-starter-api-crypto</module>
         <module>ypbin-starter-social</module>
         <module>ypbin-starter-sign</module>

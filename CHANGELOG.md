@@ -7,6 +7,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+### 新增
+
+- **新模块 `ypbin-starter-iot`**：IoT 域通用原语（下沉自 ypbin-iot 业务仓）：`RequestIdRules`（请求 ID 形态口径）与 `PropertyIdRules`（点位标识口径，字符集 + 128 上限 + 统一非法文案），均为纯函数零 IO。
+
 ## [3.7.0] - 2026-10-02
 
 ### 新增

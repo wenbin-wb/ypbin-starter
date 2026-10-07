@@ -629,6 +629,19 @@ ypbin:
 public class UserController { ... }
 ```
 
+### iot — IoT 域通用原语
+
+IoT 业务通用的纯函数校验口径（下沉自 ypbin-iot，零 IO、无 Spring 依赖）：
+
+- `RequestIdRules`：请求 ID 形态（`[A-Za-z0-9_.:-]{1,64}`，入站幂等键与下行命令共用唯一口径）；
+- `PropertyIdRules`：点位标识形态（同字符集，1~128）+ 统一非法原因文案；
+- `AvailabilityRules`：可用率固定口径（GOOD 判定、0.995 目标、断档上限公式、东八区墙上时间）。
+
+```java
+RequestIdRules.isValid("cmd-1");        // true
+PropertyIdRules.isValid("temperature"); // true
+```
+
 ### storage — 文件存储
 
 本地 + S3 兼容对象存储（阿里云 OSS / 腾讯云 COS / MinIO / 七牛等），支持多存储源共存、按 platform 路由：
