@@ -131,6 +131,11 @@
             </dependency>
             <dependency>
                 <groupId>cn.ypbin</groupId>
+                <artifactId>ypbin-starter-iot</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.ypbin</groupId>
                 <artifactId>ypbin-starter-cloud-core</artifactId>
                 <version>${revision}</version>
             </dependency>
