@@ -6,14 +6,14 @@
 
 > 业务系统只写业务，基建交给 starter。单体与微服务同源 · 约定优于配置 · 可覆盖可扩展 · 已发布 Maven Central
 
-**Java 21 · Spring Boot 4.1 · 35 个模块**
+**Java 21 · Spring Boot 4.1 · 41 个模块**
 
 [![CI](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/Coverage-JaCoCo%20Verified-brightgreen.svg)](https://github.com/wenbin-wb/ypbin-starter/actions/workflows/ci.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/cn.ypbin/ypbin-starter-bom?label=Maven%20Central&color=blue)](https://central.sonatype.com/artifact/cn.ypbin/ypbin-starter-bom)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
 [快速开始](#-快速开始) · [模块总览](#-模块总览) · [设计取舍](#-设计取舍) · [对接方式](#-业务系统如何对接) · [文档](https://ypbin.cn/guide/starter/)
 
@@ -76,7 +76,7 @@
 | 门禁 | 拦住什么 | 本地命令 |
 |---|---|---|
 | **架构约束测试**（ArchUnit，35 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失 | `mvn -pl ypbin-starter-architecture-tests test` |
-| **空值语义静态检查**（NullAway + Error Prone，覆盖**全部 35 个模块的主源码**） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
+| **空值语义静态检查**（NullAway + Error Prone，逐模块声明 `nullaway.packages`，当前覆盖 37 个模块的主源码） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
 | **依赖版本收敛**（enforcer `dependencyConvergence`） | 同一依赖出现多个版本（Maven 会静默按声明顺序择一，不报错） | `mvn -Pdep-convergence validate` |
 | **集成测试体系**（外部实例优先 → Testcontainers 回退 → 条件跳过） | 只在真机才暴露的问题（Redis 序列化、Nacos 注册、Feign 跨服务） | `mvn -Pit verify` |
 | **配置元数据漂移** | 配置项增删改后文档未同步（清单由构建产物生成，不手工维护） | `node tools/export-config-metadata.mjs --check` |
@@ -112,17 +112,17 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
 
 | 领域 | 选型 |
 |---|---|
-| 语言 / 框架 | Java 21 · Spring Boot 4.1.0 |
-| AI | Spring AI 2.0.0 |
+| 语言 / 框架 | Java 21 · Spring Boot 4.1.1 |
+| AI | Spring AI 2.0.1 |
 | 认证 | Sa-Token 1.46.0 |
 | ORM | MyBatis-Plus 3.5.17 |
 | 缓存 | Redis + Caffeine 多级缓存 |
 | 对象存储 | AWS SDK v2（S3 兼容） |
-| API 文档 | SpringDoc OpenAPI 3.1.0 |
+| API 文档 | SpringDoc OpenAPI 3.1.1 |
 | Excel | Apache Fesod 2.0.2-incubating |
 | 验证码 | tianai-captcha 1.5.5（滑块/旋转/点选/拼接） |
-| 加解密 | AES-GCM / 国密 SM2·SM3·SM4（BouncyCastle 1.85.2） |
-| 微服务 | Spring Cloud 2025.1.2 + Gateway / OpenFeign / LoadBalancer / Nacos |
+| 加解密 | AES-GCM / 国密 SM2·SM3·SM4（BouncyCastle 1.86） |
+| 微服务 | Spring Cloud 2025.1.3 + Gateway / OpenFeign / LoadBalancer / Nacos |
 | 熔断降级 | Resilience4j |
 
 ## 🚀 快速开始
