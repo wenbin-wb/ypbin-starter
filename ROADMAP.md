@@ -6,13 +6,20 @@
 
 ## 0. 当前状态总览
 
-- **模块**：35 个（L1 基础 10 + L2 扩展 3 + L3 微服务 6 + 应用聚合 2 + 依赖/BOM 2 + 其余能力模块含 async、job、license、ai）
-- **构建**：全量 35 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
+- **模块**：39 个 Reactor 模块 + 2 个 dev-only 非发布模块（`architecture-tests`、`benchmarks`），共 41 个模块目录
+- **构建**：全量 39 模块 `clean install` BUILD SUCCESS，默认单测/装配测试全绿；`mvn test` 已触发 spotless 校验
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
-- **技术基线**：JDK 21 · Spring Boot 4.1.0 · Spring Cloud 2025.1.2 · spring-cloud-alibaba 2025.1.0.0
-- **发布状态**：v1.0.0 / v1.1.0 / v1.2.0 / v1.3.0 均已发布至 Maven Central；当前开发版 **1.4.0-SNAPSHOT**
-- **后续可选**：CI 接入 `-Pit`（GitHub Actions + Testcontainers）；示例工程
+- **技术基线**：JDK 21 · Spring Boot 4.1.1 · Spring Cloud 2025.1.3 · spring-cloud-alibaba 2025.1.0.0
+- **发布状态**：v1.0.0 起的全部版本已发布至 Maven Central，最新 **v3.8.0**（2026-10-07）；当前开发版 **3.8.1-SNAPSHOT**
+- **CI**：`-Pit` 集成测试（GitHub Actions + Testcontainers）已接入为独立作业
+- **后续可选**：示例工程
+
+> 本表「模块数/技术基线/发布状态」三处曾长期停留在 v1.4.0 时代（35 个模块、Boot 4.1.0、1.4.0-SNAPSHOT），
+> 与 git tag 和 `pom.xml` 事实不符，2026-10-12 据实更正。**改动这三行时必须同时核对**
+> `git describe --tags`、`ypbin-starter-dependencies/pom.xml` 的 `spring-boot.version`/`spring-cloud.version`、
+> `pom.xml` 的 `<revision>`；模块目录数复算：
+> `ls -d */ | while read d; do [ -f "$d/pom.xml" ] && echo "$d"; done | wc -l`（含 2 个 dev-only）。
 
 ## 1. 定位与设计原则
 

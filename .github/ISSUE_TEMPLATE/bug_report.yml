@@ -32,8 +32,8 @@ body:
     id: version
     attributes:
       label: 组件版本
-      description: 例如 1.4.0、JDK 21、Spring Boot 4.1.0
-      placeholder: "ypbin-starter: 1.4.0, JDK: 21, Spring Boot: 4.1.0"
+      description: 例如 3.8.0、JDK 21、Spring Boot 4.1.1
+      placeholder: "ypbin-starter: 3.8.0, JDK: 21, Spring Boot: 4.1.1"
     validations:
       required: true
   - type: textarea

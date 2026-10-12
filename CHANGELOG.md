@@ -7,6 +7,23 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [未发布]
+
+### 修复
+
+- **文档事实漂移更正（`ROADMAP.md` / `README.md`）**：`ROADMAP.md` 的「当前状态总览」长期停留在 v1.4.0 时代，
+  与 git tag 和 `pom.xml` 事实不符 —— 模块数 35 → **39 个 Reactor 模块 + 2 个 dev-only 非发布模块**、
+  技术基线 Spring Boot 4.1.0 → **4.1.1**、Spring Cloud 2025.1.2 → **2025.1.3**、
+  发布状态 1.4.0-SNAPSHOT → **v3.8.0 已发布 / 3.8.1-SNAPSHOT 开发中**；
+  「CI 接入 `-Pit`」从「后续可选」改为事实（已是独立 CI 作业）。
+  `README.md` 同步更正模块数（35 → 41）与三处技术栈版本（Spring AI 2.0.1、SpringDoc OpenAPI 3.1.1、
+  BouncyCastle 1.86），并给空值语义检查的覆盖模块数补上可复算口径。
+  同时在 `ROADMAP.md` 该节补「改动这三行时必须核对什么」的清单，避免同一处再次漂移。
+- **发布流程补齐下游通知：`ypbin-iot`**（`.github/workflows/release.yml`）。此前 `starter-release`
+  的 `repository_dispatch` 只通知 `ypbin-admin` 与 `ypbin-site`，`ypbin-iot` 不在列表内 ⇒
+  该仓的 `ypbin-starter.version` 只能手工同步（审计已观测到 `ypbin-site` 的 `releases.json`
+  因此停在 3.7.0 而最新发布为 3.8.0）。现改为 `admin + iot + site`，并同步更新脚本内提示文案。
+
 ## [3.8.0] - 2026-10-07
 
 ### 新增
