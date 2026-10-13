@@ -83,7 +83,8 @@
 | **配置元数据漂移** | 配置项增删改后文档未同步（清单由构建产物生成，不手工维护） | `node tools/export-config-metadata.mjs --check` |
 | **代码风格与 license 头** | 格式不一致、缺 license | `mvn com.diffplug.spotless:spotless-maven-plugin:apply` |
 | **静态安全扫描**（CodeQL，仓库 CI） | 注入、敏感信息落日志、不安全随机数、弱算法误用 | GitHub Actions（推送后自动跑） |
-| **覆盖率**（JaCoCo，`haltOnFailure`） | 用「没测到」冒充「没问题」 | `mvn test` |
+| **指令覆盖率下限**（JaCoCo `INSTRUCTION` `COVEREDRATIO`，`haltOnFailure`） | 用「没测到」冒充「没问题」 | `mvn test` |
+| **分支覆盖率下限**（JaCoCo `BRANCH` `COVEREDRATIO`，逐模块 `jacoco.branch.minimum`） | 只走「直线路径」、条件分支的 else/异常分支未覆盖（指令覆盖率看不出） | `mvn test`（阈值见各模块 `pom.xml` 的 `jacoco.branch.minimum`） |
 
 发布前用 `tools/preflight.sh` **一次跑全六道硬门禁**（全量构建含架构测试、NullAway、依赖收敛、集成测试、
 配置元数据），任一门禁不通过即中止发布；脚本在 Docker 不可用时**显式失败**而非静默跳过集成测试。
