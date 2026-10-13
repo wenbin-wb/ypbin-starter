@@ -11,6 +11,14 @@
 
 ### 新增
 
+- **JaCoCo 分支覆盖率下限（issue #70）**：此前各模块 `jacoco-check` 只有 `INSTRUCTION COVEREDRATIO`
+  下限，只测「直线路径」也能过门禁。现为**每个有覆盖率的模块**补 `BRANCH COVEREDRATIO` 下限，
+  与指令下限并列，任一不达即按 `haltOnFailure` 失败。阈值统一走 `jacoco.branch.minimum` 属性
+  （与 `nullaway.packages` 同一约定）：`ypbin-starter-dependencies` 给默认 `0.45`，
+  各模块在自身 `<properties>` 覆盖为「基线实测值略低」的阈值（如 core `0.68`、security `0.55`、iot `0.90`）；
+  `architecture-tests` / `benchmarks` 维持 `jacoco.skip` 不参与。
+  `ypbin-starter-excel` 分支总数仅 2 且均未覆盖，阈值暂记 `0.00` 并登记补测计划（见 issue #70）；
+  `cloud-observability` / `cloud-sentinel` 无分支，JaCoCo 对总数为 0 的计数器不作判定（不失败）。
 - **公开 API 向后兼容门禁（issue #69）**：新增独立 workflow `.github/workflows/api-compat.yml`，
   用 **japicmp CLI** 把当前构建制品与 **Maven Central 上「小于当前版本」的最近正式版**（默认 3.8.0）
   逐模块比对 public/protected API；删除/收窄类型或方法等 binary/source 不兼容会**直接失败**，
