@@ -41,6 +41,12 @@
         <xxl-job.version>3.4.2</xxl-job.version>
         <spotless-maven-plugin.version>3.10.3</spotless-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <!--
+          覆盖率 BRANCH 下限（JaCoCo check）：默认值适用于未单独覆盖阈值的模块；
+          参与模块只需在自己的 <properties> 里把 jacoco.branch.minimum 覆盖为本模块实测值略低的数，
+          与既有 nullaway.packages 同一约定；无分支的模块该计数器总数为 0，JaCoCo 不作判定（不失败）。
+        -->
+        <jacoco.branch.minimum>0.45</jacoco.branch.minimum>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
@@ -545,7 +551,7 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <!-- 覆盖率门禁：未达下限直接构建失败（CI 强制），禁止静默放行 -->
+                            <!-- 覆盖率门禁：INSTRUCTION 与 BRANCH 双下限，未达任一即构建失败（CI 强制），禁止静默放行 -->
                             <haltOnFailure>true</haltOnFailure>
                             <rules>
                                 <rule>
@@ -555,6 +561,11 @@
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
                                             <minimum>0.80</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.branch.minimum}</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

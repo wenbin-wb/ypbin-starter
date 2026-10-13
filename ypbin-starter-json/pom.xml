@@ -66,6 +66,7 @@
     </dependencies>
 
     <properties>
+        <jacoco.branch.minimum>0.58</jacoco.branch.minimum>
         <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 据此限定检查范围） -->
         <nullaway.packages>cn.ypbin.starter.json</nullaway.packages>
     </properties>
@@ -94,6 +95,11 @@
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
                                             <minimum>0.75</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.branch.minimum}</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
