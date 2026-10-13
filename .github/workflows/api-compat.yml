@@ -17,6 +17,8 @@ name: API Compatibility
 #      不兼容只 WARN 不失败——这是显式声明，仍要求在 CHANGELOG 的破坏性变更段登记。
 on:
   pull_request:
+    # 标注/取消标注 api-breaking-approved 后要能重新评估（默认 PR 事件不触发 labeled/unlabeled）
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
   workflow_dispatch:
     inputs:
       baseline_version:
