@@ -1,0 +1,180 @@
+name: API Compatibility
+
+# ── issue #69：公开 API 向后兼容门禁 ──────────────────────────────────────────────
+#
+# 选型：japicmp（standalone CLI，com.github.siom79.japicmp:japicmp:0.23.1）。
+# 理由：
+#   1) 本仓 35+ 模块、公开类型面大。japicmp 以 jar 为输入，可以直接比对「Central 已发布 jar
+#      vs 本次构建 jar」，不需要 35 个模块各自在 reactor 里重新声明基线坐标；
+#   2) japicmp 原生区分 binary / source 不兼容，并提供 --error-on-binary-incompatibility /
+#      --error-on-source-incompatibility，让真实破坏**非零退出**；**不使用**
+#      --ignore-missing-classes 放行（依赖缺类会以 E: 明确失败，不静默放过）；
+#   3) 单 jar（jar-with-dependencies）即可运行，因此可以做成**独立 workflow**，零改既有 pom/ci.yml。
+#
+# 基线：优先 Maven Central 上「小于当前版本」的最近正式版（不依赖 git tag/历史）；
+#      Central metadata 不可达时才回退「检出最近 tag 构建基线」。
+# 例外：PR 带 `api-breaking-approved` 标签（或 workflow_dispatch 勾选 allow_breaking）时，
+#      不兼容只 WARN 不失败——这是显式声明，仍要求在 CHANGELOG 的破坏性变更段登记。
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      baseline_version:
+        description: '基线已发布版本（留空=自动取 Central 上小于当前版本的最近正式版）'
+        required: false
+        default: ''
+      allow_breaking:
+        description: '允许本次破坏性 API 变更（仍需在 CHANGELOG 登记）'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-compat-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-compat:
+    name: 公开 API 向后兼容（vs 上一发布版）
+    runs-on: ubuntu-latest
+    env:
+      INPUT_BASELINE: ${{ inputs.baseline_version }}
+      ALLOW_BREAKING: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_breaking) || contains(github.event.pull_request.labels.*.name, 'api-breaking-approved') }}
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 配置 JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: 获取 japicmp CLI（jar-with-dependencies）
+        run: |
+          mvn -B -ntp -q dependency:get \
+            -Dartifact=com.github.siom79.japicmp:japicmp:0.23.1:jar:jar-with-dependencies
+
+      - name: 构建当前制品与依赖 classpath（跳过测试）
+        run: |
+          mvn -B -ntp -Dmaven.test.skip=true -Djacoco.skip=true -Dmaven.javadoc.skip=true \
+            package dependency:build-classpath \
+            -Dmdep.outputFile=target/japicmp-cp.txt -Dmdep.includeScope=compile
+
+      - name: 比对公开 API
+        run: |
+          set -uo pipefail
+          JAPICMP="$(find "$HOME/.m2/repository/com/github/siom79/japicmp" -name 'japicmp-*-jar-with-dependencies.jar' | head -1)"
+          CURRENT_RAW="$(grep -oP '<revision>\K[^<]+' pom.xml | head -1)"
+          CURRENT="${CURRENT_RAW%-SNAPSHOT}"
+          echo "current=$CURRENT_RAW"
+
+          # ① 基线版本：显式输入 > Central metadata 上 < 当前版本的最近正式版 > 最近 git tag
+          BASELINE="$INPUT_BASELINE"
+          BASELINE_SOURCE=central
+          if [ -z "$BASELINE" ]; then
+            if META="$(curl -fsSL --max-time 30 https://repo1.maven.org/maven2/cn/ypbin/ypbin-starter-bom/maven-metadata.xml)"; then
+              ALL="$(printf '%s\n' "$META" | grep -oP '(?<=<version>)[^<]+' | grep -v -- '-SNAPSHOT' | sort -V)"
+              BASELINE=""
+              for v in $ALL; do
+                [ "$v" = "$CURRENT" ] && break
+                BASELINE="$v"
+              done
+              if [ -z "$BASELINE" ]; then
+                echo "::error::Central metadata 中没有可用于基线的正式版（current=$CURRENT）"
+                exit 1
+              fi
+            else
+              echo "::warning::Maven Central metadata 不可达，回退为「检出最近 tag 构建基线」"
+              BASELINE_SOURCE=tag
+              BASELINE="$(git describe --tags --abbrev=0 | sed 's/^v//')"
+            fi
+          fi
+          echo "baseline=$BASELINE source=$BASELINE_SOURCE"
+
+          # ② 模块清单：BOM 列出的可发布模块（排除 BOM 自身）
+          MODULES="$(grep -oP '(?<=<artifactId>)ypbin-starter-[a-z0-9-]+' ypbin-starter-bom/pom.xml \
+            | grep -v '^ypbin-starter-bom$' | sort -u)"
+
+          # ③ 基线制品：Central 直接下载；tag 回退则检出 tag 后构建
+          OLD_DIR=/tmp/api-compat-old
+          BASELINE_DIR=/tmp/api-compat-baseline
+          mkdir -p "$OLD_DIR"
+          if [ "$BASELINE_SOURCE" = "tag" ]; then
+            rm -rf "$BASELINE_DIR"
+            git worktree add --detach "$BASELINE_DIR" "v$BASELINE"
+            ( cd "$BASELINE_DIR" && mvn -B -ntp -Dmaven.test.skip=true -Djacoco.skip=true \
+                -Dmaven.javadoc.skip=true package dependency:build-classpath \
+                -Dmdep.outputFile=target/japicmp-cp.txt -Dmdep.includeScope=compile )
+          fi
+
+          FAIL=0
+          for m in $MODULES; do
+            NEW_JAR="$m/target/$m-$CURRENT_RAW.jar"
+            NEW_CP_FILE="$m/target/japicmp-cp.txt"
+            if [ ! -f "$NEW_JAR" ]; then
+              echo "[$m] skip：没有可比较的 jar（可能非 jar 打包）"
+              continue
+            fi
+            if [ "$BASELINE_SOURCE" = "tag" ]; then
+              OLD_JAR="$BASELINE_DIR/$m/target/$m-$BASELINE.jar"
+              OLD_CP_FILE="$BASELINE_DIR/$m/target/japicmp-cp.txt"
+              if [ ! -f "$OLD_JAR" ]; then
+                echo "[$m] skip：基线 tag 中无此模块（视为新增模块，属兼容变更）"
+                continue
+              fi
+            else
+              OLD_JAR="$OLD_DIR/$m-$BASELINE.jar"
+              if [ ! -f "$OLD_JAR" ]; then
+                rc=0
+                curl -fsSL --max-time 60 -o "$OLD_JAR" \
+                  "https://repo1.maven.org/maven2/cn/ypbin/$m/$BASELINE/$m-$BASELINE.jar" || rc=$?
+                if [ "$rc" = "22" ]; then
+                  echo "[$m] skip：基线 $BASELINE 无此制品（视为新增模块，属兼容变更）"
+                  rm -f "$OLD_JAR"
+                  continue
+                elif [ "$rc" != "0" ]; then
+                  echo "::error::[$m] 下载基线制品失败（curl rc=$rc）"
+                  FAIL=1
+                  continue
+                fi
+              fi
+              OLD_CP_FILE="$NEW_CP_FILE"
+            fi
+            CP="$(cat "$NEW_CP_FILE" 2>/dev/null || true)"
+            OLD_CP="$(cat "$OLD_CP_FILE" 2>/dev/null || true)"
+            OUT="/tmp/japicmp-$m.txt"
+            if java -jar "$JAPICMP" --old "$OLD_JAR" --new "$NEW_JAR" \
+                 --old-classpath "$OLD_CP" --new-classpath "$CP" \
+                 --only-modified --error-on-binary-incompatibility \
+                 --error-on-source-incompatibility > "$OUT" 2>&1; then
+              echo "[$m] OK"
+            elif head -1 "$OUT" | grep -q '^E:'; then
+              echo "::error::[$m] japicmp 执行错误（不是 API 变更；多为依赖 classpath 缺类）"
+              cat "$OUT"
+              FAIL=1
+            elif [ "$ALLOW_BREAKING" = "true" ]; then
+              echo "::warning::[$m] 检出公开 API 不兼容变更，但已通过 api-breaking-approved / allow_breaking 显式声明；请确认 CHANGELOG 破坏性变更段已登记"
+              cat "$OUT"
+            else
+              echo "::error::[$m] 检出公开 API 不兼容变更"
+              cat "$OUT"
+              FAIL=1
+            fi
+          done
+
+          if [ "$BASELINE_SOURCE" = "tag" ]; then
+            git worktree remove --force "$BASELINE_DIR" 2>/dev/null || true
+          fi
+
+          if [ "$FAIL" != "0" ]; then
+            echo "::error::公开 API 向后兼容门禁失败。若这是有意的破坏性变更：① 在 CHANGELOG.md 的 [未发布] 下新增/更新「破坏性变更」条目并说明升级动作；② 给 PR 打 api-breaking-approved 标签（或 workflow_dispatch 勾选 allow_breaking）后重跑。本仓 semver 纪律见 CHANGELOG.md 顶部与 RELEASING.md。"
+            exit 1
+          fi
+          echo "OK: 全部可发布模块相对基线 $BASELINE 的公开 API 向后兼容"
