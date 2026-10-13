@@ -9,6 +9,16 @@
 
 ## [未发布]
 
+### 新增
+
+- **公开 API 向后兼容门禁（issue #69）**：新增独立 workflow `.github/workflows/api-compat.yml`，
+  用 **japicmp CLI** 把当前构建制品与 **Maven Central 上「小于当前版本」的最近正式版**（默认 3.8.0）
+  逐模块比对 public/protected API；删除/收窄类型或方法等 binary/source 不兼容会**直接失败**，
+  不使用 `--ignore-missing-classes` 放行真实破坏（依赖缺类会以 `E:` 明确失败）。
+  失败信息给出具体类/成员，若为有意的破坏性变更：需在本文件 `[未发布]` 的破坏性变更段登记，
+  并给 PR 打 `api-breaking-approved` 标签（或 `workflow_dispatch` 勾选 `allow_breaking`）作为显式例外。
+  Central metadata 不可达时回退「检出最近 tag 构建基线」。基线取 Central 制品，不依赖 git tag/历史。
+
 ### 修复
 
 - **文档事实漂移更正（`ROADMAP.md` / `README.md`）**：`ROADMAP.md` 的「当前状态总览」长期停留在 v1.4.0 时代，

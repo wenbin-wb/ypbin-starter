@@ -78,6 +78,7 @@
 | **架构约束测试**（ArchUnit，35 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失 | `mvn -pl ypbin-starter-architecture-tests test` |
 | **空值语义静态检查**（NullAway + Error Prone，逐模块声明 `nullaway.packages`，当前覆盖 37 个模块的主源码） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
 | **依赖版本收敛**（enforcer `dependencyConvergence`） | 同一依赖出现多个版本（Maven 会静默按声明顺序择一，不报错） | `mvn -Pdep-convergence validate` |
+| **公开 API 向后兼容**（japicmp 对比 Central 上一发布版） | 删除/收窄 public/protected 类型或方法（semver 破坏性变更未在 CHANGELOG 登记） | GitHub Actions `api-compat.yml`；显式例外：PR 打 `api-breaking-approved` 标签 |
 | **集成测试体系**（外部实例优先 → Testcontainers 回退 → 条件跳过） | 只在真机才暴露的问题（Redis 序列化、Nacos 注册、Feign 跨服务） | `mvn -Pit verify` |
 | **配置元数据漂移** | 配置项增删改后文档未同步（清单由构建产物生成，不手工维护） | `node tools/export-config-metadata.mjs --check` |
 | **代码风格与 license 头** | 格式不一致、缺 license | `mvn com.diffplug.spotless:spotless-maven-plugin:apply` |
