@@ -115,11 +115,13 @@ jobs:
           fi
 
           FAIL=0
+          CHECKED=0
           for m in $MODULES; do
             NEW_JAR="$m/target/$m-$CURRENT_RAW.jar"
             NEW_CP_FILE="$m/target/japicmp-cp.txt"
             if [ ! -f "$NEW_JAR" ]; then
-              echo "[$m] skip：没有可比较的 jar（可能非 jar 打包）"
+              echo "::error::[$m] 当前构建没有产出 jar（BOM 列出的可发布模块应为 jar 打包）"
+              FAIL=1
               continue
             fi
             if [ "$BASELINE_SOURCE" = "tag" ]; then
@@ -147,6 +149,7 @@ jobs:
               fi
               OLD_CP_FILE="$NEW_CP_FILE"
             fi
+            CHECKED=$((CHECKED + 1))
             CP="$(cat "$NEW_CP_FILE" 2>/dev/null || true)"
             OLD_CP="$(cat "$OLD_CP_FILE" 2>/dev/null || true)"
             OUT="/tmp/japicmp-$m.txt"
@@ -173,8 +176,13 @@ jobs:
             git worktree remove --force "$BASELINE_DIR" 2>/dev/null || true
           fi
 
+          if [ "$CHECKED" = "0" ]; then
+            echo "::error::没有任何模块完成比对（模块清单/基线解析可能出错），拒绝静默通过"
+            exit 1
+          fi
+
           if [ "$FAIL" != "0" ]; then
             echo "::error::公开 API 向后兼容门禁失败。若这是有意的破坏性变更：① 在 CHANGELOG.md 的 [未发布] 下新增/更新「破坏性变更」条目并说明升级动作；② 给 PR 打 api-breaking-approved 标签（或 workflow_dispatch 勾选 allow_breaking）后重跑。本仓 semver 纪律见 CHANGELOG.md 顶部与 RELEASING.md。"
             exit 1
           fi
-          echo "OK: 全部可发布模块相对基线 $BASELINE 的公开 API 向后兼容"
+          echo "OK: 已比对 $CHECKED 个模块，相对基线 $BASELINE 的公开 API 向后兼容"
