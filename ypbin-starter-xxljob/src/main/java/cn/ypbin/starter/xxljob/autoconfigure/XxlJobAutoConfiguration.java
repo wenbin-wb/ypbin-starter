@@ -31,8 +31,12 @@ import org.springframework.util.StringUtils;
  * <p>仅当 {@code ypbin.xxl-job.enabled=true} 时装配 {@link XxlJobSpringExecutor}：
  * 注册到 xxl-job-admin 调度中心，业务方法标注 {@code @XxlJob} 即成为可调度任务。</p>
  *
- * <p>配置缺失（admin 地址/执行器名）直接抛异常暴露——执行器连不上调度中心等于任务静默不跑，
+ * <p>配置缺失（admin 地址/执行器名/AccessToken）直接抛异常暴露——执行器连不上调度中心等于任务静默不跑，
  * 比启动失败更难排查，故禁止静默降级。</p>
+ *
+ * <p>xxl-job 3.5.0 起 AccessToken 为执行器维度且不可为空（{@code XxlJobExecutor#start()}
+ * 对空 token 直接抛异常），因此这里对空 token 提前失败并给出可操作的提示；
+ * admin 与该执行器必须使用同一个 token 并成对升级。</p>
  *
  * @author wenbin
  * @since 2026-09-05
@@ -53,8 +57,15 @@ public class XxlJobAutoConfiguration {
         if (!StringUtils.hasText(properties.getAppname())) {
             throw new IllegalStateException("ypbin.xxl-job.appname 未配置，无法注册 XXL-JOB 执行器");
         }
-        log.info("[ypbin-starter] xxl-job executor init: appname={}, admin={}, port={}.",
-            properties.getAppname(), properties.getAdminAddresses(), properties.getPort());
+        if (!StringUtils.hasText(properties.getAccessToken())) {
+            throw new IllegalStateException(
+                "ypbin.xxl-job.access-token 未配置：xxl-job 3.5.0 起 AccessToken 为执行器维度且不可为空，"
+                    + "需与调度中心 admin 中该 appname（" + properties.getAppname() + "）的 access_token 一致；"
+                    + "admin 与执行器须成对升级到 3.5.0");
+        }
+        log.info("[ypbin-starter] xxl-job executor init: appname={}, admin={}, port={}, glueEnabled={}.",
+            properties.getAppname(), properties.getAdminAddresses(), properties.getPort(),
+            properties.isGlueEnabled());
 
         XxlJobSpringExecutor executor = new XxlJobSpringExecutor();
         executor.setAdminAddresses(properties.getAdminAddresses());
@@ -67,8 +78,12 @@ public class XxlJobAutoConfiguration {
             executor.setIp(properties.getIp());
         }
         executor.setPort(properties.getPort());
-        executor.setLogPath(properties.getLogPath());
+        // 仅回填非空 log-path：3.5.0 起 setLogPath(null/"") 会覆盖 core 默认值，导致 start() 抛错
+        if (StringUtils.hasText(properties.getLogPath())) {
+            executor.setLogPath(properties.getLogPath());
+        }
         executor.setLogRetentionDays(properties.getLogRetentionDays());
+        executor.setGlueEnabled(properties.isGlueEnabled());
         return executor;
     }
 }

@@ -72,7 +72,8 @@
     "ypbin.xxl-job.ip": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
     "ypbin.xxl-job.port": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
     "ypbin.xxl-job.log-path": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
-    "ypbin.xxl-job.log-retention-days": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。"
+    "ypbin.xxl-job.log-retention-days": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+    "ypbin.xxl-job.glue-enabled": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。"
   },
   "safetyNotes": {
     "ypbin.api-crypto.key": [
@@ -227,6 +228,10 @@
     ],
     "ypbin.xxl-job.appname": [
       "缺失时启动即抛错暴露，禁止静默降级"
+    ],
+    "ypbin.xxl-job.access-token": [
+      "3.5.0 起为执行器（AppName）维度且不可为空，须与调度中心 admin 中该 appname 的 access_token 一致。",
+      "admin 与执行器必须同版本成对升级到 3.5.0，否则注册/调度在运行期失败。"
     ]
   },
   "standardHostProperties": {

@@ -14,8 +14,12 @@ ypbin:
     enabled: true
     # 默认使用虚拟线程执行器
   xxl-job:
-    # 需先部署 xxl-job-admin 并改为实际地址再开启
+    # 需先部署 xxl-job-admin（与执行器同版本，如 3.5.0）并改为实际地址再开启
     enabled: false
     admin-addresses: http://127.0.0.1:8080
+    # 3.5.0 起必填：须与 admin 中同名 appname 的 access_token 完全一致（留空则执行器启动即失败）
+    # access-token: <your-token>
     appname: __ARTIFACT_ID__
     port: 9999
+    # GLUE（非 BEAN）模式开关，默认 true；只跑 @XxlJob 时保持默认即可
+    # glue-enabled: true
