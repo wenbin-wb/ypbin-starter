@@ -273,6 +273,18 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
 
 遵循[语义化版本](https://semver.org/lang/zh-CN/)。版本变更详见 [CHANGELOG.md](CHANGELOG.md)。
 
+### ⚠️ XXL-JOB 调度中心与执行器必须成对升级
+
+`ypbin-starter-xxljob` 依赖 `com.xuxueli:xxl-job-core`。自 **3.5.0** 起官方将 **AccessToken 改为执行器（AppName）维度**
+并调整了执行器与调度中心之间的通讯协议（执行器注册/回调新增 AppName 头，触发路径 `/run` → `/trigger`，
+执行器本地 `access-token` 不再允许为空）。因此：
+
+- **必须**把调度中心镜像（`xuxueli/xxl-job-admin`）与执行器（本模块）**同版本成对升级**；单侧升级会在运行期断调度；
+- 升级 admin 前先执行官方 3.5.0 数据库升级脚本（`xxl_job_group` 增加 `access_token` 列、`app_name` 唯一索引、
+  `title`→`name`/`job_desc`→`name` 等），并为每个 AppName 设置 AccessToken；
+- 执行器侧 `ypbin.xxl-job.access-token` **必须显式配置**且与 admin 中同 AppName 的 token 完全一致，否则启动即抛错；
+- **回滚必须成对回退**：admin 与执行器一起回退到 3.4.2，并回滚数据库结构（详见 CHANGELOG `[未发布]` 的升级说明）。
+
 ## 🤝 贡献与许可证
 
 欢迎提交 Issue 与 Pull Request，贡献规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。

@@ -11,6 +11,15 @@
 
 ### 新增
 
+- **XXL-JOB 执行器升级并适配 xxl-job-core 3.5.0（issue #79）**：`xxl-job.version` 由 `3.4.2` 提升到 `3.5.0`，
+  `ypbin-starter-xxljob` 据此适配（官方 release：
+  <https://github.com/xuxueli/xxl-job/releases/tag/3.5.0>，2026-10-14 访问）：
+  - 新增配置 `ypbin.xxl-job.glue-enabled`（默认 `true`），对应 3.5.0 新增的执行器维度 GLUE（非 BEAN）模式开关；
+  - `ypbin.xxl-job.access-token` 由「可空、空则不校验」调整为**必填**：装配期对空 token 直接失败并给出可操作提示
+    （3.5.0 的 `XxlJobExecutor#start()` 对空 token 抛 `RuntimeException`）；
+  - `ypbin.xxl-job.log-path` 改为**仅在非空时**回填执行器：3.5.0 的 `XxlJobFileAppender#initLogPath` 对空路径抛错，
+    留空时沿用 core 默认值 `/data/applogs/xxl-job/jobhandler`。
+
 - **JaCoCo 分支覆盖率下限（issue #70）**：此前各模块 `jacoco-check` 只有 `INSTRUCTION COVEREDRATIO`
   下限，只测「直线路径」也能过门禁。现为**每个有覆盖率的模块**补 `BRANCH COVEREDRATIO` 下限，
   与指令下限并列，任一不达即按 `haltOnFailure` 失败。阈值统一走 `jacoco.branch.minimum` 属性
@@ -41,6 +50,28 @@
   的 `repository_dispatch` 只通知 `ypbin-admin` 与 `ypbin-site`，`ypbin-iot` 不在列表内 ⇒
   该仓的 `ypbin-starter.version` 只能手工同步（审计已观测到 `ypbin-site` 的 `releases.json`
   因此停在 3.7.0 而最新发布为 3.8.0）。现改为 `admin + iot + site`，并同步更新脚本内提示文案。
+
+### 变更（不兼容）
+
+- **`ypbin.xxl-job.access-token` 变为必填**：xxl-job 3.5.0 起 AccessToken 为执行器（AppName）维度且不可为空。
+  既有部署若沿用空 token（如 `access-token: ""`）升级本版后会**启动即失败**，须先按下方升级说明配置 token。
+
+### 升级说明
+
+- **XXL-JOB 调度中心与执行器必须成对升级到 3.5.0**：官方 3.5.0 将 AccessToken 从全局维度改为
+  **执行器（AppName）维度**并调整了通讯协议（执行器注册/回调新增 `XXL-JOB-APPNAME` 头；admin→执行器触发路径
+  `/run` 改为 `/trigger`；执行器本地 `access-token` 不可为空）。**只升一侧会在运行期断调度**，CI 无法覆盖跨进程协议，
+  必须成对发布：
+  1. admin 先执行官方 3.5.0 [数据库升级脚本](https://github.com/xuxueli/xxl-job/releases/tag/3.5.0)
+     （`xxl_job_group` 增 `access_token` 列与 `app_name` 唯一索引、`title`→`name`、`job_desc`→`name`、
+     `xxl_job_log.alarm_status` 索引与历史数据回填），并为每个 AppName 设置 token；
+  2. 业务侧把 `ypbin.xxl-job.access-token` 显式配成与 admin 中该 AppName 的 `access_token` 相同的值（否则启动即失败）；
+  3. 调度中心镜像 `xuxueli/xxl-job-admin` 与执行器 starter 同版本切换。
+- **回滚必须成对**：admin 与所有执行器一起回退到 3.4.2，并回滚上述数据库结构变更（先备份）；
+  不存在只回退一侧的安全姿势。
+- **直接引用 `com.xxl.job.core.openapi.*` 的业务代码升级后会编译失败**（3.5.0 把该包重构为
+  `openapi.admin.*` / `openapi.executor.*`，`AdminBiz.callback(List)` → `callback(CallbackRequest)`、
+  `ExecutorBiz.run` → `trigger`、`LogResult` → `LogData`）；`ypbin-starter-xxljob` 只用 `XxlJobSpringExecutor`，自身不受影响。
 
 ## [3.8.0] - 2026-10-07
 
