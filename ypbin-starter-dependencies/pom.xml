@@ -39,7 +39,7 @@
 
         <spring-ai.version>2.0.1</spring-ai.version>
         <xxl-job.version>3.4.2</xxl-job.version>
-        <spotless-maven-plugin.version>3.10.3</spotless-maven-plugin.version>
+        <spotless-maven-plugin.version>3.10.4</spotless-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
         <!--
           覆盖率 BRANCH 下限（JaCoCo check）：默认值适用于未单独覆盖阈值的模块；
