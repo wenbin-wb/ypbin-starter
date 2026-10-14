@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-07T02:41:59.934Z",
+  "generatedAt": "2026-10-14T08:16:48.310Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 357,
+    "customPropertyCount": 358,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 397,
+    "totalEntryCount": 398,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -12267,25 +12267,31 @@
           "defaultValue": "",
           "required": false,
           "requiredWhen": null,
-          "description": "执行器通讯 Token（与 admin 端保持一致，为空则不做校验）",
+          "description": "执行器通讯 Token。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
-          "safetyNotes": [],
+          "safetyNotes": [
+            "3.5.0 起为执行器（AppName）维度且不可为空，须与调度中心 admin 中该 appname 的 access_token 一致。",
+            "admin 与执行器必须同版本成对升级到 3.5.0，否则注册/调度在运行期失败。"
+          ],
           "sources": [
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 46
+              "line": 56
             }
           ],
           "default": "",
           "values": [],
-          "notes": [],
+          "notes": [
+            "3.5.0 起为执行器（AppName）维度且不可为空，须与调度中心 admin 中该 appname 的 access_token 一致。",
+            "admin 与执行器必须同版本成对升级到 3.5.0，否则注册/调度在运行期失败。"
+          ],
           "source": [
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 46
+              "line": 56
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12307,7 +12313,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 52
+              "line": 62
             }
           ],
           "default": null,
@@ -12317,7 +12323,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 52
+              "line": 62
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12341,7 +12347,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 43
+              "line": 47
             }
           ],
           "default": null,
@@ -12353,7 +12359,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 43
+              "line": 47
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12377,7 +12383,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 49
+              "line": 59
             }
           ],
           "default": null,
@@ -12389,7 +12395,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 49
+              "line": 59
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12411,7 +12417,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 40
+              "line": 44
             }
           ],
           "default": false,
@@ -12421,7 +12427,39 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 40
+              "line": 44
+            }
+          ],
+          "group": "ypbin.xxl-job",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-xxljob",
+          "key": "ypbin.xxl-job.glue-enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用 GLUE（非 BEAN）模式任务（3.5.0 新增，执行器维度；默认 true）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
+              "line": 86
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
+              "line": 86
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12443,7 +12481,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 55
+              "line": 65
             }
           ],
           "default": null,
@@ -12453,7 +12491,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 55
+              "line": 65
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12467,7 +12505,7 @@
           "defaultValue": null,
           "required": false,
           "requiredWhen": null,
-          "description": "执行器日志保存路径（为空使用默认临时目录）",
+          "description": "执行器日志保存路径。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块需满足类路径和自动装配条件。",
           "safetyNotes": [],
@@ -12475,7 +12513,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 61
+              "line": 76
             }
           ],
           "default": null,
@@ -12485,7 +12523,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 61
+              "line": 76
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12507,7 +12545,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 64
+              "line": 79
             }
           ],
           "default": 30,
@@ -12517,7 +12555,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 64
+              "line": 79
             }
           ],
           "group": "ypbin.xxl-job",
@@ -12539,7 +12577,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 58
+              "line": 68
             }
           ],
           "default": 9999,
@@ -12549,7 +12587,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-xxljob/src/main/java/cn/ypbin/starter/xxljob/autoconfigure/XxlJobProperties.java",
-              "line": 58
+              "line": 68
             }
           ],
           "group": "ypbin.xxl-job",

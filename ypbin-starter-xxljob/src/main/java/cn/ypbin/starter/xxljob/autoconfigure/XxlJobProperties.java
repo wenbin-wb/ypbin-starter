@@ -27,6 +27,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * <p>默认不启用（{@code enabled=false}），业务侧显式开启并配置 admin 地址后生效，
  * 避免误把所有引入本模块的服务都变成 xxl 执行器。</p>
  *
+ * <p><strong>版本约束（xxl-job 3.5.0 起）</strong>：AccessToken 改为执行器（AppName）维度且不可为空，
+ * 通讯协议亦有变化（新增 AppName 请求头、触发路径 {@code /run} 改为 {@code /trigger}），
+ * 调度中心 admin 与执行器<strong>必须同版本成对升级</strong>，否则注册/调度在运行期失败。</p>
+ *
  * @author wenbin
  * @since 2026-09-05
  */
@@ -42,7 +46,13 @@ public class XxlJobProperties {
     /** 调度中心地址（多个逗号分隔），如 http://localhost:8080/xxl-job-admin */
     private String adminAddresses;
 
-    /** 执行器通讯 Token（与 admin 端保持一致，为空则不做校验） */
+    /**
+     * 执行器通讯 Token。
+     *
+     * <p>3.5.0 起 AccessToken 由全局维度调整为执行器（AppName）维度且不可为空：
+     * 必须与调度中心 admin 中该 AppName 对应的 {@code xxl_job_group.access_token} 完全一致，
+     * 否则注册与回调都会被 admin 拒绝。admin 与执行器必须一并升级到 3.5.0。</p>
+     */
     private String accessToken = "";
 
     /** 执行器名称（AppName），admin 端按此注册与路由 */
@@ -57,11 +67,23 @@ public class XxlJobProperties {
     /** 执行器端口（执行器与 admin 通讯用，默认 9999） */
     private int port = 9999;
 
-    /** 执行器日志保存路径（为空使用默认临时目录） */
+    /**
+     * 执行器日志保存路径。
+     *
+     * <p>留空时沿用 xxl-job-core 默认值 {@code /data/applogs/xxl-job/jobhandler}；
+     * 执行器启动时要求该值非空（空串会直接抛错），故本壳仅在配置了非空值时才回填给执行器。</p>
+     */
     private String logPath;
 
     /** 执行器日志保存天数（默认 30） */
     private int logRetentionDays = 30;
+
+    /**
+     * 是否启用 GLUE（非 BEAN）模式任务（3.5.0 新增，执行器维度；默认 true）。
+     *
+     * <p>关闭后本执行器只执行 {@code @XxlJob} 注册的 BEAN 任务，不再加载/执行 GLUE 模式任务。</p>
+     */
+    private boolean glueEnabled = true;
 
     public boolean isEnabled() {
         return enabled;
@@ -133,5 +155,13 @@ public class XxlJobProperties {
 
     public void setLogRetentionDays(int logRetentionDays) {
         this.logRetentionDays = logRetentionDays;
+    }
+
+    public boolean isGlueEnabled() {
+        return glueEnabled;
+    }
+
+    public void setGlueEnabled(boolean glueEnabled) {
+        this.glueEnabled = glueEnabled;
     }
 }
