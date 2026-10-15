@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-15T18:00:45.911Z",
+  "generatedAt": "2026-10-15T18:52:45.504Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 360,
+    "customPropertyCount": 366,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 400,
+    "totalEntryCount": 406,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -34,6 +34,7 @@
     "ypbin.job",
     "ypbin.json",
     "ypbin.license",
+    "ypbin.lock",
     "ypbin.log",
     "ypbin.mail",
     "ypbin.mqtt",
@@ -11087,6 +11088,198 @@
     },
     "ypbin-starter-tools": {
       "configurationProperties": [
+        {
+          "module": "ypbin-starter-tools",
+          "key": "ypbin.lock.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用租约锁（长任务分布式互斥）。关闭后退回「每个副本都执行」，仅单实例部署可关。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 43
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 43
+            }
+          ],
+          "group": "ypbin.lock",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tools",
+          "key": "ypbin.lock.fail-open",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "锁存储不可用时是否继续执行任务。true（默认）=fail-open，多副本可能重复执行；false=fail-closed，存储异常直接上抛。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 60
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 60
+            }
+          ],
+          "group": "ypbin.lock",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tools",
+          "key": "ypbin.lock.key-prefix",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "ypbin:lease-lock:",
+          "required": false,
+          "requiredWhen": null,
+          "description": "租约锁键前缀（所有任务锁键都带它，便于在 Redis 里识别与控制）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 46
+            }
+          ],
+          "default": "ypbin:lease-lock:",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 46
+            }
+          ],
+          "group": "ypbin.lock",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tools",
+          "key": "ypbin.lock.metric-prefix",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "ypbin.lock",
+          "required": false,
+          "requiredWhen": null,
+          "description": "租约锁指标名前缀（skipped/unavailable/renew.failed 三个计数器挂在其下）；库不把宿主应用域名写死进指标名。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 68
+            }
+          ],
+          "default": "ypbin.lock",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 68
+            }
+          ],
+          "group": "ypbin.lock",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tools",
+          "key": "ypbin.lock.renew-interval",
+          "type": "java.time.Duration",
+          "defaultDefined": true,
+          "defaultValue": "20s",
+          "required": false,
+          "requiredWhen": null,
+          "description": "续期间隔（必须小于 ttl，否则锁会在第一次续期之前过期，多副本下并发执行）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 52
+            }
+          ],
+          "default": "20s",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 52
+            }
+          ],
+          "group": "ypbin.lock",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tools",
+          "key": "ypbin.lock.ttl",
+          "type": "java.time.Duration",
+          "defaultDefined": true,
+          "defaultValue": "60s",
+          "required": false,
+          "requiredWhen": null,
+          "description": "租约时长（持锁实例崩溃后，最坏这么久别的实例才能接管）。必须大于 renew-interval。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 49
+            }
+          ],
+          "default": "60s",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/lock/LeaseLockProperties.java",
+              "line": 49
+            }
+          ],
+          "group": "ypbin.lock",
+          "deprecation": null
+        },
         {
           "module": "ypbin-starter-tools",
           "key": "ypbin.tools.idempotent.distributed",
