@@ -38,6 +38,12 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- 租约锁的任务守卫按任务计数（skipped/unavailable/renew.failed），可选：无 micrometer 时锁照常可用、只是没有指标 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- 采集请求信息用于限流 key，可选 -->
         <dependency>
             <groupId>org.springframework</groupId>

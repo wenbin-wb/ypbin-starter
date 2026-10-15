@@ -35,6 +35,42 @@
       "type": "java.lang.Boolean",
       "description": "是否启用分布式锁切面 @DistributedLock。存在 Redis 时用分布式锁，否则退化为单机内存锁。",
       "defaultValue": true
+    },
+    {
+      "name": "ypbin.lock.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用租约锁（长任务分布式互斥）。关闭后退回「每个副本都执行」，仅单实例部署可关。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.lock.key-prefix",
+      "type": "java.lang.String",
+      "description": "租约锁键前缀（所有任务锁键都带它，便于在 Redis 里识别与控制）。",
+      "defaultValue": "ypbin:lease-lock:"
+    },
+    {
+      "name": "ypbin.lock.ttl",
+      "type": "java.time.Duration",
+      "description": "租约时长（持锁实例崩溃后，最坏这么久别的实例才能接管）。必须大于 renew-interval。",
+      "defaultValue": "60s"
+    },
+    {
+      "name": "ypbin.lock.renew-interval",
+      "type": "java.time.Duration",
+      "description": "续期间隔（必须小于 ttl，否则锁会在第一次续期之前过期，多副本下并发执行）。",
+      "defaultValue": "20s"
+    },
+    {
+      "name": "ypbin.lock.fail-open",
+      "type": "java.lang.Boolean",
+      "description": "锁存储不可用时是否继续执行任务。true（默认）=fail-open，多副本可能重复执行；false=fail-closed，存储异常直接上抛。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.lock.metric-prefix",
+      "type": "java.lang.String",
+      "description": "租约锁指标名前缀（skipped/unavailable/renew.failed 三个计数器挂在其下）；库不把宿主应用域名写死进指标名。",
+      "defaultValue": "ypbin.lock"
     }
   ]
 }

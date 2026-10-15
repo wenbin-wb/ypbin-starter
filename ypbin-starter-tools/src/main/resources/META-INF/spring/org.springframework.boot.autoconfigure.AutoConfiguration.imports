@@ -1,1 +1,2 @@
 cn.ypbin.starter.tools.autoconfigure.ToolsAutoConfiguration
+cn.ypbin.starter.tools.autoconfigure.LeaseLockAutoConfiguration
