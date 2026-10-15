@@ -19,6 +19,7 @@ import cn.ypbin.starter.core.util.LogSanitizer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +45,13 @@ import org.slf4j.LoggerFactory;
  * 按 {@code task} tag 区分，前缀由 {@link LeaseLockProperties#getMetricPrefix()} 配置（默认
  * {@code ypbin.lock}），用于回答「某个任务到底有没有在某个副本上跑」「锁存储是不是一直在抖」。</p>
  *
+ * <p><b>指标是可选能力，不是使用守卫的前置条件</b>：micrometer 在 tools 模块是 optional 依赖，
+ * 且 {@code MeterRegistry} 在宿主里可能尚未注册（自动配置处理顺序）。因此本类同时提供
+ * {@link #LeaseLockGuard(LeaseLockService, LeaseRenewalScheduler, LeaseLockProperties)} 这个
+ * **无指标**构造器：没有 registry 时三个计数一律跳过，锁语义（跳过/fail-open/finally 释放）完全不变。
+ * 这是一次线上事故的教训——把可选依赖当必要条件，会让「锁能力可用」被「指标可用」绑架：
+ * 一旦宿主容器里取不到 {@code MeterRegistry}，守卫 Bean 整块消失，下游注入直接启动失败。</p>
+ *
  * @author wenbin
  * @since 2026-10-15
  */
@@ -66,10 +74,32 @@ public class LeaseLockGuard {
 
     private final LeaseLockProperties properties;
 
+    /** 指标注册表；{@code null} = 本次装配没有可用的 registry，计数降级为「不记录」。 */
+    @Nullable
     private final MeterRegistry meterRegistry;
 
+    /**
+     * 不记录指标地构造守卫（micrometer 缺失或容器中没有 {@code MeterRegistry} 时用）。
+     *
+     * @param leaseLockService 租约锁服务
+     * @param renewalScheduler 续期看门狗调度器
+     * @param properties       配置
+     */
     public LeaseLockGuard(LeaseLockService leaseLockService, LeaseRenewalScheduler renewalScheduler,
-                          LeaseLockProperties properties, MeterRegistry meterRegistry) {
+                          LeaseLockProperties properties) {
+        this(leaseLockService, renewalScheduler, properties, null);
+    }
+
+    /**
+     * 构造守卫。
+     *
+     * @param leaseLockService 租约锁服务
+     * @param renewalScheduler 续期看门狗调度器
+     * @param properties       配置
+     * @param meterRegistry    指标注册表；{@code null} 表示不记录指标（能力可用性不受影响）
+     */
+    public LeaseLockGuard(LeaseLockService leaseLockService, LeaseRenewalScheduler renewalScheduler,
+                          LeaseLockProperties properties, @Nullable MeterRegistry meterRegistry) {
         this.leaseLockService = leaseLockService;
         this.renewalScheduler = renewalScheduler;
         this.properties = properties;
@@ -108,13 +138,13 @@ public class LeaseLockGuard {
                 // fail-closed：不假装执行过，如实上抛让调度器记成任务失败
                 throw ex;
             }
-            counter(METRIC_UNAVAILABLE_SUFFIX, lockName).increment();
+            count(METRIC_UNAVAILABLE_SUFFIX, lockName);
             log.error("[ypbin] 分布式锁不可用，按 fail-open **继续执行**任务 {}（多副本下可能重复执行；"
                 + "如需严格单实例请设 {}.fail-open=false）", lockName, LeaseLockProperties.PREFIX, ex);
             return new LeaseLockOutcome<>(true, true, task.get());
         }
         if (lease == null) {
-            counter(METRIC_SKIPPED_SUFFIX, lockName).increment();
+            count(METRIC_SKIPPED_SUFFIX, lockName);
             log.info("[ypbin] 任务 {} 的分布式锁已被其它实例持有，本次**跳过**（获取失败=跳过，不报错）", lockName);
             return LeaseLockOutcome.skipped();
         }
@@ -138,23 +168,27 @@ public class LeaseLockGuard {
         if (lease.renew()) {
             return;
         }
-        counter(METRIC_RENEW_FAILED_SUFFIX, lockName).increment();
+        count(METRIC_RENEW_FAILED_SUFFIX, lockName);
         log.warn("[ypbin] 任务 {} 的锁续期失败（锁可能已被其它实例接管）：本轮仍会跑完，"
             + "但多副本下该时间窗内可能出现并发执行", lockName);
     }
 
     /**
-     * 按任务取计数（Micrometer 对同 id 幂等注册，无需自行缓存）。
+     * 按任务取计数（Micrometer 对同 id 幂等注册，无需自行缓存）；无 registry 时为 no-op。
      *
      * @param suffix   指标名后缀
      * @param lockName 锁名
-     * @return 计数器
      */
-    private Counter counter(String suffix, String lockName) {
+    private void count(String suffix, String lockName) {
+        if (meterRegistry == null) {
+            // 指标不可用只是「少了个观测维度」，绝不因此改变锁语义或抛错
+            return;
+        }
         String name = properties.getMetricPrefix() + suffix;
-        return Counter.builder(name)
+        Counter.builder(name)
             .description(name)
             .tag("task", LogSanitizer.sanitize(lockName))
-            .register(meterRegistry);
+            .register(meterRegistry)
+            .increment();
     }
 }

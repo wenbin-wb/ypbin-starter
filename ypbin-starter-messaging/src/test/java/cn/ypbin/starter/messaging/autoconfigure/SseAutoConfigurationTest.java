@@ -30,6 +30,7 @@ import cn.ypbin.starter.messaging.sse.TextSseFanoutCodec;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -125,6 +126,39 @@ class SseAutoConfigurationTest {
             });
     }
 
+    /**
+     * ★ 顺序回归（2026-10-15 租约锁线上事故排查时发现的同类陷阱）：与 Boot 的 Redis 自动配置一起
+     * 装配时，Redis 分支必须被真正选中、扇出桥必须生成。
+     *
+     * <p>{@code withRedis_assemblesFanoutBridgeAndWiresItIntoManager} 把模板 Bean 直接放进用户配置，
+     * 其 Bean 定义在自动配置处理<em>之前</em>就存在，因此测不出顺序问题；真实部署里模板由 Boot 的
+     * {@code DataRedisAutoConfiguration} 注册，而 {@code @ConditionalOnBean} 只看得见「先于它处理完」的
+     * Bean 定义、本模块 {@code cn.ypbin.*} 又排在 {@code org.springframework.*} 之前 ⇒ 两个 Redis 嵌套
+     * 配置的条件恒假 ⇒ <b>票据存储静默退化为进程内、扇出桥整块不装配</b>（多副本下 SSE 只推本地连接、
+     * 票据不可跨实例消费，且没有任何报错）。修法：类级
+     * {@code @AutoConfigureAfter(DataRedisAutoConfiguration)}。</p>
+     */
+    @Test
+    void withRealBootRedisAutoConfiguration_usesRedisTicketStoreAndFanout() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DataRedisAutoConfiguration.class, SseAutoConfiguration.class))
+            .withPropertyValues("ypbin.sse.enabled=true")
+            .withUserConfiguration(RedisConnectionFactoryOnlyConfig.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.containsBean("stringRedisTemplate"))
+                    .as("前置条件：Boot 的 Redis 自动配置已注册模板")
+                    .isTrue();
+                assertThat(context.getBean(SseTicketStore.class))
+                    .as("有 Redis 时必须选 Redis 票据存储：退化为进程内意味着票据不可跨实例消费")
+                    .isInstanceOf(RedisSseTicketStore.class);
+                assertThat(context.getBeanNamesForType(SseFanoutBridge.class))
+                    .as("有 Redis 时必须装配扇出桥：否则多副本 SSE 只推本实例连接，跨实例推送静默丢失")
+                    .isNotEmpty();
+            });
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class RedisTemplateConfig {
         @Bean
@@ -152,6 +186,23 @@ class SseAutoConfigurationTest {
          *
          * <p>桩的 {@code isAutoStartup()} 默认 false，故 Spring 不会启动它。</p>
          */
+        @Bean
+        org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer() {
+            return Mockito.mock(org.springframework.data.redis.listener.RedisMessageListenerContainer.class);
+        }
+    }
+
+    /**
+     * 只提供连接工厂 + 订阅容器桩的配置：让 Boot 的 Redis 自动配置注册模板，同时避免真实
+     * 订阅容器在桩连接上启动超时。
+     */
+    @Configuration(proxyBeanMethods = false)
+    static class RedisConnectionFactoryOnlyConfig {
+        @Bean
+        org.springframework.data.redis.connection.RedisConnectionFactory redisConnectionFactory() {
+            return Mockito.mock(org.springframework.data.redis.connection.RedisConnectionFactory.class);
+        }
+
         @Bean
         org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer() {
             return Mockito.mock(org.springframework.data.redis.listener.RedisMessageListenerContainer.class);

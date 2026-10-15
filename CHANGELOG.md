@@ -9,6 +9,32 @@
 
 ## [未发布]
 
+## [3.9.1] - 2026-10-16
+
+### 修复
+
+- 🔴 **自动配置顺序缺陷：`@ConditionalOnBean` 判定 Boot 自动配置提供的类型时条件恒假，导致 Redis 分支静默退化**（下游实测事故）。
+  `cn.ypbin.*` 的自动配置在 Spring Boot 排序中排在 `org.springframework.*` **之前**（无显式顺序时按类名字典序），
+  因此用 `@ConditionalOnBean(StringRedisTemplate/ReactiveStringRedisTemplate/MeterRegistry)` 判定时，Boot 尚未注册这些 Bean ⇒ 条件恒假。
+  后果（均为**静默**、无任何报错）：
+  - `ypbin-starter-tools`：限流/幂等/分布式锁的 **Redis 实现全部落到内存实现**（多副本互斥失效）；
+  - `ypbin-starter-tools` 租约锁：`LeaseLockGuard` **整个 Bean 消失** ⇒ 下游注入直接**启动失败**（ypbin-iot 部署时实测）；
+  - `ypbin-starter-messaging`：SSE 票据落内存、**跨实例扇出桥不装配**（多实例事件不可达）；
+  - `ypbin-starter-sign` / `-security`：`NonceStore` / `PasswordAttemptStore` 落内存；
+  - `ypbin-starter-cloud-gateway`：`ReactiveStringRedisTemplate` 判定恒假 ⇒ **宿主开了限流开关，网关静默不限流**。
+  修复：5 个模块的自动配置补 `@AutoConfigureAfter(DataRedisAutoConfiguration / DataRedisReactiveAutoConfiguration)`；
+  租约锁守卫改为 `ObjectProvider<MeterRegistry>` + 无指标降级（可选依赖不再成为**必要**装配条件），原 4 参构造器保留。
+
+### 新增（防复发门禁与冒烟）
+
+- **架构门禁 `AutoConfigurationOrderingTest`**：自动配置中 `@ConditionalOnBean` 若判定 Boot 自动配置提供的类型
+  （`StringRedisTemplate`/`ReactiveStringRedisTemplate`/`StringReactiveRedisTemplate`/`RedisConnectionFactory`/`MeterRegistry`），
+  必须显式声明 `@AutoConfigureAfter`/`@AutoConfigureBefore`。**例外清单为空**（宽泛白名单比没有门禁更危险）；
+  已做变异证伪（删一处顺序注解 → 门禁转红并指名修法；还原 → 转绿）。此门禁落地当时即抓出上述 gateway 缺陷。
+- **装配冒烟 `AssemblySmokeTest`**：在**真实 Boot 自动配置组合**下断言「有 Redis 时选 Redis 实现、无 MeterRegistry 时守卫仍在且可执行、
+  无 Redis 时全退内存且不报错」。补的正是「模块单测/编译全绿但运行期起不来」的盲区——
+  既有用例把模板作为用户配置塞进上下文，**测不出**顺序问题。
+
 ## [3.9.0] - 2026-10-16
 
 ### 新增

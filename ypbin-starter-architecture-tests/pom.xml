@@ -201,6 +201,35 @@
             <scope>test</scope>
         </dependency>
 
+        <!--
+          真实 Boot 自动配置组合的「装配冒烟」依赖（AssemblySmokeTest）：
+          各 starter 模块把 redis / micrometer / web 声明为 **optional**，可选依赖不会传递到本模块，
+          故这里显式补上 test 作用域——只为在真实 Boot 排序与条件求值下断言装配结果。
+          为什么必须放在架构测试模块：这类缺陷（@ConditionalOnBean 顺序陷阱）**编译期与单模块用例都拦不住**，
+          必须在「多个自动配置按 Boot 真实顺序共存」的环境里才暴露（2026-10-15 线上事故的根因）。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- ApplicationContextRunner 所在（spring-boot-starter-test 在本模块被显式声明为测试依赖） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- ArchUnit：字节码级架构断言 -->
         <dependency>
             <groupId>com.tngtech.archunit</groupId>

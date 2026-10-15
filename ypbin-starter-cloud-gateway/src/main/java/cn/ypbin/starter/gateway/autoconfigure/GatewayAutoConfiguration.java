@@ -24,6 +24,7 @@ import cn.ypbin.starter.gateway.ratelimit.AttributeRateLimitGlobalFilter;
 import cn.ypbin.starter.gateway.ratelimit.RateLimitProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -51,6 +52,7 @@ import tools.jackson.databind.ObjectMapper;
  * @since 2026-07-30
  */
 @AutoConfiguration
+@AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration")
 @ConditionalOnClass(GlobalFilter.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 @ConditionalOnProperty(prefix = "ypbin.gateway", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -112,8 +114,17 @@ public class GatewayAutoConfiguration {
      *
      * <p>条件三重门：① 类路径有 reactive Redis（可选依赖，类级条件——方法级
      * {@code @ConditionalOnClass} 阻止不了 Spring 内省 Bean 方法参数类型）；② 容器里有
-     * {@code ReactiveStringRedisTemplate} Bean（业务方提供连接）；③ 显式
+     * {@code ReactiveStringRedisTemplate} Bean；③ 显式
      * {@code ypbin.gateway.rate-limit.enabled=true}。缺一即不装配，绝不静默限流。</p>
+     *
+     * <p><b>为何本自动配置必须有 {@code @AutoConfigureAfter(DataRedisReactiveAutoConfiguration)}：</b>
+     * 条件② 用的是 {@code @ConditionalOnBean}，而它只看得见<em>先于它处理完</em>的 Bean 定义。
+     * 本模块包名 {@code cn.ypbin.*} 在 Boot 自动配置排序中排在 {@code org.springframework.*}
+     * <b>之前</b>，故不加顺序约束时条件恒假 ⇒ <b>限流过滤器整块不装配</b>——即使宿主确实引入了
+     * reactive Redis 且显式打开了开关，网关也<b>不限流且不报错</b>（2026-10-15 用真实 Boot
+     * 自动配置组合实测：模板存在但过滤器缺失）。至于连接由谁提供：Boot 的
+     * {@code DataRedisReactiveAutoConfiguration} 会在有 {@code ReactiveRedisConnectionFactory}
+     * 时注册模板，故顺序约束必须指向它。</p>
      */
     @Configuration
     @ConditionalOnClass(ReactiveStringRedisTemplate.class)

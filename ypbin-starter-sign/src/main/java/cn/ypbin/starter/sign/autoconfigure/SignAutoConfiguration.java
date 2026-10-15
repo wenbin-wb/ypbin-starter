@@ -25,6 +25,7 @@ import cn.ypbin.starter.sign.core.SignChecker;
 import cn.ypbin.starter.sign.interceptor.SignInterceptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -53,10 +54,18 @@ import tools.jackson.databind.ObjectMapper;
  * NoClassDefFoundError。经 {@code @Import} 先于本类内存兜底注册，存在 Redis 时优先生效、
  * 内存兜底退让。</p>
  *
+ * <p><strong>为何必须有 {@code @AutoConfigureAfter(DataRedisAutoConfiguration)}：</strong>
+ * {@code @ConditionalOnBean} 只看得见<em>先于它处理完</em>的 Bean 定义。本模块包名 {@code cn.ypbin.*}
+ * 在 Boot 的自动配置排序中排在 {@code org.springframework.*} <b>之前</b>（无显式顺序时按类名字典序），
+ * 故【Redis nonce 存储】的 {@code @ConditionalOnBean(StringRedisTemplate.class)} 会在 Boot 注册模板
+ * 之前被求值 ⇒ 判定「没有 Redis」⇒ <b>nonce 静默退化为进程内实现</b>（多副本部署下防重放失效，
+ * 且没有任何报错）。实测：加注前落到 {@code InMemoryNonceStore}，加注后为 {@code RedisNonceStore}。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
 @AutoConfiguration
+@AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnProperty(prefix = "ypbin.sign", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(SignProperties.class)

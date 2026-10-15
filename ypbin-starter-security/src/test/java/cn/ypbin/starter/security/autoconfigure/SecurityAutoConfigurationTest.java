@@ -28,6 +28,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -131,11 +132,48 @@ class SecurityAutoConfigurationTest {
         });
     }
 
+    /**
+     * ★ 顺序回归（2026-10-15 租约锁线上事故排查时发现的同类陷阱）：与 Boot 的 Redis 自动配置一起
+     * 装配时，Redis 分支必须被真正选中。
+     *
+     * <p>{@code withRedis_usesRedisStore} 把模板 Bean 直接放进用户配置，其 Bean 定义在自动配置处理
+     * <em>之前</em>就存在，因此测不出顺序问题；真实部署里模板由 Boot 的
+     * {@code DataRedisAutoConfiguration} 注册，而 {@code @ConditionalOnBean} 只看得见「先于它处理完」的
+     * Bean 定义、本模块 {@code cn.ypbin.*} 又排在 {@code org.springframework.*} 之前 ⇒ 条件恒假 ⇒
+     * 密码错误计数静默退化为进程内（多副本下锁定策略失效、可被轮换实例绕过，且无任何报错）。
+     * 修法：类级 {@code @AutoConfigureAfter(DataRedisAutoConfiguration)}。</p>
+     */
+    @Test
+    void withRealBootRedisAutoConfiguration_usesRedisStore() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DataRedisAutoConfiguration.class, SecurityAutoConfiguration.class))
+            .withUserConfiguration(RedisConnectionFactoryConfig.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.containsBean("stringRedisTemplate"))
+                    .as("前置条件：Boot 的 Redis 自动配置已注册模板")
+                    .isTrue();
+                assertThat(context.getBean(PasswordAttemptStore.class))
+                    .as("有 Redis 时必须选 Redis 实现：退化为进程内意味着多副本密码锁定策略形同虚设")
+                    .isInstanceOf(RedisPasswordAttemptStore.class);
+            });
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class RedisTemplateConfig {
         @Bean
         StringRedisTemplate stringRedisTemplate() {
             return Mockito.mock(StringRedisTemplate.class);
+        }
+    }
+
+    /** 真实 Boot Redis 自动配置所需的连接工厂（mock 即可，装配阶段不建连）。 */
+    @Configuration(proxyBeanMethods = false)
+    static class RedisConnectionFactoryConfig {
+        @Bean
+        org.springframework.data.redis.connection.RedisConnectionFactory redisConnectionFactory() {
+            return Mockito.mock(org.springframework.data.redis.connection.RedisConnectionFactory.class);
         }
     }
 }

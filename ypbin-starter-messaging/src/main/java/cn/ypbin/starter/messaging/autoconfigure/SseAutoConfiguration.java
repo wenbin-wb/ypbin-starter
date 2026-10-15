@@ -37,6 +37,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -58,6 +59,14 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * <p>仅在 Servlet Web 环境、类路径存在 {@link SseEmitter} 且 {@code ypbin.sse.enabled=true} 时生效。
  * 装配连接管理器、统一推送门面 {@link PushService}，并按需注册内置订阅端点。所有 Bean 可被业务方覆盖。</p>
  *
+ * <p><strong>为何必须有 {@code @AutoConfigureAfter(DataRedisAutoConfiguration)}：</strong>
+ * {@code @ConditionalOnBean} 只看得见<em>先于它处理完</em>的 Bean 定义。本模块包名 {@code cn.ypbin.*}
+ * 在 Boot 的自动配置排序中排在 {@code org.springframework.*} <b>之前</b>（无显式顺序时按类名字典序），
+ * 故下面两个 Redis 嵌套配置的 {@code @ConditionalOnBean(StringRedisTemplate.class)} 会在 Boot 注册模板
+ * 之前被求值 ⇒ 判定「没有 Redis」⇒ <b>票据存储静默退化为进程内、跨实例扇出桥整块不装配</b>
+ * （多副本下 SSE 只推本地连接、订阅票据不可跨实例消费，且没有任何报错）。这是 2026-10-15 租约锁同类
+ * 线上事故排查时一并发现的缺陷，已用真实 Boot 自动配置组合的装配用例钉死。</p>
+ *
  * <p><strong>为何把 Redis 票据存储放进嵌套的 {@link RedisTicketStoreConfiguration}</strong>：方法级
  * {@code @ConditionalOnClass} 只能阻止 Bean 注册，阻止不了 Spring 对配置类做方法内省——若本类某个
  * {@code @Bean} 方法签名里含 {@code StringRedisTemplate} 而 classpath 无 spring-data-redis，内省阶段即抛
@@ -71,6 +80,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  */
 @AutoConfiguration
 @ConditionalOnClass(SseEmitter.class)
+@AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnProperty(prefix = "ypbin.sse", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(SseProperties.class)

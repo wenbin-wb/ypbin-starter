@@ -30,6 +30,7 @@ import cn.ypbin.starter.tools.lock.LockService;
 import cn.ypbin.starter.tools.lock.RedisLockService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -62,6 +63,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  */
 @AutoConfiguration
 @ConditionalOnClass(ProceedingJoinPoint.class)
+@AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @Import(ToolsAutoConfiguration.RedisStoreConfiguration.class)
 @EnableConfigurationProperties(RateLimitProperties.class)
 public class ToolsAutoConfiguration {
