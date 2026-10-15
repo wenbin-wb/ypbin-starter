@@ -57,6 +57,19 @@ gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>   # 公钥上传（供�
 
 ## 二、发布流程（每次发正式版）
 
+> 🔴 **顺序与分工（2026-10-16 补记，3.9.0 发版实测踩坑）**
+>
+> `release.yml` 由 tag 触发，只做三件事：**校验 pom revision == tag、创建 GitHub Release、通知下游**。
+> **它不会把制品上传到 Maven Central** —— Central 上传只发生在**手工** `mvn clean deploy -Prelease`。
+>
+> 因此「先打 tag 再想着发布」会造成一个**看起来成功、实际不可用**的版本：GitHub 上有 Release，
+> 但 Central 上没有制品。下游 CI 会**当场炸两处**（3.9.0 实测）：
+> 1. 「仅用 Central 已发布制品构建」门禁：`cn.ypbin:ypbin-starter-tools:3.9.0` 在 repo1 上 **404**；
+> 2. 「本地安装 starter」（按 tag 检出源码 `mvn install`）：因 BOM 解析失败而中断，
+>    CodeQL / 构建与校验等连带失败。
+>
+> **正确顺序：先 deploy 成功 → 再打 tag / 建 Release。** 且正式版**不可覆盖**，别在 Central 同步延迟期反复重传。
+
 以发布 `1.0.0` 为例：
 
 **1. 确认版本号**：把根聚合 `pom.xml` 里 `<revision>` 改为正式版（去掉 `-SNAPSHOT`），全部 40 个子模块通过 parent 继承自动生效：
@@ -82,12 +95,20 @@ mvn clean deploy -Prelease
 - `-Prelease` 激活 source/javadoc/gpg 签名 + central-publishing 上传。
 - 插件配置 `autoPublish=true`：校验通过后自动发布，约几分钟到十几分钟同步到中央仓库；设为 `false` 则需登录 Portal 手动点发布。
 
-**5. 打 Git 标签并推送**：
+**5. 打 Git 标签并推送**（**必须在第 4 步 Central 上传成功之后**，理由见本节文首警示）：
 ```bash
 git commit -am "发布 1.0.0"
 git tag v1.0.0
 git push && git push --tags
 ```
+
+> 打 tag 会触发 `release.yml`。**发布完成的判据是两道都满足**（缺一不可）：
+> ```bash
+> curl -sI https://repo1.maven.org/maven2/cn/ypbin/ypbin-starter-bom/1.0.0/ypbin-starter-bom-1.0.0.pom | head -1   # 期望 200
+> curl -s https://api.github.com/repos/wenbin-wb/ypbin-starter/releases/latest | grep tag_name                     # 期望 v1.0.0
+> ```
+> ⚠️ Central 同步有延迟（实测 3.9.0 上传后约 5~6 分钟才由 404 变 200）。刚上传完立即验证可能仍是 404，
+> **不要据此重传**（正式版不可覆盖，重传只会报「版本已存在」）。
 
 **5b. 创建 GitHub Release（不能只打 tag）**：在 `v1.0.0` 标签上创建 Release（发布说明取 CHANGELOG 对应小节）。
 
