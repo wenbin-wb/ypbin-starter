@@ -39,13 +39,27 @@ jobs:
           [ "$POM_VERSION" = "${{ steps.version.outputs.VERSION }}" ] || { echo "版本不一致，拒绝发布"; exit 1; }
 
       - name: 同步 README 快速开始 BOM 版本
+        # ⚠️ **本步不得阻塞发布**（2026-10-16 实测事故）：tag 触发的 checkout 处于 detached HEAD（tag 点），
+        #    此处 commit 后 `git push HEAD:master` 只有在「tag 点 == master 顶端」时才快进成功。
+        #    而正常发版流程是「先 deploy → 打 tag → **再把 revision 推回下一个 SNAPSHOT**」⇒ master 很快就有
+        #    新提交，push 非快进被拒 ⇒ 本步 exit 1 ⇒ **后面的「创建 Release」与「通知下游」全部被跳过**
+        #    （v3.9.1 实测：Release 没建出来，下游 sync 也没触发，而 tag 已经存在）。
+        #    故：① 失败不阻塞（README 版本是文档性信息，宁可陈旧也不能挡住发布与下游通知）；
+        #        ② 失败原因如实打印，不静默；③ 先尝试 rebase 到最新 master 再推一次（多数情况可成功）。
+        continue-on-error: true
         run: |
+          set -uo pipefail
           VERSION="${{ steps.version.outputs.VERSION }}"
           sed -i "s|<version>[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*</version>|<version>${VERSION}</version>|g" README.md
           git add -A
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(release): 同步 README BOM 版本至 v${VERSION}" || echo "无变更需提交"
-          # tag 触发的 checkout 处于 detached HEAD，push 必须显式指定 refspec
-          git push origin HEAD:master
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(release): 同步 README BOM 版本至 v${VERSION}" || { echo "README 无变更需提交"; exit 0; }
+          # 非快进时（master 已有新提交，如「推回 SNAPSHOT」）先 rebase 再重试一次
+          if ! git push origin HEAD:master; then
+            echo "::warning::README 版本同步首次推送被拒（master 已有新提交），尝试 rebase 后重试"
+            git fetch origin master
+            git rebase origin/master || { echo "::error::rebase 冲突，放弃 README 同步（**不影响发布与下游通知**）"; exit 0; }
+            git push origin HEAD:master || echo "::warning::README 版本同步失败（**不影响发布与下游通知**）；请人工更新 README 的 BOM 版本为 v${VERSION}"
+          fi
 
       - name: 提取 Release Notes 并发布 Release
         uses: softprops/action-gh-release@v3
