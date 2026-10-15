@@ -9,8 +9,25 @@
 
 ## [未发布]
 
+## [3.9.0] - 2026-10-16
+
 ### 新增
 
+- **租约锁上收（`ypbin-starter-tools`）**：把 ypbin-iot 业务仓验证过的「租约 + 续期看门狗」分布式锁上收为通用能力。
+  既有 `LockService` / `@DistributedLock`（加锁+释放两步、固定 TTL）**一行未改**，新能力并存：
+  - `LockLease`（到期时刻随值携带 + `renew`/`isHeld`/`release`，`AutoCloseable`）；
+  - `LeaseLockStore` 抽象 + Redis 实现（抢锁/续期/释放三条 Lua，token 比对不误删，**已过期锁可被接管**）+ 内存兜底；
+  - `LeaseLockGuard`：抢不到 ⇒ **跳过**（不报错）、存储异常按 `fail-open`/`fail-closed`、`finally` 必释放、按 `task` tag 计数；
+  - 配置 `ypbin.lock.enabled`（true）/`key-prefix`（`ypbin:lease-lock:`）/`ttl`（60s）/`renew-interval`（20s，启动自检强制 < ttl）/`fail-open`（true）/`metric-prefix`（`ypbin.lock`）；
+  - 分工：短临界区用 `LockService`，分钟级长任务用租约锁（否则 TTL 到期后多副本会并发执行）。
+
+- **SSE 多实例扇出 + 可配置订阅维度（`ypbin-starter-messaging`）**：补上此前明确登记的缺口「多实例扇出需上层配合 Redis Pub/Sub」。
+  - `sendToUser` / 新增 `sendToAudience` / `broadcast` 同时直投本实例并经 Redis 频道广播；订阅方按 `instanceId` 丢弃自己发的帧（不回环），
+    `codecId` 不一致（滚动升级窗口）丢弃并 WARN；
+  - 新增 `SseAudienceResolver` 扩展点：默认回落 `userId`（**对既有调用方透明**），业务可实现「租户/分组/任意 audience」维度；
+  - 帧协议为**纯文本全字段长度前缀**（零依赖，不引入 jackson）；载荷经 `SseFanoutCodec` SPI 编解码，默认 `TextSseFanoutCodec` 覆盖标量，结构化对象由业务注册 codec；
+  - 配置 `ypbin.sse.fanout-enabled`（true）、`ypbin.sse.fanout-channel`（`ypbin:sse:fanout`；多应用共用 Redis 时应改为应用专属频道）；
+  - **既有公开签名零改动**（japicmp vs Central 3.8.1 零 REMOVED）；无 Redis 时行为与接入前完全一致。
 - **XXL-JOB 执行器升级并适配 xxl-job-core 3.5.0（issue #79）**：`xxl-job.version` 由 `3.4.2` 提升到 `3.5.0`，
   `ypbin-starter-xxljob` 据此适配（官方 release：
   <https://github.com/xuxueli/xxl-job/releases/tag/3.5.0>，2026-10-14 访问）：
