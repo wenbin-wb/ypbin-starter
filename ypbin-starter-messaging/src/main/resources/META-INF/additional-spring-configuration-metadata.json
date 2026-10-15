@@ -23,6 +23,18 @@
       "type": "java.lang.Long",
       "description": "SSE 连接总超时（毫秒），默认 0 表示不设总超时，由心跳负责保活与死连接检测；配有限值作为安全网，到期由容器回收连接（客户端自动重连）。",
       "defaultValue": 0
+    },
+    {
+      "name": "ypbin.sse.fanout-enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用 Redis Pub/Sub 跨实例扇出（仅在类路径与容器都存在 StringRedisTemplate 时生效）。关闭即退化为纯单实例投递：连接注册表在内存，其它实例收不到本实例的推送。",
+      "defaultValue": true
+    },
+    {
+      "name": "ypbin.sse.fanout-channel",
+      "type": "java.lang.String",
+      "description": "跨实例扇出的 Redis Pub/Sub 频道名。多个应用共用同一 Redis 实例时必须改成本应用专属频道名（建议含应用标识），否则会互相收到并不属于自己的扇出帧。",
+      "defaultValue": "ypbin:sse:fanout"
     }
   ]
 }

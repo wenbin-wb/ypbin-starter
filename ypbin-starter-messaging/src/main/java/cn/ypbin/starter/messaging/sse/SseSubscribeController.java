@@ -17,6 +17,7 @@ package cn.ypbin.starter.messaging.sse;
 
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -54,11 +55,30 @@ public class SseSubscribeController {
 
     private final SseTicketStore ticketStore;
 
+    /** audience 维度扩展点；为 {@code null} 时行为与接入该能力前完全一致（只按 userId 建连）。 */
+    @Nullable
+    private final SseAudienceResolver audienceResolver;
+
     public SseSubscribeController(
         SseEmitterManager manager, SseUserIdResolver userIdResolver, SseTicketStore ticketStore) {
+        this(manager, userIdResolver, ticketStore, null);
+    }
+
+    /**
+     * 支持 audience 维度的构造器（新增重载，既有签名与语义保持不变）。
+     *
+     * @param manager          连接管理器
+     * @param userIdResolver   登录态用户解析
+     * @param ticketStore      一次性票据存储
+     * @param audienceResolver 扇出维度扩展点；{@code null} = 只按 userId（默认行为）
+     */
+    public SseSubscribeController(
+        SseEmitterManager manager, SseUserIdResolver userIdResolver, SseTicketStore ticketStore,
+        @Nullable SseAudienceResolver audienceResolver) {
         this.manager = manager;
         this.userIdResolver = userIdResolver;
         this.ticketStore = ticketStore;
+        this.audienceResolver = audienceResolver;
     }
 
     /**
@@ -75,6 +95,15 @@ public class SseSubscribeController {
         String userId = (ticket != null && !ticket.isEmpty())
             ? ticketStore.consume(ticket).orElseThrow(() -> new BusinessException(GlobalErrorCode.UNAUTHORIZED))
             : userIdResolver.resolve().orElseThrow(() -> new BusinessException(GlobalErrorCode.UNAUTHORIZED));
-        return manager.connect(userId);
+        // 扇出维度：无 SseAudienceResolver 时只按 userId（与接入前完全一致）；有解析器时按其返回的
+        // 每个目标各建一条连接（控制器只做编排，批量建连与注册表的细节都在 SseEmitterManager）。
+        // 解析器返回空集合按未登录拒绝：不建「连上了却永远收不到事件」的静默无效连接。
+        Set<String> audiences = audienceResolver == null
+            ? Set.of(userId)
+            : audienceResolver.resolve(userId);
+        if (audiences.isEmpty()) {
+            throw new BusinessException(GlobalErrorCode.UNAUTHORIZED);
+        }
+        return manager.connectAll(audiences);
     }
 }

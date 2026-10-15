@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-14T08:16:48.310Z",
+  "generatedAt": "2026-10-15T18:00:45.911Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 358,
+    "customPropertyCount": 360,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 398,
+    "totalEntryCount": 400,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -7449,6 +7449,70 @@
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/sse/SseProperties.java",
               "line": 35
+            }
+          ],
+          "group": "ypbin.sse",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-messaging",
+          "key": "ypbin.sse.fanout-channel",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "ypbin:sse:fanout",
+          "required": false,
+          "requiredWhen": null,
+          "description": "跨实例扇出的 Redis Pub/Sub 频道名。多个应用共用同一 Redis 实例时必须改成本应用专属频道名（建议含应用标识），否则会互相收到并不属于自己的扇出帧。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/sse/SseProperties.java",
+              "line": 77
+            }
+          ],
+          "default": "ypbin:sse:fanout",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/sse/SseProperties.java",
+              "line": 77
+            }
+          ],
+          "group": "ypbin.sse",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-messaging",
+          "key": "ypbin.sse.fanout-enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用 Redis Pub/Sub 跨实例扇出（仅在类路径与容器都存在 StringRedisTemplate 时生效）。关闭即退化为纯单实例投递：连接注册表在内存，其它实例收不到本实例的推送。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/sse/SseProperties.java",
+              "line": 69
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/sse/SseProperties.java",
+              "line": 69
             }
           ],
           "group": "ypbin.sse",

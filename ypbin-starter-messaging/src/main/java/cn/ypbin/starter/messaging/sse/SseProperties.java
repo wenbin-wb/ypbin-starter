@@ -61,6 +61,21 @@ public class SseProperties {
      */
     private long heartbeatIntervalSeconds = 30L;
 
+    /**
+     * 跨实例扇出开关，默认 true（仅在 classpath 与容器都存在 {@code StringRedisTemplate} 时生效）。
+     *
+     * <p>关闭即退化为纯单实例投递（连接注册表在内存，仅本实例能收到推送）。</p>
+     */
+    private boolean fanoutEnabled = true;
+
+    /**
+     * 跨实例扇出 Redis 频道名，默认 {@code ypbin:sse:fanout}。
+     *
+     * <p><strong>多个应用共用同一 Redis 实例时必须改成本应用专属的频道名</strong>（建议含应用标识），
+     * 否则会互相收到并不属于自己的扇出帧。</p>
+     */
+    private String fanoutChannel = "ypbin:sse:fanout";
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -115,5 +130,21 @@ public class SseProperties {
 
     public void setHeartbeatIntervalSeconds(long heartbeatIntervalSeconds) {
         this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
+    }
+
+    public boolean isFanoutEnabled() {
+        return fanoutEnabled;
+    }
+
+    public void setFanoutEnabled(boolean fanoutEnabled) {
+        this.fanoutEnabled = fanoutEnabled;
+    }
+
+    public String getFanoutChannel() {
+        return fanoutChannel;
+    }
+
+    public void setFanoutChannel(String fanoutChannel) {
+        this.fanoutChannel = fanoutChannel;
     }
 }
