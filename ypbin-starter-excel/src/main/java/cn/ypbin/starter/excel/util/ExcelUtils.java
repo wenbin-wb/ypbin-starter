@@ -19,8 +19,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
@@ -235,10 +233,8 @@ public final class ExcelUtils {
      * @param fileName 文件名（不含扩展名）
      */
     private static void prepareResponse(HttpServletResponse response, String fileName) {
-        response.setContentType(EXCEL_CONTENT_TYPE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
-        response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + encoded + XLSX);
+        // 复用模块内唯一的下载响应头实现：CSV 导出（CsvUtils）走同一份代码，避免两处漂移
+        DownloadResponses.prepare(response, fileName, EXCEL_CONTENT_TYPE, XLSX);
     }
 
     /**

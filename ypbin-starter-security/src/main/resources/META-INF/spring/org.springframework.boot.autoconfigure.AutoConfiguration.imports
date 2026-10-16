@@ -5,3 +5,4 @@ cn.ypbin.starter.security.autoconfigure.SecuritySseAutoConfiguration
 cn.ypbin.starter.security.identity.IdentityAutoConfiguration
 cn.ypbin.starter.security.platform.PlatformAccessAutoConfiguration
 cn.ypbin.starter.security.management.ManagementEndpointGuardAutoConfiguration
+cn.ypbin.starter.security.internal.InternalTokenGuardAutoConfiguration

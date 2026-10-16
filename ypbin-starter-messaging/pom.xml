@@ -50,6 +50,29 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
             <optional>true</optional>
         </dependency>
+        <!--
+          Flux → SSE 流式桥接（SseStreamBridge）：仅流式响应场景需要，可选依赖。
+          必须 optional：本模块绝大多数能力（邮件/短信/MQTT/WebSocket/SSE 扇出）都不需要 Reactor，
+          设成强依赖会把 reactor-core 强推给每一个引入 messaging 的宿主（含纯 servlet 应用）。
+          版本由 spring-boot-dependencies（4.1.1）经 reactor-bom 统一管理，无需在此声明版本。
+        -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!--
+          流式桥接的跨线程上下文传播：micrometer context-propagation 的 ContextRegistry 承载各模块
+          （如租户的 TenantThreadLocalAccessor）注册的 ThreadLocal 访问器。同样必须 optional：
+          它只是「能把租户/用户上下文带过 Reactor 线程切换」的增强，缺席时 SseStreamBridge 退化为
+          不传播且不报错（见 SseContextPropagator#micrometerOrNoop 的类存在性守卫）。
+          版本由 spring-boot-dependencies（4.1.1）经 micrometer-bom 统一管理，无需在此声明版本。
+        -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>context-propagation</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>

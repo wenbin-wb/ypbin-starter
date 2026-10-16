@@ -125,6 +125,39 @@ class AutoConfigurationOrderingTest {
             "org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration");
         types.put("MeterRegistry",
             "org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration");
+        // 2026-10-16 补登：一手取证（javap 读 spring-cloud-gateway-server-webflux-5.0.3.jar）确认
+        // org.springframework.cloud.gateway.config.GatewayAutoConfiguration 注册了
+        // inMemoryRouteDefinitionRepository()（InMemoryRouteDefinitionRepository 实现
+        // RouteDefinitionRepository，后者继承 RouteDefinitionLocator 与 RouteDefinitionWriter）、
+        // propertiesRouteDefinitionLocator() 与 routeDefinitionLocator(List)。
+        // 故这两个类型属「第三方自动配置提供、本仓会判定其存在性」的射程。
+        // 提供者登记为 GatewayAutoConfiguration：它是这两个类型的主提供者，且自身带
+        // @AutoConfigureAfter(GatewayReactiveLoadBalancerClientAutoConfiguration, GatewayClassPathWarningAutoConfiguration)，
+        // 排到它之后即可覆盖其全部路由存储 Bean；另有 GatewayRedisAutoConfiguration
+        // （@AutoConfigureBefore(GatewayAutoConfiguration)）经 redisRouteDefinitionRepository()
+        // 提供 RedisRouteDefinitionRepository——同一个 RouteDefinitionRepository 接口，
+        // 故也产出这两类 Bean，但因为它排在 GatewayAutoConfiguration 之前，
+        // 跟着 GatewayAutoConfiguration 走即可一并覆盖，无需重复登记。
+        // 关于「用户自定义 Bean 会不会造成误报」：用户 Bean 不会让本规则误报——
+        // 规则要求的是「必须显式声明顺序」这条结构性约束，而声明
+        // @AutoConfigureAfter(GatewayAutoConfiguration) 对用户自定义来源同样无害且必需
+        // （否则用户 Bean 若由别的自动配置注册，条件仍会先于它求值）。
+        types.put("RouteDefinitionLocator",
+            "org.springframework.cloud.gateway.config.GatewayAutoConfiguration");
+        types.put("RouteDefinitionWriter",
+            "org.springframework.cloud.gateway.config.GatewayAutoConfiguration");
+        // 2026-10-16 补登（独立验收保留项 E 的跟进）：一手取证确认 VectorStore 由第三方自动配置提供——
+        // spring-ai-autoconfigure-vector-store-redis-2.0.1 / -pgvector-2.0.1 两个 jar 的
+        // AutoConfiguration.imports 各自只含 RedisVectorStoreAutoConfiguration / PgVectorStoreAutoConfiguration，
+        // 且二者类级均无与本仓 AiRagAutoConfiguration 的顺序声明 ⇒ 后者的
+        // @ConditionalOnBean(VectorStore.class) 曾恒假（同类第 5 例，已由 fix/ai-rag-order 修复 + 变异证伪）。
+        // 提供者登记为第三方 Redis 自动配置（主提供者），而非仓内 AiVectorStoreAutoConfiguration：
+        // 仓内提供者经 @AutoConfigureBefore(AiRagAutoConfiguration.class) 反向有序，属另一种已覆盖形态，
+        // 报错指引必须指向「需要补顺序的那一侧」，否则会误导。
+        // 误报面如实说明：本规则按简单名匹配，若将来别的自动配置判定 VectorStore 且它自己就是提供者，
+        // 会被误报——但登记带来的是「结构性必须声明顺序」这一无害要求，优于让该缺陷只靠运行时用例把守。
+        types.put("VectorStore",
+            "org.springframework.ai.vectorstore.redis.autoconfigure.RedisVectorStoreAutoConfiguration");
         return Map.copyOf(types);
     }
 

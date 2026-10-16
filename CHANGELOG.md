@@ -9,6 +9,56 @@
 
 ## [未发布]
 
+> 本轮按「攒批发版」执行：以下反哺一并累积，**待攒够后一次性发版**（计划 `3.10.0`，新能力向后兼容）。
+> 合入前已由独立子代理逐项验收；两处顺序缺陷均经变异证伪。
+
+### 新增
+
+- **`ypbin-starter-messaging`：`Flux<String>` → `SseEmitter` 流式桥接 `SseStreamBridge`**（含 `SseStreamOptions`）。
+  把「大模型逐 token 回调」一类 Reactor 流转成浏览器可直接消费的 SSE 响应：每 token 立即发送不缓冲、
+  完成即 `complete()`、**出错先发 `error` 事件帧再 complete** 且 `log.error` 带完整堆栈、
+  **客户端断开/超时/完成三条路径都 dispose 上游订阅**（防 Reactor 流泄漏）、错误文案与事件名可定制，
+  并附 `errorEmitter(String)` / `rootMessage(Throwable)` 两个等价工具。
+  上下文传播经 micrometer `ContextRegistry` 通用快照实现（**不引用 tenant 类型**，L1 不依赖 L2）；
+  缺 `context-propagation` 时静默退化为「不传播且不报错」。默认发裸 `data:` 帧以**逐字节兼容**既有线上协议。
+  `reactor-core`、`context-propagation` 均为 `<optional>`，不向宿主强推。
+- **`ypbin-starter-excel`：CSV 导出工具 `CsvUtils`**（UTF-8 BOM + RFC 4180 转义 + 公式注入中和）。
+  与 IoT 既有实现逐条行为等价（含「负数 `-1` 也被中和」这一安全优先口径），并新增导出到 `HttpServletResponse`。
+  同时抽出**包私有** `DownloadResponses` 作为下载响应头（`Content-Type`/charset/RFC 5987 文件名）的模块内唯一实现，
+  由 `ExcelUtils`（改为委派，**零行为漂移**，独立验收逐字节比对 22 项全等）与 `CsvUtils` 共用，消除两处漂移风险。
+  **业务配额（如单次导出行数上限）有意不上收**，仍由业务层定义。
+- **`ypbin-starter-security`：内部调用凭证守卫 `cn.ypbin.starter.security.internal`**（消除 system/iot 两份逐字重复实现）。
+  单一定义点 `InternalTokenVerifier` 承载安全不变量：**fail-closed**（凭证未配置即拒绝）、
+  **常量时间比较 `MessageDigest.isEqual`**、日志不含呈递凭证值、响应体不含任何输入值。
+  **两种拒绝语义并存且按路径配置**：`envelope-path-patterns`（默认 `/internal/**`）→ 抛业务异常走全局处理器
+  （HTTP 200 + `R.code=401`，浏览器/网关口径）；`raw401-path-patterns`（默认空）→ 写**原始 401**
+  （EMQX 等只看状态码的对端口径，避免 200 被判投递成功而**静默丢数据**）。
+  **默认关闭**（`guard-enabled=false`），升级不改变既有宿主行为。
+  ⚠️ 业务侧切换时若漏配 `raw401-path-patterns`，该路径会**退化为 ENVELOPE（HTTP 200）** ⇒ EMQX 侧静默丢数据
+  （独立验收实测：漏配 ≠ 无校验，而是形态变化）；若两条路径清单都为空则放行并打 WARN，非静默失效。
+
+### 修复
+
+- 🔴 **`AiRagAutoConfiguration` 的 `@ConditionalOnBean(VectorStore.class)` 恒假**（2026-10-15 v3.9.1 同类**第 5 例**，静默失效）。
+  第三方向量库自动配置（`RedisVectorStoreAutoConfiguration` / `PgVectorStoreAutoConfiguration`）提供 `VectorStore`
+  但**无**与本类的顺序声明，而 `cn.ypbin.starter.ai.*` 在 Boot 排序中早于 `org.springframework.ai.*`
+  ⇒ 条件恒假 ⇒ **`AiRagService` 整块静默不装配、RAG/知识库检索静默不可用且无任何报错**。
+  修复：补 `@AutoConfigureAfter(name = {...})`（用 `name` 因两个 starter 均为 `optional`，不触发类加载）。
+  已由运行时用例（真实 `AutoConfigurations`）+ 变异证伪钉住。仓内 `AiVectorStoreAutoConfiguration` 的
+  `@AutoConfigureBefore` 未被削弱，两条提供路径分别验证。
+- 🔴 **`NacosRouteAutoConfiguration` 的 `@ConditionalOnBean({RouteDefinitionLocator, RouteDefinitionWriter})` 恒假**（同类缺陷）。
+  这两个类型的 Bean 由 Spring Cloud Gateway 的 `org.springframework.cloud.gateway.config.GatewayAutoConfiguration`
+  注册（`inMemoryRouteDefinitionRepository()` 返回的 `InMemoryRouteDefinitionRepository` 实现
+  `RouteDefinitionRepository extends RouteDefinitionLocator, RouteDefinitionWriter`），而本类原本**无任何顺序声明**
+  ⇒ 宿主设了 `ypbin.gateway.route.nacos.enabled=true` 时 **`NacosRouteInitializer` 整块不装配、Nacos 动态路由静默不生效**。
+  修复：补 `@AutoConfigureAfter(GatewayAutoConfiguration)`；并做变异证伪（删注解 ⇒ 门禁转红并指名修法）。
+
+### 门禁增强
+
+- 架构门禁 `AutoConfigurationOrderingTest` 的 `BOOT_PROVIDED_TYPES` 补登 `RouteDefinitionLocator`、
+  `RouteDefinitionWriter`（提供者 `GatewayAutoConfiguration`）与 `VectorStore`
+  （提供者 `RedisVectorStoreAutoConfiguration`，**故意不写仓内类**以免报错指引误导）。例外清单仍为空。
+
 ## [3.9.1] - 2026-10-16
 
 ### 修复

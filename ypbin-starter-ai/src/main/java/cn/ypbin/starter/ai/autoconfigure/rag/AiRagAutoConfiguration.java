@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -34,10 +35,40 @@ import org.springframework.context.annotation.Bean;
  * <p>仅当 classpath 存在 {@link VectorStore}（已引入向量库 starter）且
  * {@code ypbin.ai.rag.enabled=true} 时才装配。
  *
+ * <p><b>为何必须有 {@code @AutoConfigureAfter}：</b>本类的 {@code aiRagService} Bean 用
+ * {@code @ConditionalOnBean(VectorStore.class)} 做守卫，而 {@code @ConditionalOnBean} 是
+ * {@code REGISTER_BEAN} 相位条件，<b>只看得见「先于它处理完」的 Bean 定义</b>。
+ * {@link VectorStore} 的 Bean 由第三方自动配置提供：本模块 pom 以 {@code optional} 声明了
+ * Redis（{@code org.springframework.ai.vectorstore.redis.autoconfigure.RedisVectorStoreAutoConfiguration}）
+ * 与 PGVector（{@code org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration}），
+ * 二者均<b>未</b>声明与本类的顺序。不加顺序约束时，{@code cn.ypbin.starter.ai.*} 在 Boot 自动配置
+ * 排序中排在 {@code org.springframework.*} <b>之前</b>（无显式顺序时按类名字典序）⇒ 条件求值时第三方
+ * {@code VectorStore} 尚未注册 ⇒ <b>条件恒假</b> ⇒ {@code AiRagService} 整块静默不装配（无任何报错）
+ * ⇒ 宿主同时开了 {@code ypbin.ai.rag.enabled=true} 并引入 redis/pgvector 向量库时，RAG/知识库检索
+ * <b>静默不可用</b>。</p>
+ *
+ * <p>这是 2026-10-15 starter v3.9.1 修掉的「{@code @ConditionalOnBean} 判定自动配置提供的类型导致
+ * 条件恒假」同一根因（本处为同类第 5 例）。运行时实证见
+ * {@code AiRagVectorStoreOrderingRuntimeTest}：未加顺序时条件报告为
+ * {@code @ConditionalOnBean ... did not find any beans}，而 {@code VectorStore} Bean 实际存在。</p>
+ *
+ * <p><b>为何用 {@code name} 而非 {@code Class} 引用：</b>两个向量库 starter 均为 {@code optional}
+ * 依赖，宿主可能只引其一或都不引；{@code name} 形式的 FQCN 由 Boot 的 {@code AutoConfigurationSorter}
+ * 通过元数据读取，<b>不会类加载</b>，未出现在当前 classpath 的名字被排序器直接忽略（仅在与
+ * 本次实际参与的自动配置集合求交时生效）。这也与仓内 v3.9.1 各处既有处方保持一致。</p>
+ *
+ * <p>与 {@link AiVectorStoreAutoConfiguration} 的关系：后者带
+ * {@code @AutoConfigureBefore(AiRagAutoConfiguration.class)}，故「仓内 LazySimpleVectorStore」
+ * 这条路径本来就成立；本类的 {@code @AutoConfigureAfter} 补的是「第三方向量库」路径。</p>
+ *
  * @author wenbin
  * @since 2026-08-15
  */
 @AutoConfiguration
+@AutoConfigureAfter(name = {
+    "org.springframework.ai.vectorstore.redis.autoconfigure.RedisVectorStoreAutoConfiguration",
+    "org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration"
+})
 @ConditionalOnClass(VectorStore.class)
 @ConditionalOnProperty(prefix = AiRagProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(AiRagProperties.class)
