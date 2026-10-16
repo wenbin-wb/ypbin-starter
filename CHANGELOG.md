@@ -46,6 +46,13 @@
   修复：补 `@AutoConfigureAfter(name = {...})`（用 `name` 因两个 starter 均为 `optional`，不触发类加载）。
   已由运行时用例（真实 `AutoConfigurations`）+ 变异证伪钉住。仓内 `AiVectorStoreAutoConfiguration` 的
   `@AutoConfigureBefore` 未被削弱，两条提供路径分别验证。
+- 🔴 **`AiChatAutoConfiguration` 的 `@ConditionalOnBean(ChatModel/ChatMemory)` 恒假**（同类**第 6 例**）。
+  第三方模型/记忆自动配置（`OpenAiChatAutoConfiguration` / `DeepSeekChatAutoConfiguration` /
+  `OllamaChatAutoConfiguration` / `ChatMemoryAutoConfiguration`，四者类级 `@AutoConfigure{After,Before}` 出现次数均为 0）
+  提供 `ChatModel`/`ChatMemory`，而 `cn.ypbin.starter.ai.*` 排序在前 ⇒ **`ChatClient` 静默不装配；
+  第三方 chat-memory 在场时 `AiChatService` 亦整块消失**（无任何报错）。
+  修复：`@AutoConfigureAfter` 追加四个第三方提供者 FQCN 的 `name={...}`，既有 `value=AiMemoryAutoConfiguration.class` 原样保留。
+  下游 `ypbin-iot` 因走 `AiModelConfigResolver` 动态构建路径而长期未暴露（`ObjectProvider` 弱依赖掩盖）。
 - 🔴 **`NacosRouteAutoConfiguration` 的 `@ConditionalOnBean({RouteDefinitionLocator, RouteDefinitionWriter})` 恒假**（同类缺陷）。
   这两个类型的 Bean 由 Spring Cloud Gateway 的 `org.springframework.cloud.gateway.config.GatewayAutoConfiguration`
   注册（`inMemoryRouteDefinitionRepository()` 返回的 `InMemoryRouteDefinitionRepository` 实现
@@ -55,9 +62,14 @@
 
 ### 门禁增强
 
-- 架构门禁 `AutoConfigurationOrderingTest` 的 `BOOT_PROVIDED_TYPES` 补登 `RouteDefinitionLocator`、
-  `RouteDefinitionWriter`（提供者 `GatewayAutoConfiguration`）与 `VectorStore`
-  （提供者 `RedisVectorStoreAutoConfiguration`，**故意不写仓内类**以免报错指引误导）。例外清单仍为空。
+- 架构门禁 `AutoConfigurationOrderingTest`：新增**第三方提供类型表** `THIRD_PARTY_PROVIDED_TYPES`
+  （支持「一个类型多个提供者」），登记 `VectorStore`（redis/pgvector）、`ChatModel`（openai/deepseek/ollama）、
+  `ChatMemory`（chat-memory）；`RouteDefinitionLocator`/`RouteDefinitionWriter` 补登 Boot 表。例外清单仍为空。
+- ⚠️ **同轮变异测试发现并修掉该门禁自身的一处「假保护」**：原规则只要源码中出现任意 `@AutoConfigureAfter/Before`
+  即放行，因此「已有一个无关顺序注解」的类（如 `AiChatAutoConfiguration` 原本已有 `@AutoConfigureAfter(AiMemoryAutoConfiguration.class)`）
+  删掉真正关键的第三方 `name={...}` 后**门禁仍全绿**。现改为**校验声明的顺序是否真的点名了该类型的全部已知提供者**
+  （缺哪个就报哪个），并补两条规则自检用例（无关顺序注解、多提供者只覆盖其一）钉住。
+  两次变异均实测转红并指名缺失提供者。
 
 ## [3.9.1] - 2026-10-16
 
