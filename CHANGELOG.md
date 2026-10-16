@@ -65,17 +65,24 @@
 - 架构门禁 `AutoConfigurationOrderingTest`：新增**第三方提供类型表** `THIRD_PARTY_PROVIDED_TYPES`
   （支持「一个类型多个提供者」），登记 `VectorStore`（redis/pgvector）、`ChatModel`（openai/deepseek/ollama）、
   `ChatMemory`（chat-memory）；`RouteDefinitionLocator`/`RouteDefinitionWriter` 补登 Boot 表。例外清单仍为空。
-- ⚠️ **同轮变异测试发现并修掉该门禁自身的「假保护」（共三处，均有永久回归用例 + 变异证伪）**：
+- ⚠️ **同轮变异测试发现并修掉该门禁自身的「假保护」（共五处，均有永久回归用例 + 变异证伪）**：
   1. **「见注解即放行」**：原规则只要源码中出现任意 `@AutoConfigureAfter/Before` 即放行，因此「已有一个无关顺序注解」的类
      （如 `AiChatAutoConfiguration` 原本已有 `@AutoConfigureAfter(AiMemoryAutoConfiguration.class)`）删掉真正关键的那条后**门禁仍全绿**。
      现改为**校验声明的顺序是否真的点名了该类型的全部已知提供者**（缺哪个报哪个）。
   2. **「注释提及即算声明」**：改为读源码原文后，Javadoc 里写
      `{@code @AutoConfigureAfter(某提供者)}` 也会被当成真实声明（单提供者类型返回 0 违规）。
      现改为「**剥注释但保留字符串字面量**」后再取注解块（`stripCommentsKeepLiterals`）。
-  3. **「简单名 / 方向反转也算声明」**（独立验收保留项）：`name="简单名"` 在 Boot `AutoConfigurationSorter` 中
+  3. **「简单名 / 方向反转也算声明」**（独立验收 R1/R2）：`name="简单名"` 在 Boot `AutoConfigurationSorter` 中
      按全限定名比对 ⇒ 「写了等于没写」；`@AutoConfigureBefore(提供者)` 方向相反 ⇒ 本类会排到提供者**之前**，条件依旧恒假。
      现**只认 `name="FQCN"` 或 `value=X.class`，且必须是 `@AutoConfigureAfter`**；写反方向时在报错中点明「方向相反」。
-  三项各经变异证伪（删关键声明 / 改简单名 / After 改 Before 均实测转红并指名缺失提供者）。
+  4. **「方向诊断只认 FQCN」**（终验 P1）：`@AutoConfigureBefore(X.class)` 虽正确转红，却缺少「方向相反」提示 ⇒
+     现复用 `mentionsProvider`，两种等价写法给同样诊断。
+  5. **「`value=X.class` 子串匹配」**（终验 P2）：`@AutoConfigureAfter(MyChatMemoryAutoConfiguration.class)` 这类
+     「前缀 + 同名后缀」会被误判为已覆盖（**假绿**）⇒ 现改为**词边界**正则，与类型匹配口径一致。
+  五处各经变异证伪（删关键声明 / 改简单名 / After 改 Before / 退回子串匹配 / 退回仅 FQCN 均实测转红）。
+- **已知边界（有意不修，已登记）**：字符串/文本块字面量内若写出完整「注解样式」文本，仍会被当成真实声明。
+  定性与理由：① 需刻意构造，非自然写法；② 本仓 8 处 `name=` 全为真实注解（已核）；③ 该边界**只会放宽、不会误报**，
+  不产生新的生产风险；④ 修正需引入轻量词法分析，与「架构门禁保持简单可读」相比收益不抵复杂度。
 
 ## [3.9.1] - 2026-10-16
 
