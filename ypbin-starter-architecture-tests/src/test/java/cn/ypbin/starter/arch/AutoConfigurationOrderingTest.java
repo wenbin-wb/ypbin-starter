@@ -287,20 +287,19 @@ class AutoConfigurationOrderingTest {
             //    ——本类会排到提供者**之前**，条件依旧恒假（独立验收保留项 R2）。
             List<String> missing = new ArrayList<>();
             for (String provider : new TreeSet<>(providers)) {
-                // name = "全限定名"（排序器按 FQCN 比对）
-                boolean byFqcn = declaredAfter.contains(provider);
-                // value = 简单类名.class（编译期常量引用，等价于 FQCN，排序器可解析）
-                boolean byClassLiteral = declaredAfter.contains(simpleName(provider) + ".class");
-                if (!byFqcn && !byClassLiteral) {
+                if (!mentionsProvider(declaredAfter, provider)) {
                     missing.add(provider);
                 }
             }
             if (missing.isEmpty()) {
                 continue;
             }
-            boolean wrongDirectionOnly = providers.stream().anyMatch(declaredBefore::contains);
+            // 方向诊断：同样接受 name="FQCN" 与 value=X.class 两种等价写法
+            // （2026-10-16 终验保留项 P1：原实现只按 FQCN 匹配，导致 `Before(X.class)` 缺「方向相反」提示）
+            boolean wrongDirectionOnly =
+                providers.stream().anyMatch(provider -> mentionsProvider(declaredBefore, provider));
             violations.add(className + " → @ConditionalOnBean(" + type + ") 判定的是"
-                + (bootProvided ? "Boot" : "第三方") + "自动配置提供的类型，但本类未用**全限定名**声明"
+                + (bootProvided ? "Boot" : "第三方") + "自动配置提供的类型，但本类未声明"
                 + "@AutoConfigureAfter 指向其提供者（缺：" + String.join(" / ", missing) + "）"
                 + (wrongDirectionOnly
                     ? "；注意本类写的是 @AutoConfigureBefore(该提供者)，方向相反 —— 那样本类会排到提供者之前，条件依旧恒假"
@@ -309,6 +308,32 @@ class AutoConfigurationOrderingTest {
                 + "排在 org.springframework.* 之前 ⇒ 条件恒假 ⇒ 静默退化或 Bean 整块消失（2026-10-15 事故）");
         }
         return violations;
+    }
+
+    /**
+     * 顺序注解正文是否「真的点名了」某提供者。
+     *
+     * <p>接受两种<b>等价且有效</b>的写法：{@code name = "全限定类名"} 与 {@code value = 简单类名.class}。
+     * {@code name = "简单名"} 不算——{@code AutoConfigurationSorter} 按全限定名比对元数据，
+     * 写简单名「等于没写」（终验保留项 R1 的落地口径）。</p>
+     *
+     * <p><b>为何不能用 {@code contains(simpleName + ".class")} 直接做子串匹配</b>：那样
+     * {@code @AutoConfigureAfter(MyChatMemoryAutoConfiguration.class)} 会因尾部同名而被误判为已覆盖
+     * （终验保留项 P2 实测的假绿）。故用<b>词边界</b>正则，与 {@link #matchesType} 的口径一致——
+     * 标识符前一个字符也是 Java 标识符字符时不算命中。</p>
+     *
+     * @param declaredText 已抽取的顺序注解正文（不含注释）
+     * @param provider     提供者全限定名
+     * @return 命中返回 {@code true}
+     */
+    private static boolean mentionsProvider(String declaredText, String provider) {
+        // ① name = "全限定类名"
+        if (declaredText.contains(provider)) {
+            return true;
+        }
+        // ② value = 简单类名.class（词边界，防「前缀+同名后缀」误命中）
+        return Pattern.compile("\\b" + Pattern.quote(simpleName(provider)) + "\\.class\\b")
+            .matcher(declaredText).find();
     }
 
     /**
@@ -784,5 +809,44 @@ class AutoConfigurationOrderingTest {
             .asString()
             .contains("缺：")
             .contains("方向相反");
+
+        // 2026-10-16 终验保留项 P1：`Before(X.class)` 与 `Before(name="FQCN")` 语义同类，
+        // 必须给同样的「方向相反」诊断（原实现只按 FQCN 匹配，故漏提示）。
+        String wrongDirectionClassLiteral = """
+            @AutoConfiguration
+            @AutoConfigureBefore(ChatMemoryAutoConfiguration.class)
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(wrongDirectionClassLiteral))
+            .as("Before(X.class) 也必须给出「方向相反」诊断（保留项 P1）")
+            .singleElement()
+            .asString()
+            .contains("方向相反");
+
+        // 2026-10-16 终验保留项 P2：`value = 简单名.class` 必须按**词边界**匹配，
+        // 否则「前缀 + 同名后缀」的类名会被误判为已覆盖（假绿）。
+        String prefixSameSuffix = """
+            @AutoConfiguration
+            @AutoConfigureAfter(MyChatMemoryAutoConfiguration.class)
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(prefixSameSuffix))
+            .as("MyChatMemoryAutoConfiguration.class 不是真提供者 ⇒ 必须判违规（保留项 P2）")
+            .singleElement()
+            .asString()
+            .contains("缺：")
+            .contains("ChatMemoryAutoConfiguration");
     }
 }
