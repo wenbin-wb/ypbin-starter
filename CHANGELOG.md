@@ -65,11 +65,17 @@
 - 架构门禁 `AutoConfigurationOrderingTest`：新增**第三方提供类型表** `THIRD_PARTY_PROVIDED_TYPES`
   （支持「一个类型多个提供者」），登记 `VectorStore`（redis/pgvector）、`ChatModel`（openai/deepseek/ollama）、
   `ChatMemory`（chat-memory）；`RouteDefinitionLocator`/`RouteDefinitionWriter` 补登 Boot 表。例外清单仍为空。
-- ⚠️ **同轮变异测试发现并修掉该门禁自身的一处「假保护」**：原规则只要源码中出现任意 `@AutoConfigureAfter/Before`
-  即放行，因此「已有一个无关顺序注解」的类（如 `AiChatAutoConfiguration` 原本已有 `@AutoConfigureAfter(AiMemoryAutoConfiguration.class)`）
-  删掉真正关键的第三方 `name={...}` 后**门禁仍全绿**。现改为**校验声明的顺序是否真的点名了该类型的全部已知提供者**
-  （缺哪个就报哪个），并补两条规则自检用例（无关顺序注解、多提供者只覆盖其一）钉住。
-  两次变异均实测转红并指名缺失提供者。
+- ⚠️ **同轮变异测试发现并修掉该门禁自身的「假保护」（共三处，均有永久回归用例 + 变异证伪）**：
+  1. **「见注解即放行」**：原规则只要源码中出现任意 `@AutoConfigureAfter/Before` 即放行，因此「已有一个无关顺序注解」的类
+     （如 `AiChatAutoConfiguration` 原本已有 `@AutoConfigureAfter(AiMemoryAutoConfiguration.class)`）删掉真正关键的那条后**门禁仍全绿**。
+     现改为**校验声明的顺序是否真的点名了该类型的全部已知提供者**（缺哪个报哪个）。
+  2. **「注释提及即算声明」**：改为读源码原文后，Javadoc 里写
+     `{@code @AutoConfigureAfter(某提供者)}` 也会被当成真实声明（单提供者类型返回 0 违规）。
+     现改为「**剥注释但保留字符串字面量**」后再取注解块（`stripCommentsKeepLiterals`）。
+  3. **「简单名 / 方向反转也算声明」**（独立验收保留项）：`name="简单名"` 在 Boot `AutoConfigurationSorter` 中
+     按全限定名比对 ⇒ 「写了等于没写」；`@AutoConfigureBefore(提供者)` 方向相反 ⇒ 本类会排到提供者**之前**，条件依旧恒假。
+     现**只认 `name="FQCN"` 或 `value=X.class`，且必须是 `@AutoConfigureAfter`**；写反方向时在报错中点明「方向相反」。
+  三项各经变异证伪（删关键声明 / 改简单名 / After 改 Before 均实测转红并指名缺失提供者）。
 
 ## [3.9.1] - 2026-10-16
 
