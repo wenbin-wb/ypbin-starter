@@ -153,6 +153,46 @@ class MultiLevelCacheServiceTest {
     }
 
     @Test
+    void getShouldCacheNullSentinelInL1AndNotHitL2Again() {
+        FakeL2 l2 = new FakeL2();
+        MultiLevelCacheService cache = build(l2);
+
+        assertThat(cache.get("missing", String.class)).as("L2 也没有 → 返回 null").isNull(); // L1 miss -> L2 miss -> 回填哨兵
+        assertThat(cache.get("missing", String.class)).as("L1 命中哨兵仍返回 null").isNull();
+        // ★ L2.get 只应被调用一次：第二次必须由 L1 空值哨兵拦截，否则不存在的 key 每次都穿透 L1 打到 L2
+        assertThat(l2.getCount.get()).as("★ 空值未回填 L1：同一不存在的 key 每次 get 都穿透到 L2").isEqualTo(1);
+        assertThat(cache.exists("missing")).as("空值哨兵不算存在有效数据，与 get 返回 null 语义一致").isFalse();
+    }
+
+    @Test
+    void writePathShouldEvictNullSentinelSoNewL2ValueBecomesVisible() {
+        FakeL2 l2 = new FakeL2();
+        MultiLevelCacheService cache = build(l2);
+        assertThat(cache.get("k", String.class)).isNull(); // 回填空值哨兵
+
+        cache.set("k", "v"); // 写路径：更新 L2 + 失效 L1 + 广播
+
+        assertThat(cache.get("k", String.class)).as("写路径必须摘掉空值哨兵，否则新值被旧空值挡住").isEqualTo("v");
+        assertThat(l2.getCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void invalidationBroadcastShouldEvictNullSentinel() {
+        FakeL2 l2 = new FakeL2();
+        MultiLevelCacheService cache = build(l2);
+        assertThat(cache.get("k", String.class)).isNull();
+        assertThat(cache.get("k", String.class)).isNull();
+        assertThat(l2.getCount.get()).isEqualTo(1);
+
+        // 其它实例写入 L2 后广播失效 → 本机订阅回调仅摘除本地 L1（不再广播）
+        l2.set("k", "from-other-instance");
+        cache.invalidateLocalOnly("k");
+
+        assertThat(cache.get("k", String.class)).as("广播失效必须能摘掉空值哨兵").isEqualTo("from-other-instance");
+        assertThat(l2.getCount.get()).isEqualTo(2);
+    }
+
+    @Test
     void getOrLoadShouldLoadOnceThenHitL1() {
         FakeL2 l2 = new FakeL2();
         MultiLevelCacheService cache = build(l2);

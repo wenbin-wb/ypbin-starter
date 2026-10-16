@@ -18,6 +18,8 @@ package cn.ypbin.starter.core.autoconfigure;
 import cn.ypbin.starter.core.context.ContextAwareTaskDecorator;
 import cn.ypbin.starter.core.context.ContextPropagator;
 import cn.ypbin.starter.core.diagnostic.StarterDiagnosticEndpoint;
+import cn.ypbin.starter.core.diagnostic.StarterDiagnosticsProperties;
+import cn.ypbin.starter.core.diagnostic.StarterStartupSummary;
 import cn.ypbin.starter.core.util.SpringUtils;
 import java.util.List;
 import org.slf4j.Logger;
@@ -28,6 +30,8 @@ import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,6 +48,7 @@ import org.springframework.core.task.TaskDecorator;
  * @since 2026-07-30
  */
 @AutoConfiguration
+@EnableConfigurationProperties(StarterDiagnosticsProperties.class)
 public class CoreAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(CoreAutoConfiguration.class);
@@ -76,6 +81,20 @@ public class CoreAutoConfiguration {
 
     public CoreAutoConfiguration() {
         log.debug("[ypbin-starter] core auto-configuration initialized.");
+    }
+
+    /**
+     * 启动自省清单：应用就绪时打印一行「已激活的 ypbin starter 模块」。
+     *
+     * <p>开关为 {@code ypbin.core.diagnostics.startup-summary-enabled}（默认开启；显式 false 时本 Bean
+     * 不注册，日志完全安静）。实现与取舍见 {@link StarterStartupSummary}。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = StarterDiagnosticsProperties.PREFIX, name = "startup-summary-enabled",
+        havingValue = "true", matchIfMissing = true)
+    public StarterStartupSummary starterStartupSummary() {
+        return new StarterStartupSummary();
     }
 
     /**

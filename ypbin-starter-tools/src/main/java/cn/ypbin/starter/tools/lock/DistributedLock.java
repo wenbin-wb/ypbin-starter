@@ -30,6 +30,12 @@ import java.lang.annotation.Target;
  * <p>加锁失败时的行为由 {@link #waitTime()} 与 {@link #failStrategy()} 决定：默认不等待、失败即跳过
  * （适合定时任务——抢不到锁说明别的节点在跑，本节点直接放弃）。</p>
  *
+ * <p><strong>使用边界：方法执行时间应显著短于 {@link #ttl()}</strong>。本注解<strong>不续期</strong>：
+ * 外层方法一旦执行超过 {@code ttl}，锁会在存储中过期；此时同线程的嵌套重入<strong>不会重新校验</strong>，
+ * 内层调用仍直接进入临界区——互斥已经失效（重入语义的固有取舍，本注解不提供续期）。
+ * 需要跑得比 TTL 更久的长任务请改用 {@link LeaseLockGuard} 租约锁（可续期、抢不到即跳过），
+ * 不要靠调大 {@code ttl} 硬撑。</p>
+ *
  * @author wenbin
  * @since 2026-07-31
  */
@@ -46,7 +52,11 @@ public @interface DistributedLock {
     String key() default "";
 
     /**
-     * 锁自动过期时间（秒），防止持有者宕机导致死锁。应大于方法最长执行时间。
+     * 锁自动过期时间（秒），防止持有者宕机导致死锁。
+     *
+     * <p><strong>必须显著大于方法最长执行时间</strong>：本注解不续期，执行一旦超过 {@code ttl}，
+     * 锁会在存储中过期；同线程的嵌套重入不再重新校验（内层直接进入临界区），互斥随之失效。
+     * 长时间任务请改用 {@link LeaseLockGuard} 租约锁（可续期）。</p>
      *
      * @return 过期秒数
      */

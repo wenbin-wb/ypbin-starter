@@ -45,6 +45,18 @@ List<MenuNode> tree = TreeUtils.build(flatList);        // 自动识别根节点
 List<MenuNode> tree2 = TreeUtils.build(flatList, 0L);   // 指定根父 ID
 ```
 
+**启动自省清单** `StarterStartupSummary`：应用就绪（`ApplicationReadyEvent`）时打印**一行** INFO，汇总本次真正装配成功的 ypbin starter 自动配置，形如
+`[ypbin-starter] Activated: cache(2), core(1), security(6) | starter auto-configurations=12 | Spring Boot … / Java …`：
+
+```yaml
+ypbin:
+  core:
+    diagnostics:
+      startup-summary-enabled: true   # 默认开启；置 false 时不注册监听器，启动日志完全安静
+```
+
+数据取自 Boot `ConditionEvaluationReport` 的**条件全匹配**集合（不是扫 classpath）：classpath 上有 jar ≠ 实际装配成功，条件报告反映真实求值结果，因此能直接暴露「引了但没装配」这类静默失效。模块名按 `cn.ypbin.starter.<module>.*` 取包段近似（如 `cache`、`security`；`extension.*` 取 `extension`），仅供日志可读。清单生成过程任何异常只记 WARN（带完整堆栈）并继续，**不阻断启动**。
+
 ### web — Web 层
 
 引入即生效，无需注解：
@@ -62,6 +74,13 @@ List<MenuNode> tree2 = TreeUtils.build(flatList, 0L);   // 指定根父 ID
   > # 或统一判 R：body 出现 '"success":false' / '"code":404' 即为「未暴露端点」，不是健康
   > ```
   > 探针只打**真实暴露**的端点，并把「业务 404 包」显式判为不健康。
+- 客户端异常不再跌入兜底：`HttpMessageNotReadableException`（请求体不可读/为空）、
+  `MethodArgumentTypeMismatchException`（路径变量或查询参数类型不匹配）、
+  `MissingServletRequestParameterException`（缺少必填参数）→ 业务码 400；
+  `MaxUploadSizeExceededException`（上传超限）→ 业务码 **413**（`PAYLOAD_TOO_LARGE`，与 Spring 7 对该异常
+  `getStatusCode()` 的口径一致），不再产生 ERROR 堆栈与 500 误报。这些分支日志保持 `warn`、请求路径与框架消息
+  均经 `LogSanitizer` 处理，响应文案不回显请求体/文件内容与服务端阈值配置。
+  **注意是业务码（`R.code`）不是 HTTP 状态码**：本模块所有异常仍按既有契约返回 HTTP 200（见上一条）。
 - 404 统一 JSON：访问不存在的接口返回 `R.fail(404, "接口不存在")`，而非默认 HTML 错误页。
   （Spring Framework 对无处理器路径默认抛 `NoResourceFoundException`；本模块另注入
   `spring.web.resources.add-mappings=false` 作为防御性配置，**不依赖**
@@ -275,6 +294,18 @@ ypbin:
 - 写/删更新 L2 并失效本地 L1，同时经 Redis Pub/Sub 广播，通知其它实例摘除各自 L1，保证多实例最终一致。
 - 适合可容忍秒级不一致的读多写少场景；强一致数据不要开多级缓存。业务代码无需改动，仍用 `CacheService` 接口。
 
+**空值哨兵（防穿透）与陈旧窗口**：多级缓存的 `get` 与 `getOrLoad` 同口径——L1 未命中且 L2 也未命中时**回填空值哨兵**，不存在的热点 key 不会每次请求都穿透 L1 打到 Redis（`get` 此前只回填非空值，已修正）。L1 中哨兵的存活时间等于 L1 的 Caffeine `expireAfterWrite`（即 `local-expire-seconds`，默认 300 秒）；窗口内若数据在 L2 出现，只有**经本模块写路径**（`set` / `setIfAbsent` / `delete` / `compareAndDelete` / `increment` / `expire`，本机失效并广播摘除其它实例 L1）或**哨兵自然到期**才会被摘除。因此**绕过本模块直写 L2**（外部系统、另一进程直写同一 Redis key）时，本机最长 `local-expire-seconds` 内仍返回 `null`——强一致场景不要开多级缓存。
+
+**运行时指标（Micrometer，可选依赖）**：引入 micrometer 且宿主注册了 `MeterRegistry` 时自动装配下列 Counter（`cache` 标签值为**固定的多级缓存标识** `multi-level`，多副本会聚合到一起；需要按实例区分请用底层 `instance` 标签）：
+
+| 指标名 | 标签 | 含义 |
+|--------|------|------|
+| `ypbin.cache.requests` | `level=l1\|l2`、`result=hit\|miss` | 读请求计数（可据此算命中率 `hit / (hit + miss)`） |
+| `ypbin.cache.null.sentinel.hits` | `cache` | 被 L1 空值哨兵拦下的**防穿透阻断**次数（与 `l1` 命中同时发生，结果为 `null`） |
+| `ypbin.cache.loads` | `cache` | 触发 L2 `getOrLoad` 装载的次数（含「L2 命中」与「真实回源」两种情形，用于观测回源路径是否被高频触发） |
+
+未引入 micrometer 或宿主未注册 `MeterRegistry` 时装配 `CacheMetricsRecorder.NOOP` 空实现（零开销、不改行为）；Micrometer 字节码隔离在 `MicrometerCacheMetrics`，需要自定义指标时提供自己的 `CacheMetricsRecorder` Bean 即可覆盖（`@ConditionalOnMissingBean`）。
+
 需要 Redis 专属数据结构（hash/list/set/zset）时，用 `RedisUtils` 静态工具（直接封装 `RedisTemplate` 全能力）：
 
 ```java
@@ -338,6 +369,23 @@ ypbin:
 
 规则：`health`/`info`（可配 `public-paths`）无条件放行；其余管理端点要求当前用户**已登录**且权限包含 `required-permission`（平台超管 `*:*:*` 自动放行）；`required-permission` 未配置、未登录、或权限不足一律拒绝（业务码 403）。权限数据复用 `PermissionProvider` 扩展点（与注解鉴权同一来源），宿主无需新接口。
 
+**内部调用凭证守卫**（服务间 Feign 直连，默认关闭）：服务间直连不经网关访问 `/internal/**` 时，网关的登录校验管不到这些内部端点（跨租户检索、密钥明文出网等风险）。开启后把「登录可访问」收口为「必须持有内部凭证」：
+
+```yaml
+ypbin:
+  security:
+    internal-token:
+      guard-enabled: true                 # 默认 false，显式开启；不装配即完全不改既有宿主行为
+      token: <各服务共享的同一随机串>       # 缺省即一律拒绝（fail-closed）；建议经环境变量注入
+      # header-name: X-Internal-Token      # 凭证请求头名（默认 X-Internal-Token，需与携带侧逐字一致）
+      # envelope-path-patterns: ["/internal/**"]   # ENVELOPE 语义路径（默认 /internal/**；置空即不注册）
+      # raw401-path-patterns: ["/internal/mqtt/*"] # RAW_401 语义路径（默认空，即不注册）
+```
+
+- **两种拒绝语义并存、按路径配置**：`envelope-path-patterns`（默认 `/internal/**`）→ 抛业务异常，经全局处理器转 **HTTP 200 + `R.code=401`**（浏览器/网关口径）；`raw401-path-patterns`（默认空）→ 写**原始 401**（`{"code":"UNAUTHORIZED","message":"内部调用凭证校验失败"}`），供 EMQX 这类**只看状态码**的对端使用。⚠️ 业务侧切换时若漏配 `raw401-path-patterns`，该路径会**退化为 ENVELOPE（HTTP 200）** ⇒ EMQX 判为投递成功而**静默丢数据**（漏配 ≠ 无校验，而是拒绝形态变了）。同一路径可同时出现在两份清单里：RAW_401 过滤器先执行，两者都通过才放行（纵深防御）。
+- **凭证校验 fail-closed**：`token` 未配置、或呈递凭证缺失/不匹配一律拒绝；比较用常量时间 `MessageDigest.isEqual`，日志只记 URI 与「是否携带头」，响应体不含任何输入值。`guard-enabled=true` 但未配置 `token` 时**启动日志显式告警**（受保护路径仍会一律拒绝，不是静默放行）。
+- **RAW_401 路径按 Servlet 规范归一化**：Servlet 规范（12.2）只认 `/*` 结尾的路径映射与 `*.ext` 扩展名映射；Spring 习惯的 `/internal/mqtt/**` 会被容器当作**精确字面量**匹配 ⇒ 请求完全跳过过滤器、退化为 HTTP 200（同样是 EMQX 静默丢数据）。启动时尾部 `/**` 自动归一化为 `/*`（打 INFO），其余含通配却无法被 Servlet 规则解释的写法**启动即失败**，不再静默退化。
+- **从 Sa-Token 登录拦截中豁免**：守卫接管路径（两份清单的合集，RAW_401 侧用归一化后的结果）经 `SecurityExcludePathProvider` 自动加入登录放行清单，放行范围为守卫覆盖范围的**子集**（不放大、不做 Ant 扩宽，避免留下「既无登录校验、又无凭证校验」的裸路径；实际比 RAW_401 过滤器更窄）。否则 Sa-Token 的全局登录拦截会抢先生效，服务间 Feign 直连（只有 `X-Internal-Token`、没有用户会话）在守卫拿到控制权前就抛 `NotLoginException`、内部调用全部失败——接入方无需手工往 `ypbin.security.excludes` 添加。
 - `LoginHelper`：`login(userId)` / `getUserId()` / `logout()`，统一以 `Long` 用户 ID 进出。
 - `UserContext` + `LoginUser`：当前登录用户门面，登录时 `setLoginUser` 存会话，任意层 `getLoginUser`/`getUserId`/`getUsername`/`getTenantId`/`getClientId`/`getClientType`/`getAuthType` 读取。
 - 登录客户端：`LoginClientProvider` 提供客户端配置，`LoginHelper.login(userId, LoginClientRequest)` 按客户端独立策略登录；starter 提供配置文件版默认实现，admin 有客户端管理表时实现 Provider 覆盖即可。
@@ -566,6 +614,10 @@ public void report() { ... }
 @LicenseCheck(online = true)             // 额外触发联机回验
 public void sync() { ... }
 ```
+
+**健康指示器** `LicenseHealthIndicator`（可选，需 classpath 有 Health API——Boot 4 起位于 `spring-boot-health`，本模块仅声明为 `optional`，未引入则不装配）：把授权状态与**证书剩余有效天数**暴露到健康端点，供 Prometheus / Grafana 做续期预警。details 含 `status`（`LicenseStatus.name()`，如 `LEGAL` / `GRACE`）、`description`、`reason`（有则给）、`licenseLoaded`（`false` 表示无授权启动），以及授权标识、被授权方、有效期、模块清单与 `remainingDays` / `graceRemainingDays`（均按**自然日差**计算，避免「不足 24 小时算 0 天」的错觉；无宽限期时 `graceRemainingDays` 等于 `remainingDays`）。状态映射：`ILLEGAL` ⇒ `DOWN`，其余（合法 / 宽限期）⇒ `UP`——**宽限期对外是 `UP`，但 details 的 `status` 标 `GRACE`**，接入方可据此分级告警，而不是把整个应用标成 `DOWN`。不输出任何密钥、机器指纹或授权串原文。
+
+**启动失败诊断** `LicenseStartupFailureAnalyzer`：经 `META-INF/spring.factories` 的 `org.springframework.boot.diagnostics.FailureAnalyzer` 注册，把启动期 `LicenseException` 的数百行堆栈转成 Boot 官方的 **Description + Action**，Action 按错误码给出具体配置项——`LICENSE_MISSING` → `ypbin.license.location` / `allow-startup-without-license`；`LICENSE_CORRUPTED` → 授权文件完整性与 `public-key` / `secret-key`；`LICENSE_REMOTE_REJECTED` → `ypbin.license.online.*` 与签发端「开放应用」状态；`LICENSE_FINGERPRINT_MISMATCH` → 重新签发或 `fingerprint-enabled`；`LICENSE_EXPIRED` / `LICENSE_NOT_YET_VALID` / `LICENSE_CLOCK_TAMPERED` → 有效期与系统时间。**只提示，不改变任何启动/拒绝行为**（fail-fast 语义保持原样）。
 
 **扩展点**：`LicenseStore`（授权串存取，默认文件实现 `FileLicenseStore`）、`RemoteVerifyProvider`（联机回验来源）；集成侧 `LicenseLoginVerifier`（登录时校验授权）、`OnlineVerifyJob`（周期联机回验）。签发端能力（签发 / 审批 / 密钥托管 / 交付）由 admin 授权管理台承载，starter 只提供运行时抽象与验签地基。
 
@@ -895,6 +947,8 @@ public void sendSms(Long userId) { ... }
   （`request.getRemoteAddr()`），不信任转发头——若服务位于可信反向代理之后且需按真实客户端 IP 限流，
   请显式开启 `ypbin.tools.rate-limit.trust-forwarded=true`（否则所有客户端共享代理出口 IP 一个限流桶）。
 - 分布式版基于 `StringRedisTemplate` + Lua 脚本，多节点共享窗口。
+- `window` 必须 **≥ 1 秒**：`window <= 0` 会让计数键立即过期（`EXPIRE key 0` 等价于删除），每次请求都被当作新窗口、限流形同虚设——该配置错误在**首次调用**时抛 `IllegalArgumentException`（fail-fast，不静默降级）。
+- Lua 脚本带 TTL 兜底：计数键已存在却**没有过期时间**（历史残留、人工 `SET`、主从切换/持久化恢复丢 TTL）时补设 `EXPIRE` 自愈，避免键永久驻留、计数只增不减导致该接口/用户被**永久限流**。
 
 **幂等** `@Idempotent`（防重复提交，有 Redis 用 Redis+Lua，否则内存）：
 
@@ -915,6 +969,8 @@ public void handle(Long orderId) { ... }   // 抢不到锁默认跳过，返回 
 - 加锁用 `SET key owner NX EX ttl`，释放用 Lua 校验持有者后删除，只释放自己的锁。
 - `ttl` 应大于方法最长执行时间，防止持有者宕机死锁。
 - `waitTime > 0` 时按 `retryInterval` 毫秒重试等待；`failStrategy` 可选 `SKIP`（默认，静默跳过）或 `EXCEPTION`（抛 `LockAcquireException`，业务码 429）。
+- **同线程同 key 可重入**：切面用 `ThreadLocal` 记录「本线程持有哪些锁键（解析后的键，含 SpEL）+ 重入深度」，内层嵌套调用同一 key 直接进入临界区、不再重新要锁；只有最外层退出才真正 `unlock` 并清理 `ThreadLocal`（线程池复用下不留残余状态，不会把下次调用误判为重入而静默失去互斥）。
+- **TTL 语义不变**：重入不延长 TTL、切面也不提供续期。外层方法可能跑得比 `ttl` 更久时，应改用 `LeaseLockGuard` 租约锁（可续期、抢不到即跳过），不要指望重入或看门狗续期。
 - 也可直接注入 `LockService` 手动 `tryLock/unlock`。
 
 **定时任务防重**（多实例只让一个节点执行）：`@Scheduled` 方法叠加 `@DistributedLock` 即可，抢不到锁的节点自动跳过。
@@ -1129,7 +1185,7 @@ ypbin:
   async:
     enabled: true
     enable-annotation: true       # 接管 @Async
-    virtual-threads: false        # JDK 21+ 可开虚拟线程
+    virtual-threads: true         # 默认开启（JDK 21+）；置 false 退回平台线程池
     core-size: 8
     max-size: 32
     queue-capacity: 1000
@@ -1140,6 +1196,9 @@ ypbin:
     await-termination-seconds: 30
     scheduler-pool-size: 2
 ```
+
+**虚拟线程模式的优雅停机**（`virtual-threads: true`）：`await-termination: true` 时给虚拟线程执行器设
+`setTaskTerminationTimeout(await-termination-seconds × 1000)`——Spring 该方法的单位是**毫秒**、且仅在 >0 时生效（`await-termination-seconds` 默认 30）；`await-termination: false` 时设 `setCancelRemainingTasksOnClose(true)`，与平台线程池关停时的 `shutdownNow()` 对齐（立即中断在途任务）。平台线程模式下池化参数与停机语义不变。
 
 注解式：
 
@@ -1180,6 +1239,8 @@ AsyncUtils.schedule(task, Duration.ofSeconds(10));
 AsyncUtils.scheduleAtFixedRate(task, Duration.ofMinutes(1));
 AsyncUtils.scheduleWithFixedDelay(task, Duration.ofMinutes(1));
 ```
+
+`AsyncUtils.joinAll` / `allOf` 的失败语义：底层 `CompletableFuture.allOf` 的契约是「**全部 future 都完成**才完成」，任一失败**不会**提前抛出——所以 `joinAll` 抛出时集合内所有 future 均已完成，**不存在需要级联取消的在途对象**，本工具也不会取消任何 future。若需「首个失败即返回并取消其余」，请自行用带超时/竞速的编排，不要依赖本方法。
 
 业务方自定义同名 `ypbinTaskExecutor` / `AsyncConfigurer` 时不被覆盖。
 
@@ -1228,6 +1289,8 @@ public class DbJobExecutionListener implements JobExecutionListener {
 }
 ```
 
+**失败日志**：`JobManager` 在任务抛异常时把异常对象作为最后一个参数传给 `log.warn`，日志框架据此打印**完整堆栈**（只记 `e.getMessage()` 时，NPE 等 message 为 `null` 的异常会退化成 `err=null`、线上无法定位），并照常回调 `onError`。
+
 **多实例防重**：默认开启（`JobDefinition.concurrentGuard`），执行入口抢分布式锁（锁键带触发时间片），只有抢到的节点执行、其余回调 `onSkip`。**需引入 `ypbin-starter-tools` 提供分布式锁**；未引入时退化为单机无锁（单节点安全，多节点会重复执行）。
 
 ```yaml
@@ -1269,6 +1332,23 @@ ExcelUtils.exportMultiSheet(response, "报表", List.of(
     ExcelUtils.SheetData.of("用户", UserExcel.class, users),
     ExcelUtils.SheetData.of("订单", OrderExcel.class, orders)));
 ```
+
+**CSV 导出** `CsvUtils`（UTF-8 BOM + RFC 4180 转义 + 公式注入中和），与 Excel 共用同一套下载响应头：
+
+```java
+// 整段文本：小数据量，或需要复用 CSV 文本时
+String csv = CsvUtils.toCsv(headers, rows);          // headers 为 List<String>，rows 为 List<List<String>>
+CsvUtils.write(outputStream, csv);                   // 写出（含 BOM）
+CsvUtils.export(response, "用户列表", csv);           // 导出到 HTTP 响应（浏览器下载）
+
+// 流式：边遍历边写、每行 flush，堆内存只与单行宽度相关（数万行以上大导出用）
+CsvUtils.write(outputStream, headers, rows);
+CsvUtils.export(response, "用户列表", headers, rows);
+```
+
+- 流式 `write(OutputStream, headers, rows)` 与 `write(outputStream, toCsv(headers, rows))` **逐字节一致**（同一 BOM、同一 `escapeCell` 转义、同一 CRLF 行尾）；流式 `export(...)` 的响应头与整段文本版完全一致（`text/csv;charset=UTF-8`、RFC 5987 文件名、`.csv` 扩展名）。
+- 公式注入中和为安全优先口径：单元格首字符是 `=` / `+` / `-` / `@` / `TAB` / `CR` 时前缀 `'`（**负数 `-1` 同样被中和**）；空值单元格输出为空串。
+- `write` / `export` **不关闭**传入的流/响应，关闭责任归调用方；写入失败以 `IllegalStateException` 抛出，不静默吞掉。
 
 ### captcha — 行为验证码
 
@@ -1476,6 +1556,20 @@ PushUtils.broadcast("dashboard-refresh", dashboardData);
 
 **多实例说明**：SSE 连接与 `PushService` 默认基于单实例内存连接表；微服务多副本下，A 实例发起的推送到不了连在 B 实例的客户端。跨实例扇出需在上层配合 Redis Pub/Sub 或 MQTT 中转（业务方自定义 `PushService` 覆盖默认实现即可接入）。
 
+**Flux 流式桥接** `SseStreamBridge`（大模型逐 token 输出等场景）：Servlet Web 环境下自动装配，需 classpath 有 `reactor-core` 与 `spring-webmvc`（二者均为 optional 依赖），把 `Flux<String>` 桥接成浏览器可直接消费的 `SseEmitter`：
+
+```java
+SseEmitter emitter = sseStreamBridge.stream(aiChatService.chatStream(conversationId, userMessage)); // 逐 token 立即发送
+SseEmitter opts = sseStreamBridge.stream(flux, SseStreamOptions.builder().errorPrefix("对话出错：").build());
+```
+
+- **错误信号由订阅端消费**：订阅时显式传入 errorConsumer，终止错误恰好被消费一次，不再冒泡到 Reactor 的 `onErrorDropped` 全局兜底（后者会丢请求上下文并误导监控）。
+- **异常按形态分级**：服务端真实故障 → `log.error` + **完整堆栈** + 错误帧（对外报文契约不变）；**客户端断开 / 连接已不可用** → 降级 `log.debug`（不带堆栈）并**跳过错误帧**——向已断开的连接补发必然再失败一次，「正常断开」不应刷成 ERROR/WARN 告警。判定分两路，**口径刻意不同**：
+  - **上游错误**（Flux 的 errorConsumer）：只按**类型 / 类名**判定（`AsyncRequestNotUsableException`、Tomcat `ClientAbortException`），**不看消息片段**——上游服务端（模型 API / 下游 HTTP）重置连接同样会抛 `IOException("Connection reset")`，若按消息降级就会把真实故障静默成「客户端正常断开」，客户端看到一条没有错误帧的截断流；
+  - **发送路径失败**（`sendToken` / `sendErrorFrame` 的 catch）：类型 / 类名之外**还**按消息片段（`broken pipe` / `connection reset` / `connection aborted`）判定——此处写失败基本就是本端连接已断。
+  判定未命中时走保守路径（ERROR + 完整堆栈 + 错误帧），宁可多一条堆栈也不静默真实故障。
+- 客户端断开 / 超时 / 上游完成三条路径都会 `dispose()` 上游订阅并结束响应，防 Reactor 流空转；`complete()` 语义不受分级影响。
+
 **MQTT（Paho）**：需引入 `org.eclipse.paho.client.mqttv3` 并开启：
 
 ```yaml
@@ -1649,6 +1743,9 @@ ypbin:
 @PostMapping("/open/order")
 public R<Void> createOrder(@RequestBody OrderReq req) { ... }
 ```
+
+**JSON 请求体解析失败即 fail-closed**：参与签名的参数 = Query/表单参数 + JSON body **顶层字段**（排除 `sign` 与 `skip-param-names`）。当 `Content-Type` 声明 JSON 且请求体**非空**但解析失败时，直接判验签失败（业务文案 `JSON 请求体格式非法`），并在占用 nonce **之前**返回——否则「签名覆盖的字段集合」与「业务实际读取到的内容」会脱钩（下游容错解析仍可能读出字段），形成签名降级绕过。**空请求体仍然放行**：签名侧与业务侧都读不到 body 字段，不存在降级空间。
+JSON 判定口径与 Spring MVC 默认 Jackson 转换器**一致**：`application/json` 与 `application/*+json`（结构化后缀，如 `application/vnd.api+json`、`application/merge-patch+json`）都会参与签名；无法解析的 `Content-Type` 按「声明了 JSON」处理（fail-closed 方向）。这一点必须保持——只认字面量 `application/json` 时，攻击者仅改请求头即可让 body 中未签名的字段绕过签名校验。
 
 **第三方对接方**用 `SignClient` 生成签名（算法需与服务端一致）：
 
@@ -1938,7 +2035,7 @@ Nacos 配置示例：
 ]
 ```
 
-JSON 解析失败保留当前路由，Nacos 不可达保留默认路由。
+**刷新是原子增量**：配置变更时先 `save` 全部新路由（同 id 覆盖），**全部成功后**再 `delete`「旧有新无」的 id，最后发 `RefreshRoutesEvent`——不再「先全量删除再写入」，刷新期间网关内存中始终保留一套完整可用路由（无 404 空窗）；`save` 阶段失败时旧路由一条都不会被删除（不会全量丢失）。JSON 解析失败、配置为空或为合法空列表 `[]` 时仍保留当前路由（仅告警）；Nacos 不可达保留默认路由。启动加载与 Nacos 监听回调由 `synchronized` 串行化，单批应用带 10 秒超时，避免路由存储挂起时无限阻塞。
 
 ### cloud-observability — 可观测性
 
@@ -2091,4 +2188,6 @@ aiChatService.clearMemory(conversationId);                                     /
 - 传输层客户端（okhttp 连接池）必须按请求独立创建：Spring AI 流式结束后会关闭持有的客户端（连带关闭连接池），共享实例导致后续请求被拒绝；okhttp 空闲资源自动回收，独立创建无泄漏；
 - `baseUrl` 需以 `/v1` 结尾（OpenAI 兼容惯例），SDK 按 `{baseUrl}/chat/completions` 拼路径；
 - `memory.type=jdbc` 使用 Spring AI `JdbcChatMemoryRepository`，需按 Spring AI 官方 `schema-mysql.sql` 建 `SPRING_AI_CHAT_MEMORY` 表（列名/索引完全一致，表名大写硬编码于查询语句）。
+- **向量库装配顺序**：`AiRagAutoConfiguration` 的 `@AutoConfigureAfter(name = {...})` 覆盖了 Spring AI 2.0.1 **全部 20 个**提供 `VectorStore` Bean 的官方向量库自动配置——azure、bedrock-knowledgebase、cassandra、chroma、couchbase、elasticsearch、gemfire、mariadb、milvus、mongodb-atlas、neo4j、opensearch、oracle、pgvector、pinecone、qdrant、redis、s3、typesense、weaviate（完整 FQCN 见 `AiRagAutoConfiguration`，架构门禁 `AutoConfigurationOrderingTest` 登记同一份清单）。原因：`@ConditionalOnBean(VectorStore.class)` 只看得见「先处理完」的 Bean 定义，而 Spring AI 这些自动配置没有一个对本类声明顺序，且 `cn.ypbin.starter.ai.*` 在 Boot 排序中先于 `org.springframework.ai.*` ⇒ 不做顺序声明时条件恒假、`AiRagService` **整块静默不装配**（宿主开了 `ypbin.ai.rag.enabled=true` 却没有任何报错）。用 `name` 而非 `Class` 形式是为避免 optional 依赖缺席时触发类加载。
+- **文档解析的可选依赖**：`DocumentLoader` 解析 docx/xlsx 需 `org.apache.poi:poi-ooxml`、解析 html 需 `org.jsoup:jsoup`，二者在 ai 模块均为 `optional`（版本由 `ypbin-starter-dependencies` 统一管理：POI 5.5.1、jsoup 1.23.2），**宿主按需显式引入**。依赖缺席时解析这些格式抛带依赖坐标的 `IllegalStateException`（不静默降级——二进制格式按 UTF-8 解码只会得到乱码）；PDF 仍为 WARN + 纯文本降级。
 

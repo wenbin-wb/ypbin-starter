@@ -16,11 +16,16 @@
 package cn.ypbin.starter.excel.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -236,5 +241,200 @@ class CsvUtilsTest {
 
         assertThat(out.toByteArray()).isEqualTo(csv.getBytes(StandardCharsets.UTF_8));
         assertThat(out.toByteArray()).startsWith((byte) 0xEF, (byte) 0xBB, (byte) 0xBF);
+    }
+
+    // ------------------------------------------------------------------ 流式导出
+
+    @Test
+    @DisplayName("★ 流式 write(表头, 行) 与 toCsv 输出逐字节一致（BOM/转义/CRLF/公式中和）")
+    void streamingWriteShouldMatchToCsvByteForByte() {
+        List<String> headers = List.of("设备编码", "名称", "数值");
+        List<List<String>> rows = List.of(
+            List.of("D-1", "温度,湿度", "-1"),
+            List.of("D-2", "he said \"hi\"", "=1+1"),
+            List.of("D-3", "line1\nline2", "中文#3"),
+            Arrays.asList("D-4", null, "@cmd"),
+            List.of("D-5", "", ""));
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        CsvUtils.write(out, headers, rows);
+
+        assertThat(out.toByteArray())
+            .as("流式路径必须与 toCsv 逐字节一致")
+            .isEqualTo(CsvUtils.toCsv(headers, rows).getBytes(StandardCharsets.UTF_8));
+        assertThat(out.toByteArray()).startsWith((byte) 0xEF, (byte) 0xBB, (byte) 0xBF);
+    }
+
+    @Test
+    @DisplayName("★ 流式路径的空值/空集合语义与 toCsv 一致（null 单元格为空串，空 rows 仍出表头）")
+    void streamingNullsAndEmptyRowsShouldMatchToCsv() {
+        List<String> headers = List.of("A", "B");
+        List<List<String>> withNulls = List.of(Arrays.asList(null, ""));
+        List<List<String>> empty = List.of();
+
+        assertThat(stream(headers, withNulls))
+            .isEqualTo(CsvUtils.toCsv(headers, withNulls).getBytes(StandardCharsets.UTF_8));
+        assertThat(stream(headers, empty))
+            .isEqualTo(CsvUtils.toCsv(headers, empty).getBytes(StandardCharsets.UTF_8));
+        assertThat(new String(stream(headers, empty), StandardCharsets.UTF_8))
+            .isEqualTo(CsvUtils.UTF8_BOM + "A,B\r\n");
+    }
+
+    @Test
+    @DisplayName("★ 边遍历边写：取第 2 行数据前，表头（含 BOM）已写出，不是先拼完再一次性写")
+    void streamingWriteShouldEmitBeforeConsumingAllRows() {
+        ByteCountingOutputStream out = new ByteCountingOutputStream();
+        List<Long> writtenWhenSecondRowRequested = new ArrayList<>();
+
+        Iterable<List<String>> rows = () -> new Iterator<>() {
+            private int index = 0;
+
+            @Override
+            public boolean hasNext() {
+                return index < 3;
+            }
+
+            @Override
+            public List<String> next() {
+                if (index == 1) {
+                    // 第 2 行被取走时已经写出过字节 ⇒ 生产与写出是交错的（真流式）
+                    writtenWhenSecondRowRequested.add(out.written());
+                }
+                index++;
+                return List.of("row-" + index);
+            }
+        };
+
+        CsvUtils.write(out, List.of("名称"), rows);
+
+        assertThat(writtenWhenSecondRowRequested)
+            .as("取第 2 行前表头必须已 flush 到输出流")
+            .hasSize(1)
+            .allSatisfy(written -> assertThat(written).isPositive());
+    }
+
+    @Test
+    @DisplayName("★ 5 万行流式写出：调用方无需预存全部行，首尾行与行数正确")
+    void streamingShouldHandleFiftyThousandRows() {
+        int rowCount = 50_000;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        // 惰性 Iterable：测试侧不预先构造 5 万行列表，验证 API 能配合逐行产出的数据源
+        CsvUtils.write(out, List.of("id", "name"), lazyRows(rowCount));
+
+        byte[] bytes = out.toByteArray();
+        String csv = new String(bytes, StandardCharsets.UTF_8);
+
+        assertThat(bytes).startsWith((byte) 0xEF, (byte) 0xBB, (byte) 0xBF);
+        assertThat(csv).startsWith(CsvUtils.UTF8_BOM + "id,name\r\n");
+        assertThat(csv).endsWith("49999,row-49999\r\n");
+        assertThat(csv.split("\r\n")).as("表头 + 5 万数据行").hasSize(rowCount + 1);
+    }
+
+    @Test
+    @DisplayName("★ 流式 export 的响应头与响应体与既有字符串 export 完全一致")
+    void streamingExportShouldMatchStringExport() throws Exception {
+        List<String> headers = List.of("设备编码");
+        List<List<String>> rows = List.of(List.of("D-1"));
+
+        MockHttpServletResponse streaming = new MockHttpServletResponse();
+        CsvUtils.export(streaming, "设备台账", headers, rows);
+
+        MockHttpServletResponse buffered = new MockHttpServletResponse();
+        CsvUtils.export(buffered, "设备台账", CsvUtils.toCsv(headers, rows));
+
+        assertThat(streaming.getContentType()).isEqualTo(CsvUtils.CSV_CONTENT_TYPE);
+        assertThat(streaming.getCharacterEncoding()).isEqualTo("UTF-8");
+        assertThat(streaming.getHeader("Content-Disposition"))
+            .isEqualTo("attachment;filename*=utf-8''%E8%AE%BE%E5%A4%87%E5%8F%B0%E8%B4%A6.csv");
+        assertThat(streaming.getContentAsByteArray())
+            .isEqualTo(buffered.getContentAsByteArray())
+            .startsWith((byte) 0xEF, (byte) 0xBB, (byte) 0xBF);
+    }
+
+    @Test
+    @DisplayName("★ 流式 write 不关闭调用方输出流（关闭责任归调用方，与 write(OutputStream,String) 一致）")
+    void streamingWriteShouldNotCloseCallerStream() {
+        CloseTrackingOutputStream out = new CloseTrackingOutputStream();
+
+        CsvUtils.write(out, List.of("A"), List.of(List.of("1")));
+
+        assertThat(out.closed).isFalse();
+        assertThat(out.toByteArray())
+            .isEqualTo(CsvUtils.toCsv(List.of("A"), List.of(List.of("1"))).getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("★ 流式 write 的 IOException 包装为 IllegalStateException（保留原因，不静默吞）")
+    void streamingWriteShouldWrapIoException() {
+        OutputStream failing = new OutputStream() {
+            @Override
+            public void write(int b) throws IOException {
+                throw new IOException("disk full");
+            }
+        };
+
+        assertThatThrownBy(() -> CsvUtils.write(failing, List.of("A"), List.of(List.of("1"))))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("CSV 流式写入失败")
+            .hasCauseInstanceOf(IOException.class);
+    }
+
+    // ------------------------------------------------------------------ 测试辅助
+
+    private static byte[] stream(List<String> headers, Iterable<List<String>> rows) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        CsvUtils.write(out, headers, rows);
+        return out.toByteArray();
+    }
+
+    /** 逐行按需生成数据的最小实现：不预先持有全部行。 */
+    private static Iterable<List<String>> lazyRows(int count) {
+        return () -> new Iterator<>() {
+            private int index = 0;
+
+            @Override
+            public boolean hasNext() {
+                return index < count;
+            }
+
+            @Override
+            public List<String> next() {
+                List<String> row = List.of(String.valueOf(index), "row-" + index);
+                index++;
+                return row;
+            }
+        };
+    }
+
+    /** 只统计写出字节数、不保留内容的输出流：用于验证写入时机。 */
+    private static final class ByteCountingOutputStream extends OutputStream {
+
+        private long written;
+
+        @Override
+        public void write(int b) {
+            written++;
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) {
+            written += len;
+        }
+
+        long written() {
+            return written;
+        }
+    }
+
+    /** 记录是否被关闭的输出流：验证 write 不接管调用方流的生命周期。 */
+    private static final class CloseTrackingOutputStream extends ByteArrayOutputStream {
+
+        private boolean closed;
+
+        @Override
+        public void close() {
+            closed = true;
+        }
     }
 }

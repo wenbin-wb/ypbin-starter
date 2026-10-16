@@ -43,6 +43,9 @@ public class InternalTokenGuardWebMvcConfigurer implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         List<String> paths = properties.getEnvelopePathPatterns().stream()
             .filter(StringUtils::hasText)
+            // 与 InternalTokenGuardExcludePathProvider 一样 trim：两处口径必须一致，
+            // 否则配置项带首尾空格时会出现「Sa-Token 已豁免、守卫却匹配不上」的裸路径
+            .map(String::trim)
             .toList();
         if (paths.isEmpty()) {
             return;

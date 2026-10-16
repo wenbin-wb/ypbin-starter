@@ -18,6 +18,7 @@ package cn.ypbin.starter.license.autoconfigure;
 import cn.ypbin.starter.job.core.JobHandler;
 import cn.ypbin.starter.license.aspect.LicenseCheckAspect;
 import cn.ypbin.starter.license.core.LicenseManager;
+import cn.ypbin.starter.license.diagnostic.LicenseHealthIndicator;
 import cn.ypbin.starter.license.exception.LicenseErrorCode;
 import cn.ypbin.starter.license.exception.LicenseException;
 import cn.ypbin.starter.license.extension.FileLicenseStore;
@@ -37,6 +38,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
@@ -141,6 +143,24 @@ public class LicenseAutoConfiguration {
                 properties.getOnline().getCacheSeconds(), properties.getOnline().getFailOpenCacheSeconds(),
                 properties.getOnline().getFailOpenThreshold(), properties.getOnline().getFailOpenBackoffSeconds(),
                 properties.getOnline().getFailurePolicy());
+        }
+    }
+
+    /**
+     * Actuator 健康指示器：把授权状态与证书剩余有效天数暴露到 {@code /actuator/health}，
+     * 供 Prometheus / Grafana 做续期预警。
+     *
+     * <p>类级 {@code @ConditionalOnClass(HealthIndicator.class)}：Actuator 是<b>可选</b>依赖，
+     * 未引入时整个配置类被跳过，其 {@code @Bean} 方法不会被内省（避免 NoClassDefFoundError）。</p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(HealthIndicator.class)
+    static class ActuatorHealthConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public LicenseHealthIndicator licenseHealthIndicator(LicenseManager licenseManager) {
+            return new LicenseHealthIndicator(licenseManager);
         }
     }
 

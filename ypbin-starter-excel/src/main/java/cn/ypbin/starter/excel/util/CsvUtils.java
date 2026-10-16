@@ -16,8 +16,11 @@
 package cn.ypbin.starter.excel.util;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -155,6 +158,72 @@ public final class CsvUtils {
         }
     }
 
+    // ------------------------------------------------------------------ 流式导出
+
+    /**
+     * 流式写出 CSV：首部 BOM，逐行转义、写出，每行写出后立即 {@code flush}。
+     *
+     * <p><b>与 {@link #write(OutputStream, String)} 的区别（重载不冲突，语义不同）</b>：本方法接收
+     * 表头与数据行<b>边遍历边写</b>，不把全部内容拼成一个 {@code String}，堆内存占用只与单行宽度相关，
+     * 适合数万行以上的大导出；后者接收已经拼好的整段文本（通常来自 {@link #toCsv}），适合小数据量或
+     * 需要复用 CSV 文本的场景。每行 {@code flush} 的代价是底层写调用次数随行数增长，收益是下游（HTTP
+     * 客户端）能尽早收到数据、且不会在内存里堆积整份内容。</p>
+     *
+     * <p><b>与 {@link #toCsv} 逐字节一致</b>：同样先写 UTF-8 BOM（编码后为 {@code EF BB BF}），
+     * 逐单元格执行同一套 {@link #escapeCell}（公式注入中和 + RFC 4180 转义），行尾同样为
+     * {@link #LINE_SEPARATOR CRLF}。即 {@code write(out, headers, rows)} 与
+     * {@code write(out, toCsv(headers, rows))} 的输出字节完全相同。</p>
+     *
+     * <p><b>空值与空集合</b>：{@code headers}、{@code rows} 本身不可为 {@code null}；数据行与单元格
+     * 可为 {@code null}（{@code null} 单元格输出为空串）；{@code rows} 为空集合时至少输出 BOM 与表头。</p>
+     *
+     * <p><b>资源归属</b>：本方法<b>不关闭</b> {@code outputStream}，关闭责任归调用方（与
+     * {@link #write(OutputStream, String)} 一致）。写入失败时以 {@link IllegalStateException}
+     * 包装原始 {@link IOException} 抛出，不做静默吞掉或部分成功假装成功。</p>
+     *
+     * @param outputStream 输出流（本方法不关闭它）
+     * @param headers      表头（不可为 {@code null}；元素不可为 {@code null}）
+     * @param rows         数据行（不可为 {@code null}，可为空集合；行内单元格可为 {@code null}）
+     */
+    public static void write(
+        OutputStream outputStream, List<String> headers, Iterable<List<@Nullable String>> rows) {
+        Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+        try {
+            writer.write(UTF8_BOM);
+            writeRow(writer, headers);
+            writer.flush();
+            for (List<@Nullable String> row : rows) {
+                writeRow(writer, row);
+                writer.flush();
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("CSV 流式写入失败", e);
+        }
+    }
+
+    /**
+     * 流式导出 CSV 到 HTTP 响应（浏览器下载）。
+     *
+     * <p>响应头处理（{@link #CSV_CONTENT_TYPE}、RFC 5987 编码的文件名、{@link #CSV_EXTENSION}）与
+     * {@link #export(HttpServletResponse, String, String)} 完全一致，唯一区别是数据经
+     * {@link #write(OutputStream, List, Iterable)} 流式写出而非先拼成整段文本；两者对同一份数据
+     * 产生相同的响应体字节。</p>
+     *
+     * @param response HTTP 响应
+     * @param fileName 文件名（不含扩展名）
+     * @param headers  表头（不可为 {@code null}；元素不可为 {@code null}）
+     * @param rows     数据行（不可为 {@code null}，可为空集合；行内单元格可为 {@code null}）
+     */
+    public static void export(
+        HttpServletResponse response, String fileName, List<String> headers, Iterable<List<@Nullable String>> rows) {
+        DownloadResponses.prepare(response, fileName, CSV_CONTENT_TYPE, CSV_EXTENSION);
+        try {
+            write(response.getOutputStream(), headers, rows);
+        } catch (IOException e) {
+            throw new IllegalStateException("CSV 导出失败：" + fileName, e);
+        }
+    }
+
     // ------------------------------------------------------------------ 内部实现
 
     private static void appendRow(StringBuilder csv, List<@Nullable String> cells) {
@@ -165,6 +234,20 @@ public final class CsvUtils {
             csv.append(escapeCell(cells.get(i)));
         }
         csv.append(LINE_SEPARATOR);
+    }
+
+    /**
+     * 与 {@link #appendRow} 完全同构的流式版本：同一转义、同一分隔符、同一 CRLF 行尾，
+     * 保证两条路径逐字节一致（差异只在「拼 String」与「写 Writer」）。
+     */
+    private static void writeRow(Writer writer, List<@Nullable String> cells) throws IOException {
+        for (int i = 0; i < cells.size(); i++) {
+            if (i > 0) {
+                writer.write(',');
+            }
+            writer.write(escapeCell(cells.get(i)));
+        }
+        writer.write(LINE_SEPARATOR);
     }
 
     /** 单元格是否需按 RFC 4180 加引号：含分隔符、引号或换行。 */

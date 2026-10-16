@@ -1,0 +1,10 @@
+# ypbin-starter 启动诊断器注册。
+#
+# Boot 通过 FailureAnalyzers(ConfigurableApplicationContext) 构造器中的
+# SpringFactoriesLoader.forDefaultResourceLocation(classLoader) 加载本文件
+# （META-INF/spring.factories 仍是 Boot 4 的 FailureAnalyzer 官方注册位置）。
+#
+# 作用：把启动期 LicenseException 的数百行底层堆栈，转成官方风格的
+# Description + Action 提示框（见 LicenseStartupFailureAnalyzer）。
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+cn.ypbin.starter.license.diagnostic.LicenseStartupFailureAnalyzer

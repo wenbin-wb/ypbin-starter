@@ -18,6 +18,10 @@ package cn.ypbin.starter.messaging.sse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.micrometer.context.ContextRegistry;
 import io.micrometer.context.ThreadLocalAccessor;
 import java.io.IOException;
@@ -29,12 +33,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.apache.catalina.connector.ClientAbortException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Hooks;
 import reactor.core.scheduler.Schedulers;
 
 /**
@@ -243,6 +251,191 @@ class SseStreamBridgeTest {
         assertThat(emitter.awaitCompletion()).isTrue();
         assertThat(emitter.fragments()).as("关闭后不得发出任何错误帧").isEmpty();
         assertThat(emitter.completed.get()).isTrue();
+    }
+
+    @Test
+    @DisplayName("★ 错误信号被订阅者消费：不触发 Reactor onErrorDropped 全局兜底（错误不再无人消费）")
+    void streamErrorIsConsumedAndNeverDropped() throws Exception {
+        RecordingEmitter emitter = new RecordingEmitter();
+        List<Throwable> dropped = new CopyOnWriteArrayList<>();
+        // 复现原缺陷：doOnError 只是副作用算子，无 errorConsumer 时错误会冒泡到全局 onErrorDropped
+        Hooks.onErrorDropped(dropped::add);
+        try {
+            bridgeFor(emitter).stream(Flux.<String>error(new IllegalStateException("上游故障")),
+                SseStreamOptions.defaults());
+
+            assertThat(emitter.awaitCompletion()).isTrue();
+            assertThat(dropped).as("★ 错误信号无人消费：Reactor 走了 onErrorDropped 全局兜底").isEmpty();
+            assertThat(emitter.fragments()).as("错误帧仍按契约发出").contains("event:error\ndata:", "对话出错：上游故障");
+        } finally {
+            Hooks.resetOnErrorDropped();
+        }
+    }
+
+    @Test
+    @DisplayName("★ 客户端断开（容器类名命中）：不补发错误帧，日志降级 DEBUG 且不带完整堆栈")
+    void clientDisconnectSkipsErrorFrameAndDowngradesLog() throws Exception {
+        RecordingEmitter emitter = new RecordingEmitter();
+        try (LogCapture logs = new LogCapture()) {
+            // 客户端中止由容器以 ClientAbortException 抛出（按类名命中）；上游判定不看消息文案
+            bridgeFor(emitter).stream(Flux.<String>error(new ClientAbortException()),
+                SseStreamOptions.defaults());
+
+            assertThat(emitter.awaitCompletion()).isTrue();
+            assertThat(emitter.fragments()).as("★ 连接已断：不得向死连接补发错误帧").isEmpty();
+            assertThat(emitter.completed.get()).as("仍须结束响应，不能挂死").isTrue();
+            assertThat(logs.events(Level.ERROR)).as("客户端断开不得刷 ERROR").isEmpty();
+            assertThat(logs.events(Level.WARN)).as("客户端断开不得刷 WARN").isEmpty();
+            assertThat(logs.events(Level.DEBUG)).as("应降级为低噪声日志").isNotEmpty();
+            assertThat(logs.events()).allSatisfy(event ->
+                assertThat(event.getThrowableProxy()).as("降级日志不得携带完整堆栈").isNull());
+        }
+    }
+
+    @Test
+    @DisplayName("★ 上游 IOException(\"Connection reset\")：属服务端真实故障，必须 ERROR + 完整堆栈 + 错误帧")
+    void upstreamConnectionResetIsNotSilencedAsClientDisconnect() throws Exception {
+        RecordingEmitter emitter = new RecordingEmitter();
+        try (LogCapture logs = new LogCapture()) {
+            // 上游服务端（模型 API / 下游 HTTP）重置连接的典型形态；不得按消息启发式降级
+            bridgeFor(emitter).stream(Flux.<String>error(new IOException("Connection reset")),
+                SseStreamOptions.defaults());
+
+            assertThat(emitter.awaitCompletion()).isTrue();
+            assertThat(emitter.fragments())
+                .as("★ 上游重置连接不得被当成客户端断开：必须补发错误帧，否则客户端看到被截断却「正常结束」的流")
+                .containsSubsequence("event:error\ndata:", "对话出错：Connection reset", "\n\n");
+            assertThat(logs.events(Level.ERROR)).as("上游真实故障必须有 ERROR 记录").isNotEmpty();
+            assertThat(logs.events(Level.ERROR)).anySatisfy(event ->
+                assertThat(event.getThrowableProxy()).as("★ 必须保留完整堆栈，不得只留 message").isNotNull());
+            assertThat(logs.events(Level.DEBUG)).as("★ 上游真实故障不得降级为 DEBUG").isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("★ 客户端断开（容器异步异常）：同样跳过错误帧并降级")
+    void asyncRequestNotUsableSkipsErrorFrame() throws Exception {
+        RecordingEmitter emitter = new RecordingEmitter();
+        try (LogCapture logs = new LogCapture()) {
+            bridgeFor(emitter).stream(
+                Flux.<String>error(new AsyncRequestNotUsableException("Servlet 异步请求不再可用")),
+                SseStreamOptions.defaults());
+
+            assertThat(emitter.awaitCompletion()).isTrue();
+            assertThat(emitter.fragments()).as("★ 连接已不可用：不得补发错误帧").isEmpty();
+            assertThat(logs.events(Level.ERROR)).isEmpty();
+            assertThat(logs.events(Level.WARN)).isEmpty();
+            assertThat(logs.events(Level.DEBUG)).isNotEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("★ 服务端真实故障：仍发错误帧，并保留 ERROR + 完整堆栈（可观测性不降级）")
+    void serverFaultKeepsErrorFrameAndFullStack() throws Exception {
+        RecordingEmitter emitter = new RecordingEmitter();
+        try (LogCapture logs = new LogCapture()) {
+            bridgeFor(emitter).stream(Flux.<String>error(new IllegalStateException("模型服务不可用")),
+                SseStreamOptions.defaults());
+
+            assertThat(emitter.awaitCompletion()).isTrue();
+            assertThat(emitter.fragments()).as("服务端故障仍须发错误帧（对外契约不变）")
+                .containsSubsequence("event:error\ndata:", "对话出错：模型服务不可用", "\n\n");
+            assertThat(logs.events(Level.ERROR)).as("服务端故障必须有 ERROR 记录").isNotEmpty();
+            assertThat(logs.events(Level.ERROR)).anySatisfy(event ->
+                assertThat(event.getThrowableProxy()).as("★ 必须保留完整堆栈，不得只留 message").isNotNull());
+        }
+    }
+
+    @Test
+    @DisplayName("★ 发送路径断开（Broken pipe）：日志降级 DEBUG 且不带堆栈，仍释放上游订阅，且不发错误帧")
+    void sendFailureOnDisconnectIsDowngraded() throws Exception {
+        RecordingEmitter emitter = new RecordingEmitter();
+        emitter.failOnSend = true;
+        emitter.sendFailure = new IOException("Broken pipe");
+        try (LogCapture logs = new LogCapture()) {
+            CountDownLatch cancelled = new CountDownLatch(1);
+            AtomicInteger emitted = new AtomicInteger();
+            FluxSink<String>[] sinkRef = newSinkRef();
+
+            bridgeFor(emitter).stream(fluxThroughSink(sinkRef, emitted, cancelled), SseStreamOptions.defaults());
+            sinkRef[0].next("boom");
+
+            assertThat(cancelled.await(AWAIT_MILLIS, TimeUnit.MILLISECONDS))
+                .as("发送失败说明连接已断，必须释放上游订阅").isTrue();
+            assertThat(emitter.fragments()).as("★ 客户端已断：不得补发错误帧").isEmpty();
+            assertThat(logs.events(Level.ERROR)).isEmpty();
+            assertThat(logs.events(Level.WARN)).as("断开类发送失败不得刷 WARN").isEmpty();
+            assertThat(logs.events(Level.DEBUG)).isNotEmpty();
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrowableProxy()).isNull());
+        }
+    }
+
+    @Test
+    @DisplayName("★ 错误帧补发失败：断开类降级 DEBUG；其余异常仍 WARN + 完整堆栈")
+    void errorFrameSendFailureIsClassified() throws Exception {
+        RecordingEmitter disconnected = new RecordingEmitter();
+        disconnected.failOnSend = true;
+        disconnected.sendFailure = new AsyncRequestNotUsableException("连接已不可用");
+        try (LogCapture logs = new LogCapture()) {
+            SseStreamBridge.sendErrorFrame(disconnected, "文案", SseStreamOptions.defaults());
+            assertThat(logs.events(Level.WARN)).as("连接已断不得刷 WARN").isEmpty();
+            assertThat(logs.events(Level.DEBUG)).isNotEmpty();
+        }
+
+        RecordingEmitter broken = new RecordingEmitter();
+        broken.failOnSend = true;
+        broken.sendFailure = new IOException("序列化失败");
+        try (LogCapture logs = new LogCapture()) {
+            SseStreamBridge.sendErrorFrame(broken, "文案", SseStreamOptions.defaults());
+            assertThat(logs.events(Level.WARN)).as("发送链路自身异常不得静默").isNotEmpty();
+            assertThat(logs.events(Level.WARN)).anySatisfy(event ->
+                assertThat(event.getThrowableProxy()).isNotNull());
+        }
+    }
+
+    @Test
+    @DisplayName("★ 上游断开判定只认类型/类名：IOException 的消息形态一律不算（防服务端重置被静默）")
+    void upstreamDisconnectDetectionIsTypeOnly() {
+        assertThat(SseStreamBridge.isClientDisconnectFromUpstream(
+            new AsyncRequestNotUsableException("异步请求已不可用"))).isTrue();
+        assertThat(SseStreamBridge.isClientDisconnectFromUpstream(new ClientAbortException()))
+            .as("Tomcat 容器中止按类名命中").isTrue();
+        assertThat(SseStreamBridge.isClientDisconnectFromUpstream(new RuntimeException("包装两层",
+            new IllegalStateException("中层", new AsyncRequestNotUsableException("异步请求已不可用")))))
+            .as("cause 链逐层判定").isTrue();
+
+        // 关键差异：上游 IOException 的消息形态不得判为客户端断开——上游服务端同样会发这些消息
+        assertThat(SseStreamBridge.isClientDisconnectFromUpstream(new IOException("Broken pipe")))
+            .as("★ 上游 Broken pipe 也可能是服务端侧断开，不得按消息降级").isFalse();
+        assertThat(SseStreamBridge.isClientDisconnectFromUpstream(new IOException("Connection reset by peer")))
+            .as("★ 上游 Connection reset 是模型 API/下游 HTTP 重置连接的典型形态，必须走 ERROR").isFalse();
+        assertThat(SseStreamBridge.isClientDisconnectFromUpstream(new IllegalStateException("模型服务不可用")))
+            .isFalse();
+        assertThatThrownBy(() -> SseStreamBridge.isClientDisconnectFromUpstream(null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("★ 发送路径断开判定：类型/类名 + IOException 消息启发式（含 cause 链）")
+    void writePathDisconnectDetectionUsesMessageHeuristic() {
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new AsyncRequestNotUsableException("异步请求已不可用")))
+            .isTrue();
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new IOException("Broken pipe"))).isTrue();
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new IOException("Connection reset by peer"))).isTrue();
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new RuntimeException("包装两层",
+            new IllegalStateException("中层", new IOException("Connection reset")))))
+            .as("cause 链逐层判定").isTrue();
+        // Tomcat 的 ClientAbortException 不在 messaging 编译期 classpath：按类名命中。
+        // 该类型由测试替身提供（org.apache.catalina.connector.ClientAbortException，仅同名，非真实容器类）
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new ClientAbortException())).isTrue();
+
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new IllegalStateException("模型服务不可用")))
+            .as("服务端真实故障不得误判为断开").isFalse();
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new IOException("connect timed out")))
+            .as("连接超时属服务端/网络故障，不得降级为客户端断开").isFalse();
+        assertThat(SseStreamBridge.isClientDisconnectOnWrite(new NullPointerException())).isFalse();
+        assertThatThrownBy(() -> SseStreamBridge.isClientDisconnectOnWrite(null))
+            .isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -471,6 +664,9 @@ class SseStreamBridgeTest {
         /** 是否让后续 send 抛错（复现「客户端已断开」）。 */
         volatile boolean failOnSend;
 
+        /** 发送失败时抛出的异常（默认 {@code IOException("client aborted")}；可换成真实断开形态）。 */
+        volatile IOException sendFailure = new IOException("client aborted");
+
         /** 可选探针：非空时记录每次发帧时当前线程读到的值（验证上下文传播）。 */
         volatile ThreadLocal<String> contextProbe;
 
@@ -516,7 +712,7 @@ class SseStreamBridgeTest {
         @Override
         public void send(SseEventBuilder builder) throws IOException {
             if (failOnSend) {
-                throw new IOException("client aborted");
+                throw sendFailure;
             }
             ThreadLocal<String> probe = contextProbe;
             if (probe != null) {
@@ -530,7 +726,7 @@ class SseStreamBridgeTest {
         @Override
         public void send(Object object) throws IOException {
             if (failOnSend) {
-                throw new IOException("client aborted");
+                throw sendFailure;
             }
             // 生产路径走 send(builder)；此重载仅为完整性保留（若被调用则等价于 data: 帧）
             fragments.add("data:");
@@ -591,5 +787,42 @@ class SseStreamBridgeTest {
                 threadLocal.remove();
             }
         });
+    }
+
+    /**
+     * 桥接日志捕获：把 {@link SseStreamBridge} 的 logger 临时调到 DEBUG 并挂 {@link ListAppender}。
+     *
+     * <p>logback 的级别过滤早于 appender，不调级别就断言不到降级后的 DEBUG；{@link #close()} 恢复原级别
+     * 并摘除 appender，避免污染其它用例。</p>
+     */
+    static final class LogCapture implements AutoCloseable {
+
+        private final Logger logger;
+        private final Level previousLevel;
+        private final ListAppender<ILoggingEvent> appender;
+
+        LogCapture() {
+            this.logger = (Logger) LoggerFactory.getLogger(SseStreamBridge.class);
+            this.previousLevel = logger.getLevel();
+            this.appender = new ListAppender<>();
+            appender.start();
+            logger.setLevel(Level.DEBUG);
+            logger.addAppender(appender);
+        }
+
+        List<ILoggingEvent> events() {
+            return new ArrayList<>(appender.list);
+        }
+
+        List<ILoggingEvent> events(Level level) {
+            return events().stream().filter(event -> event.getLevel() == level).toList();
+        }
+
+        @Override
+        public void close() {
+            logger.detachAppender(appender);
+            appender.stop();
+            logger.setLevel(previousLevel);
+        }
     }
 }

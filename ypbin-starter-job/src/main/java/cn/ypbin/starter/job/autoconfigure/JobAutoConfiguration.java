@@ -50,7 +50,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  * @since 2026-08-01
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.job", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = JobProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(JobProperties.class)
 public class JobAutoConfiguration {
 

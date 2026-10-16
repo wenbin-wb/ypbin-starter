@@ -220,6 +220,11 @@ public final class AsyncUtils {
     /**
      * 等待所有 future 完成。
      *
+     * <p><strong>语义提醒</strong>：{@code CompletableFuture.allOf} 的契约是「所有 future 都完成后」才完成，
+     * 任一个失败不会使其提前失败——因此 {@code join()} 抛出时集合内所有 future 均已完成（已在 JDK 21
+     * 实测确认，见 {@code AsyncUtilsTest#joinAllShouldWaitForAllFuturesBeforeThrowing}）。
+     * 若需「首个失败即返回」，请勿依赖本方法，应改用带超时/竞速的编排方式。
+     *
      * @param futures future 集合
      * @return 聚合 future
      */
@@ -239,6 +244,10 @@ public final class AsyncUtils {
 
     /**
      * 阻塞收集所有 future 的结果（顺序保持）。
+     *
+     * <p>本方法通过 {@code allOf} 等待全部 future 完成后返回结果；任一 future 失败时，等其余 future
+     * 全部结束后抛出与 {@code CompletableFuture.join()} 一致的 {@link CompletionException}，不额外取消
+     * 任何 future——抛出时不存在「在途」future，无可取消对象（详见 {@link #allOf} 的语义提醒）。
      *
      * @param futures future 列表
      * @param <T>     结果类型

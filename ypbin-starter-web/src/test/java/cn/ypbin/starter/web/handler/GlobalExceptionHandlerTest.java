@@ -22,13 +22,20 @@ import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import cn.ypbin.starter.web.autoconfigure.WebDefaultsEnvironmentPostProcessor;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.support.StandardServletEnvironment;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * 全局异常处理器与 Web 默认环境后置处理测试。
@@ -63,6 +70,71 @@ class GlobalExceptionHandlerTest {
         R<Void> result = handler.handleMethodNotSupported(
             new HttpRequestMethodNotSupportedException("GET"));
         assertThat(result.getCode()).isEqualTo(405);
+    }
+
+    @Test
+    void messageNotReadableShouldReturnBadRequest() {
+        HttpMessageNotReadableException e = new HttpMessageNotReadableException(
+            "JSON parse error", new MockHttpInputMessage(new byte[0]));
+
+        R<Void> result = handler.handleMessageNotReadable(e, request);
+
+        assertThat(result.getCode()).isEqualTo(GlobalErrorCode.BAD_REQUEST.getCode());
+        assertThat(result.getMessage()).contains("请求体");
+    }
+
+    @Test
+    void argumentTypeMismatchShouldReturnBadRequest() throws NoSuchMethodException {
+        MethodArgumentTypeMismatchException e = new MethodArgumentTypeMismatchException(
+            "abc", Long.class, "orderId", sampleParameter(), null);
+
+        R<Void> result = handler.handleArgumentTypeMismatch(e, request);
+
+        assertThat(result.getCode()).isEqualTo(GlobalErrorCode.BAD_REQUEST.getCode());
+        assertThat(result.getMessage()).isEqualTo("请求参数类型不正确：orderId");
+    }
+
+    @Test
+    void argumentTypeMismatchWithoutParameterNameShouldStillReturnBadRequest() throws NoSuchMethodException {
+        MethodArgumentTypeMismatchException e = new MethodArgumentTypeMismatchException(
+            "abc", Long.class, null, sampleParameter(), null);
+
+        R<Void> result = handler.handleArgumentTypeMismatch(e, request);
+
+        assertThat(result.getCode()).isEqualTo(GlobalErrorCode.BAD_REQUEST.getCode());
+        assertThat(result.getMessage()).isEqualTo("请求参数类型不正确");
+    }
+
+    @Test
+    void missingParameterShouldReturnBadRequest() {
+        MissingServletRequestParameterException e =
+            new MissingServletRequestParameterException("orderId", "Long");
+
+        R<Void> result = handler.handleMissingParameter(e, request);
+
+        assertThat(result.getCode()).isEqualTo(GlobalErrorCode.BAD_REQUEST.getCode());
+        assertThat(result.getMessage()).isEqualTo("缺少必填参数：orderId");
+    }
+
+    @Test
+    void maxUploadSizeExceededShouldReturnPayloadTooLarge() {
+        R<Void> result = handler.handleMaxUploadSizeExceeded(
+            new MaxUploadSizeExceededException(1024L), request);
+
+        // 413 与 Spring 7 自身的 getStatusCode() 口径一致（而非 400），同时不得是 500
+        assertThat(result.getCode()).isEqualTo(GlobalErrorCode.PAYLOAD_TOO_LARGE.getCode());
+        assertThat(result.getMessage()).contains("超出大小限制");
+    }
+
+    /** 仅用于构造 {@link MethodParameter} 的桩方法（不参与测试执行）。 */
+    @SuppressWarnings("unused")
+    private void sampleHandler(String orderId) {
+        // 桩方法
+    }
+
+    private static MethodParameter sampleParameter() throws NoSuchMethodException {
+        Method method = GlobalExceptionHandlerTest.class.getDeclaredMethod("sampleHandler", String.class);
+        return new MethodParameter(method, 0);
     }
 
     @Test

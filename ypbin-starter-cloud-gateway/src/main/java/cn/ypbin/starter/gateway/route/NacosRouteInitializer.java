@@ -20,7 +20,9 @@ import com.alibaba.nacos.api.config.listener.Listener;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +34,7 @@ import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.cloud.gateway.route.RouteDefinitionWriter;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
+import org.springframework.util.ObjectUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.core.JacksonException;
@@ -42,7 +45,8 @@ import tools.jackson.databind.ObjectMapper;
  * Nacos 动态路由初始化器。
  *
  * <p>应用启动时从 Nacos 配置中心加载 Gateway 路由定义（JSON 数组格式），并注册配置变更监听器。
- * 当 Nacos 配置变更时自动清理旧路由、写入新路由并发布 {@link RefreshRoutesEvent}。
+ * 当 Nacos 配置变更时按「先写入新路由（同 id 覆盖）→ 再删除『旧有新无』的 id → 最后发布刷新事件」的
+ * 原子增量方式生效，任何时刻网关内存中都保留一套完整可用路由。
  * Json 解析失败、配置为空或为合法空列表 {@code []} 时均保留当前路由（仅告警），避免因配置错误或
  * 误配把网关路由全量打空；多来源并发应用由内部串行化保证不交错。</p>
  *
@@ -55,7 +59,7 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
 
     private static final TypeReference<List<RouteDefinition>> ROUTE_LIST_TYPE = new TypeReference<>() {};
 
-    /** 单批路由应用（delete-all→save-all）的超时上限（秒），防止路由存储挂起时无限阻塞 */
+    /** 单批路由应用（增量 save→delete→发布事件）的超时上限（秒），防止路由存储挂起时无限阻塞 */
     private static final long ROUTE_APPLY_TIMEOUT_SECONDS = 10L;
 
     private final ConfigService configService;
@@ -141,16 +145,28 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
     }
 
     /**
-     * 应用一批 Nacos 路由：先全量删除旧路由，再写入新路由，最后发布 {@link RefreshRoutesEvent}。
+     * 应用一批 Nacos 路由（原子增量）：先 {@code save} 全部新路由（同 id 覆盖），全部成功后
+     * 再 {@code delete}「旧有新无」的 id，最后发布 {@link RefreshRoutesEvent}。
+     *
+     * <p><strong>为什么不是 delete-all→save-all</strong>：先清空再写入会留出「内存中一条路由都没有」的
+     * 窗口（在途请求 404），且新路由任一条 {@code save} 失败时旧路由已全部删除 ⇒ 全站路由丢失。
+     * 改为增量后，任何时刻内存中都保留一套完整可用路由：{@code save} 阶段只是覆盖/新增，旧路由仍在；
+     * 只有全部 {@code save} 成功才会删除确实被下线的 id；{@code save} 失败则一条旧路由都不会被删除。</p>
      *
      * <p><strong>串行化取舍</strong>：启动 {@link #run(ApplicationArguments)} 与 Nacos 监听回调可能并发触发，
-     * 若两批 delete-all→save-all 异步交错会互相覆盖导致路由状态不一致。此处用 {@code synchronized} 包住
-     * 整条流水线并阻塞等待其完成（路由写库为本地内存/Redis 操作，耗时可控），使每次应用严格串行、最终
-     * 状态收敛到最后一次进入的配置；比「版本号丢弃过期批次」更简单——版本号方案仍须解决异步链间串行，
-     * 复杂度不降反升。</p>
+     * 若两批增量相互交错会互相覆盖导致路由状态不一致。此处用 {@code synchronized} 包住整条流水线并阻塞
+     * 等待其完成（路由写库为本地内存/Redis 操作，耗时可控），使每次应用严格串行、最终状态收敛到最后一次
+     * 进入的配置；比「版本号丢弃过期批次」更简单——版本号方案仍须解决异步链间串行，复杂度不降反升。</p>
      *
      * <p>合法空列表（如 {@code []}）视为"清空意图不明确"，与 blank/解析失败策略一致：保留当前路由并告警，
      * 避免运维误配或中间态空配置导致网关路由全量丢失。需要显式清空全部路由的场景另行提供专门的清空入口。</p>
+     *
+     * <p><strong>空 id 条目的处理</strong>：进入 {@code save} 流水线前先丢弃 id 为空的
+     * {@link RouteDefinition} 并计数告警。真实 {@code InMemoryRouteDefinitionRepository.save} 对
+     * {@code ObjectUtils.isEmpty(id)} 会直接以 {@code IllegalArgumentException("id may not be empty")}
+     * 失败，一条坏条目会让整批新路由全部不生效（虽然 fail-safe 保证旧路由不会被删）。过滤后若一条有效路由
+     * 都不剩，则按上面的「空列表」语义处理：保留当前路由并告警、不发刷新事件。{@code newRouteIds} 只由
+     * 过滤后的有效路由构成，故「旧有新无」的删除判定不受被丢弃条目的影响。</p>
      *
      * @param config Nacos 配置内容（JSON 路由数组）
      */
@@ -160,21 +176,50 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
             log.error("[ypbin-starter] Nacos route config JSON parse failed, keeping current routes.");
             return;
         }
-        List<RouteDefinition> newRoutes = parsed.get();
-        if (newRoutes.isEmpty()) {
+        List<RouteDefinition> parsedRoutes = parsed.get();
+        if (parsedRoutes.isEmpty()) {
             // 空列表不清空：与 blank/解析失败一致保留当前路由，仅告警（防误清全量路由）
             log.warn("[ypbin-starter] Nacos route config is an empty list, keeping current routes.");
             return;
         }
+        // id 为空的 RouteDefinition 必须在这里拦下：真实 InMemoryRouteDefinitionRepository.save 对
+        // ObjectUtils.isEmpty(id) 会 Mono.error(IllegalArgumentException("id may not be empty"))，
+        // 整批 save 因此中止（fail-safe 下旧路由不会删，但该批新路由也全部不生效）。旧路由列表早就用
+        // Mono.justOrEmpty 滤掉 null id，新配置此前漏了同一道闸。显式丢弃并计数告警，绝不静默吞掉。
+        List<RouteDefinition> newRoutes = parsedRoutes.stream()
+            .filter(route -> !ObjectUtils.isEmpty(route.getId()))
+            .toList();
+        int droppedCount = parsedRoutes.size() - newRoutes.size();
+        if (droppedCount > 0) {
+            log.warn("[ypbin-starter] Nacos route config 中有 {} 条路由的 id 为空，已丢弃这些条目（真实路由存储"
+                + "会以 IllegalArgumentException(\"id may not be empty\") 拒绝它们并中止整批）；剩余有效路由 {} 条，"
+                + "继续应用，请检查配置中的 id 字段。", droppedCount, newRoutes.size());
+        }
+        if (newRoutes.isEmpty()) {
+            // 全部条目的 id 都为空 ⇒ 过滤后没有任何有效新路由，按「空列表」既有语义处理：
+            // 保留当前路由并告警，不发刷新事件（防止一份全空的配置把已有路由删空）
+            log.warn("[ypbin-starter] Nacos route config 过滤空 id 后没有有效路由，保持当前路由不变。");
+            return;
+        }
+        Set<String> newRouteIds = newRoutes.stream()
+            .map(RouteDefinition::getId)
+            .collect(Collectors.toSet());
         try {
-            // block(Duration) 等整条 delete-all→save-all 流水线完成后再返回，保证与下一批应用互斥
-            // 且不交错；带超时避免路由存储实现挂起时无限阻塞启动/监听线程
+            // 原子增量：先 save 全部新路由（同 id 覆盖），全部成功后才 delete「旧有新无」的 id，
+            // 最后才发布刷新事件。没有「先清空」的窗口，save 失败时旧路由一条都不会被删除。
+            // block(Duration) 等整条流水线完成后再返回，保证与下一批应用互斥且不交错；
+            // 带超时避免路由存储实现挂起时无限阻塞启动/监听线程。
             routeDefinitionLocator.getRouteDefinitions()
-                .flatMap(rd -> Mono.justOrEmpty(rd.getId()).flatMap(id -> routeDefinitionWriter.delete(Mono.just(id))))
+                // 用 flatMap + justOrEmpty 而非 map：reactor 的 map 不允许映射出 null，
+                // 而无 id 的 RouteDefinition 会让 map 直接抛 NPE 并中断整批应用
+                .flatMap(rd -> Mono.justOrEmpty(rd.getId()))
                 .collectList()
-                .flatMapMany(unused -> Flux.fromIterable(newRoutes))
-                .flatMap(rd -> routeDefinitionWriter.save(Mono.just(rd)))
-                .collectList()
+                .flatMapMany(oldRouteIds -> Flux.fromIterable(newRoutes)
+                    .flatMap(rd -> routeDefinitionWriter.save(Mono.just(rd)))
+                    .thenMany(Flux.fromIterable(oldRouteIds)
+                        .filter(id -> !newRouteIds.contains(id))
+                        .flatMap(id -> routeDefinitionWriter.delete(Mono.just(id)))))
+                .then()
                 .block(Duration.ofSeconds(ROUTE_APPLY_TIMEOUT_SECONDS));
             ApplicationEventPublisher publisher = eventPublisher;
             if (publisher == null) {
@@ -184,9 +229,11 @@ public class NacosRouteInitializer implements ApplicationRunner, ApplicationEven
             publisher.publishEvent(new RefreshRoutesEvent(this));
             log.info("[ypbin-starter] Nacos dynamic routes refreshed: {} routes.", newRoutes.size());
         } catch (Exception e) {
-            // delete-all→save-all 非原子：中途失败时旧路由可能已被部分/全部删除，日志如实描述，
-            // 提示检查路由存储状态，等待下一次配置推送或人工恢复，不做"仍在生效"的误导性声明
-            log.error("[ypbin-starter] Failed to apply Nacos routes (may be partially applied/cleared). "
+            // 增量应用的失败状态可如实描述：delete 只发生在全部 save 成功之后，故旧路由一条都不会被删除、
+            // 内存中仍保留一套可用路由；新路由可能已部分写入（同 id 已覆盖）。不做"完全未生效"或
+            // "已被清空"的误导性声明。
+            log.error("[ypbin-starter] Failed to apply Nacos routes incrementally: stopped before deleting stale "
+                + "routes, so old routes are kept (some new routes may already be saved/overwritten). "
                 + "Check route storage and Nacos config. routes={}", newRoutes.size(), e);
         }
     }

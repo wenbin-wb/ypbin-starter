@@ -66,6 +66,23 @@ import org.junit.jupiter.api.Test;
  * 自动配置提供且无顺序声明；若把第三方混进 Boot 表并把提供者写成<b>仓内</b>类，报错指引会把人引向
  * 「给已经有序的那一侧加注解」。</p>
  *
+ * <p><b>2026-10-16 反向校验（本门禁曾经的假保护）</b>：原规则只做单向判定
+ * （registry 的提供者 ⊆ 注解中出现的 FQCN），于是<b>在 {@code @AutoConfigureAfter(name={...})} 里多加一个
+ * 不存在/拼错的 FQCN，门禁依旧全绿</b>——多出的名字被 Boot 的 {@code AutoConfigurationSorter} 按全限定名
+ * 求交时静默忽略（写了等于没写），却给人一种「顺序已声明」的错觉。现补充反向判定：对每个守卫类，
+ * 其 {@code @AutoConfigureAfter} 的 {@code name = "..."} 字面量集合必须<b>恰等于</b>该守卫类所守卫的
+ * 全部登记类型的提供者<b>并集</b>，多出的 FQCN 判违规并逐个列出。</p>
+ *
+ * <p><b>判定口径（以守卫类为单位配对判定）</b>：设守卫类 C 实际判定的登记类型集合为 {@code types(C)}，
+ * 该类的 {@code name} 字面量集合为 {@code declared(C)}，登记表中类型 T 的提供者集合为 {@code P(T)}，
+ * 则要求 {@code declared(C) == ∪{P(T) | T ∈ types(C)}}（正向 = 每个 P(T) 都被点全；反向 = 无多余）。
+ * 跨类并集仅在<b>单个守卫类内部</b>对多类型取并（如 {@code AiChatAutoConfiguration} 同时守卫
+ * {@code ChatModel} 与 {@code ChatMemory}）；本仓当前不存在「同一类型由多个守卫类各声明部分提供者」的
+ * 情形。若将来出现，本门禁要求<b>每个</b>守卫类各自点全该类型的提供者——这与 {@code @ConditionalOnBean}
+ * 的语义一致：每个守卫类的条件都必须在它自己的处理时刻看得见全部提供者，别的类声明了不算数；
+ * 报错会写明该守卫类缺失的提供者。反向判定的对象仅限 {@code name = "FQCN"} 字面量，
+ * {@code value = X.class} 的仓内类引用（编译期可见、语义不同的另一条路径）不参与比较。</p>
+ *
  * @author wenbin
  * @since 2026-10-15
  */
@@ -104,6 +121,15 @@ class AutoConfigurationOrderingTest {
     /** {@code @ConditionalOnBean(...)} 注解块（捕获括号内原文，含多类型写法）。 */
     private static final Pattern CONDITIONAL_ON_BEAN =
         Pattern.compile("@ConditionalOnBean\\s*\\(([^)]*)\\)");
+
+    /**
+     * {@code @AutoConfigureAfter} / {@code @AutoConfigureBefore} 注解正文里的 FQCN 字符串字面量。
+     *
+     * <p>只匹配「形如全限定类名」的字面量（至少含一个包分隔点、每段均为 Java 标识符），
+     * 用于反向校验；{@code value = X.class} 的类字面量不是字符串，天然不参与。</p>
+     */
+    private static final Pattern FQCN_LITERAL =
+        Pattern.compile("\"([A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)+)\"");
 
     /** class 声明（用于把注解归属到类）。 */
     private static final Pattern CLASS_DECLARATION = Pattern.compile(
@@ -178,16 +204,60 @@ class AutoConfigurationOrderingTest {
      */
     private static Map<String, Set<String>> buildThirdPartyProvidedTypes() {
         Map<String, Set<String>> types = new LinkedHashMap<>();
-        // 2026-10-16 登记（独立验收保留项 E 的跟进）：一手取证确认 VectorStore 由第三方自动配置提供——
-        // spring-ai-autoconfigure-vector-store-redis-2.0.1 / -pgvector-2.0.1 两个 jar 的
-        // AutoConfiguration.imports 各自只含 RedisVectorStoreAutoConfiguration / PgVectorStoreAutoConfiguration，
-        // 且二者类级均无与本仓 AiRagAutoConfiguration 的顺序声明 ⇒ 后者的
-        // @ConditionalOnBean(VectorStore.class) 曾恒假（同类第 5 例，已由 fix/ai-rag-order 修复 + 变异证伪）。
+        // 2026-10-16 登记（独立验收保留项 E 的跟进 + issue #85 同类第 7 例补齐）：
+        // 一手取证确认 VectorStore 由第三方自动配置提供。取证方法：
+        //   ① 先核实仓内 spring-ai 版本线（ypbin-starter-dependencies/pom.xml: spring-ai.version=2.0.1）；
+        //   ② 从 Maven Central 逐个下载 org.springframework.ai:spring-ai-autoconfigure-vector-store-*:2.0.1
+        //      （curl https://repo1.maven.org/maven2/org/springframework/ai/<artifactId>/2.0.1/<artifactId>-2.0.1.jar）；
+        //   ③ 读 jar 内 META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+        //      得到自动配置 FQCN；
+        //   ④ javap -p 该 FQCN，确认其 @Bean 方法返回类型（或 javap 对应 spring-ai-*-store 里的
+        //      XxxVectorStore 类，确认 extends AbstractObservationVectorStore 或 implements VectorStore，
+        //      后者经 javap spring-ai-vector-store-2.0.1 确认 extends DocumentWriter/VectorStoreRetriever）。
+        // 结论：2.0.1 共 20 个向量库自动配置注册 VectorStore Bean（每个 FQCN 的坐标为
+        // org.springframework.ai:spring-ai-autoconfigure-vector-store-<后缀>:2.0.1）：
+        //   azure→AzureVectorStoreAutoConfiguration、bedrock-knowledgebase→BedrockKnowledgeBaseVectorStoreAutoConfiguration、
+        //   cassandra→CassandraVectorStoreAutoConfiguration、chroma→ChromaVectorStoreAutoConfiguration、
+        //   couchbase→CouchbaseSearchVectorStoreAutoConfiguration、elasticsearch→ElasticsearchVectorStoreAutoConfiguration、
+        //   gemfire→GemFireVectorStoreAutoConfiguration、mariadb→MariaDbStoreAutoConfiguration、
+        //   milvus→MilvusVectorStoreAutoConfiguration、mongodb-atlas→MongoDBAtlasVectorStoreAutoConfiguration、
+        //   neo4j→Neo4jVectorStoreAutoConfiguration、opensearch→OpenSearchVectorStoreAutoConfiguration、
+        //   oracle→OracleVectorStoreAutoConfiguration、pgvector→PgVectorStoreAutoConfiguration、
+        //   pinecone→PineconeVectorStoreAutoConfiguration、qdrant→QdrantVectorStoreAutoConfiguration、
+        //   redis→RedisVectorStoreAutoConfiguration、s3→S3VectorStoreAutoConfiguration、
+        //   typesense→TypesenseVectorStoreAutoConfiguration、weaviate→WeaviateVectorStoreAutoConfiguration。
+        // 同批构件中 vector-store-observation（VectorStoreObservationAutoConfiguration）只装配观测装饰、
+        // vector-store-redis-semantic-cache（RedisSemanticCacheAutoConfiguration）只装配 SemanticCache/
+        // SemanticCacheAdvisor，javap 确认二者均无返回 VectorStore 的 @Bean 方法，故不登记（宁缺毋滥）。
+        // 三者均未声明与本仓 AiRagAutoConfiguration 的顺序 ⇒ 后者的
+        // @ConditionalOnBean(VectorStore.class) 在首修只覆盖 redis/pgvector 时对其余 18 个提供者恒假
+        // （同类第 5 例的同根因、issue #85 记录为同类第 7 例），现已全部由 AiRagAutoConfiguration
+        // 的 @AutoConfigureAfter(name = {...}) 点名（缺失任一即被本规则判违规）。
         // 仓内路径另有 AiVectorStoreAutoConfiguration 经 @AutoConfigureBefore(AiRagAutoConfiguration.class)
         // 反向有序——属另一种已覆盖形态，故不在此登记（登记它会把人引向已有序的那一侧）。
         types.put("VectorStore", Set.of(
+            "org.springframework.ai.vectorstore.azure.autoconfigure.AzureVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.bedrockknowledgebase.autoconfigure"
+                + ".BedrockKnowledgeBaseVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.cassandra.autoconfigure.CassandraVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.chroma.autoconfigure.ChromaVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.couchbase.autoconfigure.CouchbaseSearchVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.elasticsearch.autoconfigure"
+                + ".ElasticsearchVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.gemfire.autoconfigure.GemFireVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.mariadb.autoconfigure.MariaDbStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.milvus.autoconfigure.MilvusVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.mongodb.autoconfigure.MongoDBAtlasVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.neo4j.autoconfigure.Neo4jVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.opensearch.autoconfigure.OpenSearchVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.oracle.autoconfigure.OracleVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.pinecone.autoconfigure.PineconeVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.qdrant.autoconfigure.QdrantVectorStoreAutoConfiguration",
             "org.springframework.ai.vectorstore.redis.autoconfigure.RedisVectorStoreAutoConfiguration",
-            "org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration"));
+            "org.springframework.ai.vectorstore.s3.autoconfigure.S3VectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.typesense.autoconfigure.TypesenseVectorStoreAutoConfiguration",
+            "org.springframework.ai.vectorstore.weaviate.autoconfigure.WeaviateVectorStoreAutoConfiguration"));
         // 2026-10-16 登记：同类第 6 例（AiChatAutoConfiguration）。一手取证：三个模型 starter 与
         // chat-memory 自动配置的 imports 均注册自身，且 javap -v 显示四者类级 @AutoConfigure{After,Before}
         // 出现次数均为 0。后果：宿主引入任一模型 starter 并配好 yml 后，chatClient 静默不装配；
@@ -273,6 +343,14 @@ class AutoConfigurationOrderingTest {
         String declaredAfter = declaredAfterText(source);
         String declaredBefore = declaredBeforeText(source);
 
+        // 本类所守卫类型的登记提供者并集（正向要「全被点名」，反向要「不多不少」）
+        Set<String> registeredProviders = new TreeSet<>();
+        for (String type : risky) {
+            registeredProviders.addAll(BOOT_PROVIDED_TYPES.containsKey(type)
+                ? Set.of(BOOT_PROVIDED_TYPES.get(type))
+                : THIRD_PARTY_PROVIDED_TYPES.get(type));
+        }
+
         for (String type : risky) {
             boolean bootProvided = BOOT_PROVIDED_TYPES.containsKey(type);
             Set<String> providers = bootProvided
@@ -307,7 +385,42 @@ class AutoConfigurationOrderingTest {
                 + "。@ConditionalOnBean 只看得见「先于它处理完」的 Bean 定义，而 cn.ypbin.* 在自动配置排序中"
                 + "排在 org.springframework.* 之前 ⇒ 条件恒假 ⇒ 静默退化或 Bean 整块消失（2026-10-15 事故）");
         }
+
+        // ---- 反向校验：注解里不得出现「本类所守卫类型未登记」的 FQCN（原规则的单向判定是假保护）----
+        // 只做正向（registry ⊆ annotation）时，在注解里多加一个不存在/拼错的 FQCN 仍会全绿：Boot 的
+        // AutoConfigurationSorter 按全限定名与实际参与的自动配置求交，对不上的名字被静默忽略
+        // （写了等于没写），却制造了「顺序已声明」的错觉。故要求 declared(C) == registeredProviders。
+        Set<String> extraFqcns = new TreeSet<>(declaredProviderFqcns(source));
+        extraFqcns.removeAll(registeredProviders);
+        if (!extraFqcns.isEmpty()) {
+            violations.add(className + " → @AutoConfigureAfter 中出现了本类所守卫类型未登记的提供者 FQCN（多了："
+                + String.join(" / ", extraFqcns) + "）。本类守卫的类型：" + new TreeSet<>(risky)
+                + "；其登记提供者集合：" + registeredProviders
+                + "。多出的 FQCN 要么是拼写错误、要么指向不存在的自动配置——Boot 的 AutoConfigurationSorter "
+                + "按全限定名求交，对不上的名字被静默忽略（写了等于没写），会造成「顺序已声明」的假象；"
+                + "要么与本类守卫类型的顺序无关。请删除它或改回登记表里的 FQCN；若确属无关但必要的第三方顺序"
+                + "声明，请说明理由并走本门禁的例外流程，不要让它混在提供者名单里。");
+        }
         return violations;
+    }
+
+    /**
+     * 取源码中 {@code @AutoConfigureAfter(name = "...")} 声明的全部 FQCN 字面量。
+     *
+     * <p>只取 {@code @AutoConfigureAfter} 注解正文（已剥注释）中的字符串字面量，
+     * 因此 {@code @AutoConfigureBefore(...)}、Javadoc 提及、以及 {@code value = X.class} 的类字面量
+     * 都不算——后者是仓内类的编译期引用（与「第三方提供者名单」语义不同，见类注释的判定口径）。</p>
+     *
+     * @param rawSource 源码原文
+     * @return 声明的 FQCN 集合（无声明时为空集）
+     */
+    private static Set<String> declaredProviderFqcns(String rawSource) {
+        Set<String> fqcns = new LinkedHashSet<>();
+        Matcher matcher = FQCN_LITERAL.matcher(declaredAfterText(rawSource));
+        while (matcher.find()) {
+            fqcns.add(matcher.group(1));
+        }
+        return fqcns;
     }
 
     /**
@@ -803,5 +916,94 @@ class AutoConfigurationOrderingTest {
             .asString()
             .contains("缺：")
             .contains("ChatMemoryAutoConfiguration");
+
+        // 2026-10-16 反向校验：原规则只做「registry ⊆ 注解」的单向判定 ⇒ 在注解里多加一个不存在/拼错的
+        // FQCN 仍会全绿（独立验收实测的假保护）。下面两个样例必须转红并指明多出来的 FQCN。
+        String extraUnknownFqcn = """
+            @AutoConfiguration
+            @AutoConfigureAfter(name = {
+                "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration",
+                "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfigurationFake"
+            })
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(extraUnknownFqcn))
+            .as("注解里多出一个不存在的 FQCN ⇒ 必须判违规并点名它（反向校验）")
+            .singleElement()
+            .asString()
+            .contains("多了：")
+            .contains("ChatMemoryAutoConfigurationFake");
+
+        String misspelledProvider = """
+            @AutoConfiguration
+            @AutoConfigureAfter(name = {
+                "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration",
+                "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguraton"
+            })
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(misspelledProvider))
+            .as("注解里把提供者拼错 ⇒ 必须判违规并点名拼错的 FQCN（反向校验）")
+            .singleElement()
+            .asString()
+            .contains("多了：")
+            .contains("ChatMemoryAutoConfiguraton");
+
+        // 反向校验的边界①：一个守卫类同时守卫多个类型时，其 name 集合恰为各类型登记提供者的并集 ⇒ 合规
+        String multiTypeCompliant = """
+            @AutoConfiguration
+            @AutoConfigureAfter(name = {
+                "org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration",
+                "org.springframework.ai.model.deepseek.autoconfigure.DeepSeekChatAutoConfiguration",
+                "org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration",
+                "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration"
+            })
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatModel.class)
+                public Object chatClient(ChatModel model) {
+                    return model;
+                }
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(multiTypeCompliant))
+            .as("多类型守卫类：name={...} 等于各类型登记提供者的并集 ⇒ 合规（不得误报）")
+            .isEmpty();
+
+        // 反向校验的边界②：value = X.class 的仓内类引用不参与反向比较（它不是第三方提供者名单的一部分，
+        // 而是与 name 并存的另一条路径，真实用例见 AiChatAutoConfiguration）
+        String inRepoClassLiteralPlusProvider = """
+            @AutoConfiguration
+            @AutoConfigureAfter(value = AiMemoryAutoConfiguration.class, name = {
+                "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration"
+            })
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(inRepoClassLiteralPlusProvider))
+            .as("value=仓内类.class 不得被反向校验当作「多余 FQCN」（它是另一条已覆盖路径）")
+            .isEmpty();
     }
 }

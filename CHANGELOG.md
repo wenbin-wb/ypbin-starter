@@ -37,6 +37,35 @@
   ⚠️ 业务侧切换时若漏配 `raw401-path-patterns`，该路径会**退化为 ENVELOPE（HTTP 200）** ⇒ EMQX 侧静默丢数据
   （独立验收实测：漏配 ≠ 无校验，而是形态变化）；若两条路径清单都为空则放行并打 WARN，非静默失效。
 
+#### 2026-10-17 issue 批量修复（#82 ~ #95）：新增能力
+
+- **`ypbin-starter-core`：Starter 启动自省清单 `StarterStartupSummary`**（开关 `ypbin.core.diagnostics.startup-summary-enabled`，
+  默认开启）。应用就绪时从 Boot `ConditionEvaluationReport` 取「条件全匹配」的 ypbin 自动配置并按模块聚合成**一行** INFO
+  （如 `Activated: cache(2), core(1), security(6)`）；取条件报告而非扫描 classpath，能直接暴露「引了但没装配」这类静默失效。
+  任何异常只记 WARN 且不阻断启动。
+- **`ypbin-starter-license`：授权健康指示器 + 启动失败诊断器**。`LicenseHealthIndicator` 暴露授权状态与**证书剩余自然日数**
+  （`remainingDays` / `graceRemainingDays`，宽限期对外 UP 但 details 标 `GRACE`，`licenseLoaded=false` 表示无授权启动），
+  不输出任何密钥/指纹；`LicenseStartupFailureAnalyzer` 把启动期 `LicenseException` 转成官方风格 Description + Action
+  （按错误码给出具体配置项），经 `META-INF/spring.factories` 注册。Health API 依赖为 optional（Boot 4 起位于 `spring-boot-health`）。
+- **`ypbin-starter-cache`：多级缓存运行时指标（Micrometer，可选依赖）**。指标名属对外契约：
+  `ypbin.cache.requests{cache,level=l1|l2,result=hit|miss}`、`ypbin.cache.null.sentinel.hits{cache}`（防穿透阻断）、
+  `ypbin.cache.loads{cache}`；未引入 micrometer 或宿主未注册 `MeterRegistry` 时装配零开销空实现（`CacheMetricsRecorder.NOOP`）。
+  Micrometer 字节码隔离在 `MicrometerCacheMetrics`，自动配置用 `ObjectProvider` 弱依赖取值（避免 `@ConditionalOnBean` 顺序陷阱）。
+- **`ypbin-starter-excel`：CSV 流式导出**。新增 `write(OutputStream, headers, Iterable rows)` 与
+  `export(HttpServletResponse, fileName, headers, Iterable rows)`：逐行写出并 flush，堆内存不随行数增长；
+  与 `toCsv` **逐字节一致**（BOM / CRLF / 公式注入中和 / RFC 4180）。
+- **`ypbin-starter-tools`：`@DistributedLock` 支持同线程同 key 重入**。`ThreadLocal` 记录 owner 与重入深度，内层直接进入
+  临界区、仅最外层 `unlock` 并清理 ThreadLocal（防线程池复用残留），重入键 = 解析后的锁键（含 SpEL）。**TTL 语义不变**
+  ——续期仍由 `LeaseLockGuard` 租约锁承担；经核实，把看门狗接到该切面会与租约续期共用单线程调度器并改写既定契约，故不实施。
+- **`ypbin-starter-async`：虚拟线程模式优雅停机**。`await-termination=true` 时接
+  `SimpleAsyncTaskExecutor#setTaskTerminationTimeout(awaitTerminationSeconds × 1000)`（该方法单位为毫秒且仅 >0 生效），
+  `false` 时 `setCancelRemainingTasksOnClose(true)` 对齐平台线程池的 `shutdownNow()`。
+- **`ypbin-starter-ai`：向量库顺序覆盖面补齐（同类第 7 例防护）**。`AiRagAutoConfiguration` 的 `@AutoConfigureAfter(name=...)`
+  由 2 个扩到 **20 个** Spring AI 官方向量库自动配置（azure/bedrock-knowledgebase/cassandra/chroma/couchbase/elasticsearch/
+  gemfire/mariadb/milvus/mongodb-atlas/neo4j/opensearch/oracle/pgvector/pinecone/qdrant/redis/s3/typesense/weaviate），
+  每个 FQCN 均由 Maven Central 构件（`spring-ai-autoconfigure-vector-store-*:2.0.1`）的 `AutoConfiguration.imports` + `javap`
+  一手取证；顺序门禁 `AutoConfigurationOrderingTest` 同步登记同一份清单（变异证伪：删一行即精确指名缺失）。
+
 ### 修复
 
 - 🔴 **`AiRagAutoConfiguration` 的 `@ConditionalOnBean(VectorStore.class)` 恒假**（2026-10-15 v3.9.1 同类**第 5 例**，静默失效）。
@@ -59,6 +88,62 @@
   `RouteDefinitionRepository extends RouteDefinitionLocator, RouteDefinitionWriter`），而本类原本**无任何顺序声明**
   ⇒ 宿主设了 `ypbin.gateway.route.nacos.enabled=true` 时 **`NacosRouteInitializer` 整块不装配、Nacos 动态路由静默不生效**。
   修复：补 `@AutoConfigureAfter(GatewayAutoConfiguration)`；并做变异证伪（删注解 ⇒ 门禁转红并指名修法）。
+
+#### 2026-10-17 issue 批量修复（#82 ~ #95）
+
+- 🔴 **`ypbin-starter-sign`：JSON 请求体解析异常未 fail-closed ⇒ 签名降级绕过**（#82）。`SignChecker#mergeJsonBody`
+  在 `Content-Type: application/json` 且请求体非空但解析失败时只记 WARN 后**继续按 Query 参数验签**，而下游容错解析
+  仍可能读出字段 ⇒ 「签名覆盖的字段集合」与「业务实际读取的内容」脱钩。修复：解析失败即判验签失败
+  （`JSON 请求体格式非法`，且在占用 nonce 之前返回）；空请求体保持放行（两侧都读不到 body，无降级空间）。
+  **JSON 判定口径与 Spring MVC 默认 Jackson 转换器一致**：`application/json` **与 `application/*+json`**
+  （如 `application/vnd.api+json`、`application/merge-patch+json`）都参与签名——只认字面量 `application/json`
+  时，攻击者改一个 Content-Type 头即可让 body 里的未签名字段绕过签名（业务侧 `@RequestBody` 仍读得到）；
+  大小写判定显式用 `Locale.ROOT`（防 tr-TR 下 `I→ı` 使判定失效）。
+  新增 4 条回归用例（畸形体拒绝 / 未签名字段拒绝 / 合法体通过 / 空体通过）。
+- 🔴 **`ypbin-starter-security`：`raw401-path-patterns` 按 Spring 习惯配 `/**` 导致 RAW_401 过滤器静默失效**（#89，EMQX 静默丢数据）。
+  Servlet 规范（12.2）只承认 `/*` 与 `*.ext` 两种通配映射，`/internal/mqtt/**` 会被容器当作**精确字面量**匹配
+  ⇒ 请求完全跳过过滤器、退化为 HTTP 200 ⇒ EMQX 判为投递成功，报文既不重试也不落 `dropped.*`。
+  修复：新增 `InternalTokenGuardPatterns`——尾部 `/**` 自动归一化为 `/*`（并打 INFO），其余含通配却无法被 Servlet
+  规则解释的写法**启动即失败**（不再静默退化）；过滤器注册与 Sa-Token 放行清单共用同一归一化结果。
+  **独立验收补漏（已被变异证伪钉住）**：漏写前导斜杠（`internal/*`）与混合形态（`/*/*`、`*.json/*`、`http://host/*`、
+  通配符出现在路径中间）此前仍被接受，而容器对它们按字面量匹配 ⇒ 过滤器永不触发；现统一拒绝（路径须以 `/` 开头、
+  路径映射只允许末尾一个 `*`、扩展名映射不得再含 `/`），合法形态（`/internal/*`、`/exact/path`、`*.json`、`/`）不误拒。
+- 🔴 **`ypbin-starter-security`：内部凭证守卫被 Sa-Token 登录拦截抢先生效 ⇒ 服务间 Feign 直连必抛 `NotLoginException`**（#91）。
+  守卫的 ENVELOPE 语义是 MVC 拦截器，而 `SaTokenWebConfigurer` 默认拦截 `/**` 并要求登录态；Feign 直连只带
+  `X-Internal-Token`、没有用户会话 ⇒ 内部凭证校验永远拿不到控制权。修复：新增 `InternalTokenGuardExcludePathProvider`
+  把守卫接管路径贡献给 `SecurityExcludePathProvider` 放行清单（**按 Bean 名判定**，避免被 SSE 等其它同类型贡献者挤掉），
+  放行范围为守卫覆盖范围的**子集**（不放大、不做 Ant 扩宽，避免留下「既无登录校验、又无凭证校验」的裸路径）。
+  另：`guard-enabled=true` 但未配置 token 时在启动日志显式告警；provider 自身在 `guard-enabled=false` 时
+  一律返回空集（纵深防御，不依赖外层条件）；envelope 清单在守卫注册 / 放行贡献 / 启动日志三处统一 `trim()`
+  （口径不一致会留下「Sa-Token 已豁免、守卫却匹配不上」的裸路径）。
+- 🟠 **`ypbin-starter-cache`：`MultiLevelCacheService#get` 漏填空值哨兵 ⇒ L1 防穿透失效**（#84）。L2 未命中时只有非空值
+  才回填 L1，不存在的热点 key 每次请求都穿透本地缓存打到 Redis。修复：与 `getOrLoad` 同口径回填 `NULL_SENTINEL`，
+  并在 Javadoc 写明空值哨兵的**陈旧窗口边界**（L1 `expireAfterWrite` 内绕过本类直写 L2 时本机仍返回 null）。
+- 🟠 **`ypbin-starter-tools`：`rate_limiter.lua` 仅在 `current==1` 设置过期 ⇒ key 永不过期导致永久限流**（#92）。
+  键若因异常原因已存在且无 TTL（历史残留/人工 SET/主从切换丢 TTL），`INCR` 永不等于 1 ⇒ `EXPIRE` 永不执行、计数只增
+  ⇒ 该接口/用户被永久限流。修复：`TTL == -1` 时补 `EXPIRE` 自愈（脚本结构断言 + 变异证伪钉住）。并修 issue 未提的同类边界：
+  `@RateLimit(window <= 0)` 会让计数键立即过期、限流形同虚设 ⇒ 切面入口 fail-fast 抛 `IllegalArgumentException`。
+- 🟠 **`ypbin-starter-messaging`：`SseStreamBridge` 错误信号无人消费 + 客户端正常断开日志风暴**（#90）。`pipeline.subscribe()`
+  未传 errorConsumer ⇒ Reactor 报 `onErrorDropped`；客户端关标签页时连续输出 WARN/ERROR/WARN 三条带堆栈日志。
+  修复：订阅端消费错误信号；客户端断开类异常降级 DEBUG 且**跳过向已断开连接补发错误帧**；服务端真实故障仍保持
+  ERROR + 完整堆栈 + 错误帧（对外报文契约不变）。**判定口径按来源区分**：上游错误只按**类型 / 类名**
+  （`AsyncRequestNotUsableException`、Tomcat `ClientAbortException`），**不看消息片段**——上游服务端重置连接同样抛
+  `IOException("Connection reset")`，按消息降级会把真实故障静默成客户端断开（客户端只看到截断流、无错误帧）；
+  只有**发送路径**失败才额外用消息启发式（`broken pipe` / `connection reset` / `connection aborted`）。
+- 🟠 **`ypbin-starter-cloud-gateway`：`NacosRouteInitializer` 先删后加 ⇒ 路由刷新出现 404 空窗与全量丢失风险**（#83）。
+  修复：改为**原子增量**——先 `save` 全部新路由（同 id 覆盖），成功后再 `delete`「旧有新无」，最后发 `RefreshRoutesEvent`；
+  save 失败时旧路由完好（用例断言 0 次 delete）；解析失败 / 空列表仍保留旧路由，`synchronized` 串行化与 10s 超时不变。
+- 🟠 **`ypbin-starter-web`：4 类常见客户端异常跌入 `Exception` 兜底 ⇒ ERROR 堆栈 + 500 误报**（#86）。补充
+  `HttpMessageNotReadableException` / `MethodArgumentTypeMismatchException` / `MissingServletRequestParameterException`
+  为业务码 400、`MaxUploadSizeExceededException` 为 **413**（与 Spring 7 自身 `getStatusCode()` 口径一致，仓内已有
+  `PAYLOAD_TOO_LARGE`；issue 原文写 400，此处按框架事实取 413），日志保持 `warn` 且外部可控值经 `LogSanitizer`。
+- `ypbin-starter-job`：`JobManager` 任务失败日志丢失异常堆栈（NPE 时只输出 `err=null`，无法定位调用点）⇒ 改为把异常
+  对象作为最后一个参数传入以记录完整堆栈；同文件同类日志一并核查。
+- 规范治理：`RateLimitProperties`（gateway）与 `XxlJobProperties` 的 `@ConfigurationProperties` 前缀抽为 `PREFIX` 常量
+  并被同模块 `@ConditionalOnProperty` 引用；`poi-ooxml` / `jsoup` 版本纳入 `ypbin-starter-dependencies` 统一管理
+  （POI 与 fesod-sheet 期望的 5.5.1 对齐，消除宿主同时引入 ai/excel 时 poi 与 poi-ooxml 的版本分裂）并在 ai 模块声明
+  `<optional>true</optional>`；相应地 `DocumentLoader` 把 POI/jsoup 字节码隔离到 `PoiDocumentParser` / `HtmlDocumentParser`，
+  依赖缺席时抛明确 `IllegalStateException` 而非静默降级或类校验失败。
 
 ### 门禁增强
 

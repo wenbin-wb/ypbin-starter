@@ -42,7 +42,7 @@ import org.springframework.util.StringUtils;
  * @since 2026-09-05
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.xxl-job", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = XxlJobProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(XxlJobProperties.class)
 public class XxlJobAutoConfiguration {
 
@@ -52,14 +52,16 @@ public class XxlJobAutoConfiguration {
     @ConditionalOnMissingBean
     public XxlJobSpringExecutor xxlJobExecutor(XxlJobProperties properties) {
         if (!StringUtils.hasText(properties.getAdminAddresses())) {
-            throw new IllegalStateException("ypbin.xxl-job.admin-addresses 未配置，无法注册 XXL-JOB 执行器");
+            throw new IllegalStateException(
+                XxlJobProperties.PREFIX + ".admin-addresses 未配置，无法注册 XXL-JOB 执行器");
         }
         if (!StringUtils.hasText(properties.getAppname())) {
-            throw new IllegalStateException("ypbin.xxl-job.appname 未配置，无法注册 XXL-JOB 执行器");
+            throw new IllegalStateException(
+                XxlJobProperties.PREFIX + ".appname 未配置，无法注册 XXL-JOB 执行器");
         }
         if (!StringUtils.hasText(properties.getAccessToken())) {
             throw new IllegalStateException(
-                "ypbin.xxl-job.access-token 未配置：xxl-job 3.5.0 起 AccessToken 为执行器维度且不可为空，"
+                XxlJobProperties.PREFIX + ".access-token 未配置：xxl-job 3.5.0 起 AccessToken 为执行器维度且不可为空，"
                     + "需与调度中心 admin 中该 appname（" + properties.getAppname() + "）的 access_token 一致；"
                     + "admin 与执行器须成对升级到 3.5.0");
         }

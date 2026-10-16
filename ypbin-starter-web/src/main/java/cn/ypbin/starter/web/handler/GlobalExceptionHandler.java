@@ -27,14 +27,18 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -54,6 +58,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /** 参数类型不匹配的统一文案（参数名可读时追加，避免重复字面量） */
+    private static final String PARAM_TYPE_MISMATCH_MESSAGE = "请求参数类型不正确";
 
     /**
      * 业务异常：可预期，返回 200 + 业务码，仅告警。
@@ -111,6 +118,58 @@ public class GlobalExceptionHandler {
             .collect(Collectors.joining("; "));
         return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(),
             msg.isBlank() ? "请求参数校验失败" : msg);
+    }
+
+    /**
+     * 请求体不可读：JSON 语法错误、请求体为空或无法反序列化为目标类型。
+     *
+     * <p>属客户端请求错误（非系统故障）：记 {@code warn} 而非 {@code error}，避免生产告警误报；
+     * 响应文案不暴露框架/解析器细节与请求原文，日志中的外部可控消息经 {@link LogSanitizer} 处理。</p>
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public R<Void> handleMessageNotReadable(HttpMessageNotReadableException e, HttpServletRequest request) {
+        log.warn("[请求体不可读] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+            LogSanitizer.sanitize(e.getMessage()));
+        return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(), "请求体格式错误或为空，请检查请求内容");
+    }
+
+    /**
+     * 路径变量/查询参数类型转换失败（如 {@code /orders/abc} 绑定到 {@code Long id}）。
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public R<Void> handleArgumentTypeMismatch(MethodArgumentTypeMismatchException e, HttpServletRequest request) {
+        log.warn("[参数类型不匹配] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+            LogSanitizer.sanitize(e.getMessage()));
+        String name = e.getName();
+        return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(),
+            (name == null || name.isBlank()) ? PARAM_TYPE_MISMATCH_MESSAGE
+                : PARAM_TYPE_MISMATCH_MESSAGE + "：" + name);
+    }
+
+    /**
+     * 必填请求参数缺失。
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public R<Void> handleMissingParameter(MissingServletRequestParameterException e, HttpServletRequest request) {
+        log.warn("[缺少必填参数] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+            LogSanitizer.sanitize(e.getMessage()));
+        return R.fail(GlobalErrorCode.BAD_REQUEST.getCode(), "缺少必填参数：" + e.getParameterName());
+    }
+
+    /**
+     * 上传文件超出大小限制。
+     *
+     * <p>业务码用 {@link GlobalErrorCode#PAYLOAD_TOO_LARGE}（413）而非 400：Spring 7 对该异常的
+     * {@code getStatusCode()} 即 {@code 413 Content Too Large}，两者对外口径一致，前端也才能据此做
+     * 「文件过大」的专门提示；同时仍避免跌入 500 系统错误分支。</p>
+     *
+     * <p>响应文案只提示超限，不回显请求体/文件内容，也不暴露服务端具体阈值配置。</p>
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public R<Void> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e, HttpServletRequest request) {
+        log.warn("[上传超限] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+            LogSanitizer.sanitize(e.getMessage()));
+        return R.fail(GlobalErrorCode.PAYLOAD_TOO_LARGE, "上传文件超出大小限制，请压缩后重试");
     }
 
     /**

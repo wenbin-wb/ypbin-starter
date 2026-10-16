@@ -133,7 +133,7 @@ public class GatewayAutoConfiguration {
         @Bean
         @ConditionalOnBean(ReactiveStringRedisTemplate.class)
         @ConditionalOnMissingBean
-        @ConditionalOnProperty(prefix = "ypbin.gateway.rate-limit", name = "enabled", havingValue = "true")
+        @ConditionalOnProperty(prefix = RateLimitProperties.PREFIX, name = "enabled", havingValue = "true")
         public AttributeRateLimitGlobalFilter attributeRateLimitGlobalFilter(
             ReactiveStringRedisTemplate redis,
             RateLimitProperties properties,

@@ -87,6 +87,13 @@
             <artifactId>jakarta.servlet-api</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Actuator 健康指示器（授权状态 + 证书剩余有效天数），可选：未引入时不装配。
+             Boot 4 起 Health API 拆到独立的 spring-boot-health 模块（org.springframework.boot.health.*） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-health</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>

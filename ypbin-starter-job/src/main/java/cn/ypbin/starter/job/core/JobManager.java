@@ -314,7 +314,9 @@ public class JobManager {
                 handler.execute(context);
                 listener.onSuccess(context, System.currentTimeMillis() - start);
             } catch (Throwable e) {
-                log.warn("[ypbin-starter] job execute failed: name={}, err={}", definition.getName(), e.getMessage());
+                // 末位传 e 让日志框架打印完整堆栈：只记 e.getMessage() 时，NPE 等 message 为 null 的异常
+                // 会退化成 "err=null"，线上完全无法定位（issue #95）。
+                log.warn("[ypbin-starter] job execute failed: name={}", definition.getName(), e);
                 listener.onError(context, System.currentTimeMillis() - start, e);
             } finally {
                 String currentLockKey = lockKey;

@@ -49,6 +49,12 @@
             <artifactId>caffeine</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- 多级缓存运行时指标（可选）：未引入 micrometer 时装配零开销空实现 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
