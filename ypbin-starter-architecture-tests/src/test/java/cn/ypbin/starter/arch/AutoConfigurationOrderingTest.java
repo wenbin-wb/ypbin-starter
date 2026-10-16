@@ -396,51 +396,6 @@ class AutoConfigurationOrderingTest {
     }
 
     /**
-     * 提取源码中 {@code @AutoConfigureAfter}/{@code @AutoConfigureBefore} 注解的完整正文
-     * （含括号内的字符串字面量），但<b>忽略注释里出现的同名注解</b>。
-     *
-     * <p><b>为何不能直接用剥注释/字面量后的代码</b>：顺序注解用的是 {@code name = "全限定类名"} 字符串形式，
-     * 而这些字面量会被 {@link SourceConventionTest#stripCommentsAndLiterals} 抹掉——那样规则就只能判断
-     * 「是否存在某个顺序注解」，无法判断它是否<b>指向正确的提供者</b>（2026-10-16 变异测试实测到这一假保护：
-     * 一个已有无关顺序注解的类，删掉真正关键的那条仍会全绿）。</p>
-     *
-     * <p><b>为何也不能直接读原文</b>：Javadoc 里常写「本类依赖
-     * {@code @AutoConfigureAfter(某提供者)}」这类说明，若读原文，这类<b>纯注释提及</b>会被误判成
-     * 真实声明（2026-10-16 探针实测：单提供者类型仅靠 Javadoc 提及其 FQCN 即返回 0 违规）。
-     * 故先剥注释、<b>保留字面量</b>，再取注解块。</p>
-     *
-     * @param rawSource 源码原文
-     * @return 全部真实顺序注解正文的拼接（不含注释中的提及）
-     */
-    private static String declaredOrderingText(String rawSource) {
-        String withoutComments = stripCommentsKeepLiterals(rawSource);
-        StringBuilder text = new StringBuilder();
-        for (String annotation : List.of("@AutoConfigureAfter", "@AutoConfigureBefore")) {
-            int index = withoutComments.indexOf(annotation);
-            while (index >= 0) {
-                int open = withoutComments.indexOf('(', index + annotation.length());
-                if (open > 0) {
-                    int depth = 0;
-                    for (int i = open; i < withoutComments.length(); i++) {
-                        char c = withoutComments.charAt(i);
-                        if (c == '(') {
-                            depth++;
-                        } else if (c == ')') {
-                            depth--;
-                            if (depth == 0) {
-                                text.append(withoutComments, open, i + 1).append('\n');
-                                break;
-                            }
-                        }
-                    }
-                }
-                index = withoutComments.indexOf(annotation, index + annotation.length());
-            }
-        }
-        return text.toString();
-    }
-
-    /**
      * 剥离 Java 注释（行注释、块注释），但<b>保留字符串/字符字面量与文本块</b>。
      *
      * <p>与 {@link SourceConventionTest#stripCommentsAndLiterals} 的区别正在于此：本方法服务于
