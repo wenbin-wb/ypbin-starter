@@ -300,41 +300,121 @@ class AutoConfigurationOrderingTest {
 
     /**
      * 提取源码中 {@code @AutoConfigureAfter}/{@code @AutoConfigureBefore} 注解的完整正文
-     * （含括号内的字符串字面量）。
+     * （含括号内的字符串字面量），但<b>忽略注释里出现的同名注解</b>。
      *
      * <p><b>为何不能直接用剥注释/字面量后的代码</b>：顺序注解用的是 {@code name = "全限定类名"} 字符串形式，
      * 而这些字面量会被 {@link SourceConventionTest#stripCommentsAndLiterals} 抹掉——那样规则就只能判断
      * 「是否存在某个顺序注解」，无法判断它是否<b>指向正确的提供者</b>（2026-10-16 变异测试实测到这一假保护：
      * 一个已有无关顺序注解的类，删掉真正关键的那条仍会全绿）。</p>
      *
+     * <p><b>为何也不能直接读原文</b>：Javadoc 里常写「本类依赖
+     * {@code @AutoConfigureAfter(某提供者)}」这类说明，若读原文，这类<b>纯注释提及</b>会被误判成
+     * 真实声明（2026-10-16 探针实测：单提供者类型仅靠 Javadoc 提及其 FQCN 即返回 0 违规）。
+     * 故先剥注释、<b>保留字面量</b>，再取注解块。</p>
+     *
      * @param rawSource 源码原文
-     * @return 全部顺序注解正文的拼接
+     * @return 全部真实顺序注解正文的拼接（不含注释中的提及）
      */
     private static String declaredOrderingText(String rawSource) {
+        String withoutComments = stripCommentsKeepLiterals(rawSource);
         StringBuilder text = new StringBuilder();
         for (String annotation : List.of("@AutoConfigureAfter", "@AutoConfigureBefore")) {
-            int index = rawSource.indexOf(annotation);
+            int index = withoutComments.indexOf(annotation);
             while (index >= 0) {
-                int open = rawSource.indexOf('(', index + annotation.length());
+                int open = withoutComments.indexOf('(', index + annotation.length());
                 if (open > 0) {
                     int depth = 0;
-                    for (int i = open; i < rawSource.length(); i++) {
-                        char c = rawSource.charAt(i);
+                    for (int i = open; i < withoutComments.length(); i++) {
+                        char c = withoutComments.charAt(i);
                         if (c == '(') {
                             depth++;
                         } else if (c == ')') {
                             depth--;
                             if (depth == 0) {
-                                text.append(rawSource, open, i + 1).append('\n');
+                                text.append(withoutComments, open, i + 1).append('\n');
                                 break;
                             }
                         }
                     }
                 }
-                index = rawSource.indexOf(annotation, index + annotation.length());
+                index = withoutComments.indexOf(annotation, index + annotation.length());
             }
         }
         return text.toString();
+    }
+
+    /**
+     * 剥离 Java 注释（行注释、块注释），但<b>保留字符串/字符字面量与文本块</b>。
+     *
+     * <p>与 {@link SourceConventionTest#stripCommentsAndLiterals} 的区别正在于此：本方法服务于
+     * 「注解里的 FQCN 字符串必须仍然可读」这一目的，故不能连字面量一起抹掉。</p>
+     *
+     * @param source 源码原文
+     * @return 去掉注释的源码（保留字面量内容，换行数与原注释区一致）
+     */
+    private static String stripCommentsKeepLiterals(String source) {
+        StringBuilder out = new StringBuilder(source.length());
+        int i = 0;
+        int n = source.length();
+        while (i < n) {
+            char ch = source.charAt(i);
+            if (ch == '/' && i + 1 < n && source.charAt(i + 1) == '/') {
+                while (i < n && source.charAt(i) != '\n') {
+                    i++;
+                }
+            } else if (ch == '/' && i + 1 < n && source.charAt(i + 1) == '*') {
+                i += 2;
+                while (i + 1 < n && !(source.charAt(i) == '*' && source.charAt(i + 1) == '/')) {
+                    if (source.charAt(i) == '\n') {
+                        out.append('\n');
+                    }
+                    i++;
+                }
+                i = Math.min(i + 2, n);
+            } else if (ch == '"' && i + 2 < n && source.charAt(i + 1) == '"'
+                && source.charAt(i + 2) == '"') {
+                // 文本块：整体原样保留
+                out.append(source, i, i + 3);
+                i += 3;
+                while (i < n) {
+                    if (source.charAt(i) == '\\') {
+                        out.append(source, i, Math.min(i + 2, n));
+                        i += 2;
+                        continue;
+                    }
+                    if (source.charAt(i) == '"' && i + 2 < n
+                        && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"') {
+                        out.append(source, i, i + 3);
+                        i += 3;
+                        break;
+                    }
+                    out.append(source.charAt(i));
+                    i++;
+                }
+            } else if (ch == '"' || ch == '\'') {
+                // 普通字符串/字符字面量：原样保留（含转义）
+                char quote = ch;
+                out.append(ch);
+                i++;
+                while (i < n) {
+                    char c = source.charAt(i);
+                    out.append(c);
+                    if (c == '\\' && i + 1 < n) {
+                        out.append(source.charAt(i + 1));
+                        i += 2;
+                        continue;
+                    }
+                    i++;
+                    if (c == quote) {
+                        break;
+                    }
+                }
+            } else {
+                out.append(ch);
+                i++;
+            }
+        }
+        return out.toString();
     }
 
     /**
@@ -554,5 +634,27 @@ class AutoConfigurationOrderingTest {
             .asString()
             .contains("DeepSeekChatAutoConfiguration")
             .contains("OllamaChatAutoConfiguration");
+
+        // 2026-10-16 探针发现的第二个假保护：Javadoc 里提到提供者 FQCN 不得算「已声明顺序」。
+        // （此前实现读的是源码原文，故纯注释提及会被误判为真实声明。）
+        String javadocOnly = """
+            @AutoConfiguration
+            public class SampleAutoConfiguration {
+                /**
+                 * 备注：本类依赖 {@code @AutoConfigureAfter(org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration)}。
+                 */
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(javadocOnly))
+            .as("仅 Javadoc 提及提供者、无真实顺序注解 ⇒ 必须判违规（否则注释即可骗过门禁）")
+            .singleElement()
+            .asString()
+            .contains("缺：")
+            .contains("ChatMemoryAutoConfiguration");
     }
 }
