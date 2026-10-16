@@ -270,32 +270,104 @@ class AutoConfigurationOrderingTest {
         }
 
         // 顺序注解里的 FQCN 是**字符串字面量**，会被 stripCommentsAndLiterals 抹掉 ⇒ 必须回原文取注解块
-        String declaredOrdering = declaredOrderingText(source);
+        String declaredAfter = declaredAfterText(source);
+        String declaredBefore = declaredBeforeText(source);
 
         for (String type : risky) {
             boolean bootProvided = BOOT_PROVIDED_TYPES.containsKey(type);
             Set<String> providers = bootProvided
                 ? Set.of(BOOT_PROVIDED_TYPES.get(type))
                 : THIRD_PARTY_PROVIDED_TYPES.get(type);
-            // 要求「声明的顺序」真的点名了该类型的提供者：只声明了无关顺序不算数。
-            // 必须覆盖全部已知提供者——只点名其中一个时，宿主若用另一个提供者，条件依旧恒假。
+            // 要求「声明的 @AutoConfigureAfter」真的点名了该类型的提供者：
+            // ① 只声明了无关顺序不算数；② 必须覆盖全部已知提供者（只覆盖其一，宿主用另一个时条件依旧恒假）；
+            // ③ 必须是 **FQCN 的 name= 形式**，或 **value=X.class 形式**——Boot 的 AutoConfigurationSorter
+            //    按全限定名比对元数据，`name="简单名"` 这种写法「写了等于没写」，
+            //    放行它会制造新的假保护（2026-10-16 独立验收保留项 R1）；
+            // ④ 必须是 @AutoConfigureAfter（排到提供者之后）。@AutoConfigureBefore(提供者) 语义相反
+            //    ——本类会排到提供者**之前**，条件依旧恒假（独立验收保留项 R2）。
             List<String> missing = new ArrayList<>();
             for (String provider : new TreeSet<>(providers)) {
-                if (!declaredOrdering.contains(provider)
-                    && !declaredOrdering.contains(simpleName(provider))) {
+                // name = "全限定名"（排序器按 FQCN 比对）
+                boolean byFqcn = declaredAfter.contains(provider);
+                // value = 简单类名.class（编译期常量引用，等价于 FQCN，排序器可解析）
+                boolean byClassLiteral = declaredAfter.contains(simpleName(provider) + ".class");
+                if (!byFqcn && !byClassLiteral) {
                     missing.add(provider);
                 }
             }
             if (missing.isEmpty()) {
                 continue;
             }
+            boolean wrongDirectionOnly = providers.stream().anyMatch(declaredBefore::contains);
             violations.add(className + " → @ConditionalOnBean(" + type + ") 判定的是"
-                + (bootProvided ? "Boot" : "第三方") + "自动配置提供的类型，但本类未声明指向其提供者的"
-                + "@AutoConfigureAfter/@AutoConfigureBefore（缺：" + String.join(" / ", missing) + "）。"
-                + "@ConditionalOnBean 只看得见「先于它处理完」的 Bean 定义，而 cn.ypbin.* 在自动配置排序中"
+                + (bootProvided ? "Boot" : "第三方") + "自动配置提供的类型，但本类未用**全限定名**声明"
+                + "@AutoConfigureAfter 指向其提供者（缺：" + String.join(" / ", missing) + "）"
+                + (wrongDirectionOnly
+                    ? "；注意本类写的是 @AutoConfigureBefore(该提供者)，方向相反 —— 那样本类会排到提供者之前，条件依旧恒假"
+                    : "")
+                + "。@ConditionalOnBean 只看得见「先于它处理完」的 Bean 定义，而 cn.ypbin.* 在自动配置排序中"
                 + "排在 org.springframework.* 之前 ⇒ 条件恒假 ⇒ 静默退化或 Bean 整块消失（2026-10-15 事故）");
         }
         return violations;
+    }
+
+    /**
+     * 取源码中所有 {@code @AutoConfigureAfter(...)} 注解正文（真实注解，不含注释；保留字面量）。
+     *
+     * @param rawSource 源码原文
+     * @return 全部 {@code @AutoConfigureAfter} 注解正文拼接
+     */
+    private static String declaredAfterText(String rawSource) {
+        return annotationTexts(rawSource, "@AutoConfigureAfter");
+    }
+
+    /**
+     * 取源码中所有 {@code @AutoConfigureBefore(...)} 注解正文（真实注解，不含注释；保留字面量）。
+     *
+     * @param rawSource 源码原文
+     * @return 全部 {@code @AutoConfigureBefore} 注解正文拼接
+     */
+    private static String declaredBeforeText(String rawSource) {
+        return annotationTexts(rawSource, "@AutoConfigureBefore");
+    }
+
+    /**
+     * 取指定注解的全部正文（先剥注释、保留字面量，再按括号配平截取）。
+     *
+     * @param rawSource  源码原文
+     * @param annotation 注解名（如 {@code @AutoConfigureAfter}）
+     * @return 注解正文拼接（不含注释里的提及）
+     */
+    private static String annotationTexts(String rawSource, String annotation) {
+        String withoutComments = stripCommentsKeepLiterals(rawSource);
+        StringBuilder text = new StringBuilder();
+        int index = withoutComments.indexOf(annotation);
+        while (index >= 0) {
+            // 排除 "@AutoConfigureAfterXxx" 这类前缀相同的其它标识符
+            int end = index + annotation.length();
+            boolean boundary = end >= withoutComments.length()
+                || !Character.isJavaIdentifierPart(withoutComments.charAt(end));
+            if (boundary) {
+                int open = withoutComments.indexOf('(', end);
+                if (open > 0) {
+                    int depth = 0;
+                    for (int i = open; i < withoutComments.length(); i++) {
+                        char c = withoutComments.charAt(i);
+                        if (c == '(') {
+                            depth++;
+                        } else if (c == ')') {
+                            depth--;
+                            if (depth == 0) {
+                                text.append(withoutComments, open, i + 1).append('\n');
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            index = withoutComments.indexOf(annotation, end);
+        }
+        return text.toString();
     }
 
     /**
@@ -656,5 +728,61 @@ class AutoConfigurationOrderingTest {
             .asString()
             .contains("缺：")
             .contains("ChatMemoryAutoConfiguration");
+
+        // 2026-10-16 独立验收保留项 R1：`name="简单名"` 在 Boot 排序器里「写了等于没写」
+        // （Sorter 按全限定名比对），必须判违规——否则门禁会放行一个无效声明。
+        String simpleNameOnly = """
+            @AutoConfiguration
+            @AutoConfigureAfter(name = "ChatMemoryAutoConfiguration")
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(simpleNameOnly))
+            .as("name 只写简单名 ⇒ Boot 无法据此排序，必须判违规（保留项 R1）")
+            .singleElement()
+            .asString()
+            .contains("缺：")
+            .contains("ChatMemoryAutoConfiguration");
+
+        // 但 `value = X.class` 是编译期引用、排序器可解析，属合法写法，必须放过。
+        String classLiteralCompliant = """
+            @AutoConfiguration
+            @AutoConfigureAfter(ChatMemoryAutoConfiguration.class)
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(classLiteralCompliant))
+            .as("value=X.class 形式合法，必须放过")
+            .isEmpty();
+
+        // 2026-10-16 独立验收保留项 R2：@AutoConfigureBefore(提供者) 方向相反
+        // （本类会排到提供者之前，条件依旧恒假），不得算合规。
+        String wrongDirection = """
+            @AutoConfiguration
+            @AutoConfigureBefore(name = "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration")
+            public class SampleAutoConfiguration {
+                @Bean
+                @ConditionalOnBean(ChatMemory.class)
+                public Object service(ChatMemory memory) {
+                    return memory;
+                }
+            }
+            """;
+        assertThat(violationsOf(wrongDirection))
+            .as("@AutoConfigureBefore(提供者) 方向相反 ⇒ 必须判违规（保留项 R2）")
+            .singleElement()
+            .asString()
+            .contains("缺：")
+            .contains("方向相反");
     }
 }
