@@ -30,6 +30,10 @@ package cn.ypbin.starter.cache.multilevel;
  * 本该成功的写入被中断。指标是观测能力、不是业务前置条件，因此实现内部必须自行兜底（或降级为 no-op），
  * 不得把指标后端的故障传播给缓存调用方。</p>
  *
+ * <p>为防第三方实现违约，{@link MultiLevelCacheService} 还会把传入的实现套上
+ * {@link SafeCacheMetricsRecorder}：运行时异常被记录日志后隔离、{@code Error} 原样抛出。这是兜底而非许可——
+ * 实现仍应保证自身不抛异常。</p>
+ *
  * @author wenbin
  * @since 2026-10-17
  */

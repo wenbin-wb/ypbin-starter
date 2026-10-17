@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-17T03:00:32.988Z",
+  "generatedAt": "2026-10-17T07:06:57.016Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 377,
+    "customPropertyCount": 378,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 417,
+    "totalEntryCount": 418,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -1695,7 +1695,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 32
+              "line": 41
             }
           ],
           "default": false,
@@ -1705,7 +1705,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 32
+              "line": 41
             }
           ],
           "group": "ypbin.cache",
@@ -1729,7 +1729,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 41
+              "line": 50
             }
           ],
           "default": true,
@@ -1741,7 +1741,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 41
+              "line": 50
             }
           ],
           "group": "ypbin.cache",
@@ -1763,7 +1763,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 44
+              "line": 53
             }
           ],
           "default": "ypbin:cache:invalidation",
@@ -1773,7 +1773,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 44
+              "line": 53
             }
           ],
           "group": "ypbin.cache",
@@ -1795,7 +1795,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 38
+              "line": 47
             }
           ],
           "default": 300,
@@ -1805,7 +1805,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 38
+              "line": 47
             }
           ],
           "group": "ypbin.cache",
@@ -1827,7 +1827,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 35
+              "line": 44
             }
           ],
           "default": 10000,
@@ -1837,7 +1837,39 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
-              "line": 35
+              "line": 44
+            }
+          ],
+          "group": "ypbin.cache",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cache",
+          "key": "ypbin.cache.multi-level.metrics-cache-name",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "multi-level",
+          "required": false,
+          "requiredWhen": null,
+          "description": "多级缓存运行时指标的 cache 标签值，默认 #DEFAULT_METRICS_CACHE_NAME。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
+              "line": 67
+            }
+          ],
+          "default": "multi-level",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cache/src/main/java/cn/ypbin/starter/cache/multilevel/MultiLevelCacheProperties.java",
+              "line": 67
             }
           ],
           "group": "ypbin.cache",
@@ -3426,7 +3458,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1641
+              "line": 2023
             }
           ],
           "default": null,
@@ -3436,7 +3468,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1641
+              "line": 2023
             }
           ]
         }
@@ -4518,7 +4550,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1558
+              "line": 1930
             }
           ],
           "default": null,
@@ -4528,7 +4560,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1558
+              "line": 1930
             }
           ]
         },
@@ -4548,7 +4580,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1558
+              "line": 1930
             }
           ],
           "default": null,
@@ -4558,7 +4590,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1558
+              "line": 1930
             }
           ]
         },
@@ -4860,7 +4892,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1734
+              "line": 2119
             }
           ],
           "default": null,
@@ -4870,7 +4902,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1734
+              "line": 2119
             }
           ]
         },
@@ -4892,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1763
+              "line": 2119
             }
           ],
           "default": null,
@@ -4904,7 +4936,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1763
+              "line": 2119
             }
           ]
         },
@@ -4924,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1766
+              "line": 2119
             }
           ],
           "default": null,
@@ -4934,7 +4966,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1766
+              "line": 2119
             }
           ]
         }
@@ -5024,7 +5056,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1793
+              "line": 2173
             }
           ],
           "default": null,
@@ -5034,7 +5066,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1793
+              "line": 2173
             }
           ]
         },
@@ -5054,7 +5086,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1795
+              "line": 2173
             }
           ],
           "default": null,
@@ -5064,7 +5096,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1795
+              "line": 2173
             }
           ]
         }
@@ -5503,7 +5535,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 86
+              "line": 115
             }
           ],
           "default": null,
@@ -5513,7 +5545,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 86
+              "line": 115
             }
           ]
         }
@@ -5804,7 +5836,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1375
+              "line": 1725
             }
           ],
           "default": "messages",
@@ -5814,7 +5846,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1375
+              "line": 1725
             }
           ]
         }
@@ -6778,7 +6810,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 70
+              "line": 78
             }
           ],
           "default": "UTF-8",
@@ -6788,7 +6820,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 70
+              "line": 78
             }
           ],
           "group": "ypbin.mail",
@@ -6846,7 +6878,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 54
+              "line": 62
             }
           ],
           "default": null,
@@ -6856,7 +6888,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 54
+              "line": 62
             }
           ],
           "group": "ypbin.mail",
@@ -6878,7 +6910,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 58
+              "line": 66
             }
           ],
           "default": null,
@@ -6888,7 +6920,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 58
+              "line": 66
             }
           ],
           "group": "ypbin.mail",
@@ -6910,7 +6942,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 41
+              "line": 49
             }
           ],
           "default": null,
@@ -6920,7 +6952,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 41
+              "line": 49
             }
           ],
           "group": "ypbin.mail",
@@ -6945,7 +6977,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 50
+              "line": 58
             }
           ],
           "default": null,
@@ -6958,7 +6990,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 50
+              "line": 58
             }
           ],
           "group": "ypbin.mail",
@@ -6980,7 +7012,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 44
+              "line": 52
             }
           ],
           "default": 465,
@@ -6990,7 +7022,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 44
+              "line": 52
             }
           ],
           "group": "ypbin.mail",
@@ -7012,7 +7044,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 61
+              "line": 69
             }
           ],
           "default": "smtp",
@@ -7022,7 +7054,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 61
+              "line": 69
             }
           ],
           "group": "ypbin.mail",
@@ -7044,7 +7076,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 64
+              "line": 72
             }
           ],
           "default": true,
@@ -7054,7 +7086,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 64
+              "line": 72
             }
           ],
           "group": "ypbin.mail",
@@ -7076,7 +7108,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 67
+              "line": 75
             }
           ],
           "default": false,
@@ -7086,7 +7118,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 67
+              "line": 75
             }
           ],
           "group": "ypbin.mail",
@@ -7108,7 +7140,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 73
+              "line": 81
             }
           ],
           "default": 10000,
@@ -7118,7 +7150,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 73
+              "line": 81
             }
           ],
           "group": "ypbin.mail",
@@ -7140,7 +7172,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 47
+              "line": 55
             }
           ],
           "default": null,
@@ -7150,7 +7182,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-messaging/src/main/java/cn/ypbin/starter/messaging/mail/MailConfig.java",
-              "line": 47
+              "line": 55
             }
           ],
           "group": "ypbin.mail",
@@ -8180,7 +8212,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1173
+              "line": 1423
             }
           ],
           "default": null,
@@ -8190,7 +8222,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1173
+              "line": 1423
             }
           ]
         }
@@ -9924,7 +9956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 345
+              "line": 332
             }
           ],
           "default": 2592000,
@@ -9934,7 +9966,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 345
+              "line": 332
             }
           ]
         },
@@ -9954,7 +9986,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 346
+              "line": 332
             }
           ],
           "default": 1800,
@@ -9964,7 +9996,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 346
+              "line": 332
             }
           ]
         },
@@ -9984,7 +10016,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 347
+              "line": 332
             }
           ],
           "default": true,
@@ -9994,7 +10026,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 347
+              "line": 332
             }
           ]
         }
@@ -11393,7 +11425,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 579
+              "line": 709
             }
           ],
           "default": null,
@@ -11403,7 +11435,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 579
+              "line": 709
             }
           ]
         },
@@ -11423,7 +11455,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 579
+              "line": 709
             }
           ],
           "default": null,
@@ -11433,7 +11465,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 579
+              "line": 709
             }
           ]
         }

@@ -41,7 +41,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration(after = ImageCaptchaAutoConfiguration.class)
 @ConditionalOnClass(ImageCaptchaApplication.class)
-@ConditionalOnProperty(prefix = "ypbin.captcha", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = CaptchaProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(CaptchaProperties.class)
 public class CaptchaAutoConfiguration {
 

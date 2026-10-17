@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.messaging.autoconfigure;
 
+import cn.ypbin.starter.messaging.sse.SseProperties;
 import cn.ypbin.starter.messaging.sse.SseUserIdResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,8 +39,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @AutoConfiguration
 @ConditionalOnClass(SseEmitter.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.sse", name = "enabled", havingValue = "true")
-@ConditionalOnProperty(prefix = "ypbin.sse", name = "register-endpoint", havingValue = "true",
+@ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "register-endpoint", havingValue = "true",
     matchIfMissing = true)
 public class SseMissingUserIdResolverAutoConfiguration {
 

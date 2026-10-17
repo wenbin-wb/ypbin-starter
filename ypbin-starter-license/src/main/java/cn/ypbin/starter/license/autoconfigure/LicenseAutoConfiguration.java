@@ -57,7 +57,7 @@ import org.springframework.util.StringUtils;
  * @since 2026-08-05
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.license", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = LicenseProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(LicenseProperties.class)
 public class LicenseAutoConfiguration {
 
@@ -129,7 +129,7 @@ public class LicenseAutoConfiguration {
          */
         @Bean
         @ConditionalOnMissingBean
-        @ConditionalOnProperty(prefix = "ypbin.license.online", name = "base-url")
+        @ConditionalOnProperty(prefix = LicenseProperties.Online.PREFIX, name = "base-url")
         public HttpRemoteVerifyProvider httpRemoteVerifyProvider(LicenseProperties properties) {
             String accessKey = properties.getOnline().getAccessKey();
             String secretKey = properties.getOnline().getSecretKey();

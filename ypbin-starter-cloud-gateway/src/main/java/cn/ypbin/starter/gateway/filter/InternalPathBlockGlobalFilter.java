@@ -18,6 +18,7 @@ package cn.ypbin.starter.gateway.filter;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import cn.ypbin.starter.core.util.LogSanitizer;
+import cn.ypbin.starter.gateway.support.GatewayResponseSupport;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,8 +45,14 @@ import tools.jackson.databind.ObjectMapper;
  * 内部端点路径阻断全局过滤器（GitHub issue #96 的网关侧要求）。
  *
  * <p>把服务侧的 {@code /internal/**} 端点挡在网关之外：命中 {@link InternalPathBlockProperties#getPathPatterns()}
- * 时<b>不转发</b>，直接写回一个与既有 404 一致的信封响应（{@link R} + {@link GlobalErrorCode#NOT_FOUND}），
- * 响应体为固定文案、<b>不回显请求路径</b>，故调用方无法据响应判断某个内部端点是否存在。</p>
+ * 时<b>不转发</b>，直接写回一个与既有 404 一致的信封响应（{@link R} + {@link GlobalErrorCode#NOT_FOUND}，
+ * 经 {@link GatewayResponseSupport#notFound()} 构造——与未知路由的 404 共用同一 code/message/success，
+ * 除各请求自身的动态 {@code timestamp} 外逐字段一致），响应体为固定文案、<b>不回显请求路径</b>，
+ * 故调用方无法据响应判断某个内部端点是否存在。</p>
+ *
+ * <p><strong>响应体逐请求生成</strong>：{@code timestamp} 取自本次请求时刻，<b>不</b>在构造期预生成
+ * ——否则同一路径的每次拒绝都返回同一个（启动时刻的）时间戳，调用方据此即可把「内部路径被阻断」与
+ * 「路由不存在」区分开（后者每次都是当前时刻）。详见 {@link #objectMapper} 字段的说明。</p>
  *
  * <p><strong>顺序</strong>：{@link #getOrder()} = {@link Ordered#HIGHEST_PRECEDENCE}+1，与
  * {@code HeaderSanitizeGlobalFilter} 同级、早于 {@code GatewayAuthGlobalFilter}
@@ -123,14 +130,21 @@ public class InternalPathBlockGlobalFilter implements GlobalFilter, Ordered {
     private static final Pattern ENCODED_SEPARATOR = Pattern.compile("%2f|%5c", Pattern.CASE_INSENSITIVE);
 
     /**
-     * 信封序列化失败时的兜底响应体：code/message 与 {@code R.fail(NOT_FOUND)} 一致（不含
-     * {@code data}/{@code timestamp} 字段），且<b>不含任何输入值</b>。
+     * 信封序列化失败时的兜底响应体：字段取值全部取自 {@link GatewayResponseSupport#notFound()}
+     * （{@code code}/{@code message}/{@code success} 与正常信封一致；不含 {@code data}/{@code timestamp}，
+     * 因为这一段是手工拼接的固定 JSON），且<b>不含任何输入值</b>。
      *
      * <p>正常路径下这段常量用不到；保留它是为了让「序列化器异常」也不至于把 Jackson 的错误细节
      * 或请求路径泄露给调用方（宁可返回固定文案，也不返回 500 或空响应）。</p>
      */
-    private static final String FALLBACK_BODY = "{\"code\":" + GlobalErrorCode.NOT_FOUND.getCode()
-        + ",\"message\":\"" + GlobalErrorCode.NOT_FOUND.getMessage() + "\",\"success\":false}";
+    private static final String FALLBACK_BODY = buildFallbackBody();
+
+    /** 兜底 JSON 只由共享信封派生，避免与正常信封的文案/状态码漂移。 */
+    private static String buildFallbackBody() {
+        R<Void> envelope = GatewayResponseSupport.notFound();
+        return "{\"code\":" + envelope.getCode() + ",\"message\":\"" + envelope.getMessage()
+            + "\",\"success\":" + envelope.isSuccess() + "}";
+    }
 
     /** 普通路径模式（{@link PathPattern} 直接匹配） */
     private final List<PathPattern> pathPatterns;
@@ -141,8 +155,15 @@ public class InternalPathBlockGlobalFilter implements GlobalFilter, Ordered {
     /** 命中时写回的 HTTP 状态码（信封一律为 404 语义，本项只控制 HTTP 层） */
     private final HttpStatusCode notFoundStatus;
 
-    /** 命中时写回的响应体字节（构造期一次性生成，避免每个被拒请求重复序列化） */
-    private final byte[] notFoundBody;
+    /**
+     * 信封序列化器（与网关其余响应同口径），命中时<b>逐请求</b>序列化。
+     *
+     * <p>刻意不在构造期预生成响应体：那样 {@code timestamp} 会被冻结成启动时刻，同一路径的每次拒绝
+     * 都返回<b>同一个月时间戳</b>（甚至连续两次完全相同），而未知路由的 404 每次都是当前时刻——
+     * 调用方据此即可区分「内部路径被阻断」与「路由不存在」，正好绕过了本过滤器的不暴露目标。
+     * 逐请求序列化的代价是每次命中多一次小对象的 JSON 序列化（微秒级），可接受。</p>
+     */
+    private final ObjectMapper objectMapper;
 
     /**
      * 构造过滤器。
@@ -156,7 +177,7 @@ public class InternalPathBlockGlobalFilter implements GlobalFilter, Ordered {
         this.pathPatterns = compiled.directPatterns();
         this.anyDepthPathPatterns = compiled.anyDepthPatterns();
         this.notFoundStatus = resolveStatus(properties.getNotFoundStatus());
-        this.notFoundBody = serializeNotFoundBody(objectMapper);
+        this.objectMapper = objectMapper;
         if (pathPatterns.isEmpty() && anyDepthPathPatterns.isEmpty()) {
             // 显式配置成空清单可以是刻意为之，但它同时是「配置中心覆盖掉默认值」的典型误配形态，
             // 而后果是安全过滤器静默变成空操作，故必须留一条启动告警而不是无声通过。
@@ -252,13 +273,16 @@ public class InternalPathBlockGlobalFilter implements GlobalFilter, Ordered {
     /**
      * 写回统一的 404 信封响应（固定文案、无请求路径回显）。
      *
+     * <p>逐请求序列化（见 {@link #objectMapper} 的说明），使 {@code timestamp} 与其它 404 一样是
+     * 本次请求的时刻，不留下「响应体被预生成过」的可观测痕迹。</p>
+     *
      * @param response 当前响应
      * @return 写响应完成信号
      */
     private Mono<Void> writeNotFound(ServerHttpResponse response) {
         response.setStatusCode(notFoundStatus);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-        DataBuffer buffer = response.bufferFactory().wrap(notFoundBody);
+        DataBuffer buffer = response.bufferFactory().wrap(serializeNotFoundBody(objectMapper));
         return response.writeWith(Mono.just(buffer));
     }
 
@@ -336,12 +360,15 @@ public class InternalPathBlockGlobalFilter implements GlobalFilter, Ordered {
     /**
      * 生成命中响应体。
      *
+     * <p>经 {@link GatewayResponseSupport#notFound()} 构造，与未知路由 404（{@code GatewayExceptionHandler}）
+     * 共用同一信封；序列化失败时退化为固定文案（同样取自共享信封），绝不向调用方泄露异常细节。</p>
+     *
      * @param objectMapper 容器配置的序列化器
-     * @return 响应体字节（序列化失败时退化为固定文案，绝不向调用方泄露异常细节）
+     * @return 响应体字节
      */
     private static byte[] serializeNotFoundBody(ObjectMapper objectMapper) {
         try {
-            return objectMapper.writeValueAsBytes(R.fail(GlobalErrorCode.NOT_FOUND));
+            return objectMapper.writeValueAsBytes(GatewayResponseSupport.notFound());
         } catch (JacksonException ex) {
             log.error("[内部路径阻断] 404 信封序列化失败，改用固定文案", ex);
             return FALLBACK_BODY.getBytes(StandardCharsets.UTF_8);

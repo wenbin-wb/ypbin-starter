@@ -34,6 +34,8 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * 网关真运行时端到端测试。
@@ -185,6 +187,40 @@ class GatewayE2ETest {
         assertThat(DOWNSTREAM_INTERNAL_HIT)
             .as("被阻断的内部路径请求绝不能被转发到下游")
             .isFalse();
+    }
+
+    /**
+     * issue #96 的核心验收：内部端点阻断的 404 与未知路由的 404 对调用方<b>不可区分</b>。
+     *
+     * <p>两者在真实运行时走完全不同的代码路径（未知路由 → {@code GatewayExceptionHandler}；
+     * 内部路径 → {@code InternalPathBlockGlobalFilter}），本用例取回两个响应体、剔除动态
+     * {@code timestamp} 后逐字段比较，确保文案与字段结构不再漂移。HTTP 状态码差异
+     * （未知路由沿用既有 HTTP 200 约定、内部路径按 issue #96 要求返回 404）是刻意保留的——issue 只要求
+     * 阻断侧为 404，并未要求改变未知路由既有契约，故本用例只比较响应体。</p>
+     */
+    @Test
+    void blockedInternalPathShouldBeIndistinguishableFromUnknownRoute() {
+        byte[] unknownRouteBody = webTestClient.get().uri("/no-such-route")
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody().returnResult().getResponseBody();
+
+        byte[] blockedBody = webTestClient.get().uri("/internal/secret")
+            .exchange()
+            .expectStatus().isNotFound()
+            .expectBody().returnResult().getResponseBody();
+
+        assertThat(envelopeWithoutTimestamp(blockedBody))
+            .as("两个来源的 404 响应体必须逐字段一致（除动态 timestamp），否则内部端点存在性对外可探测")
+            .isEqualTo(envelopeWithoutTimestamp(unknownRouteBody));
+    }
+
+    /** 解析响应体并剔除动态 {@code timestamp}，用于「除时间戳外逐字段一致」的比较。 */
+    private static ObjectNode envelopeWithoutTimestamp(byte[] body) {
+        assertThat(body).as("404 信封必须返回响应体").isNotNull();
+        ObjectNode envelope = (ObjectNode) new ObjectMapper().readTree(body);
+        envelope.remove("timestamp");
+        return envelope;
     }
 
     @SpringBootConfiguration

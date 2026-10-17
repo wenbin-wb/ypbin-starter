@@ -73,7 +73,7 @@ import tools.jackson.databind.module.SimpleModule;
  */
 @AutoConfiguration
 @ConditionalOnClass(ObjectMapper.class)
-@ConditionalOnProperty(prefix = "ypbin.json", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = JacksonProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(JacksonProperties.class)
 public class JacksonAutoConfiguration {
 
@@ -189,7 +189,7 @@ public class JacksonAutoConfiguration {
     @AutoConfiguration
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnClass(ResponseBodyAdvice.class)
-    @ConditionalOnProperty(prefix = "ypbin.json.ref-text", name = "auto-resolve", havingValue = "true",
+    @ConditionalOnProperty(prefix = JacksonProperties.RefText.PREFIX, name = "auto-resolve", havingValue = "true",
         matchIfMissing = true)
     static class RefTextWebConfiguration {
 

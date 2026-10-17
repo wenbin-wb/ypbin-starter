@@ -16,6 +16,7 @@
 package cn.ypbin.starter.cache.multilevel;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -90,6 +91,44 @@ class MultiLevelCacheMetricsWiringTest {
         assertThat(recorder.l1Hits).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("★ 宿主 recorder 抛 RuntimeException：缓存读/回源/写语义全部不变（埋点异常被隔离）")
+    void throwingRecorderDoesNotChangeCacheSemantics() {
+        ThrowingRecorder throwing = new ThrowingRecorder();
+        MultiLevelCacheService guarded = new MultiLevelCacheService(l2, l1, null, throwing);
+
+        // L1 命中（l1Hit / nullSentinelHit 埋点均抛）
+        l1.put("hit", "v");
+        assertThat(guarded.get("hit", String.class)).isEqualTo("v");
+        // L1 未命中 + L2 命中（l1Miss / l2Hit 埋点均抛）
+        l2.store.put("l2key", "l2value");
+        assertThat(guarded.get("l2key", String.class)).isEqualTo("l2value");
+        // L2 未命中后回填哨兵，第二次被哨兵拦截（l1Miss / l2Miss 埋点均抛）
+        assertThat(guarded.get("missing", String.class)).isNull();
+        assertThat(guarded.get("missing", String.class)).isNull();
+        // 回源路径（load 埋点抛）
+        assertThat(guarded.getOrLoad("load", String.class, () -> "loaded", Duration.ofSeconds(10)))
+            .isEqualTo("loaded");
+        // 写路径（setIfAbsent，埋点不参与但必须仍写入 L2）
+        assertThat(guarded.setIfAbsent("w", "wv", Duration.ofSeconds(10))).isTrue();
+        assertThat(l2.store).containsEntry("w", "wv");
+
+        assertThat(throwing.attempts)
+            .as("埋点必须真的被调用过（异常被隔离，而不是整段埋点被静默跳过）")
+            .isPositive();
+    }
+
+    @Test
+    @DisplayName("★ 埋点抛 Error：原样抛出（防御层只隔离 RuntimeException，不掩盖进程级故障）")
+    void errorFromRecorderIsNotSwallowed() {
+        MultiLevelCacheService guarded = new MultiLevelCacheService(l2, l1, null, new ErrorThrowingRecorder());
+        l1.put("k", "v");
+
+        assertThatThrownBy(() -> guarded.get("k", String.class))
+            .isInstanceOf(AssertionError.class)
+            .hasMessageContaining("进程级故障");
+    }
+
     /** 记录各事件调用次数的替身。 */
     static final class RecordingRecorder implements CacheMetricsRecorder {
 
@@ -133,6 +172,76 @@ class MultiLevelCacheMetricsWiringTest {
         @Override
         public void load() {
             loads++;
+        }
+    }
+
+    /** 每个埋点方法都抛运行时异常的替身：模拟宿主自定义 recorder 违约（接口声明不得抛异常）。 */
+    static final class ThrowingRecorder implements CacheMetricsRecorder {
+
+        int attempts;
+
+        @Override
+        public void l1Hit() {
+            throw boom();
+        }
+
+        @Override
+        public void l1Miss() {
+            throw boom();
+        }
+
+        @Override
+        public void l2Hit() {
+            throw boom();
+        }
+
+        @Override
+        public void l2Miss() {
+            throw boom();
+        }
+
+        @Override
+        public void nullSentinelHit() {
+            throw boom();
+        }
+
+        @Override
+        public void load() {
+            throw boom();
+        }
+
+        private IllegalStateException boom() {
+            attempts++;
+            return new IllegalStateException("埋点后端不可用");
+        }
+    }
+
+    /** 埋点抛 {@link Error} 的替身：验证防御层不吞 JVM 级故障。 */
+    static final class ErrorThrowingRecorder implements CacheMetricsRecorder {
+
+        @Override
+        public void l1Hit() {
+            throw new AssertionError("进程级故障不得被指标防御层吞掉");
+        }
+
+        @Override
+        public void l1Miss() {
+        }
+
+        @Override
+        public void l2Hit() {
+        }
+
+        @Override
+        public void l2Miss() {
+        }
+
+        @Override
+        public void nullSentinelHit() {
+        }
+
+        @Override
+        public void load() {
         }
     }
 }

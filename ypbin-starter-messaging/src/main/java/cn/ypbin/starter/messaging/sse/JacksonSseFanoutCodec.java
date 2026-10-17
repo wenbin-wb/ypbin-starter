@@ -40,7 +40,13 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p><strong>不静默降级</strong>：Jackson 序列化失败（如自引用环、getter 抛异常）时
  * {@link #encode(Object)} 返回 {@link Optional#empty()}，由 {@code SseEmitterManager} 按既有语义记
- * WARN 并只投本实例；绝不 {@code toString()} 成垃圾帧，也不把半截 JSON 投出去。</p>
+ * WARN 并只投本实例；绝不 {@code toString()} 成垃圾帧，也不把半截 JSON 投出去。非有限数字
+ * （{@code NaN}/±{@code Infinity}）同样返回空而不是落到 JSON 分支被写成带引号的 {@code "NaN"}：
+ * 标量语义必须与 {@link TextSseFanoutCodec} 完全一致（见下）。</p>
+ *
+ * <p><strong>解码容错</strong>：{@link #decode(String)} 对标量分支直接委托
+ * {@link TextSseFanoutCodec}，故「{@code d<文本>} 无法解析时保留原文、不抛异常」这条语义两侧天然一致；
+ * 对象/数组等结构化载荷不支持时 {@link #encode(Object)} 返回空，由发布方显式降级。</p>
  *
  * <p><strong>滚动升级（重要）</strong>：{@link #id()} 为 {@value #ID}，与 {@code text-v1} 不同；而
  * {@code SseFanoutSubscriber} 会丢弃 codecId 与自身不一致的帧。因此<strong>混版本窗口内，两个方向的
@@ -99,6 +105,15 @@ public class JacksonSseFanoutCodec implements SseFanoutCodec {
         Optional<String> scalar = SCALARS.encode(payload);
         if (scalar.isPresent()) {
             return scalar;
+        }
+        if (payload instanceof Number value) {
+            // 走到这里说明标量分支判定「承载不了」：只可能是 NaN/±Infinity 这类非有限数字。
+            // 若放它落到下面的 JSON 分支，Jackson 会把它写成带引号的字符串（如 "NaN"），
+            // 与 text-v1 的标量语义（见类注释：标量逐字节沿用 text 协议）就漂移了；JSON 本身
+            // 也没有 NaN/无穷的标准表示。故按「本 codec 承载不了」处理，由发布方记 WARN 并只投本实例。
+            log.debug("[ypbin-starter] 非有限数字无法被扇出协议承载（NaN/±Infinity），按不支持处理：payloadType={}",
+                value.getClass().getName());
+            return Optional.empty();
         }
         try {
             return Optional.of(JSON_PREFIX + objectMapper.writeValueAsString(payload));

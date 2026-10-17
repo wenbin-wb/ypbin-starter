@@ -31,9 +31,10 @@ import org.springframework.aop.aspectj.annotation.AspectJProxyFactory;
  */
 class DistributedLockAspectTest {
 
-    /** 记录 tryLock/unlock 调用的假锁 */
+    /** 记录 tryLock/renew/unlock 调用的假锁 */
     static class RecordingLockService implements LockService {
         final AtomicInteger tryCount = new AtomicInteger();
+        final AtomicInteger renewCount = new AtomicInteger();
         final AtomicInteger unlockCount = new AtomicInteger();
         boolean grant;
 
@@ -45,6 +46,12 @@ class DistributedLockAspectTest {
         public boolean tryLock(String key, String owner, Duration ttl) {
             tryCount.incrementAndGet();
             return grant;
+        }
+
+        @Override
+        public boolean renew(String key, String owner, Duration ttl) {
+            renewCount.incrementAndGet();
+            return true;
         }
 
         @Override
@@ -72,7 +79,7 @@ class DistributedLockAspectTest {
 
     private Service proxy(LockService lockService) {
         AspectJProxyFactory factory = new AspectJProxyFactory(new Service());
-        factory.addAspect(new DistributedLockAspect(lockService));
+        factory.addAspect(new DistributedLockAspect(lockService, new ManualLockRenewalScheduler()));
         return factory.getProxy();
     }
 

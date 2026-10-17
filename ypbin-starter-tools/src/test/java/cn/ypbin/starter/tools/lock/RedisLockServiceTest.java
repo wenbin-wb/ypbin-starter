@@ -76,4 +76,33 @@ class RedisLockServiceTest {
 
         assertThat(service.unlock("lock:key", "owner")).isFalse();
     }
+
+    @Test
+    void renewShouldReturnTrueWhenStillOwner() {
+        // 续期脚本带两个 ARGV（owner + ttlMillis），需匹配 execute(script, keys, arg1, arg2)
+        when(redisTemplate.execute(any(RedisScript.class), any(List.class), any(), any()))
+            .thenReturn(1L);
+        RedisLockService service = new RedisLockService(redisTemplate);
+
+        assertThat(service.renew("lock:key", "owner", Duration.ofSeconds(10))).isTrue();
+    }
+
+    @Test
+    void renewShouldReturnFalseWhenNotOwnerOrAbsent() {
+        when(redisTemplate.execute(any(RedisScript.class), any(List.class), any(), any()))
+            .thenReturn(0L);
+        RedisLockService service = new RedisLockService(redisTemplate);
+
+        assertThat(service.renew("lock:key", "other", Duration.ofSeconds(10))).isFalse();
+    }
+
+    @Test
+    void renewShouldReturnFalseOnNullScriptResult() {
+        // 连接层不确定结果一律按「没续上」处理（fail-closed：不确定时不冒充持有者）
+        when(redisTemplate.execute(any(RedisScript.class), any(List.class), any(), any()))
+            .thenReturn(null);
+        RedisLockService service = new RedisLockService(redisTemplate);
+
+        assertThat(service.renew("lock:key", "owner", Duration.ofSeconds(10))).isFalse();
+    }
 }

@@ -108,7 +108,8 @@ class ExcelUtilsTest {
     }
 
     /**
-     * 响应头行为回归：{@code prepareResponse} 抽取到 {@link DownloadResponses} 后，
+     * 响应头行为回归：{@code prepareResponse} 复用 tools 的
+     * {@code cn.ypbin.starter.tools.web.DownloadResponses} 后，
      * 对外可见的 Content-Type / 编码 / RFC 5987 文件名必须逐字节不变。
      */
     @Test

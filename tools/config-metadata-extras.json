@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Spring 元数据无法表达的补充信息：启用条件、生产注意，以及宿主标准（Spring/第三方）配置项。由人工维护。",
+  "description": "Spring 元数据无法表达的补充信息：启用条件、生产注意，以及宿主标准（Spring/第三方）配置项。由人工维护。活文档（如 docs/MODULES.md）的 source 用 anchor（目标文件中唯一出现的文本片段）定位，line 由 export-config-metadata.mjs 生成时回填，勿手写行号。",
   "enablement": {
     "ypbin.ai.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
     "ypbin.ai.chat.enabled": "配置值为 true 时满足该自动装配条件；未配置时同样满足。",
@@ -438,7 +438,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1641
+            "anchor": "### cloud-gateway — 网关通用横切能力"
           }
         ],
         "default": null,
@@ -448,7 +448,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1641
+            "anchor": "### cloud-gateway — 网关通用横切能力"
           }
         ]
       }
@@ -622,7 +622,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1558
+            "anchor": "### cloud-nacos — Nacos 依赖聚合"
           }
         ],
         "default": null,
@@ -632,7 +632,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1558
+            "anchor": "### cloud-nacos — Nacos 依赖聚合"
           }
         ]
       },
@@ -652,7 +652,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1558
+            "anchor": "### cloud-nacos — Nacos 依赖聚合"
           }
         ],
         "default": null,
@@ -662,7 +662,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1558
+            "anchor": "### cloud-nacos — Nacos 依赖聚合"
           }
         ]
       },
@@ -864,7 +864,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1734
+            "anchor": "### cloud-observability — 可观测性"
           }
         ],
         "default": null,
@@ -874,7 +874,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1734
+            "anchor": "### cloud-observability — 可观测性"
           }
         ]
       },
@@ -896,7 +896,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1763
+            "anchor": "### cloud-observability — 可观测性"
           }
         ],
         "default": null,
@@ -908,7 +908,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1763
+            "anchor": "### cloud-observability — 可观测性"
           }
         ]
       },
@@ -928,7 +928,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1766
+            "anchor": "### cloud-observability — 可观测性"
           }
         ],
         "default": null,
@@ -938,7 +938,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1766
+            "anchor": "### cloud-observability — 可观测性"
           }
         ]
       }
@@ -960,7 +960,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1793
+            "anchor": "### cloud-sentinel — 流量防护"
           }
         ],
         "default": null,
@@ -970,7 +970,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1793
+            "anchor": "### cloud-sentinel — 流量防护"
           }
         ]
       },
@@ -990,7 +990,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1795
+            "anchor": "### cloud-sentinel — 流量防护"
           }
         ],
         "default": null,
@@ -1000,7 +1000,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1795
+            "anchor": "### cloud-sentinel — 流量防护"
           }
         ]
       }
@@ -1142,7 +1142,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 86
+            "anchor": "### data — 数据访问"
           }
         ],
         "default": null,
@@ -1152,7 +1152,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 86
+            "anchor": "### data — 数据访问"
           }
         ]
       }
@@ -1174,7 +1174,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1375
+            "anchor": "### i18n — 国际化"
           }
         ],
         "default": "messages",
@@ -1184,7 +1184,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1375
+            "anchor": "### i18n — 国际化"
           }
         ]
       }
@@ -1236,7 +1236,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1173
+            "anchor": "### messaging — 消息（邮件 / WebSocket / SSE / MQTT）"
           }
         ],
         "default": null,
@@ -1246,7 +1246,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 1173
+            "anchor": "### messaging — 消息（邮件 / WebSocket / SSE / MQTT）"
           }
         ]
       }
@@ -1268,7 +1268,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 345
+            "anchor": "### security — 认证授权"
           }
         ],
         "default": 2592000,
@@ -1278,7 +1278,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 345
+            "anchor": "### security — 认证授权"
           }
         ]
       },
@@ -1298,7 +1298,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 346
+            "anchor": "### security — 认证授权"
           }
         ],
         "default": 1800,
@@ -1308,7 +1308,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 346
+            "anchor": "### security — 认证授权"
           }
         ]
       },
@@ -1328,7 +1328,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 347
+            "anchor": "### security — 认证授权"
           }
         ],
         "default": true,
@@ -1338,7 +1338,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 347
+            "anchor": "### security — 认证授权"
           }
         ]
       }
@@ -1360,7 +1360,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 579
+            "anchor": "### storage — 文件存储"
           }
         ],
         "default": null,
@@ -1370,7 +1370,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 579
+            "anchor": "### storage — 文件存储"
           }
         ]
       },
@@ -1390,7 +1390,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 579
+            "anchor": "### storage — 文件存储"
           }
         ],
         "default": null,
@@ -1400,7 +1400,7 @@
           {
             "kind": "spring-standard-or-third-party",
             "path": "docs/MODULES.md",
-            "line": 579
+            "anchor": "### storage — 文件存储"
           }
         ]
       }

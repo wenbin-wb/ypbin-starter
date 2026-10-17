@@ -36,8 +36,16 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass(SmsFactory.class)
-@ConditionalOnProperty(prefix = "ypbin.sms", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = SmsAutoConfiguration.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SmsAutoConfiguration {
+
+    /**
+     * 配置前缀。
+     *
+     * <p>厂商密钥/模板等配置由 sms4j 自身管理（{@code sms:} 前缀），本模块只暴露装配开关、
+     * 没有绑定字段，故前缀常量就近定义在本自动配置类内。
+     */
+    public static final String PREFIX = "ypbin.sms";
 
     @Bean
     @ConditionalOnMissingBean

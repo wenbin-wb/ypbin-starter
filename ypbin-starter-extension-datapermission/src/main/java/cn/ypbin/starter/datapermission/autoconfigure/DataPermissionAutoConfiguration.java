@@ -46,8 +46,16 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration
 @ConditionalOnClass(DataPermissionInterceptor.class)
 @ConditionalOnBean(DataScopeHandler.class)
-@ConditionalOnProperty(prefix = "ypbin.data-permission", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = DataPermissionAutoConfiguration.PREFIX, name = "enabled", havingValue = "true")
 public class DataPermissionAutoConfiguration {
+
+    /**
+     * 配置前缀。
+     *
+     * <p>本能力只有装配开关、没有绑定字段，故前缀常量就近定义在本自动配置类内，
+     * 并由 {@link DataPermissionMissingHandlerAutoConfiguration} 共用。</p>
+     */
+    public static final String PREFIX = "ypbin.data-permission";
 
     private static final Logger log = LoggerFactory.getLogger(DataPermissionAutoConfiguration.class);
 

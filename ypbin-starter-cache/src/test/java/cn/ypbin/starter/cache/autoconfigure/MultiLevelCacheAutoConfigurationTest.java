@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.cache.multilevel.CacheMetricsRecorder;
 import cn.ypbin.starter.cache.multilevel.MicrometerCacheMetrics;
+import cn.ypbin.starter.cache.multilevel.MultiLevelCacheProperties;
 import cn.ypbin.starter.cache.multilevel.MultiLevelCacheService;
 import com.github.benmanes.caffeine.cache.Cache;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -92,7 +93,7 @@ class MultiLevelCacheAutoConfigurationTest {
     }
 
     @Test
-    @DisplayName("★ 宿主注册 MeterRegistry：装配 MicrometerCacheMetrics，cache 标签为固定标识 multi-level")
+    @DisplayName("★ 宿主注册 MeterRegistry：装配 MicrometerCacheMetrics，未配置时 cache 标签为默认值 multi-level")
     void withMeterRegistryBean_wiresMicrometerMetrics() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
 
@@ -103,9 +104,61 @@ class MultiLevelCacheAutoConfigurationTest {
                 .isInstanceOf(MicrometerCacheMetrics.class);
             assertThat(registry.getMeters()).as("读指标必须在装配阶段完成注册").isNotEmpty();
             assertThat(registry.getMeters()).allSatisfy(meter -> assertThat(meter.getId().getTag("cache"))
-                .as("cache 标签必须是固定的多级缓存标识")
-                .isEqualTo(MultiLevelCacheAutoConfiguration.METRICS_CACHE_NAME));
+                .as("未配置 metrics-cache-name 时 cache 标签必须保持历史默认值")
+                .isEqualTo(MultiLevelCacheProperties.DEFAULT_METRICS_CACHE_NAME));
         });
+    }
+
+    @Test
+    @DisplayName("★ 配置 metrics-cache-name：指标实际注册的 cache 标签改用配置值（多实例可按实例名下钻）")
+    void withConfiguredMetricsCacheName_registersMetersWithConfiguredLabel() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+        enabledRunner()
+            .withPropertyValues("ypbin.cache.multi-level.metrics-cache-name=pod-7")
+            .withBean(SimpleMeterRegistry.class, () -> registry)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(MultiLevelCacheProperties.class).getMetricsCacheName()).isEqualTo("pod-7");
+                assertThat(context.getBean(CacheMetricsRecorder.class)).isInstanceOf(MicrometerCacheMetrics.class);
+                assertThat(registry.getMeters()).isNotEmpty();
+                assertThat(registry.getMeters()).allSatisfy(meter -> assertThat(meter.getId().getTag("cache"))
+                    .as("★ 配置后 cache 标签必须是新值，否则多副本聚合后仍无法区分实例")
+                    .isEqualTo("pod-7"));
+            });
+    }
+
+    @Test
+    @DisplayName("★ metrics-cache-name 支持环境占位符（如 ${HOSTNAME}），绑定阶段即解析为实例名")
+    void metricsCacheName_resolvesPlaceholderFromEnvironment() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+        enabledRunner()
+            .withPropertyValues(
+                "ypbin.cache.multi-level.metrics-cache-name=${ypbin.test.pod-name}",
+                "ypbin.test.pod-name=order-service-6d9f")
+            .withBean(SimpleMeterRegistry.class, () -> registry)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(MultiLevelCacheProperties.class).getMetricsCacheName())
+                    .as("占位符必须由 Environment 解析：本模块不猜实例名，实例身份由宿主注入")
+                    .isEqualTo("order-service-6d9f");
+                assertThat(registry.getMeters()).isNotEmpty();
+                assertThat(registry.getMeters()).allSatisfy(meter -> assertThat(meter.getId().getTag("cache"))
+                    .isEqualTo("order-service-6d9f"));
+            });
+    }
+
+    @Test
+    @DisplayName("★ metrics-cache-name 配成空白：上下文启动即失败，而不是静默产出无区分度的标签")
+    void blankMetricsCacheName_failsFastOnStartup() {
+        enabledRunner().withPropertyValues("ypbin.cache.multi-level.metrics-cache-name=   ")
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure())
+                    .as("必须把非法配置暴露为启动失败（根因是参数校验异常），不得静默降级")
+                    .hasRootCauseInstanceOf(IllegalArgumentException.class);
+            });
     }
 
     @Test

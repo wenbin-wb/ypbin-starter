@@ -55,7 +55,7 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureAfter(name = "org.springframework.cloud.gateway.config.GatewayAutoConfiguration")
 @ConditionalOnClass(ConfigService.class)
 @ConditionalOnBean({RouteDefinitionLocator.class, RouteDefinitionWriter.class})
-@ConditionalOnProperty(prefix = "ypbin.gateway.route.nacos", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = NacosRouteProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(NacosRouteProperties.class)
 public class NacosRouteAutoConfiguration {
 

@@ -70,7 +70,7 @@ public class WebAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.web.cors", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = CorsProperties.PREFIX, name = "enabled", havingValue = "true")
     public CorsFilter corsFilter(CorsProperties properties) {
         CorsConfiguration config = new CorsConfiguration();
         properties.getAllowedOriginPatterns().forEach(config::addAllowedOriginPattern);
@@ -98,7 +98,7 @@ public class WebAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.web.repeatable-read", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = RepeatableReadProperties.PREFIX, name = "enabled", havingValue = "true")
     public FilterRegistrationBean<RepeatableReadRequestFilter> repeatableReadRequestFilterRegistration(
         RepeatableReadProperties properties, ObjectProvider<ObjectMapper> objectMapperProvider) {
         FilterRegistrationBean<RepeatableReadRequestFilter> registration = new FilterRegistrationBean<>();
@@ -121,7 +121,7 @@ public class WebAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.web.xss", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = XssProperties.PREFIX, name = "enabled", havingValue = "true")
     public FilterRegistrationBean<XssFilter> xssFilterRegistration(XssProperties properties) {
         FilterRegistrationBean<XssFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new XssFilter(properties.getExcludes()));

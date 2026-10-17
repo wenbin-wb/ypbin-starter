@@ -41,7 +41,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @AutoConfiguration
 @ConditionalOnClass(WebSocketMessageBrokerConfigurer.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.websocket", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = WebSocketProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(WebSocketProperties.class)
 @EnableWebSocketMessageBroker
 public class WebSocketAutoConfiguration {

@@ -47,10 +47,15 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * （与既有头处理同口径）。</p>
  *
  * <p><strong>装配前提（重要，勿误读）</strong>：本拦截器 Bean 由
- * {@code CloudFeignAutoConfiguration.ServletFeignHeaderConfiguration} 注册，带
- * {@code @ConditionalOnWebApplication(SERVLET)} ⇒ <b>仅在 Servlet Web 应用中生效</b>。
- * 纯后台应用（{@code spring.main.web-application-type=none}）即使配置了 token 也<b>不会</b>自动携带
- * 该凭证，需自行注册一个等价的 {@code RequestInterceptor}（或改为 Web 应用）。</p>
+ * {@code CloudFeignAutoConfiguration.FeignHeaderConfiguration} 注册，装配条件仅为
+ * 「classpath 存在 Servlet API」（{@code @ConditionalOnClass(HttpServletRequest.class)}），
+ * <b>不要求应用是 Web 应用</b>：{@code spring.main.web-application-type=none} 的纯后台/定时任务应用
+ * 同样会装配，内部凭证照常携带。无请求上下文时身份头透传自然跳过（见
+ * {@link #currentRequest()}），不影响凭证注入。</p>
+ *
+ * <p><strong>已知边界</strong>：本类方法签名引用 {@link HttpServletRequest}，classpath 完全没有
+ * Servlet API 时（本模块对 {@code jakarta.servlet-api} 是 optional 依赖）无法装配，需业务方自行提供
+ * 等价的 {@code RequestInterceptor}；此时「内部凭证携带」能力不可用。</p>
  *
  * <p><strong>凭证安全</strong>：{@code internalToken} 是真实凭据，本类<b>不把它写进任何日志、
  * 异常消息或 {@code toString}</b>；启动告警只说明「未配置」这一事实，不含凭证值。
@@ -247,14 +252,29 @@ public class FeignHeaderInterceptor implements RequestInterceptor {
         return value != null && !value.isBlank();
     }
 
+    /**
+     * 读取当前线程绑定的 Servlet 请求；无请求上下文时返回 {@code null}（调用方据此跳过身份头透传）。
+     *
+     * <p><b>非 Web 应用下的空安全性</b>：纯后台/定时任务应用从未绑定请求属性，
+     * {@link RequestContextHolder#getRequestAttributes()} 返回 {@code null}，
+     * {@code null instanceof ...} 恒为 {@code false}，故直接返回 {@code null}，不抛异常；
+     * 绑定的是非 Servlet 的 {@link org.springframework.web.context.request.RequestAttributes}
+     * 实现时同样走这一分支。因此本方法在无 Web 上下文时是空安全的——内部凭证注入不依赖它
+     * （见 {@link #apply(RequestTemplate)}）。</p>
+     *
+     * <p>兜底 {@code catch} 只针对极端场景（如 scoped proxy 的 request 作用域未激活时读取失败）；
+     * 此时同样安全跳过，但异常必须留痕（debug 级、含完整堆栈），否则「身份头静默丢失」无从排查。</p>
+     *
+     * @return 当前请求；无请求上下文时为 {@code null}
+     */
     @Nullable
     private HttpServletRequest currentRequest() {
         try {
             if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
                 return attrs.getRequest();
             }
-        } catch (Exception ignored) {
-            // 无 Web 上下文，安全跳过
+        } catch (Exception ex) {
+            log.debug("[ypbin-starter] 读取请求上下文失败，本次 Feign 调用跳过入站请求头透传（内部凭证不受影响）", ex);
         }
         return null;
     }

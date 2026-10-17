@@ -15,6 +15,11 @@
  * 说明：Spring 元数据不含源码行号，这里以 sourceType 定位源文件并按属性名尽力回填行号；
  * 元数据无法表达的「启用条件/生产注意」以及宿主标准（Spring/第三方）配置项，
  * 维护在 tools/config-metadata-extras.json，由本脚本合并。
+ *
+ * 活文档引用（如 docs/MODULES.md）不写死行号：extras 中记录唯一「锚点」文本（`anchor`），
+ * 生成时读取目标文件并回填当前行号到 `line`（输出字段与消费方契约不变）。锚点缺失或不唯一时
+ * 写 `line: null` 并告警，绝不猜测行号；`--check` 下锚点无法唯一解析会直接失败，
+ * 避免“文档一编辑、引用就静默指向错误内容”。
  */
 import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -92,6 +97,76 @@ async function findLine(relPath, propertyName) {
     }
   }
   return null
+}
+
+/**
+ * 把 `anchor` 解析为目标文件中的当前行号。
+ *
+ * 活文档会被持续编辑，写死行号必然漂移且不会报错；锚点文本（唯一出现）随内容走，编辑后仍能定位。
+ * 找不到、出现多次或文件缺失一律返回 `line: null`——调用方负责告警，绝不猜测行号。
+ *
+ * @returns {{ line: number|null, reason: 'resolved'|'file-missing'|'not-found'|'ambiguous', hits: number[] }}
+ */
+async function resolveAnchor(relPath, anchor) {
+  const content = await readSource(relPath)
+  if (content === null) return { line: null, reason: 'file-missing', hits: [] }
+  const hits = []
+  const lines = content.split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].includes(anchor)) hits.push(i + 1)
+  }
+  if (hits.length === 1) return { line: hits[0], reason: 'resolved', hits }
+  return { line: null, reason: hits.length === 0 ? 'not-found' : 'ambiguous', hits }
+}
+
+/**
+ * 把 extras 中带 `anchor` 的 source 原地解析为行号：写入 `line`，并删除仅用于定位的 `anchor`，
+ * 使输出仍严格保持 `{ kind, path, line }` 契约（消费方无需改动）。
+ *
+ * @returns {Promise<Array<{module: string, key: string, path: string, anchor: string, reason: string, hits: number[]}>>}
+ *          未能唯一解析的锚点清单（`line` 已写为 null）
+ */
+async function resolveAnchoredSources(extras) {
+  const issues = []
+  const seen = new Set()
+  for (const [module, entries] of Object.entries(extras.standardHostProperties ?? {})) {
+    for (const entry of entries) {
+      // entries 同时维护 sources / source 两份镜像，二者需一致解析
+      for (const field of ['sources', 'source']) {
+        const sources = entry[field]
+        if (!Array.isArray(sources)) continue
+        for (const source of sources) {
+          if (!source.anchor) continue
+          const anchor = source.anchor
+          const { line, reason, hits } = await resolveAnchor(source.path, anchor)
+          source.line = line
+          delete source.anchor
+          if (line === null) {
+            const id = `${module}\u0000${entry.key}\u0000${source.path}\u0000${anchor}`
+            if (seen.has(id)) continue
+            seen.add(id)
+            issues.push({ module, key: entry.key, path: source.path, anchor, reason, hits })
+          }
+        }
+      }
+    }
+  }
+  return issues
+}
+
+/** 打印未能唯一解析的锚点（生成与 --check 两条路径共用） */
+function reportAnchorIssues(issues) {
+  if (!issues.length) return
+  console.warn(`\u26a0 ${issues.length} 处文档锚点未能唯一解析，line 记为 null（不编造行号）：`)
+  for (const issue of issues) {
+    const detail =
+      issue.reason === 'ambiguous'
+        ? `锚点在 ${issue.path} 出现 ${issue.hits.length} 次（行 ${issue.hits.join(', ')}），锚点必须唯一`
+        : issue.reason === 'file-missing'
+          ? `文件不存在：${issue.path}`
+          : `锚点在 ${issue.path} 中未找到`
+    console.warn(`  - ${issue.module} / ${issue.key} → ${detail}：${JSON.stringify(issue.anchor)}`)
+  }
 }
 
 /**
@@ -293,13 +368,62 @@ async function expandObjectProperties(module, entries, modules, extras, knownKey
 }
 
 /**
+ * 收集源文件中的 `static final String NAME = "值"` 常量，键为「声明类简单名.常量名」。
+ *
+ * 供 {@link scanConditionalSwitches} 解析 `@ConditionalOnProperty(prefix = XxxProperties.PREFIX)`
+ * 这类前缀常量：前缀统一为常量后注解里不再出现字面量，若仍只认字面量，配置参考会静默丢掉这些开关。
+ * 只解析纯字符串字面量初始化；拼接等表达式一律不猜测（解析不到即按原逻辑跳过，绝不编造）。
+ */
+async function buildConstantIndex(modules) {
+  const index = new Map()
+  for (const module of modules) {
+    const srcRoot = join(root, module, 'src', 'main', 'java')
+    if (!existsSync(srcRoot)) continue
+    const files = []
+    async function walk(dir) {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name)
+        if (entry.isDirectory()) await walk(full)
+        else if (entry.name.endsWith('.java')) files.push(full)
+      }
+    }
+    await walk(srcRoot)
+    for (const file of files) {
+      const content = await readFile(file, 'utf8')
+      if (!content.includes('static final String')) continue
+      const decls = [...content.matchAll(/\b(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)/g)]
+      for (const match of content.matchAll(/\bstatic\s+final\s+String\s+([A-Za-z_$][\w$]*)\s*=\s*"([^"]*)"/g)) {
+        const owner = decls.filter((decl) => decl.index < match.index).pop()
+        if (!owner) continue
+        index.set(`${owner[1]}.${match[1]}`, match[2])
+      }
+    }
+  }
+  return index
+}
+
+/**
+ * 解析注解里的前缀引用（如 `GatewayProperties.Auth.PREFIX`）。
+ *
+ * 只认「类简单名.常量名」形式；查不到返回 null，由调用方跳过（不猜字面量）。
+ */
+function resolvePrefixReference(reference, constantIndex) {
+  if (!reference) return null
+  const parts = reference.split('.')
+  if (parts.length < 2) return null
+  return constantIndex.get(parts.slice(-2).join('.')) ?? null
+}
+
+/**
  * 扫描 `@ConditionalOnProperty` 专用开关。
  *
  * Spring 元数据只收录 `@ConfigurationProperties` 字段，形如 `ypbin.resilience.enabled`
  * 这类「仅由自动装配开关消费、没有绑定字段」的配置项不会出现在元数据里，需从源码补齐，
  * 否则配置参考会漏掉这类开关（此前人工快照正是靠手工补，容易漂移）。
+ *
+ * 前缀既支持字面量，也支持指向 `static final String` 常量的引用（见 {@link buildConstantIndex}）。
  */
-async function scanConditionalSwitches(module, modules, extras, knownKeys) {
+async function scanConditionalSwitches(module, modules, extras, knownKeys, constantIndex) {
   const srcRoot = join(root, module, 'src', 'main', 'java')
   if (!existsSync(srcRoot)) return []
   const files = []
@@ -323,6 +447,7 @@ async function scanConditionalSwitches(module, modules, extras, knownKeys) {
     while ((match = annotationRegex.exec(content)) !== null) {
       const body = match[1]
       const prefix = /prefix\s*=\s*"([^"]*)"/.exec(body)?.[1]
+        ?? resolvePrefixReference(/prefix\s*=\s*([A-Za-z_$][\w$.]*)/.exec(body)?.[1], constantIndex)
       const nameRaw = /(?:name|value)\s*=\s*(?:"([^"]*)"|\{([^}]*)\})/.exec(body)
       if (!prefix || !nameRaw) continue
       const names = nameRaw[1] ? [nameRaw[1]] : nameRaw[2].split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
@@ -420,6 +545,8 @@ async function buildEntries(module, metadata, extras) {
 async function main() {
   const modules = await listModules()
   const extras = JSON.parse(await readFile(extrasFile, 'utf8'))
+  // 先把活文档引用的 anchor 解析为当前行号（原地写回 line），再做后续聚合
+  const anchorIssues = await resolveAnchoredSources(extras)
   const result = {
     schemaVersion: 1,
     generatedAt: null, // 生成时填入，避免无变更时因时间戳导致 --check 失败
@@ -456,8 +583,9 @@ async function main() {
   }
 
   // 第二轮：条件开关（排除已由绑定字段覆盖的 key，避免重复）
+  const constantIndex = await buildConstantIndex(modules)
   for (const module of modules) {
-    const switches = await scanConditionalSwitches(module, modules, extras, knownKeys)
+    const switches = await scanConditionalSwitches(module, modules, extras, knownKeys, constantIndex)
     if (!switches.length) continue
     const bucket = perModule.get(module) ?? { configurationProperties: [], standardHostProperties: [] }
     for (const s of switches) {
@@ -493,7 +621,13 @@ async function main() {
 
   const serialized = `${JSON.stringify(result, null, 2)}\n`
 
+  reportAnchorIssues(anchorIssues)
+
   if (checkMode) {
+    if (anchorIssues.length > 0) {
+      console.error('\u2716 存在无法唯一解析的文档锚点：请修正 tools/config-metadata-extras.json 中对应 source 的 anchor（须在目标文件中唯一出现）。')
+      process.exit(1)
+    }
     if (!existsSync(outFile)) {
       console.error(`\u2716 未找到已提交的元数据文件：${outFile}\n  请运行 node tools/export-config-metadata.mjs 生成后提交。`)
       process.exit(1)
@@ -514,6 +648,9 @@ async function main() {
   await mkdir(resolve(toolsDir, 'generated'), { recursive: true })
   await writeFile(outFile, `${JSON.stringify(result, null, 2)}\n`)
   console.log(`\u2713 已生成 ${basename(outFile)}：${customCount} 个 ypbin 配置项 / ${hostCount} 个宿主标准配置项，覆盖 ${Object.keys(result.modules).length} 个模块。`)
+  if (anchorIssues.length > 0) {
+    console.warn(`\u26a0 上述 ${anchorIssues.length} 处锚点已写为 line: null；\`node tools/export-config-metadata.mjs --check\` 会因此失败，请先修好锚点。`)
+  }
   if (missing > 0) {
     console.log(`  （${missing} 个模块未产出元数据：BOM/聚合类模块属正常）`)
   }

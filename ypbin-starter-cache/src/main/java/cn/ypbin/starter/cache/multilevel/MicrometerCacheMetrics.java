@@ -21,8 +21,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 /**
  * 基于 Micrometer 的多级缓存指标实现。
  *
- * <p><strong>指标定义</strong>（均带 {@code cache} 标签，值为<strong>固定的多级缓存标识
- * {@code multi-level}</strong>）：</p>
+ * <p><strong>指标定义</strong>（均带 {@code cache} 标签，值为调用方传入的缓存标识）：</p>
  * <ul>
  *     <li>{@code ypbin.cache.requests}：读请求计数，标签 {@code level=l1|l2} + {@code result=hit|miss}；</li>
  *     <li>{@code ypbin.cache.null.sentinel.hits}：被 L1 空值哨兵拦截（防穿透阻断）次数；</li>
@@ -32,9 +31,12 @@ import io.micrometer.core.instrument.MeterRegistry;
  * <p>接入方可据此算命中率（{@code hit / (hit + miss)}）并对「哨兵拦截持续高位 + L2 miss 高位」设告警，
  * 用于判断缓存击穿/穿透压力是否超出预期。</p>
  *
- * <p>{@code cache} 标签当前是<strong>常量</strong> {@code multi-level}（见
- * {@code MultiLevelCacheAutoConfiguration#METRICS_CACHE_NAME}），不是逐实例名——多副本的同一指标序列会
- * 聚合到一起，需要按实例区分时请依赖底层的 {@code instance}/{@code pod} 标签，不要按 {@code cache} 值区分。</p>
+ * <p>{@code cache} 标签值由配置项
+ * {@code ypbin.cache.multi-level.metrics-cache-name} 决定（生产装配见
+ * {@code MultiLevelCacheAutoConfiguration.CacheMetricsConfiguration}）：默认
+ * {@link MultiLevelCacheProperties#DEFAULT_METRICS_CACHE_NAME}（{@code multi-level}，多副本聚合为同一序列，
+ * 与历史行为一致）；多实例部署建议配置为实例名（如 {@code ${HOSTNAME}}），使各副本的指标序列可按
+ * {@code cache} 标签下钻区分。</p>
  *
  * <p>本类引用 Micrometer 类型，故只在 {@code MeterRegistry} 存在时被装配（见
  * {@code MultiLevelCacheAutoConfiguration.CacheMetricsConfiguration} 的类级 {@code @ConditionalOnClass}）。</p>
@@ -79,8 +81,9 @@ public final class MicrometerCacheMetrics implements CacheMetricsRecorder {
      * 注册并返回指标实现（重复调用返回同一组已注册计数器，Micrometer 自身保证幂等）。
      *
      * @param registry  MeterRegistry
-     * @param cacheName {@code cache} 标签值（固定的多级缓存标识，生产装配传
-     *                  {@code MultiLevelCacheAutoConfiguration#METRICS_CACHE_NAME} = {@code multi-level}）
+     * @param cacheName {@code cache} 标签值；生产装配传
+     *                  {@link MultiLevelCacheProperties#getMetricsCacheName()}（默认
+     *                  {@link MultiLevelCacheProperties#DEFAULT_METRICS_CACHE_NAME}，多实例建议配为实例名）
      * @return 指标实现
      */
     public static MicrometerCacheMetrics of(MeterRegistry registry, String cacheName) {

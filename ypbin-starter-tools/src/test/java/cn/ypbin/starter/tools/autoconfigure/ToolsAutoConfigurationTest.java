@@ -24,6 +24,7 @@ import cn.ypbin.starter.tools.limiter.InMemoryRateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RedisRateLimiterStore;
 import cn.ypbin.starter.tools.lock.InMemoryLockService;
+import cn.ypbin.starter.tools.lock.LockRenewalScheduler;
 import cn.ypbin.starter.tools.lock.LockService;
 import cn.ypbin.starter.tools.lock.RedisLockService;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,7 @@ class ToolsAutoConfigurationTest {
                 assertThat(context).getBean(RateLimiterStore.class).isInstanceOf(InMemoryRateLimiterStore.class);
                 assertThat(context).getBean(IdempotentStore.class).isInstanceOf(InMemoryIdempotentStore.class);
                 assertThat(context).getBean(LockService.class).isInstanceOf(InMemoryLockService.class);
+                assertThat(context).hasSingleBean(LockRenewalScheduler.class);
             });
     }
 

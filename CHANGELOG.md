@@ -82,16 +82,20 @@
   新增 `ypbin.cloud.feign.internal-token`（空=不注入）与 `internal-token-header`（默认 `X-Internal-Token`，与守卫侧
   逐字一致）。此前下游开启守卫后，Feign 调 `/internal/**` 会 401（头既不在透传白名单、入站也未必有）。该值是**真实
   凭据**：代码侧不进日志/异常/`toString`、不覆盖模板已设同名头；但 Feign 自身 `logger-level=headers/full` 会打印全部
-  请求头，建议保持 `none`/`basic`。⚠️ **装配前提**：该拦截器 Bean 带 `@ConditionalOnWebApplication(SERVLET)`
-  ⇒ **纯后台应用（`web-application-type=none`）不会自动携带**该凭证，需自行注册等价的 `RequestInterceptor`。
+  请求头，建议保持 `none`/`basic`。⚠️ **actuator 暴露面**：`/actuator/configprops` 会列出该项的值；Boot 4.1.1 的
+  `management.endpoint.configprops.show-values` 默认 `never`（不显示任何配置值），只有宿主显式改为 `always`/
+  `when-authorized` 且未注册相应的 `SanitizingFunction` 时才可见——仍建议限制 actuator 端点暴露范围或用配置中心密文。
+  **装配条件**：拦截器只要求 classpath 存在 Servlet API（`@ConditionalOnClass(HttpServletRequest.class)`），
+  `web-application-type=none` 的纯后台应用同样携带该凭证（此限制已在下方「完美化收尾」中移除，无需自行注册拦截器）。
 - **`ypbin-starter-messaging`：`JacksonSseFanoutCodec`（结构化载荷跨实例扇出）**（#97）。
   协议 id `json-v1`：标量（null/布尔/数字/字符串/字符/枚举）**完全委托** `TextSseFanoutCodec` 的文本协议（保证投递
   形态不变），结构化对象走 `j<JSON 文本>`，对端还原为规范 JSON 文本投递；不可序列化载荷仍返回 empty（发布方 WARN +
   只投本实例，不 toString 成垃圾帧）。classpath 有 Jackson 且容器有 `ObjectMapper` 时自动装配并替代 Text 兜底
   （`spring-boot-jackson` 为 optional）；宿主自定义 `SseFanoutCodec` 始终优先。
-  **独立验收补漏**：`encode` 原只捕获 `JacksonException`，而载荷自身抛出的运行时异常（典型：懒加载集合在 session
-  关闭后 `iterator()`/`entrySet()` 抛 `LazyInitializationException`）会原样逃逸并反向抛回业务发布线程（
-  `SseEmitterManager.publishFanout` 的调用点在 try/catch 之外）⇒ 已改为捕获 `Exception` 并收敛为「不支持」。
+  **独立验收补漏（两道防线）**：`encode` 原只捕获 `JacksonException`，而载荷自身抛出的运行时异常（典型：懒加载集合在
+  session 关闭后 `iterator()`/`entrySet()` 抛 `LazyInitializationException`）会原样逃逸 ⇒ 已改为捕获 `Exception`
+  并收敛为「不支持」。同时 `SseEmitterManager.publishFanout` 把 `codec.encode(...)` 也移入 try/catch（自定义 codec
+  抛异常时记 WARN + 完整堆栈、只投本实例），任何编码器缺陷都不会反向抛回业务发布线程。
   ⚠️ **滚动升级**：混版本窗口内 codecId 不一致会导致跨实例扇出**双向全部失效**（含标量）——建议整批升级，或滚动期
   显式注册 `TextSseFanoutCodec` Bean 钉住 `text-v1`。载荷以 JSON 明文进 Redis Pub/Sub，敏感字段需业务侧先脱敏。
 - **`ypbin-starter-extension-tenant`：`IdentityTenantProvider`（微服务租户来源下沉）**（#98）。
@@ -102,8 +106,59 @@
   `TenantProvider` 始终优先，`TenantContext` 已写入的租户优先于本 provider。
 - 与既有能力的边界（**不重复实现**）：#96 的「服务侧内部端点自动守卫」已由 `ypbin-starter-security` 的
   `InternalTokenGuardAutoConfiguration`（`ypbin.security.internal-token.*`）提供，本次只补网关侧与调用侧携带；
-  #98 的「CSV 防公式注入导出」已由 `ypbin-starter-excel` 的 `CsvUtils`（UTF-8 BOM / RFC 4180 / 公式注入中和 / 流式导出）
-  提供，**不在 tools 重复实现**，避免两套安全工具漂移。
+  #98 的「CSV 防公式注入导出」在后续完美化收尾中已**下沉到 tools**（见下段），成为唯一实现。
+
+#### 2026-10-17 完美化收尾（按用户授权：不考虑向后兼容，以最佳工程形态为准）
+
+- **`ypbin-starter-tools`：`@DistributedLock` 自动续期**（此前 #93 遗留诉求的干净形态）。新增
+  `autoRenew`（默认关）与 `renewIntervalSeconds`（0 = `max(1, ttl/3)`；显式值必须**严格小于** `ttl`，
+  `ttl<=0`/负间隔/不小于 ttl 均在首次调用时 fail-fast）；续期由**独立单线程守护调度器**
+  `ScheduledLockRenewalScheduler` 承担（不复用租约看门狗，避免互相挤占；应用关闭时 `DisposableBean`
+  停止）；存储层新增原子续期 `LockService#renew` + `lock_renew.lua`（`GET==owner` 才 `PEXPIRE`，
+  绝不续他人的锁、不重建已失效锁）；只有最外层持锁注册续期，方法正常/异常退出均注销；若调度器在返回
+  注册句柄**之前**就已跑到点且续期失败，切面在拿到句柄后会补一次注销（不残留重复任务）；**续期失败不假装
+  持锁**（WARN + 完整堆栈 + 停止续期）。`DistributedLockAspect` 构造器改为
+  `(LockService, LockRenewalScheduler)`。
+- **`ypbin-starter-tools`：CSV 导出与下载响应工具下沉**（#98 第 2 点的最终形态）。`CsvUtils`（含流式）
+  与 `DownloadResponses` 移入 `cn.ypbin.starter.tools.csv` / `...tools.web`，成为**唯一实现**；
+  `ypbin-starter-excel` 删除本地 `CsvUtils` 并复用 tools 的下载响应头实现（`ExcelUtils` 同步）。
+- **`ypbin-starter-tools`：Lua 脚本真实 Redis 集成测试**（此前 #92 的验证强度缺口）。新增
+  `RateLimiterLuaRedisIT`（5 项）与 `LockLuaRedisIT`（6 项），复用 `ypbin-starter-test` 的
+  `RedisIntegrationTestSupport` + Testcontainers（redis:7-alpine；Docker 不可用时显式跳过）；覆盖
+  TTL==-1 兜底自愈、并发计数原子性、释放/续期的 owner 归属校验。
+- **`ypbin-starter-messaging`：SSE 扇出健壮性闭环**。① 编码端对 `NaN`/`±Infinity` 等无法用十进制表达的
+  数字**返回不支持**（判据是「产出的帧一定能被 decode 还原」，结构性保证），不再产出无法解码的帧；
+  ② 解码端对无法解析的 `d<文本>` **不抛异常**（保留原文，与未知标签同策略）；③ 订阅端对单帧处理
+  `catch (Exception)`（保留中断语义）——坏帧只记 WARN 并丢弃，不影响后续帧与订阅线程；WARN 里的频道名与
+  body 均按空安全取值（`getChannel()`/`getBody()` 为 null 时退化为占位符），坏帧的「记录」本身不会变成
+  从 catch 块逃逸的 NPE；④ `SseFanoutSubscriber` 的 codec 改为**结构上取自同一管理者**（自定义
+  `SseEmitterManager` 也不会出现发布/订阅 codecId 不一致）；⑤ 双实例 E2E 改为经容器装配，端到端钉住
+  「订阅者跟随管理器 codec」这条接线（生产 `sseEmitterManager` 自身的 codec 选择由装配单测覆盖，不把
+  E2E 的保护面说过头）。
+- **`ypbin-starter-cache`：指标标签可区分实例 + 埋点不影响主流程**。新增
+  `ypbin.cache.multi-level.metrics-cache-name`（默认 `multi-level`；多实例建议配 `${HOSTNAME}`；空白值
+  启动失败）；新增 `SafeCacheMetricsRecorder` 包装——宿主自定义 recorder 抛 `RuntimeException` 时记
+  ERROR（含完整堆栈）并吞掉该异常，**缓存调用语义不变**（`Error` 仍原样抛出）。
+- **`ypbin-starter-async`：批量 API 补超时语义**。新增 `supplyAll` / `mapAll` / `runAll` / `joinAll` 的
+  `Duration` 重载：超时即抛出并取消未完成 future（Javadoc 如实说明 `CompletableFuture.cancel`
+  **不中断**在途线程）；既有「无超时」方法保留并补 Javadoc 警示（永久阻塞风险）。
+- **`ypbin-starter-cloud-gateway`：404 响应彻底统一**。抽出 `GatewayResponseSupport.NOT_FOUND_MESSAGE`
+  （`接口不存在`）与统一信封工厂，`GatewayExceptionHandler` 的未知路由（沿用既有 **HTTP 200 + `code=404`**
+  约定）与 `InternalPathBlockGlobalFilter` 的内部路径拒绝（**HTTP 404**，为 issue #96 的明确要求）**响应体
+  逐字段一致**，仅动态 `timestamp` 各自取本次请求时刻；补 `enabled` 默认值的行为断言。⚠️ 状态码差异是
+  刻意的：不要把未知路由也改成 404（会破坏既有契约），也不要把内部阻断改成 200（会违背 #96 要求）。
+- **`ypbin-starter-cloud-core`：Feign 内部凭证在非 Web 应用也可用**。装配条件由
+  `@ConditionalOnWebApplication(SERVLET)` 放宽为 `@ConditionalOnClass(HttpServletRequest.class)`
+  ⇒ 纯后台/定时任务应用（`web-application-type=none`）的 Feign 调用同样携带内部凭证；无请求上下文时
+  身份头透传自然跳过，需要 SERVLET 语义的其它配置类保持不变。
+- **全仓治理（不改变任何配置值/行为）**：61 处 `@ConditionalOnProperty` 裸写前缀统一为 `PREFIX` 常量
+  （新增 15 个常量，挂最贴近的属性类或自动配置类；全仓字面量前缀归零）；日志堆栈治理——4 处非预期异常
+  补 Throwable（`CaptchaService`、`GatewayExceptionHandler` 的 401/403/400 分支、`HttpRemoteVerifyProvider`
+  的 2 个分支）、5 处刻意降噪点补「为何不记堆栈」的注释，并新增 7 个日志断言用例（`ThrowableProxy` 级），
+  确立「客户端/预期异常只记 message、服务端/未预期异常记全堆栈」的口径。
+- **工具链**：`export-config-metadata.mjs` 支持解析 `PREFIX` 常量引用（否则纯开关类配置键会从配置参考
+  静默消失）与**文档锚点**（`docs/MODULES.md` 的 32 处引用由固定行号改为锚点实时解析，文档编辑不再导致
+  行号漂移；锚点无法唯一解析时 `--check` 直接失败）。新增配置键后元数据已重新生成。
 
 ### 修复
 

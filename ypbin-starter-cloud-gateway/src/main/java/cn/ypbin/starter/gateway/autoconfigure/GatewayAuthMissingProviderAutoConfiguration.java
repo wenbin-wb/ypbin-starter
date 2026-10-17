@@ -39,8 +39,8 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 @AutoConfiguration
 @ConditionalOnClass(GlobalFilter.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
-@ConditionalOnProperty(prefix = "ypbin.gateway", name = "enabled", havingValue = "true", matchIfMissing = true)
-@ConditionalOnProperty(prefix = "ypbin.gateway.auth", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = GatewayProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = GatewayProperties.Auth.PREFIX, name = "enabled", havingValue = "true")
 public class GatewayAuthMissingProviderAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayAuthMissingProviderAutoConfiguration.class);

@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.excel.util;
 
+import cn.ypbin.starter.tools.web.DownloadResponses;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
@@ -233,7 +234,7 @@ public final class ExcelUtils {
      * @param fileName 文件名（不含扩展名）
      */
     private static void prepareResponse(HttpServletResponse response, String fileName) {
-        // 复用模块内唯一的下载响应头实现：CSV 导出（CsvUtils）走同一份代码，避免两处漂移
+        // 复用 tools 模块唯一的下载响应头实现：CSV 导出（tools 的 CsvUtils）走同一份代码，避免两处漂移
         DownloadResponses.prepare(response, fileName, EXCEL_CONTENT_TYPE, XLSX);
     }
 

@@ -28,6 +28,7 @@ import cn.ypbin.starter.security.client.LoginClientService;
 import cn.ypbin.starter.security.core.LoginVerifyProvider;
 import cn.ypbin.starter.security.core.PermissionProvider;
 import cn.ypbin.starter.security.handler.SaTokenExceptionHandler;
+import cn.ypbin.starter.security.identity.IdentityProperties;
 import cn.ypbin.starter.security.identity.IdentityStpLogic;
 import cn.ypbin.starter.security.online.DefaultOnlineUserService;
 import cn.ypbin.starter.security.online.OnlineUserService;
@@ -74,7 +75,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @AutoConfiguration
 @AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @ConditionalOnClass(StpInterface.class)
-@ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = SecurityProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 // Servlet 专属（登录拦截器/SaInterceptor/WebMvcConfigurer）：WebFlux 应用（如网关）不装配，
 // 避免无 spring-webmvc 时类加载 NoClassDefFoundError；网关只需 UserContext/IdentityContext 等静态核心类
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
@@ -246,7 +247,7 @@ public class SecurityAutoConfiguration {
      * token 生命周期由网关侧承担。</p>
      */
     @Bean
-    @ConditionalOnProperty(prefix = "ypbin.security.identity", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = IdentityProperties.PREFIX, name = "enabled", havingValue = "true")
     @ConditionalOnMissingBean(StpLogic.class)
     public IdentityStpLogic identityStpLogic() {
         IdentityStpLogic stpLogic = new IdentityStpLogic();

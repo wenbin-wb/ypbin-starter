@@ -34,6 +34,14 @@ import org.jspecify.annotations.Nullable;
 @SuppressWarnings("NullAway.Init")
 public class MailConfig implements Serializable {
 
+    /**
+     * 配置前缀。
+     *
+     * <p>邮件配置经 {@code MailAutoConfiguration} 的 {@code @Bean @ConfigurationProperties} 绑定到本类，
+     * 故前缀常量由本类承载，供 {@code @ConfigurationProperties} 与 {@code @ConditionalOnProperty} 共用。</p>
+     */
+    public static final String PREFIX = "ypbin.mail";
+
     @Serial
     private static final long serialVersionUID = 1L;
 

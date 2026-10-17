@@ -201,10 +201,13 @@ public class HttpRemoteVerifyProvider implements RemoteVerifyProvider {
         } catch (RestClientException e) {
             // 网络不可达/超时/非 2xx/响应体无法转换，统一按「未明确裁决」处理：
             // 绝不当作明确有效（否则网络抖动会掩盖吊销），也不直接拒绝（由 failurePolicy 决定）
+            // 两处 warn 均带 Throwable：连接超时、验签被拒、响应体无法反序列化都会抛 RestClientException，
+            // 仅凭 message 无法区分是「对端不可达」还是「协议/报文不符」，而两者的处置（查网络 vs 查服务端
+            // 版本与签名）完全不同。本分支触发频率受缓存窗口约束，堆栈量可控。
             if (Thread.currentThread().isInterrupted()) {
-                log.warn("[ypbin-starter] 联机校验被中断(licenseId={}):{}", licenseId, e.getMessage());
+                log.warn("[ypbin-starter] 联机校验被中断(licenseId={}):{}", licenseId, e.getMessage(), e);
             } else {
-                log.warn("[ypbin-starter] 联机校验未获得明确结果(licenseId={}):{}", licenseId, e.getMessage());
+                log.warn("[ypbin-starter] 联机校验未获得明确结果(licenseId={}):{}", licenseId, e.getMessage(), e);
             }
             handleIndeterminate(licenseId);
             return;

@@ -2,7 +2,7 @@
 
 ypbin-starter 各模块的详细用法。返回 [项目首页](../README.md) 查看总览、快速开始与设计取舍。
 
-> 每个模块引入即自动装配，通过 `ypbin.*` 前缀配置，能力 Bean 均 `@ConditionalOnMissingBean` 可覆盖。模块清单见首页[模块总览](../README.md#模块总览)。
+> 每个模块引入即自动装配，通过 `ypbin.*` 前缀配置（各配置前缀在源码内以常量单点定义——多为 `XxxProperties.PREFIX`，个别自动配置类就近定义——**对使用者而言配置键与取值无任何变化**），能力 Bean 均 `@ConditionalOnMissingBean` 可覆盖。模块清单见首页[模块总览](../README.md#模块总览)。
 
 ---
 
@@ -296,7 +296,7 @@ ypbin:
 
 **空值哨兵（防穿透）与陈旧窗口**：多级缓存的 `get` 与 `getOrLoad` 同口径——L1 未命中且 L2 也未命中时**回填空值哨兵**，不存在的热点 key 不会每次请求都穿透 L1 打到 Redis（`get` 此前只回填非空值，已修正）。L1 中哨兵的存活时间等于 L1 的 Caffeine `expireAfterWrite`（即 `local-expire-seconds`，默认 300 秒）；窗口内若数据在 L2 出现，只有**经本模块写路径**（`set` / `setIfAbsent` / `delete` / `compareAndDelete` / `increment` / `expire`，本机失效并广播摘除其它实例 L1）或**哨兵自然到期**才会被摘除。因此**绕过本模块直写 L2**（外部系统、另一进程直写同一 Redis key）时，本机最长 `local-expire-seconds` 内仍返回 `null`——强一致场景不要开多级缓存。
 
-**运行时指标（Micrometer，可选依赖）**：引入 micrometer 且宿主注册了 `MeterRegistry` 时自动装配下列 Counter（`cache` 标签值为**固定的多级缓存标识** `multi-level`，多副本会聚合到一起；需要按实例区分请用底层 `instance` 标签）：
+**运行时指标（Micrometer，可选依赖）**：引入 micrometer 且宿主注册了 `MeterRegistry` 时自动装配下列 Counter（`cache` 标签值默认 **`multi-level`**，未配置时多副本会聚合到一起）：
 
 | 指标名 | 标签 | 含义 |
 |--------|------|------|
@@ -305,6 +305,18 @@ ypbin:
 | `ypbin.cache.loads` | `cache` | 触发 L2 `getOrLoad` 装载的次数（含「L2 命中」与「真实回源」两种情形，用于观测回源路径是否被高频触发） |
 
 未引入 micrometer 或宿主未注册 `MeterRegistry` 时装配 `CacheMetricsRecorder.NOOP` 空实现（零开销、不改行为）；Micrometer 字节码隔离在 `MicrometerCacheMetrics`，需要自定义指标时提供自己的 `CacheMetricsRecorder` Bean 即可覆盖（`@ConditionalOnMissingBean`）。
+
+`cache` 标签值可配 `ypbin.cache.multi-level.metrics-cache-name`（默认 `multi-level`，支持 `${...}` 占位符，绑定阶段即解析）：
+
+```yaml
+ypbin:
+  cache:
+    multi-level:
+      metrics-cache-name: ${HOSTNAME}   # 默认 multi-level；多实例建议配实例名（K8s 中 HOSTNAME 即 Pod 名）
+```
+
+- **多实例建议配成实例名**（如 `${HOSTNAME}` 或 `${spring.application.name}:${HOSTNAME}`）：否则各副本产生相同的 `cache` 标签，指标聚合后无法按实例下钻（配合失效广播排查「某实例 L1 未摘除」一类问题；也可用底层 `instance` 标签）。配成空白值启动即失败（空白标签会让所有序列失去区分度）。
+- **埋点异常不改变缓存语义**：`CacheMetricsRecorder` 是宿主可自定义的 Bean，其实现抛出的 `RuntimeException` 在调用侧被 `SafeCacheMetricsRecorder` 隔离——只记 **ERROR**（完整堆栈，含方法名与实现类名）后继续，缓存读写的返回值不受影响；`Error`（`OutOfMemoryError` 等 JVM 级故障）仍原样抛出，不被当作「埋点小故障」吞掉。
 
 需要 Redis 专属数据结构（hash/list/set/zset）时，用 `RedisUtils` 静态工具（直接封装 `RedisTemplate` 全能力）：
 
@@ -964,14 +976,24 @@ public void create(OrderReq req) { ... }
 ```java
 @DistributedLock(key = "#orderId", ttl = 30)
 public void handle(Long orderId) { ... }   // 抢不到锁默认跳过，返回 null
+
+// 方法执行时间可能超过 ttl 时开启自动续期（默认关闭，行为与既有版本一致）
+@DistributedLock(key = "#jobId", ttl = 30, autoRenew = true)                       // 续期间隔默认 ttl/3（不足 1 秒取 1 秒）
+@DistributedLock(key = "#jobId", ttl = 60, autoRenew = true, renewIntervalSeconds = 20)
 ```
 
 - 加锁用 `SET key owner NX EX ttl`，释放用 Lua 校验持有者后删除，只释放自己的锁。
 - `ttl` 应大于方法最长执行时间，防止持有者宕机死锁。
 - `waitTime > 0` 时按 `retryInterval` 毫秒重试等待；`failStrategy` 可选 `SKIP`（默认，静默跳过）或 `EXCEPTION`（抛 `LockAcquireException`，业务码 429）。
 - **同线程同 key 可重入**：切面用 `ThreadLocal` 记录「本线程持有哪些锁键（解析后的键，含 SpEL）+ 重入深度」，内层嵌套调用同一 key 直接进入临界区、不再重新要锁；只有最外层退出才真正 `unlock` 并清理 `ThreadLocal`（线程池复用下不留残余状态，不会把下次调用误判为重入而静默失去互斥）。
-- **TTL 语义不变**：重入不延长 TTL、切面也不提供续期。外层方法可能跑得比 `ttl` 更久时，应改用 `LeaseLockGuard` 租约锁（可续期、抢不到即跳过），不要指望重入或看门狗续期。
-- 也可直接注入 `LockService` 手动 `tryLock/unlock`。
+- **自动续期 `autoRenew`（默认 `false`）**：开启后由独立的 `ScheduledLockRenewalScheduler`（单条 daemon 线程、按「每一次成功持锁」注册）周期性调用 `LockService#renew`，经 `lock_renew.lua` 在**一次原子操作**内完成「`GET` 比对 owner 才 `PEXPIRE`」——**仅持锁者本人可续**，锁已被他人接管则续期无效、**绝不重建**。
+- **续期失败不假装持锁**：锁被接管（`renew` 返回 `false`）或存储不可用（抛异常）一律记 WARN 并**立即停止续期**；此后方法虽仍跑完，但临界区不再受互斥保护。`renewIntervalSeconds` 默认 `0` 表示按 `ttl/3` 计算（不足 1 秒取 1 秒），显式值必须**严格小于 `ttl`**，否则锁会在第一次续期前过期、多副本并发执行——该配置错误在**首次调用**时抛 `IllegalStateException`（不静默降级）。
+- **只有最外层持锁注册续期**：内层重入直接进入临界区、不重复注册；方法正常返回或抛异常退出时先停止续期并注销调度、再释放锁。续期线程按需创建，未用 `autoRenew` 的调用没有额外线程开销。
+- **重入不延长 TTL**：默认（不开 `autoRenew`）下重入既不重新校验、也不续期。**几分钟以上的后台长任务仍推荐 `LeaseLockGuard`** 租约锁（可注入时钟、带 `skipped/unavailable/renew.failed` 指标、抢不到即跳过），不要靠调大 `ttl` 硬撑。
+- 也可直接注入 `LockService` 手动 `tryLock/renew/unlock`。
+- 自定义装配 `DistributedLockAspect` 时注意其构造器为**两参**（`LockService` + `LockRenewalScheduler`），续期调度器必须注入，以免「忘记装配」表现为静默不续期。
+
+> **Lua 脚本的真实 Redis 集成测试**：`rate_limiter.lua` / `lock_release.lua` / `lock_renew.lua` 均有基于 Testcontainers 的真实 Redis 集成测试（外部实例优先、否则拉起容器），覆盖限流键 **TTL 兜底自愈**（键存在但 TTL 为 -1 时补过期）与**并发计数**、锁的 **owner 归属**（只删/只续自己的锁，锁不存在或已被接管时绝不重建），以及 `SET NX` 并发抢锁只有一个成功。默认 `mvn test` 不执行，需 `mvn -Pit verify`；Docker 不可用且未配外部 Redis 时由 `@EnabledIfRedisAvailable` **显式跳过**（记为 skipped，不是静默通过）。
 
 **定时任务防重**（多实例只让一个节点执行）：`@Scheduled` 方法叠加 `@DistributedLock` 即可，抢不到锁的节点自动跳过。
 
@@ -1231,6 +1253,12 @@ List<R> rs = AsyncUtils.supplyAll(List.of(() -> a(), () -> b()));
 List<R> rs2 = AsyncUtils.mapAll(items, item -> handle(item));
 AsyncUtils.runAll(List.of(() -> t1(), () -> t2()));
 
+// 批量并发 · 带整体超时（超时抛出并取消未完成的 future，cancel 不会中断在途线程）
+List<R> rs3 = AsyncUtils.supplyAll(List.of(() -> a(), () -> b()), Duration.ofSeconds(3));
+List<R> rs4 = AsyncUtils.mapAll(items, item -> handle(item), Duration.ofSeconds(3));
+AsyncUtils.runAll(List.of(() -> t1(), () -> t2()), Duration.ofSeconds(3));
+List<T> results2 = AsyncUtils.joinAll(futures, Duration.ofSeconds(3));
+
 // 等待
 AsyncUtils.allOf(futures).join();
 List<T> results = AsyncUtils.joinAll(futures);
@@ -1243,6 +1271,12 @@ AsyncUtils.scheduleWithFixedDelay(task, Duration.ofMinutes(1));
 ```
 
 `AsyncUtils.joinAll` / `allOf` 的失败语义：底层 `CompletableFuture.allOf` 的契约是「**全部 future 都完成**才完成」，任一失败**不会**提前抛出——所以 `joinAll` 抛出时集合内所有 future 均已完成，**不存在需要级联取消的在途对象**，本工具也不会取消任何 future。若需「首个失败即返回并取消其余」，请自行用带超时/竞速的编排，不要依赖本方法。
+
+**无超时重载会永久阻塞**：`joinAll(futures)`、`runAll(tasks)`、`supplyAll(suppliers)`、`mapAll(items, mapper)` 只要有一个任务永久挂起，调用线程就**永久阻塞**（Web 线程池耗尽的典型根因），只适合「确定会结束」的本地任务；涉及远程调用、IO、第三方依赖等不可控任务，务必用带 `Duration` 的超时重载（`joinAll` / `runAll` / `supplyAll` / `mapAll` 各有一个）。这些无超时方法**保留且不废弃**，但使用前请自行确认任务一定会结束。
+
+**超时语义**：超时抛 `IllegalStateException`（cause 为 `TimeoutException`，与 `join(future, timeout)` 风格一致），并在抛出前取消所有**尚未完成**的 future、**不返回部分结果**（避免拿到「看起来完整、实则缺项」的列表）；已完成的 future 不受影响。⚠️ **`cancel(true)` 不会中断在途任务**：JDK 契约中 `CompletableFuture.cancel(boolean)` 的 `mayInterruptIfRunning` **无效**，取消只把 future 置为已取消状态，正在执行的任务线程不会被中断、可能仍在后台继续运行并占用执行器线程——要真正止损，需任务自身可被打断或带底层超时（如 HTTP/RPC 超时）。
+
+**超时重载同样非 fail-fast**：仍基于 `allOf`，任一 future 失败不会让等待提前结束；等到的是 `CompletionException`（全部结束）还是超时异常取决于谁先到——失败先发生、超时后发生时，抛出的是超时异常而非失败异常。
 
 业务方自定义同名 `ypbinTaskExecutor` / `AsyncConfigurer` 时不被覆盖。
 
@@ -1335,7 +1369,7 @@ ExcelUtils.exportMultiSheet(response, "报表", List.of(
     ExcelUtils.SheetData.of("订单", OrderExcel.class, orders)));
 ```
 
-**CSV 导出** `CsvUtils`（UTF-8 BOM + RFC 4180 转义 + 公式注入中和），与 Excel 共用同一套下载响应头：
+**CSV 导出** `CsvUtils`（已下沉到 `ypbin-starter-tools`，包 `cn.ypbin.starter.tools.csv`；UTF-8 BOM + RFC 4180 转义 + 公式注入中和），与 Excel 共用同一套下载响应头（`cn.ypbin.starter.tools.web.DownloadResponses`）：
 
 ```java
 // 整段文本：小数据量，或需要复用 CSV 文本时
@@ -1351,7 +1385,7 @@ CsvUtils.export(response, "用户列表", headers, rows);
 - 流式 `write(OutputStream, headers, rows)` 与 `write(outputStream, toCsv(headers, rows))` **逐字节一致**（同一 BOM、同一 `escapeCell` 转义、同一 CRLF 行尾）；流式 `export(...)` 的响应头与整段文本版完全一致（`text/csv;charset=UTF-8`、RFC 5987 文件名、`.csv` 扩展名）。
 - 公式注入中和为安全优先口径：单元格首字符是 `=` / `+` / `-` / `@` / `TAB` / `CR` 时前缀 `'`（**负数 `-1` 同样被中和**）；空值单元格输出为空串。
 - `write` / `export` **不关闭**传入的流/响应，关闭责任归调用方；写入失败以 `IllegalStateException` 抛出，不静默吞掉。
-- **能力归属**：CSV 防注入导出（UTF-8 BOM / RFC 4180 / 公式注入中和 / 流式导出）统一由本模块 `CsvUtils` 提供，**不在 `ypbin-starter-tools` 重复实现**，避免两套安全工具各自演进、口径漂移。
+- **能力归属（已下沉 tools）**：CSV 导出（UTF-8 BOM / RFC 4180 转义 / 公式注入中和 / 流式导出）与下载响应头（`Content-Disposition` + RFC 5987 文件名编码）统一由 **`ypbin-starter-tools`** 提供——`cn.ypbin.starter.tools.csv.CsvUtils` 与 `cn.ypbin.starter.tools.web.DownloadResponses` 是**唯一实现**，本模块（excel）已依赖 tools 并复用同一份下载响应头，不再各写一份。安全特性（BOM / RFC 4180 / 公式注入中和 / 流式）不变；包名随之变更，原先引用 `cn.ypbin.starter.excel.util.CsvUtils` / `...util.DownloadResponses` 的代码需改 import。仅引入 tools、不引入 Excel 组件的宿主也可直接用 `CsvUtils`。
 
 ### captcha — 行为验证码
 
@@ -1562,6 +1596,10 @@ PushUtils.broadcast("dashboard-refresh", dashboardData);
 **跨实例扇出载荷 codec** `SseFanoutCodec`：扇出帧内带 codecId，订阅方**丢弃 codecId 与自身不一致的帧**（跨版本帧不猜类型解码）。默认实现 `TextSseFanoutCodec`（协议 id `text-v1`）只承载 `null`/布尔/数字/字符串等**标量**；classpath 存在 Jackson 3 且容器有 `ObjectMapper` Bean 时自动装配 `JacksonSseFanoutCodec`（协议 id `json-v1`）——标量分支与 `text-v1` **逐字节一致**，结构化对象（`Map`/集合/POJO/`record`）编成 `j<JSON 文本>`，对端还原为 JSON 文本原文投递（业务侧照常 `JSON.parse`）。`spring-boot-jackson` 对本模块是 optional 依赖、不向宿主传递；宿主自定义 `SseFanoutCodec` Bean 始终优先。
 
 - **不可承载的载荷不静默降级**：`encode` 返回空即「本 codec 承载不了」，发布方记 WARN 并**只投本实例**（跨实例部分显式丢失），不会 `toString()` 成垃圾帧。
+- **非有限数字按「不支持」处理**：`NaN`、`±Infinity`（`Double`/`Float` 等）无法用十进制字面量表达，`encode` 一律返回空 ⇒ 发布方记 WARN 并**只投本实例**，**不再产出对端无法解码的帧**；`json-v1` 同样如此（不会退化成带引号的 `"NaN"`），其标量语义与 `text-v1` 保持一致（判据同源：`encode` 产出的帧一定能被 `decode` 还原）。
+- **解码容错不抛异常**：非法的 `d<文本>`（如滚动升级窗口内旧对端把 `NaN`/`Infinity` 直接编进帧）**不抛异常**，按「保留原文」返回去掉标签后的文本；未知标签同样保留原文——单条坏帧不得让订阅线程出错。
+- **订阅侧坏帧只丢一帧**：解析/解码/投递任一环节异常（含中断语义：恢复中断标志位后照常丢弃该帧）都只 WARN（带完整堆栈）并丢弃**该帧**，订阅线程与后续帧不受影响。
+- **发布/订阅 codec 结构上同源**：`SseFanoutSubscriber` 不持有自己的 codec，始终用 `SseEmitterManager#getCodec()`（`final`、无 setter、构造期注入）——即便宿主自定义 `SseEmitterManager`，发布侧与订阅侧的 codecId 也自动一致，不会因两者不一致把跨实例帧整批丢弃。
 - ⚠️ **滚动升级**：`json-v1` 与 `text-v1` 是不同协议，混版本窗口内**两个方向**的跨实例扇出都会失效（含标量：新节点发的标量帧以 `json-v1` 打标、旧节点不认，反之亦然）。建议整批升级；必须滚动时在滚动期显式注册一个 `TextSseFanoutCodec` Bean 钉住 `text-v1`，升级完成后再放开。
 - ⚠️ **敏感数据**：结构化载荷以 **JSON 明文**进 Redis Pub/Sub（含订阅方日志/抓包），手机号、身份证、令牌等敏感字段须由业务侧在推送前脱敏或加密，starter 不做字段裁剪。
 
@@ -1825,6 +1863,8 @@ ypbin:
 
 **内部调用凭证**（与 security 的内部端点守卫配套）：下游用 `ypbin.security.internal-token.guard-enabled=true` 开启 `/internal/**` 守卫后，配置 `ypbin.cloud.feign.internal-token` 即可让每个 Feign 请求自动携带 `ypbin.cloud.feign.internal-token-header`（默认 `X-Internal-Token`）头通过校验。与白名单透传不同，该头**不依赖入站请求上下文**——定时任务、异步线程发起的服务间调用同样携带；模板已显式设置同名头时不覆盖；未配置时仅启动期记一条 WARN（只说明「未配置」，不含凭证值）。
 
+拦截器的装配条件已放宽为「**classpath 存在 Servlet API**」（`@ConditionalOnClass(HttpServletRequest.class)`），**不再要求应用是 Servlet Web 应用**：`spring.main.web-application-type=none` 的纯后台/定时任务应用同样会装配并携带内部凭证，否则下游开启内部端点守卫（fail-closed）时会 401。无请求上下文时身份头透传自然跳过（空安全），不影响凭证注入。已知边界：classpath 完全没有 Servlet API 时（本模块对 `jakarta.servlet-api` 是 optional 依赖）无法装配，需业务方自行提供等价的 `RequestInterceptor`，此时「内部凭证携带」能力不可用。
+
 ```yaml
 ypbin:
   cloud:
@@ -1833,7 +1873,7 @@ ypbin:
       internal-token: ${INTERNAL_TOKEN:}        # 空即不注入；真实凭据，经环境变量注入
 ```
 
-`internal-token` 是**真实凭据**：本模块只把它写进请求头，不进入日志、异常消息或 `toString`。但它终究会出现在请求头里——Feign 客户端的 `logger-level` 配成 `headers` / `full` 时会把**全部**请求头打进日志（`full` 另含请求/响应报文），建议保持 `none` / `basic`，排障时勿长期调高。
+`internal-token` 是**真实凭据**：本模块只把它写进请求头，不进入日志、异常消息或 `toString`。但它终究会出现在请求头里——Feign 客户端的 `logger-level` 配成 `headers` / `full` 时会把**全部**请求头打进日志（`full` 另含请求/响应报文），建议保持 `none` / `basic`，排障时勿长期调高。另一个暴露面是 actuator：`/actuator/configprops` 会列出该配置项的值；Spring Boot 4.1.1 的 `management.endpoint.configprops.show-values` 默认为 `never`（不展示任何配置值），只有显式改为 `always` / `when-authorized` 且未注册相应 `SanitizingFunction` 时才可见——仍建议限制 actuator 端点暴露范围，或把该值放在配置中心密文/环境变量中。
 
 **统一错误解码**：下游返回非 2xx 且响应体为 ypbin 统一 `R` 时，自动转为 `FeignRemoteException`
 （含下游业务码与提示），由全局异常处理器转换为 HTTP 200 + `R.code` 的错误响应。
@@ -2012,6 +2052,7 @@ ypbin:
 
 - **路径模式**：普通模式走 `PathPattern` 语义（与 Gateway 路由谓词同口径）；以 `/**` + 斜杠开头表示「任意层级前缀」且**含顶层**（`PathPattern` 只允许一个 `**`，`/a/**/internal/**` 这类两个 `**` 的写法**启动即失败**，不会静默跳过某条模式）。匹配在 `PathContainer` 上做，百分号编码（如 `/%69nternal/x`）与矩阵参数（如 `/internal/x;jsessionid=1`）同样被拦。
 - **配成空清单**等于不拦任何请求，启动期会记一条 WARN 提示可能是配置源覆盖了默认值。
+- **与未知路由的 404 响应体不可区分**：阻断返回的 `R` 信封与「未知路由」404（`GatewayExceptionHandler`）统一由 `GatewayResponseSupport` 构造，`code` / `message`（同一常量 `GatewayResponseSupport.NOT_FOUND_MESSAGE` = `接口不存在`）/ `success` 逐字段一致，仅动态 `timestamp` 各自取**本次请求**时刻——调用方无法据响应体判断某个内部端点是否存在。**HTTP 状态码仍刻意不同**：内部路径阻断为 `404`（即 `not-found-status`，默认 404），未知路由沿用既有约定 `200`；不要为了「一致」把两者状态码统一，也不要预生成响应体（时间戳会被冻成启动时刻，反而成为可区分信号）。
 
 可选能力（按需开启）：
 

@@ -57,7 +57,7 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration")
 @ConditionalOnClass(GlobalFilter.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
-@ConditionalOnProperty(prefix = "ypbin.gateway", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = GatewayProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties({GatewayProperties.class, RateLimitProperties.class,
     InternalPathBlockProperties.class})
 public class GatewayAutoConfiguration {
@@ -70,7 +70,7 @@ public class GatewayAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.gateway.header-sanitize", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = GatewayProperties.HeaderSanitize.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
     public HeaderSanitizeGlobalFilter headerSanitizeGlobalFilter(GatewayProperties properties) {
         return new HeaderSanitizeGlobalFilter(properties.getHeaderSanitize().getHeaders());
     }
@@ -78,7 +78,7 @@ public class GatewayAutoConfiguration {
     @Bean
     @ConditionalOnBean(GatewayAuthProvider.class)
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.gateway.auth", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = GatewayProperties.Auth.PREFIX, name = "enabled", havingValue = "true")
     public GatewayAuthGlobalFilter gatewayAuthGlobalFilter(
         GatewayAuthProvider authProvider,
         ObjectProvider<ObjectMapper> objectMapperProvider,
@@ -90,7 +90,7 @@ public class GatewayAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.gateway.cors", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = GatewayProperties.Cors.PREFIX, name = "enabled", havingValue = "true")
     public CorsWebFilter corsWebFilter(GatewayProperties properties) {
         GatewayProperties.Cors cors = properties.getCors();
         CorsConfiguration config = new CorsConfiguration();

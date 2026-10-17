@@ -42,7 +42,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass(WordTree.class)
-@ConditionalOnProperty(prefix = "ypbin.sensitive-words", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = SensitiveWordProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(SensitiveWordProperties.class)
 public class SensitiveWordAutoConfiguration {
 

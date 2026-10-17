@@ -84,7 +84,7 @@ import tools.jackson.databind.ObjectMapper;
 @ConditionalOnClass(SseEmitter.class)
 @AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.sse", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(SseProperties.class)
 @Import({SseAutoConfiguration.RedisTicketStoreConfiguration.class, SseAutoConfiguration.RedisFanoutConfiguration.class,
     SseAutoConfiguration.JacksonCodecConfiguration.class})
@@ -282,6 +282,26 @@ public class SseAutoConfiguration {
         }
 
         /**
+         * 扇出订阅者：收到其它实例的帧后投给<strong>本实例</strong>的连接。
+         *
+         * <p><strong>独立成 Bean</strong>而不是在监听容器里就地 {@code new}：① 宿主自建
+         * {@link RedisMessageListenerContainer} 时（见 {@link #sseFanoutListenerContainer} 的
+         * {@code @ConditionalOnMissingBean}）可直接注入本 Bean 挂上，不必自己拼装；② 装配用例可从容器
+         * 里拿到订阅者，端到端验证「管理器与订阅者用同一个 codec」这条约束。</p>
+         *
+         * <p><strong>codec 不再作为参数</strong>：订阅者一律用
+         * {@link SseEmitterManager#getCodec()}（见 {@link SseFanoutSubscriber} 类注释）。于是即便宿主
+         * 自定义 {@code SseEmitterManager}（其 codec 未必等于容器里的 {@link SseFanoutCodec} Bean），
+         * 发布侧与订阅侧仍结构上同源，不会出现 codecId 对不上导致跨实例帧被整批丢弃。</p>
+         */
+        @Bean
+        @ConditionalOnMissingBean
+        SseFanoutSubscriber sseFanoutSubscriber(SseEmitterManager sseEmitterManager,
+                                                SseFanoutBridge sseFanoutBridge) {
+            return new SseFanoutSubscriber(sseEmitterManager, sseFanoutBridge.instanceId());
+        }
+
+        /**
          * 订阅容器：收到其它实例的扇出帧后投给<strong>本实例</strong>的连接。
          *
          * <p>Bean 交给 Spring 管理生命周期（启动即订阅、容器关闭自动停止），照抄同仓
@@ -290,22 +310,17 @@ public class SseAutoConfiguration {
          * 异常处理。</p>
          *
          * <p>{@code @ConditionalOnMissingBean(RedisMessageListenerContainer.class)}：宿主已有自己的订阅
-         * 容器时不重复建连（与 cache 模块同一取舍）。注意这意味着宿主自建容器时需自行挂上
-         * {@link SseFanoutSubscriber}。</p>
+         * 容器时不重复建连（与 cache 模块同一取舍）。宿主自建容器时可注入本配置注册的
+         * {@link SseFanoutSubscriber} Bean 挂上（该 Bean 始终存在，与宿主是否自建容器无关）。</p>
          */
         @Bean
-        @ConditionalOnBean(SseFanoutBridge.class)
         @ConditionalOnMissingBean(RedisMessageListenerContainer.class)
         RedisMessageListenerContainer sseFanoutListenerContainer(RedisConnectionFactory connectionFactory,
-                                                                 SseEmitterManager sseEmitterManager,
-                                                                 SseFanoutCodec sseFanoutCodec,
-                                                                 SseFanoutBridge sseFanoutBridge,
+                                                                 SseFanoutSubscriber sseFanoutSubscriber,
                                                                  SseProperties properties) {
             RedisMessageListenerContainer container = new RedisMessageListenerContainer();
             container.setConnectionFactory(connectionFactory);
-            container.addMessageListener(
-                new SseFanoutSubscriber(sseEmitterManager, sseFanoutBridge.instanceId(), sseFanoutCodec),
-                new ChannelTopic(properties.getFanoutChannel()));
+            container.addMessageListener(sseFanoutSubscriber, new ChannelTopic(properties.getFanoutChannel()));
             return container;
         }
     }
@@ -341,7 +356,7 @@ public class SseAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(SseUserIdResolver.class)
-    @ConditionalOnProperty(prefix = "ypbin.sse", name = "register-endpoint", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "register-endpoint", havingValue = "true", matchIfMissing = true)
     public SseSubscribeController sseSubscribeController(
         SseEmitterManager sseEmitterManager, SseUserIdResolver sseUserIdResolver, SseTicketStore sseTicketStore) {
         // 可选扩展点经构造器注入的 ObjectProvider 取（见本类构造器）：没有 SseAudienceResolver 时为 null
@@ -361,7 +376,7 @@ public class SseAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(SseUserIdResolver.class)
-    @ConditionalOnProperty(prefix = "ypbin.sse", name = "register-endpoint", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "register-endpoint", havingValue = "true", matchIfMissing = true)
     public SseTicketController sseTicketController(
         SseTicketStore sseTicketStore, SseUserIdResolver sseUserIdResolver, SseProperties properties) {
         return new SseTicketController(

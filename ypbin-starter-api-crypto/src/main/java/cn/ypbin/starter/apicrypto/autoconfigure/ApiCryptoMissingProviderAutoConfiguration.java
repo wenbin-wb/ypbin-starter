@@ -36,7 +36,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
  */
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.api-crypto", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = ApiCryptoProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 public class ApiCryptoMissingProviderAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(ApiCryptoMissingProviderAutoConfiguration.class);

@@ -19,6 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cn.ypbin.starter.license.core.LicenseContent;
 import cn.ypbin.starter.license.exception.LicenseException;
 import com.sun.net.httpserver.HttpExchange;
@@ -39,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link HttpRemoteVerifyProvider} 联机校验单元测试：验证「仅服务端明确返回无效才阻断，其余一切放行但
@@ -121,6 +126,36 @@ class HttpRemoteVerifyProviderTest {
         status = 500;
 
         assertThatCode(() -> provider().verify(content(), "f1")).doesNotThrowAnyException();
+    }
+
+    /**
+     * 回归护栏：RestClientException 的两处 WARN 必须把异常对象传给 logger。连接超时、验签被拒、
+     * 响应体无法反序列化都汇入同一 catch，仅凭 message 无法区分是「对端不可达」还是「协议/报文不符」。
+     */
+    @Test
+    void verify_shouldLogThrowableWhenResultIndeterminate() {
+        status = 500;
+        HttpRemoteVerifyProvider p = provider();
+
+        Logger logger = (Logger) LoggerFactory.getLogger(HttpRemoteVerifyProvider.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            p.verify(content(), "f1");
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        ILoggingEvent event = appender.list.stream()
+            .filter(e -> e.getLevel() == Level.WARN)
+            .filter(e -> e.getFormattedMessage().contains("联机校验未获得明确结果"))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("未记录「联机校验未获得明确结果」的 WARN 日志"));
+        assertThat(event.getThrowableProxy()).as("必须带 Throwable，否则无法区分网络不可达与报文不符").isNotNull();
+        assertThat(event.getThrowableProxy().getStackTraceElementProxyArray())
+            .as("Throwable 传入后应能打印完整堆栈")
+            .isNotEmpty();
     }
 
     @Test

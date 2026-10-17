@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.excel.util;
+package cn.ypbin.starter.tools.csv;
 
+import cn.ypbin.starter.tools.web.DownloadResponses;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -30,10 +31,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * CSV 导出工具：UTF-8 BOM、RFC 4180 转义与公式注入中和。
  *
- * <p><b>为什么与 Excel 并列放在本模块</b>：{@code ypbin-starter-excel} 的职责是「表格数据的导入导出」，
- * Excel 与 CSV 只是同一职责的两种编码。放在同一模块才能让两者<b>共用</b>下载响应头与文件名编码逻辑
- * （见 {@link DownloadResponses}），避免新增一种格式就复制一份 {@code Content-Disposition} 拼装代码。
- * 本模块不新增任何依赖：CSV 只需要 JDK 与可选的 Servlet API。</p>
+ * <p><b>为什么放在基础工具模块</b>：CSV 是「文本表格导出」这一通用能力，只需要 JDK 与可选的 Servlet API，
+ * 与具体表格组件（Fesod/POI）无关。放在 {@code ypbin-starter-tools} 让不引入 Excel 组件的宿主也能用，
+ * 并保证全 starter 只有这一份实现；下载响应头（{@link DownloadResponses}）同样在此共用，
+ * 新增一种导出格式不必再复制一份 {@code Content-Disposition} 拼装代码。</p>
  *
  * <p><b>为什么需要这个类</b>：「转义少一层引号」与「危险首字符被 Excel 当公式执行」正是导出功能最容易
  * <b>静默</b>出错的两处：前者只在单元格含逗号/引号/换行时暴露，后者在 <b>Excel/WPS 打开文件的瞬间</b>

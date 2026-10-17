@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cn.ypbin.starter.excel.util;
+package cn.ypbin.starter.tools.csv;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,8 +34,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 /**
  * {@link CsvUtils} 单元测试：BOM、RFC 4180 转义、公式注入中和、空值与 HTTP 导出。
  *
- * <p>用例逐条对齐 IoT 侧既有实现的行为（{@code IotCsvExportUtils} 及其单测），
- * 保证上收到 starter 后对外行为不变。</p>
+ * <p>用例随实现从 {@code ypbin-starter-excel} 迁移而来（issue #98 要求 CSV 能力归属基础工具模块），
+ * 断言逐条保持原样：迁移不得改变对外行为——BOM 字节、RFC 4180 转义、公式注入中和、流式与整段文本
+ * 逐字节一致、不关闭调用方流。</p>
  *
  * @author wenbin
  * @since 2026-10-16

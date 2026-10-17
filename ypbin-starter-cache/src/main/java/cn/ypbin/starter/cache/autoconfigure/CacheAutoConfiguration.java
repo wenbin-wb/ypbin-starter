@@ -52,8 +52,17 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @AutoConfiguration(before = DataRedisAutoConfiguration.class)
 @ConditionalOnClass(RedisTemplate.class)
-@ConditionalOnProperty(prefix = "ypbin.cache", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = CacheAutoConfiguration.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 public class CacheAutoConfiguration {
+
+    /**
+     * 配置前缀。
+     *
+     * <p>本模块没有绑定配置属性的 {@code @ConfigurationProperties} 类（{@code ypbin.cache.multi-level.*}
+     * 属多级缓存，见 {@code MultiLevelCacheProperties}），故前缀常量就近定义在本自动配置类内，
+     * 供条件注解引用，避免字面量散落。</p>
+     */
+    public static final String PREFIX = "ypbin.cache";
 
     private static final Logger log = LoggerFactory.getLogger(CacheAutoConfiguration.class);
 

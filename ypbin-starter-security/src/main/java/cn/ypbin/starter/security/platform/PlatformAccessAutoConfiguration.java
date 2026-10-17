@@ -32,11 +32,18 @@ import org.springframework.context.annotation.Bean;
  * @since 2026-09-01
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.security.platform", name = "enabled", havingValue = "true",
+@ConditionalOnProperty(prefix = PlatformAccessAutoConfiguration.PREFIX, name = "enabled", havingValue = "true",
     matchIfMissing = true)
 // Servlet 专属（平台访问切面拦截 Controller）：WebFlux 应用（网关）不装配
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class PlatformAccessAutoConfiguration {
+
+    /**
+     * 配置前缀。
+     *
+     * <p>本能力只有装配开关、没有绑定字段，故前缀常量就近定义在本自动配置类内。
+     */
+    public static final String PREFIX = "ypbin.security.platform";
 
     @Bean
     @ConditionalOnMissingBean

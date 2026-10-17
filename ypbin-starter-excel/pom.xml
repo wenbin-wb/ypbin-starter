@@ -26,6 +26,12 @@
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
+        <!-- CSV 防公式注入导出与下载响应头（Content-Disposition/RFC 5987）统一由 tools 提供：
+             Excel 与 CSV 必须共用同一份实现，否则含空格文件名的编码会在两处漂移（issue #98） -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-tools</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.fesod</groupId>

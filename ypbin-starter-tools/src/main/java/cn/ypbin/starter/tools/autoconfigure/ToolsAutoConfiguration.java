@@ -26,8 +26,10 @@ import cn.ypbin.starter.tools.limiter.RateLimiterStore;
 import cn.ypbin.starter.tools.limiter.RedisRateLimiterStore;
 import cn.ypbin.starter.tools.lock.DistributedLockAspect;
 import cn.ypbin.starter.tools.lock.InMemoryLockService;
+import cn.ypbin.starter.tools.lock.LockRenewalScheduler;
 import cn.ypbin.starter.tools.lock.LockService;
 import cn.ypbin.starter.tools.lock.RedisLockService;
+import cn.ypbin.starter.tools.lock.ScheduledLockRenewalScheduler;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -69,6 +71,22 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 public class ToolsAutoConfiguration {
 
     /**
+     * 幂等能力配置前缀。
+     *
+     * <p>幂等只有装配开关（{@code enabled}）与存储选择开关（{@code distributed}）、没有绑定字段，
+     * 故前缀常量就近定义在本自动配置类内；本类承载两个前缀，故不采用通用的 {@code PREFIX} 命名。</p>
+     */
+    public static final String IDEMPOTENT_PREFIX = "ypbin.tools.idempotent";
+
+    /**
+     * 注解分布式锁配置前缀（{@link DistributedLock} 切面与续期调度器）。
+     *
+     * <p>与租约锁前缀 {@code ypbin.lock}（{@code LeaseLockProperties}）是两套互不影响的能力：
+     * 本前缀只控制注解锁切面是否装配，没有绑定字段，故常量就近定义在本自动配置类内。</p>
+     */
+    public static final String LOCK_PREFIX = "ypbin.tools.lock";
+
+    /**
      * 内存限流存储：兜底，仅当容器中不存在任何 {@link RateLimiterStore} 时装配
      * （Redis 实现存在时即退让）。
      */
@@ -96,7 +114,7 @@ public class ToolsAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.tools.idempotent", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = IDEMPOTENT_PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
     public IdempotentAspect idempotentAspect(IdempotentStore store) {
         return new IdempotentAspect(store);
     }
@@ -112,9 +130,23 @@ public class ToolsAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.tools.lock", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public DistributedLockAspect distributedLockAspect(LockService lockService) {
-        return new DistributedLockAspect(lockService);
+    @ConditionalOnProperty(prefix = LOCK_PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+    public DistributedLockAspect distributedLockAspect(LockService lockService,
+                                                       LockRenewalScheduler lockRenewalScheduler) {
+        return new DistributedLockAspect(lockService, lockRenewalScheduler);
+    }
+
+    /**
+     * 注解锁自动续期的调度器（独立于租约锁看门狗，见 {@link LockRenewalScheduler} 的说明）。
+     *
+     * <p>与切面同受 {@code ypbin.tools.lock.enabled} 约束：关掉注解锁能力时不必再留一个空调度器。
+     * {@code ScheduledThreadPoolExecutor} 按需建线程，未注册续期时不产生任何线程。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = LOCK_PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+    public LockRenewalScheduler lockRenewalScheduler() {
+        return new ScheduledLockRenewalScheduler();
     }
 
     /**
@@ -139,7 +171,7 @@ public class ToolsAutoConfiguration {
          */
         @Bean
         @ConditionalOnMissingBean(RateLimiterStore.class)
-        @ConditionalOnProperty(prefix = "ypbin.tools.rate-limit", name = "distributed", havingValue = "true", matchIfMissing = true)
+        @ConditionalOnProperty(prefix = RateLimitProperties.PREFIX, name = "distributed", havingValue = "true", matchIfMissing = true)
         public RateLimiterStore redisRateLimiterStore(StringRedisTemplate redisTemplate) {
             return new RedisRateLimiterStore(redisTemplate);
         }
@@ -149,7 +181,7 @@ public class ToolsAutoConfiguration {
          */
         @Bean
         @ConditionalOnMissingBean(IdempotentStore.class)
-        @ConditionalOnProperty(prefix = "ypbin.tools.idempotent", name = "distributed", havingValue = "true", matchIfMissing = true)
+        @ConditionalOnProperty(prefix = IDEMPOTENT_PREFIX, name = "distributed", havingValue = "true", matchIfMissing = true)
         public IdempotentStore redisIdempotentStore(StringRedisTemplate redisTemplate) {
             return new RedisIdempotentStore(redisTemplate);
         }

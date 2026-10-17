@@ -25,6 +25,7 @@ import cn.ypbin.starter.messaging.sse.RedisSseTicketStore;
 import cn.ypbin.starter.messaging.sse.SseEmitterManager;
 import cn.ypbin.starter.messaging.sse.SseFanoutBridge;
 import cn.ypbin.starter.messaging.sse.SseFanoutCodec;
+import cn.ypbin.starter.messaging.sse.SseFanoutSubscriber;
 import cn.ypbin.starter.messaging.sse.SseProperties;
 import cn.ypbin.starter.messaging.sse.SseTicketStore;
 import cn.ypbin.starter.messaging.sse.TextSseFanoutCodec;
@@ -100,17 +101,35 @@ class SseAutoConfigurationTest {
         SseEmitterManager manager = new SseEmitterManager(60_000L, 0);
         org.springframework.data.redis.connection.RedisConnectionFactory connectionFactory =
             Mockito.mock(org.springframework.data.redis.connection.RedisConnectionFactory.class);
-        SseFanoutBridge bridge = new RedisSseFanoutPublisher(
-            Mockito.mock(StringRedisTemplate.class), "ypbin:sse:fanout", "inst-1");
+        // 订阅者不再接收 codec 参数：它只用管理器的 codec（见 SseFanoutSubscriber 类注释）
+        SseFanoutSubscriber subscriber = new SseFanoutSubscriber(manager, "inst-1");
         SseProperties properties = new SseProperties();
 
         org.springframework.data.redis.listener.RedisMessageListenerContainer container =
             new SseAutoConfiguration.RedisFanoutConfiguration()
-                .sseFanoutListenerContainer(connectionFactory, manager, new TextSseFanoutCodec(), bridge, properties);
+                .sseFanoutListenerContainer(connectionFactory, subscriber, properties);
 
         assertThat(container).isNotNull();
         // 未调用 start()：既不订阅也不启动后台线程（本用例只锁装配关系）
         assertThat(container.isRunning()).isFalse();
+    }
+
+    /**
+     * 有 Redis 时必须注册扇出订阅者 Bean，且管理器的 codec 就是容器里那个 Bean。
+     *
+     * <p>订阅者<strong>不再</strong>单独接收 codec：它用 {@link SseEmitterManager#getCodec()}，故
+     * 「管理器与订阅者 codec 不一致 ⇒ 跨实例帧被整批丢弃」结构上不可能发生（行为层由
+     * {@code SseFanoutTest} 的容器装配用例端到端覆盖）。</p>
+     */
+    @Test
+    void withRedis_registersFanoutSubscriberUsingManagerCodec() {
+        runner.withUserConfiguration(RedisTemplateConfig.class, ObjectMapperConfig.class).run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context).hasSingleBean(SseFanoutSubscriber.class);
+            assertThat(context.getBean(SseEmitterManager.class).getCodec())
+                .as("管理器必须持有容器里选中的 codec Bean（订阅者从管理器取，故两侧同源）")
+                .isSameAs(context.getBean(SseFanoutCodec.class));
+        });
     }
 
     @Test

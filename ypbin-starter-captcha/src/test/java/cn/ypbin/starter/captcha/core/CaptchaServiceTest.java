@@ -24,10 +24,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.tianai.captcha.application.ImageCaptchaApplication;
 import cloud.tianai.captcha.application.vo.ImageCaptchaVO;
 import cloud.tianai.captcha.common.response.ApiResponse;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * 验证码服务测试，重点覆盖 store 数据被清空（如 Redis 重启丢数据）后的自愈重试逻辑。
@@ -36,6 +41,40 @@ import org.junit.jupiter.api.Test;
  * @since 2026-08-07
  */
 class CaptchaServiceTest {
+
+    /**
+     * 补载重试成功时，异常不再向上抛出，WARN 日志是唯一留痕点——必须带 {@link Throwable}，
+     * 否则「store 为空」之外的 IllegalStateException 成因（tianai 其它内部状态错误）无从区分。
+     */
+    @Test
+    void shouldPassThrowableToLoggerWhenRetryingAfterGenerateFailure() {
+        ImageCaptchaApplication application = mock(ImageCaptchaApplication.class);
+        CaptchaResourceReloader reloader = mock(CaptchaResourceReloader.class);
+        IllegalStateException failure = new IllegalStateException("随机获取模板错误，store中模板为空, type:" + SLIDER);
+        when(application.generateCaptcha(SLIDER))
+                .thenThrow(failure)
+                .thenReturn(ApiResponse.ofSuccess(null));
+        CaptchaService service = new CaptchaService(application, reloader);
+
+        Logger logger = (Logger) LoggerFactory.getLogger(CaptchaService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            service.generate();
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        ILoggingEvent event = appender.list.stream()
+                .filter(e -> e.getLevel() == Level.WARN)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("未记录 captcha 生成失败的 WARN 日志"));
+        assertThat(event.getThrowableProxy())
+                .as("重试成功即不再抛异常，此处必须带 Throwable 才能留下堆栈")
+                .isNotNull();
+        assertThat(event.getThrowableProxy().getClassName()).isEqualTo(IllegalStateException.class.getName());
+    }
 
     @Test
     void shouldReturnDirectlyWhenGenerateSucceeds() {

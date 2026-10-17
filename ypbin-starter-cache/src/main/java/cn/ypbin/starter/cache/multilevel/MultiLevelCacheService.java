@@ -44,6 +44,7 @@ public class MultiLevelCacheService implements CacheService {
     private final Cache<String, Object> l1;
     @Nullable
     private final CacheInvalidationPublisher invalidationPublisher;
+    /** 指标记录器，恒为 {@link SafeCacheMetricsRecorder}（埋点异常不外溢到缓存主流程） */
     private final CacheMetricsRecorder metrics;
 
     /** 空值哨兵：与 L2 一致，L1 也缓存空值防穿透 */
@@ -57,18 +58,21 @@ public class MultiLevelCacheService implements CacheService {
     /**
      * 带运行时指标记录的构造器（公开重载，既有三参构造器保持兼容）。
      *
+     * <p>传入的 {@code metrics} 会被 {@link SafeCacheMetricsRecorder} 套一层防御：其方法抛出的
+     * {@link RuntimeException} 只记日志、不影响缓存读写返回值（详见该类注释）。</p>
+     *
      * @param l2                    L2 缓存（非空）
      * @param l1                    L1 本地缓存（非空）
      * @param invalidationPublisher 失效广播器，可为 {@code null}（不广播）
      * @param metrics               指标记录器（非空；未接入 Micrometer 时传
-     *                              {@link CacheMetricsRecorder#NOOP}）
+     *                              {@link CacheMetricsRecorder#NOOP}）；其抛出的运行时异常由防御装饰器隔离
      */
     public MultiLevelCacheService(CacheService l2, Cache<String, Object> l1,
             @Nullable CacheInvalidationPublisher invalidationPublisher, CacheMetricsRecorder metrics) {
         this.l2 = Objects.requireNonNull(l2, "l2 不能为空");
         this.l1 = Objects.requireNonNull(l1, "l1 不能为空");
         this.invalidationPublisher = invalidationPublisher;
-        this.metrics = Objects.requireNonNull(metrics, "metrics 不能为空");
+        this.metrics = new SafeCacheMetricsRecorder(Objects.requireNonNull(metrics, "metrics 不能为空"));
     }
 
     @Override

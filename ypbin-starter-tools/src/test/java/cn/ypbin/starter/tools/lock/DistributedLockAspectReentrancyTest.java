@@ -65,6 +65,11 @@ class DistributedLockAspectReentrancyTest {
         }
 
         @Override
+        public boolean renew(String key, String owner, Duration ttl) {
+            return delegate.renew(key, owner, ttl);
+        }
+
+        @Override
         public boolean unlock(String key, String owner) {
             unlockCount.incrementAndGet();
             return delegate.unlock(key, owner);
@@ -194,7 +199,7 @@ class DistributedLockAspectReentrancyTest {
     @BeforeEach
     void setUp() {
         lock = new CountingLockService();
-        DistributedLockAspect aspect = new DistributedLockAspect(lock);
+        DistributedLockAspect aspect = new DistributedLockAspect(lock, new ManualLockRenewalScheduler());
 
         innerTarget = new InnerService();
         inner = proxy(innerTarget, aspect, InnerService.class);

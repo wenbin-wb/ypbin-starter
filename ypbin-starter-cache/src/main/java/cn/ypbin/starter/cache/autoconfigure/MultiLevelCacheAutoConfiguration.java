@@ -66,14 +66,6 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 @EnableConfigurationProperties(MultiLevelCacheProperties.class)
 public class MultiLevelCacheAutoConfiguration {
 
-    /**
-     * 多级缓存指标的 {@code cache} 标签值。
-     *
-     * <p>刻意取<strong>固定常量</strong>而非「多级缓存实例名」：本模块不掌握宿主实例身份，用随机/主机名
-     * 会让同一逻辑缓存的指标分散到无数序列；需要按实例区分时交给 Micrometer 底层的 {@code instance} 标签。</p>
-     */
-    static final String METRICS_CACHE_NAME = "multi-level";
-
     @Bean
     @ConditionalOnMissingBean(name = "l1Cache")
     public Cache<String, Object> l1Cache(MultiLevelCacheProperties properties) {
@@ -143,6 +135,13 @@ public class MultiLevelCacheAutoConfiguration {
      * 若不声明 {@code @AutoConfigureAfter} 指向它，条件求值时机早于提供者 ⇒ 守卫恒假、指标静默不装配。
      * 用 {@link ObjectProvider} 弱依赖在 Bean 创建时取值，既不依赖条件求值顺序，也能在「引了 micrometer
      * 但宿主没注册 MeterRegistry」时干净退化为空实现。</p>
+     *
+     * <p><strong>为什么 {@code cache} 标签值取自配置而非写死常量</strong>：写死 {@code multi-level} 会让多副本
+     * 的指标聚合到同一序列，排障时看不出是哪台机器的缓存异常；标签值改由
+     * {@link MultiLevelCacheProperties#getMetricsCacheName()} 提供（默认值
+     * {@link MultiLevelCacheProperties#DEFAULT_METRICS_CACHE_NAME} 与旧常量一致，未配置时行为不变），
+     * 实例身份的注入交给宿主的占位符（如 {@code ${HOSTNAME}}），本模块不猜实例名——猜错会把同一逻辑缓存
+     * 的指标打散成无数序列。</p>
      */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(MeterRegistry.class)
@@ -150,11 +149,12 @@ public class MultiLevelCacheAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        public CacheMetricsRecorder cacheMetricsRecorder(ObjectProvider<MeterRegistry> registryProvider) {
+        public CacheMetricsRecorder cacheMetricsRecorder(ObjectProvider<MeterRegistry> registryProvider,
+                MultiLevelCacheProperties properties) {
             MeterRegistry registry = registryProvider.getIfAvailable();
             return registry == null
                 ? CacheMetricsRecorder.NOOP
-                : MicrometerCacheMetrics.of(registry, METRICS_CACHE_NAME);
+                : MicrometerCacheMetrics.of(registry, properties.getMetricsCacheName());
         }
     }
 }

@@ -79,6 +79,29 @@ class JacksonSseFanoutCodecTest {
         assertThat(codec.decode("zraw")).isEqualTo("raw");
     }
 
+    /**
+     * 非有限数字（NaN/±Infinity）与 {@link TextSseFanoutCodec} 一致地返回空，<strong>不得</strong>落到
+     * JSON 分支被 Jackson 写成带引号的 {@code "NaN"}：那会让「标量语义与 text-v1 逐字节一致」这条对外
+     * 契约漂移，且 JSON 本身没有 NaN/无穷的标准表示。
+     */
+    @Test
+    void nonFiniteNumbersAreRejectedExactlyLikeTextCodec() {
+        for (Object value : List.of(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+            Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            assertThat(codec.encode(value)).as("encode(%s)", value).isEmpty();
+            assertThat(codec.encode(value)).isEqualTo(textCodec.encode(value));
+        }
+    }
+
+    /** {@code d<文本>} 无法解析时与 text-v1 一致地保留原文、不抛异常（委托实现，两侧同源）。 */
+    @Test
+    void unparseableNumberFrameDecodesExactlyLikeTextCodec() {
+        for (String frame : List.of("dNaN", "dInfinity", "d-Infinity", "d", "dnot-a-number")) {
+            assertThat(codec.decode(frame)).as("decode(%s)", frame).isEqualTo(textCodec.decode(frame));
+        }
+        assertThat(codec.decode("dNaN")).isEqualTo("NaN");
+    }
+
     /** 结构化载荷（含嵌套 Map/List、自定义 record）编成 {@code j<JSON>}，解码得到合法 JSON 文本。 */
     @Test
     void structuredPayloadRoundTripsAsCanonicalJsonText() {
