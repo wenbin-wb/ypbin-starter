@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-16T17:14:29.547Z",
+  "generatedAt": "2026-10-17T03:00:32.988Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 372,
+    "customPropertyCount": 377,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 412,
+    "totalEntryCount": 417,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -2024,7 +2024,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 44
+              "line": 51
             }
           ],
           "default": true,
@@ -2034,7 +2034,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 44
+              "line": 51
             }
           ],
           "group": "ypbin.cloud",
@@ -2056,7 +2056,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 34
+              "line": 41
             }
           ],
           "default": true,
@@ -2066,7 +2066,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 34
+              "line": 41
             }
           ],
           "group": "ypbin.cloud",
@@ -2088,7 +2088,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 37
+              "line": 44
             }
           ],
           "default": true,
@@ -2098,7 +2098,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 37
+              "line": 44
             }
           ],
           "group": "ypbin.cloud",
@@ -2122,7 +2122,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 63
+              "line": 70
             }
           ],
           "default": null,
@@ -2134,7 +2134,71 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 63
+              "line": 70
+            }
+          ],
+          "group": "ypbin.cloud",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-core",
+          "key": "ypbin.cloud.feign.internal-token",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "",
+          "required": false,
+          "requiredWhen": null,
+          "description": "内部调用凭证（密钥），默认空即不注入；真实凭据，绝不进入日志、异常消息或 toString。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
+              "line": 94
+            }
+          ],
+          "default": "",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
+              "line": 94
+            }
+          ],
+          "group": "ypbin.cloud",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-core",
+          "key": "ypbin.cloud.feign.internal-token-header",
+          "type": "java.lang.String",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "内部调用凭证请求头名，默认 X-Internal-Token（必须与 security 守卫侧逐字一致，见常量注释）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
+              "line": 91
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
+              "line": 91
             }
           ],
           "group": "ypbin.cloud",
@@ -2156,7 +2220,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 51
+              "line": 58
             }
           ],
           "default": null,
@@ -2166,7 +2230,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 51
+              "line": 58
             }
           ],
           "group": "ypbin.cloud",
@@ -2188,7 +2252,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 81
+              "line": 88
             }
           ],
           "default": false,
@@ -2198,7 +2262,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 81
+              "line": 88
             }
           ],
           "group": "ypbin.cloud",
@@ -2220,7 +2284,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 67
+              "line": 74
             }
           ],
           "default": "X-Gateway-Signed",
@@ -2230,7 +2294,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 67
+              "line": 74
             }
           ],
           "group": "ypbin.cloud",
@@ -2254,7 +2318,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 73
+              "line": 80
             }
           ],
           "default": "",
@@ -2266,7 +2330,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-cloud-core/src/main/java/cn/ypbin/starter/cloud/autoconfigure/FeignProperties.java",
-              "line": 73
+              "line": 80
             }
           ],
           "group": "ypbin.cloud",
@@ -2605,6 +2669,102 @@
           "values": [],
           "notes": [],
           "source": [],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.internal-path-block.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用内部端点路径阻断，默认 true（安全默认：内部端点不应经网关对外暴露）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/filter/InternalPathBlockProperties.java",
+              "line": 85
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/filter/InternalPathBlockProperties.java",
+              "line": 85
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.internal-path-block.not-found-status",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 404,
+          "required": false,
+          "requiredWhen": null,
+          "description": "命中时写回的 HTTP 状态码，默认 404（用 404 而非 403，避免暴露内部端点存在性）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/filter/InternalPathBlockProperties.java",
+              "line": 91
+            }
+          ],
+          "default": 404,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/filter/InternalPathBlockProperties.java",
+              "line": 91
+            }
+          ],
+          "group": "ypbin.gateway",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-cloud-gateway",
+          "key": "ypbin.gateway.internal-path-block.path-patterns",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "生效路径模式清单，默认任意层级前缀下的 /internal/**（含顶层）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/filter/InternalPathBlockProperties.java",
+              "line": 88
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-cloud-gateway/src/main/java/cn/ypbin/starter/gateway/filter/InternalPathBlockProperties.java",
+              "line": 88
+            }
+          ],
           "group": "ypbin.gateway",
           "deprecation": null
         },

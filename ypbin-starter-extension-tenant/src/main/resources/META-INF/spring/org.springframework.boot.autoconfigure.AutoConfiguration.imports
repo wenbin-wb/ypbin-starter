@@ -1,1 +1,2 @@
+cn.ypbin.starter.tenant.autoconfigure.IdentityTenantAutoConfiguration
 cn.ypbin.starter.tenant.autoconfigure.TenantAutoConfiguration

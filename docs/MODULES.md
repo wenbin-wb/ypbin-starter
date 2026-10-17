@@ -1129,6 +1129,8 @@ public class MyTenantProvider implements TenantProvider {
 }
 ```
 
+**微服务下游免写胶水代码**：网关校验 token 后签发可信身份头、security 模块据此写入 `IdentityContext` 时，下游服务只要 classpath 上有 security（本模块的 optional 依赖），即自动装配 `IdentityTenantProvider`，租户直接取 `IdentityContext.getTenantId()`——业务工程不必再逐个实现「读身份上下文 → 提供租户 ID」的重复 Provider。生效条件与租户总开关一致：`ypbin.tenant.enabled=true`（默认关闭，关闭时不会注册任何 `TenantProvider` Bean）；业务自定义 `TenantProvider` **始终优先**，`TenantContext` 已写入的租户优先于本提供者。**无身份**（未登录，或异步线程/定时任务等本就无请求上下文的场景，`IdentityContext` 是 ThreadLocal 语义）与**身份未携带租户**两种情况一律返回空，随后按 `ypbin.tenant.fail-on-missing-tenant`（默认 `true`，fail-closed）拒绝执行——不兜底猜租户、不静默改用其它来源。
+
 **跨租户逃逸**：超管全局查询、后台定时任务全表扫描时，用 `@TenantIgnore` 或 `TenantContext`：
 
 ```java
@@ -1349,6 +1351,7 @@ CsvUtils.export(response, "用户列表", headers, rows);
 - 流式 `write(OutputStream, headers, rows)` 与 `write(outputStream, toCsv(headers, rows))` **逐字节一致**（同一 BOM、同一 `escapeCell` 转义、同一 CRLF 行尾）；流式 `export(...)` 的响应头与整段文本版完全一致（`text/csv;charset=UTF-8`、RFC 5987 文件名、`.csv` 扩展名）。
 - 公式注入中和为安全优先口径：单元格首字符是 `=` / `+` / `-` / `@` / `TAB` / `CR` 时前缀 `'`（**负数 `-1` 同样被中和**）；空值单元格输出为空串。
 - `write` / `export` **不关闭**传入的流/响应，关闭责任归调用方；写入失败以 `IllegalStateException` 抛出，不静默吞掉。
+- **能力归属**：CSV 防注入导出（UTF-8 BOM / RFC 4180 / 公式注入中和 / 流式导出）统一由本模块 `CsvUtils` 提供，**不在 `ypbin-starter-tools` 重复实现**，避免两套安全工具各自演进、口径漂移。
 
 ### captcha — 行为验证码
 
@@ -1554,7 +1557,13 @@ PushUtils.sendToUser("123", "unread-count", Map.of("count", 5));
 PushUtils.broadcast("dashboard-refresh", dashboardData);
 ```
 
-**多实例说明**：SSE 连接与 `PushService` 默认基于单实例内存连接表；微服务多副本下，A 实例发起的推送到不了连在 B 实例的客户端。跨实例扇出需在上层配合 Redis Pub/Sub 或 MQTT 中转（业务方自定义 `PushService` 覆盖默认实现即可接入）。
+**多实例说明**：SSE 连接表是内存态（单实例自洽）。classpath 与容器同时存在 `StringRedisTemplate` 时，`sendToUser` / `sendToAudience` / `broadcast` 会经 Redis Pub/Sub **自动跨实例扇出**：发布侧投本实例连接，订阅侧投各自实例的连接，并丢弃本实例自己发布的帧以防回环；`ypbin.sse.fanout-enabled`（默认 `true`）可关闭，多应用共用同一 Redis 时须用 `ypbin.sse.fanout-channel` 指定本应用专属频道（默认 `ypbin:sse:fanout`）。无 Redis 时退化为纯单实例投递。
+
+**跨实例扇出载荷 codec** `SseFanoutCodec`：扇出帧内带 codecId，订阅方**丢弃 codecId 与自身不一致的帧**（跨版本帧不猜类型解码）。默认实现 `TextSseFanoutCodec`（协议 id `text-v1`）只承载 `null`/布尔/数字/字符串等**标量**；classpath 存在 Jackson 3 且容器有 `ObjectMapper` Bean 时自动装配 `JacksonSseFanoutCodec`（协议 id `json-v1`）——标量分支与 `text-v1` **逐字节一致**，结构化对象（`Map`/集合/POJO/`record`）编成 `j<JSON 文本>`，对端还原为 JSON 文本原文投递（业务侧照常 `JSON.parse`）。`spring-boot-jackson` 对本模块是 optional 依赖、不向宿主传递；宿主自定义 `SseFanoutCodec` Bean 始终优先。
+
+- **不可承载的载荷不静默降级**：`encode` 返回空即「本 codec 承载不了」，发布方记 WARN 并**只投本实例**（跨实例部分显式丢失），不会 `toString()` 成垃圾帧。
+- ⚠️ **滚动升级**：`json-v1` 与 `text-v1` 是不同协议，混版本窗口内**两个方向**的跨实例扇出都会失效（含标量：新节点发的标量帧以 `json-v1` 打标、旧节点不认，反之亦然）。建议整批升级；必须滚动时在滚动期显式注册一个 `TextSseFanoutCodec` Bean 钉住 `text-v1`，升级完成后再放开。
+- ⚠️ **敏感数据**：结构化载荷以 **JSON 明文**进 Redis Pub/Sub（含订阅方日志/抓包），手机号、身份证、令牌等敏感字段须由业务侧在推送前脱敏或加密，starter 不做字段裁剪。
 
 **Flux 流式桥接** `SseStreamBridge`（大模型逐 token 输出等场景）：Servlet Web 环境下自动装配，需 classpath 有 `reactor-core` 与 `spring-webmvc`（二者均为 optional 依赖），把 `Flux<String>` 桥接成浏览器可直接消费的 `SseEmitter`：
 
@@ -1814,6 +1823,18 @@ ypbin:
         - X-Tenant-Id
 ```
 
+**内部调用凭证**（与 security 的内部端点守卫配套）：下游用 `ypbin.security.internal-token.guard-enabled=true` 开启 `/internal/**` 守卫后，配置 `ypbin.cloud.feign.internal-token` 即可让每个 Feign 请求自动携带 `ypbin.cloud.feign.internal-token-header`（默认 `X-Internal-Token`）头通过校验。与白名单透传不同，该头**不依赖入站请求上下文**——定时任务、异步线程发起的服务间调用同样携带；模板已显式设置同名头时不覆盖；未配置时仅启动期记一条 WARN（只说明「未配置」，不含凭证值）。
+
+```yaml
+ypbin:
+  cloud:
+    feign:
+      internal-token-header: X-Internal-Token   # 须与守卫侧 ypbin.security.internal-token.header-name 逐字一致
+      internal-token: ${INTERNAL_TOKEN:}        # 空即不注入；真实凭据，经环境变量注入
+```
+
+`internal-token` 是**真实凭据**：本模块只把它写进请求头，不进入日志、异常消息或 `toString`。但它终究会出现在请求头里——Feign 客户端的 `logger-level` 配成 `headers` / `full` 时会把**全部**请求头打进日志（`full` 另含请求/响应报文），建议保持 `none` / `basic`，排障时勿长期调高。
+
 **统一错误解码**：下游返回非 2xx 且响应体为 ypbin 统一 `R` 时，自动转为 `FeignRemoteException`
 （含下游业务码与提示），由全局异常处理器转换为 HTTP 200 + `R.code` 的错误响应。
 
@@ -1863,6 +1884,8 @@ public interface UserClient {
 | `ypbin.cloud.feign.error-decoder-enabled` | `true` | R 错误解码 |
 | `ypbin.cloud.feign.circuitbreaker-enabled` | `true` | 默认开启 CircuitBreaker |
 | `ypbin.cloud.feign.propagate-headers` | `Authorization`, `X-Request-Id`, `X-Trace-Id` | 透传请求头白名单 |
+| `ypbin.cloud.feign.internal-token` | 空 | 内部调用凭证（真实凭据；空即不注入） |
+| `ypbin.cloud.feign.internal-token-header` | `X-Internal-Token` | 凭证请求头名，须与 security 守卫侧 `ypbin.security.internal-token.header-name` 一致 |
 
 ### cloud-nacos — Nacos 依赖聚合
 
@@ -1974,6 +1997,21 @@ ypbin:
 - **身份头清洗**：默认移除客户端传入的 `X-User-Id` / `X-Tenant-Id` / `X-Dept-Id` / `X-Roles`，防身份伪造。
 - **全局异常 JSON 响应**：Gateway 异常统一转为 `R` JSON（HTTP 200），与 Servlet 全局异常保持风格一致。
 - **WebFlux CORS**：与 Servlet CorsFilter 独立，`ypbin.gateway.cors` 前缀单独配置。
+- **内部端点路径阻断**：默认拦截「任意层级下含 `/internal/` 分段」的入站请求（默认模式 `/**/internal/**`），命中即**不转发**，返回 404 + 统一 `R` 信封（固定文案，**不回显请求路径**）。
+
+**内部端点路径阻断**（默认开启，属对外行为变更）：内部端点（`/internal/**`，如跨服务查询、密钥下发）的前提是**服务间直连、不经网关**，故本模块默认把它们挡在网关外，尽早收敛内部 API 面；命中即拒绝、不进入鉴权链路（本过滤器顺序早于统一认证）。确有经网关访问内部端点的调用链时，显式关闭或收窄模式——不要依赖「服务侧守卫兜底」当作常态。
+
+```yaml
+ypbin:
+  gateway:
+    internal-path-block:
+      enabled: true                        # 默认 true；置 false 关闭阻断
+      path-patterns: ["/**/internal/**"]   # 默认：任意层级前缀下的 /internal/**（含顶层）
+      not-found-status: 404                # 默认 404（非 403，避免暴露端点存在性）；须为 100–599
+```
+
+- **路径模式**：普通模式走 `PathPattern` 语义（与 Gateway 路由谓词同口径）；以 `/**` + 斜杠开头表示「任意层级前缀」且**含顶层**（`PathPattern` 只允许一个 `**`，`/a/**/internal/**` 这类两个 `**` 的写法**启动即失败**，不会静默跳过某条模式）。匹配在 `PathContainer` 上做，百分号编码（如 `/%69nternal/x`）与矩阵参数（如 `/internal/x;jsessionid=1`）同样被拦。
+- **配成空清单**等于不拦任何请求，启动期会记一条 WARN 提示可能是配置源覆盖了默认值。
 
 可选能力（按需开启）：
 

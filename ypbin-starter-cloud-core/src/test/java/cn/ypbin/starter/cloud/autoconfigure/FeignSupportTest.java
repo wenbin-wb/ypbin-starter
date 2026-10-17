@@ -41,6 +41,25 @@ class FeignSupportTest {
             .contains("X-User-Id", "X-User-Name", "X-Tenant-Id", "X-Dept-Id", "X-Roles");
     }
 
+    /**
+     * 内部凭证配置的默认值与「默认不泄露」约定。
+     *
+     * <p>本用例同时是一道<b>回归护栏</b>：{@code FeignProperties} 目前不覆写 {@code toString}
+     * （默认实现只输出类名与哈希，天然不含字段值）。若将来给它加 {@code @Data}/{@code @ToString}
+     * 之类的全字段输出，凭证就会在任何「打印配置对象」的日志里泄露——本断言会立刻失败。</p>
+     */
+    @Test
+    void internalTokenDefaultsShouldMatchGuardHeaderAndNotLeak() {
+        FeignProperties props = new FeignProperties();
+        assertThat(props.getInternalTokenHeader())
+            .as("默认头名必须与 security 守卫侧 InternalTokenProperties.DEFAULT_HEADER_NAME 逐字一致")
+            .isEqualTo("X-Internal-Token");
+        assertThat(props.getInternalToken()).isEmpty();
+
+        props.setInternalToken("real-secret-value");
+        assertThat(props.toString()).doesNotContain("real-secret-value");
+    }
+
     @Test
     void defaultsShouldInjectProperties() {
         FeignDefaultsEnvironmentPostProcessor processor = new FeignDefaultsEnvironmentPostProcessor();

@@ -18,6 +18,8 @@ package cn.ypbin.starter.gateway.autoconfigure;
 import cn.ypbin.starter.gateway.auth.GatewayAuthProvider;
 import cn.ypbin.starter.gateway.filter.GatewayAuthGlobalFilter;
 import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
+import cn.ypbin.starter.gateway.filter.InternalPathBlockGlobalFilter;
+import cn.ypbin.starter.gateway.filter.InternalPathBlockProperties;
 import cn.ypbin.starter.gateway.filter.RequestIdGlobalFilter;
 import cn.ypbin.starter.gateway.handler.GatewayExceptionHandler;
 import cn.ypbin.starter.gateway.ratelimit.AttributeRateLimitGlobalFilter;
@@ -56,7 +58,8 @@ import tools.jackson.databind.ObjectMapper;
 @ConditionalOnClass(GlobalFilter.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 @ConditionalOnProperty(prefix = "ypbin.gateway", name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableConfigurationProperties({GatewayProperties.class, RateLimitProperties.class})
+@EnableConfigurationProperties({GatewayProperties.class, RateLimitProperties.class,
+    InternalPathBlockProperties.class})
 public class GatewayAutoConfiguration {
 
     @Bean
@@ -107,6 +110,35 @@ public class GatewayAutoConfiguration {
     @ConditionalOnMissingBean
     public GatewayExceptionHandler gatewayExceptionHandler(ObjectProvider<ObjectMapper> objectMapperProvider) {
         return new GatewayExceptionHandler(objectMapperProvider.getIfAvailable(ObjectMapper::new));
+    }
+
+    /**
+     * 内部端点路径阻断过滤器（GitHub issue #96）。
+     *
+     * <p><b>默认启用</b>：与限流过滤器「默认关闭、须显式开启」相反，内部端点不应经网关对外暴露，
+     * 故 {@code ypbin.gateway.internal-path-block.enabled} 默认 {@code true}
+     * （{@code matchIfMissing=true}），宿主可显式置 {@code false} 关闭（{@link InternalPathBlockProperties}）。</p>
+     *
+     * <p>条件用类级 {@code @ConditionalOnClass(GlobalFilter.class)} 即可满足，
+     * 方法上再声明一次是为满足 issue 的显式要求，并使本方法的条件自洽可读；
+     * <b>刻意不用 {@code @ConditionalOnBean} 判定任何第三方类型</b>——那会引入「必须声明
+     * {@code @AutoConfigureAfter}」的顺序陷阱（见本仓 {@code AutoConfigurationOrderingTest}），
+     * 而本过滤器只依赖配置属性与自身代码，无此需要。</p>
+     *
+     * @param properties           阻断配置项
+     * @param objectMapperProvider 容器序列化器（缺失时用等价默认实例，避免宿主未引 JSON 模块时启动失败）
+     * @return 内部端点路径阻断过滤器
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(GlobalFilter.class)
+    @ConditionalOnProperty(prefix = InternalPathBlockProperties.PREFIX, name = "enabled",
+        havingValue = "true", matchIfMissing = true)
+    public InternalPathBlockGlobalFilter internalPathBlockGlobalFilter(
+            InternalPathBlockProperties properties,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+        return new InternalPathBlockGlobalFilter(properties,
+            objectMapperProvider.getIfAvailable(ObjectMapper::new));
     }
 
     /**

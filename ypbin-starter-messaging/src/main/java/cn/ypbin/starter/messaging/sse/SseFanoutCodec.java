@@ -21,9 +21,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * SSE 跨实例扇出的载荷编解码扩展点。
  *
- * <p>messaging 模块刻意<strong>不引入 Jackson</strong>（它只经可选的 web 依赖传递，消费者不该依赖）：
- * 默认实现 {@link TextSseFanoutCodec} 用零依赖的纯文本协议覆盖 null/布尔/数字/字符串等标量；
- * 结构化对象由业务注册本类型的 Bean（IoT 的实时事件就属于这一类）。</p>
+ * <p>messaging 模块对 Jackson 只有 <strong>optional 依赖</strong>（不向宿主传递）：默认实现
+ * {@link TextSseFanoutCodec} 用零依赖的纯文本协议覆盖 null/布尔/数字/字符串等标量；类路径存在
+ * Jackson 3 且容器里有 {@code ObjectMapper} Bean 时自动装配 {@link JacksonSseFanoutCodec} 以承载
+ * {@code Map}/POJO/{@code record} 等结构化对象；宿主自定义本类型的 Bean 永远优先。</p>
  *
  * <p><strong>不静默降级</strong>：{@link #encode(Object)} 返回空表示「本 codec 无法承载该载荷」，
  * 发布方会记一条 WARN 并只投本实例（跨实例部分丢失是显式的），而不是把对象 {@code toString()}

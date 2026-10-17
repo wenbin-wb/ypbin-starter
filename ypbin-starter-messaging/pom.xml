@@ -51,6 +51,18 @@
             <optional>true</optional>
         </dependency>
         <!--
+          SSE 结构化载荷的 JSON 编解码（JacksonSseFanoutCodec，Jackson 3 = tools.jackson.*）：仅当
+          宿主容器里存在 ObjectMapper Bean 时自动装配，缺失则退回 TextSseFanoutCodec（行为不变）。
+          必须 optional：邮件/短信/MQTT/WebSocket 与纯标量 SSE 扇出都不需要 Jackson，设成强依赖会把
+          jackson-databind 强推给每个引入 messaging 的宿主（Boot 4 的 Jackson 3 自动配置位于
+          spring-boot-jackson 模块，databind 在其中为 compile 依赖）。本模块自身编译/测试可见，不向宿主传递。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!--
           Flux → SSE 流式桥接（SseStreamBridge）：仅流式响应场景需要，可选依赖。
           必须 optional：本模块绝大多数能力（邮件/短信/MQTT/WebSocket/SSE 扇出）都不需要 Reactor，
           设成强依赖会把 reactor-core 强推给每一个引入 messaging 的宿主（含纯 servlet 应用）。

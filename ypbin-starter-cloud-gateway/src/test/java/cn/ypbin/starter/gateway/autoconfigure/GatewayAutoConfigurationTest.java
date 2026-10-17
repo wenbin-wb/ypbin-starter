@@ -18,6 +18,8 @@ package cn.ypbin.starter.gateway.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
+import cn.ypbin.starter.gateway.filter.InternalPathBlockGlobalFilter;
+import cn.ypbin.starter.gateway.filter.InternalPathBlockProperties;
 import cn.ypbin.starter.gateway.filter.RequestIdGlobalFilter;
 import cn.ypbin.starter.gateway.handler.GatewayExceptionHandler;
 import org.junit.jupiter.api.Test;
@@ -45,7 +47,28 @@ class GatewayAutoConfigurationTest {
             assertThat(context).hasSingleBean(HeaderSanitizeGlobalFilter.class);
             assertThat(context).hasSingleBean(GatewayExceptionHandler.class);
             assertThat(context).hasSingleBean(GatewayProperties.class);
+            // 内部路径阻断默认启用（安全默认：内部端点不应经网关对外暴露）
+            assertThat(context).hasSingleBean(InternalPathBlockGlobalFilter.class);
         });
+    }
+
+    @Test
+    void shouldDisableInternalPathBlockWhenTurnedOff() {
+        runner.withPropertyValues("ypbin.gateway.internal-path-block.enabled=false")
+            .run(context -> assertThat(context).doesNotHaveBean(InternalPathBlockGlobalFilter.class));
+    }
+
+    @Test
+    void shouldBindInternalPathBlockProperties() {
+        runner.withPropertyValues(
+                "ypbin.gateway.internal-path-block.path-patterns[0]=/api/private/**",
+                "ypbin.gateway.internal-path-block.not-found-status=200")
+            .run(context -> {
+                InternalPathBlockProperties properties = context.getBean(InternalPathBlockProperties.class);
+                assertThat(properties.isEnabled()).isTrue();
+                assertThat(properties.getPathPatterns()).containsExactly("/api/private/**");
+                assertThat(properties.getNotFoundStatus()).isEqualTo(200);
+            });
     }
 
     @Test

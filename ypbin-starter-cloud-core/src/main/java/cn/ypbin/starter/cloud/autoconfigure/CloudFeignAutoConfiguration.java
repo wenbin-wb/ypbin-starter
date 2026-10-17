@@ -68,7 +68,8 @@ public class CloudFeignAutoConfiguration {
         public FeignHeaderInterceptor feignHeaderInterceptor(FeignProperties properties) {
             return new FeignHeaderInterceptor(properties.getPropagateHeaders(),
                 properties.getIdentityHeaders(), properties.getTrustedSourceHeader(),
-                properties.getTrustedSourceToken(), properties.isRequireTrustedSource());
+                properties.getTrustedSourceToken(), properties.isRequireTrustedSource(),
+                properties.getInternalTokenHeader(), properties.getInternalToken());
         }
     }
 }

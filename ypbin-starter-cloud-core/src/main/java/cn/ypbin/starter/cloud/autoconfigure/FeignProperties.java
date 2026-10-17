@@ -15,12 +15,19 @@
  */
 package cn.ypbin.starter.cloud.autoconfigure;
 
+import cn.ypbin.starter.cloud.feign.FeignHeaderInterceptor;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Feign 增强配置项。
+ *
+ * <p><strong>内部调用凭证</strong>（{@link #internalToken}）：服务侧
+ * {@code ypbin.security.internal-token.guard-enabled=true} 开启守卫后，调用其
+ * {@code /internal/**} 端点必须携带 {@link #internalTokenHeader} 头（守卫侧 fail-closed，缺凭证一律拒绝）。
+ * 本项是<b>真实凭据</b>，只由 {@code FeignHeaderInterceptor} 写进请求头，绝不进入日志、异常消息或
+ * {@code toString}（本类不覆写 {@code toString}，默认实现不输出任何字段值）。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -79,6 +86,12 @@ public class FeignProperties {
      * 用于强制新项目/生产环境开启身份头来源校验，避免忘记配置而长期处于「不校验」状态。</p>
      */
     private boolean requireTrustedSource = false;
+
+    /** 内部调用凭证请求头名，默认 X-Internal-Token（必须与 security 守卫侧逐字一致，见常量注释）。 */
+    private String internalTokenHeader = FeignHeaderInterceptor.DEFAULT_INTERNAL_TOKEN_HEADER;
+
+    /** 内部调用凭证（密钥），默认空即不注入；真实凭据，绝不进入日志、异常消息或 toString。 */
+    private String internalToken = "";
 
     public boolean isEnabled() {
         return enabled;
@@ -142,5 +155,21 @@ public class FeignProperties {
 
     public void setTrustedSourceToken(String trustedSourceToken) {
         this.trustedSourceToken = trustedSourceToken;
+    }
+
+    public String getInternalTokenHeader() {
+        return internalTokenHeader;
+    }
+
+    public void setInternalTokenHeader(String internalTokenHeader) {
+        this.internalTokenHeader = internalTokenHeader;
+    }
+
+    public String getInternalToken() {
+        return internalToken;
+    }
+
+    public void setInternalToken(String internalToken) {
+        this.internalToken = internalToken;
     }
 }

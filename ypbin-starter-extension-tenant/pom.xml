@@ -30,6 +30,15 @@
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-data</artifactId>
         </dependency>
+        <!--
+          微服务身份头模式下的租户来源：把网关注入的 IdentityContext 接为 TenantProvider。
+          可选依赖（optional）：未引入 security 的宿主整块跳过该桥接，租户行为与既有版本一致。
+        -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-security</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- @TenantIgnore 注解切面需要 AOP；Spring Boot 4.x 已移除 spring-boot-starter-aop，直接声明 aspectjweaver -->
         <dependency>
             <groupId>org.aspectj</groupId>

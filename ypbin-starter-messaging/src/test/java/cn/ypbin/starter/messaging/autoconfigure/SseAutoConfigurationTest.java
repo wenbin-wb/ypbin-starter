@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.messaging.push.PushService;
 import cn.ypbin.starter.messaging.sse.InMemorySseTicketStore;
+import cn.ypbin.starter.messaging.sse.JacksonSseFanoutCodec;
 import cn.ypbin.starter.messaging.sse.RedisSseFanoutPublisher;
 import cn.ypbin.starter.messaging.sse.RedisSseTicketStore;
 import cn.ypbin.starter.messaging.sse.SseEmitterManager;
@@ -27,15 +28,18 @@ import cn.ypbin.starter.messaging.sse.SseFanoutCodec;
 import cn.ypbin.starter.messaging.sse.SseProperties;
 import cn.ypbin.starter.messaging.sse.SseTicketStore;
 import cn.ypbin.starter.messaging.sse.TextSseFanoutCodec;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@link SseAutoConfiguration} 装配测试。
@@ -157,6 +161,120 @@ class SseAutoConfigurationTest {
                     .as("有 Redis 时必须装配扇出桥：否则多副本 SSE 只推本实例连接，跨实例推送静默丢失")
                     .isNotEmpty();
             });
+    }
+
+    /**
+     * 容器里有 {@code ObjectMapper} Bean ⇒ 必须选中 {@link JacksonSseFanoutCodec}（结构化载荷可跨实例）。
+     *
+     * <p>这里用<strong>用户配置</strong>提供 mapper（Bean 定义先于自动配置处理就存在），只锁定类型选择；
+     * 「mapper 由后处理的 Boot 自动配置提供」这一顺序场景由
+     * {@link #withRealBootJacksonAutoConfiguration_usesJacksonCodecDespiteOrdering()} 覆盖。</p>
+     */
+    @Test
+    void withObjectMapperBean_usesJacksonCodec() {
+        runner.withUserConfiguration(ObjectMapperConfig.class).run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context.getBean(SseFanoutCodec.class)).isInstanceOf(JacksonSseFanoutCodec.class);
+            assertThat(context.getBean(SseFanoutCodec.class).id()).isEqualTo(JacksonSseFanoutCodec.ID);
+            assertThat(context.getBean(SseEmitterManager.class).getCodec()).isInstanceOf(JacksonSseFanoutCodec.class);
+            // Bean 名在升级前后不变（Text 与 Jackson 两侧刻意同名），宿主按名字注入的写法不受影响
+            assertThat(context.containsBean("sseFanoutCodec")).isTrue();
+        });
+    }
+
+    /** 类路径有 Jackson 但容器里没有 {@code ObjectMapper} Bean ⇒ 退回 Text（不得出现无 codec 可用）。 */
+    @Test
+    void withoutObjectMapperBean_fallsBackToTextCodec() {
+        runner.run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context.getBean(SseFanoutCodec.class)).isInstanceOf(TextSseFanoutCodec.class);
+            assertThat(context.getBean(SseEmitterManager.class).getCodec()).isInstanceOf(TextSseFanoutCodec.class);
+            assertThat(context.containsBean("sseFanoutCodec")).isTrue();
+        });
+    }
+
+    /** 类路径完全没有 Jackson ⇒ 上下文照常启动、走 Text 兜底（Jackson 绝不能成为强制依赖）。 */
+    @Test
+    void withoutObjectMapperOnClasspath_startsAndFallsBackToTextCodec() {
+        runner.withClassLoader(new FilteredClassLoader(ObjectMapper.class)).run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context.getBean(SseFanoutCodec.class)).isInstanceOf(TextSseFanoutCodec.class);
+            assertThat(context.getBean(SseFanoutCodec.class).id()).isEqualTo(TextSseFanoutCodec.ID);
+        });
+    }
+
+    /**
+     * ★ 顺序回归：{@code ObjectMapper} 由 Boot 的 {@code JacksonAutoConfiguration}
+     * （{@code org.springframework.*}）提供，而本模块包名 {@code cn.ypbin.*} 在 Boot 自动配置排序中
+     * <b>更靠前</b>。若把装配条件写成 {@code @ConditionalOnBean(ObjectMapper.class)}，求值时刻 mapper
+     * 尚未注册 ⇒ 条件恒假 ⇒ Jackson codec <b>静默不生效</b>（多副本下 POJO 事件仍只投本实例，且无报错）。
+     * 本用例与真实 Boot 自动配置组合，钉死「{@code ObjectProvider} 在实例化阶段取值」这条与顺序无关的路径。
+     */
+    @Test
+    void withRealBootJacksonAutoConfiguration_usesJacksonCodecDespiteOrdering() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class, SseAutoConfiguration.class))
+            .withPropertyValues("ypbin.sse.enabled=true")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.containsBean("jacksonJsonMapper"))
+                    .as("前置条件：Boot 的 Jackson 自动配置已注册 ObjectMapper")
+                    .isTrue();
+                assertThat(context.getBean(SseFanoutCodec.class))
+                    .as("mapper 由后处理的 Boot 自动配置提供时也必须选中 Jackson codec")
+                    .isInstanceOf(JacksonSseFanoutCodec.class);
+            });
+    }
+
+    /** 宿主自定义 {@code SseFanoutCodec} Bean 永远优先（Text 与 Jackson 两侧都必须让路）。 */
+    @Test
+    void userDefinedCodecAlwaysWins() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class, SseAutoConfiguration.class))
+            .withPropertyValues("ypbin.sse.enabled=true")
+            .withUserConfiguration(CustomCodecConfig.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(SseFanoutCodec.class)).isInstanceOf(CustomCodec.class);
+                assertThat(context.getBean(SseEmitterManager.class).getCodec()).isInstanceOf(CustomCodec.class);
+            });
+    }
+
+    /** 宿主自备的 mapper（此处即测试）——只提供类型，不启动任何 Jackson 自动配置。 */
+    @Configuration(proxyBeanMethods = false)
+    static class ObjectMapperConfig {
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
+    }
+
+    /** 宿主自定义 codec：`id` 与内置都不同，用于验证覆盖语义。 */
+    @Configuration(proxyBeanMethods = false)
+    static class CustomCodecConfig {
+        @Bean
+        SseFanoutCodec customCodec() {
+            return new CustomCodec();
+        }
+    }
+
+    /** 极简自定义 codec（内容无关紧要，只验证「谁被选中」）。 */
+    static class CustomCodec implements SseFanoutCodec {
+
+        @Override
+        public String id() {
+            return "custom-v1";
+        }
+
+        @Override
+        public Optional<String> encode(Object payload) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Object decode(String text) {
+            return text;
+        }
     }
 
     @Configuration(proxyBeanMethods = false)

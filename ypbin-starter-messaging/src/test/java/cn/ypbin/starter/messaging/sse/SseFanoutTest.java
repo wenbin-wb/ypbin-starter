@@ -26,6 +26,7 @@ import org.springframework.data.redis.connection.DefaultMessage;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * SSE 多实例扇出运行时用例：两个实例共享一条内存"频道"，验证跨实例可达、去自回环、投递隔离与
@@ -72,11 +73,24 @@ class SseFanoutTest {
 
         private final List<Event> events = new CopyOnWriteArrayList<>();
 
+        /**
+         * 已投递的 <strong>data 项</strong>原文。
+         *
+         * <p>{@code SseEventBuilderImpl.build()} 会把「事件名/注释文本」与「data 对象」拆成不同条目：
+         * 前者带 {@code text/plain} 媒体类型，后者（未显式指定媒体类型）为 {@code null}。只记录后者，
+         * 才能断言「跨实例到底投出去的是什么载荷」。</p>
+         */
+        private final List<Object> payloads = new CopyOnWriteArrayList<>();
+
         @Override
         public void send(SseEventBuilder builder) {
             // SseEventBuilderImpl.build() 给出待发送的 SSE 文本片段。只记录带 event: 名的**业务事件**：
             // 建连注释帧（:connected）与心跳（:ping）也走同一路径，若计入会污染「收到了几条事件」的断言。
             for (ResponseBodyEmitter.DataWithMediaType item : builder.build()) {
+                if (item.getMediaType() == null) {
+                    payloads.add(item.getData());
+                    continue;
+                }
                 String text = String.valueOf(item.getData());
                 if (text.contains("event:")) {
                     events.add(new Event(text));
@@ -94,6 +108,11 @@ class SseFanoutTest {
             return events.stream().anyMatch(event -> event.text.contains(fragment));
         }
 
+        /** 已投递的数据项（保持投递时的原始对象/字符串形态）。 */
+        List<Object> payloads() {
+            return payloads;
+        }
+
         int count() {
             return events.size();
         }
@@ -108,7 +127,12 @@ class SseFanoutTest {
         private final RecordingEmitter emitter;
 
         TestManager(RecordingEmitter emitter) {
-            super(60_000L, 0);
+            this(emitter, new TextSseFanoutCodec());
+        }
+
+        TestManager(RecordingEmitter emitter, SseFanoutCodec codec) {
+            // 与生产接线一致：发布侧（管理器）与订阅侧必须持有同一个 codec，否则 codecId 对不上
+            super(60_000L, 0, null, codec);
             this.emitter = emitter;
         }
 
@@ -123,10 +147,14 @@ class SseFanoutTest {
     }
 
     private static Instance newInstance(InMemoryChannel channel, String instanceId) {
+        return newInstance(channel, instanceId, new TextSseFanoutCodec());
+    }
+
+    private static Instance newInstance(InMemoryChannel channel, String instanceId, SseFanoutCodec codec) {
         RecordingEmitter emitter = new RecordingEmitter();
-        TestManager manager = new TestManager(emitter);
+        TestManager manager = new TestManager(emitter, codec);
         manager.setFanoutBridge(new InMemoryBridge(channel, instanceId));
-        channel.subscribe(new SseFanoutSubscriber(manager, instanceId, new TextSseFanoutCodec()));
+        channel.subscribe(new SseFanoutSubscriber(manager, instanceId, codec));
         return new Instance(manager, instanceId, emitter);
     }
 
@@ -245,5 +273,40 @@ class SseFanoutTest {
         assertThat(emitter.count()).isZero();
         assertThat(manager.onlineAudiences()).containsExactly("tenant:7");
         assertThat(manager.getCodec().id()).isEqualTo(TextSseFanoutCodec.ID);
+    }
+
+    /**
+     * issue #97 端到端：结构化对象（record）在 Jackson codec 下<strong>必须真正跨实例到达</strong>。
+     *
+     * <p>修前（只有 {@link TextSseFanoutCodec}）该载荷 {@code encode} 为空 ⇒ 发布方只投本实例，
+     * B 永远收不到；本用例用两个实例模拟两个 JVM，直接钉死「其它节点的订阅者也收得到」。
+     * B 收到的是 JSON <strong>文本</strong>，由投递方作为 {@code data:} 原文发出（前端自行 JSON.parse）。</p>
+     */
+    @Test
+    void structuredPayloadFansOutAcrossInstancesWithJacksonCodec() throws InterruptedException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        InMemoryChannel channel = new InMemoryChannel();
+        Instance a = newInstance(channel, "A", new JacksonSseFanoutCodec(objectMapper));
+        Instance b = newInstance(channel, "B", new JacksonSseFanoutCodec(objectMapper));
+        a.manager().connectAudience("tenant:7");
+        b.manager().connectAudience("tenant:7");
+
+        a.manager().sendToAudience("tenant:7", "latest", new DeviceReading("d1", 25, List.of("t1", "t2")));
+        awaitDelivery();
+
+        assertThat(b.emitter().count()).as("其它实例的订阅者必须收到结构化事件（修前为 0）").isEqualTo(1);
+        assertThat(b.emitter().payloads()).as("跨实例投递的载荷必须是可 JSON.parse 的文本").hasSize(1);
+        String delivered = String.valueOf(b.emitter().payloads().get(0));
+        assertThat(objectMapper.readTree(delivered).get("deviceId").asString()).isEqualTo("d1");
+        assertThat(objectMapper.readTree(delivered).get("value").asInt()).isEqualTo(25);
+        assertThat(objectMapper.readTree(delivered).get("tags").size()).isEqualTo(2);
+        // 发布实例本机直投 1 次且不经 codec（仍是原始对象）；自广播帧被订阅方丢弃 ⇒ 不得重复
+        assertThat(a.emitter().count()).isEqualTo(1);
+        assertThat(a.emitter().payloads()).hasSize(1);
+        assertThat(a.emitter().payloads().get(0)).isInstanceOf(DeviceReading.class);
+    }
+
+    /** 跨实例投递的典型业务载荷。 */
+    private record DeviceReading(String deviceId, int value, List<String> tags) {
     }
 }

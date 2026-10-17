@@ -66,6 +66,45 @@
   每个 FQCN 均由 Maven Central 构件（`spring-ai-autoconfigure-vector-store-*:2.0.1`）的 `AutoConfiguration.imports` + `javap`
   一手取证；顺序门禁 `AutoConfigurationOrderingTest` 同步登记同一份清单（变异证伪：删一行即精确指名缺失）。
 
+#### 2026-10-17 issue 批量处理（#96 ~ #98）：微服务内部调用闭环 / SSE 结构化载荷 / 租户来源下沉
+
+- **`ypbin-starter-cloud-gateway`：内部端点路径阻断 `InternalPathBlockGlobalFilter`**（#96）。
+  默认拦截「任意层级前缀 + `/internal/` 分段」的网关入站请求并**直接返回 404**（不转发、不回显路径、不暴露内网端点
+  存在性）。配置 `ypbin.gateway.internal-path-block.enabled`（默认 **true**，可关）、`path-patterns`（默认
+  `["/**/internal/**"]`：以 `/**` + 斜杠开头表示任意层级前缀且含顶层；PathPattern 只允许一个 `**`，其余含两个 `**`
+  的写法启动即失败）、`not-found-status`（默认 404，允许 100–599）。**内部调用应直连、不经网关**；若有经网关访问
+  内部端点的调用链，需显式关闭或收窄模式。
+  **独立验收补漏（两个真实绕过，已被变异证伪钉住）**：① 编码分隔符——`PathContainer` 只在真实 `/` 处分段，
+  `/iot/internal%5Ckeys` 不会被命中而被直接转发，而 Tomcat 默认把 `\` 当分隔符解码 ⇒ 下游直达 `/internal/keys`；
+  现用原始路径把 `%2F`/`%5C` 归一化后再判一次（只用于判定，不命中仍按原路径转发）。② 大小写——`/iot/INTERNAL/x`
+  换个大小写即可绕过（PathPattern 字面量默认大小写敏感），现置 `PathPatternParser#setCaseSensitive(false)`。
+- **`ypbin-starter-cloud-core`：Feign 自动携带内部调用凭证**（#96，与 security 的内部端点守卫配套）。
+  新增 `ypbin.cloud.feign.internal-token`（空=不注入）与 `internal-token-header`（默认 `X-Internal-Token`，与守卫侧
+  逐字一致）。此前下游开启守卫后，Feign 调 `/internal/**` 会 401（头既不在透传白名单、入站也未必有）。该值是**真实
+  凭据**：代码侧不进日志/异常/`toString`、不覆盖模板已设同名头；但 Feign 自身 `logger-level=headers/full` 会打印全部
+  请求头，建议保持 `none`/`basic`。⚠️ **装配前提**：该拦截器 Bean 带 `@ConditionalOnWebApplication(SERVLET)`
+  ⇒ **纯后台应用（`web-application-type=none`）不会自动携带**该凭证，需自行注册等价的 `RequestInterceptor`。
+- **`ypbin-starter-messaging`：`JacksonSseFanoutCodec`（结构化载荷跨实例扇出）**（#97）。
+  协议 id `json-v1`：标量（null/布尔/数字/字符串/字符/枚举）**完全委托** `TextSseFanoutCodec` 的文本协议（保证投递
+  形态不变），结构化对象走 `j<JSON 文本>`，对端还原为规范 JSON 文本投递；不可序列化载荷仍返回 empty（发布方 WARN +
+  只投本实例，不 toString 成垃圾帧）。classpath 有 Jackson 且容器有 `ObjectMapper` 时自动装配并替代 Text 兜底
+  （`spring-boot-jackson` 为 optional）；宿主自定义 `SseFanoutCodec` 始终优先。
+  **独立验收补漏**：`encode` 原只捕获 `JacksonException`，而载荷自身抛出的运行时异常（典型：懒加载集合在 session
+  关闭后 `iterator()`/`entrySet()` 抛 `LazyInitializationException`）会原样逃逸并反向抛回业务发布线程（
+  `SseEmitterManager.publishFanout` 的调用点在 try/catch 之外）⇒ 已改为捕获 `Exception` 并收敛为「不支持」。
+  ⚠️ **滚动升级**：混版本窗口内 codecId 不一致会导致跨实例扇出**双向全部失效**（含标量）——建议整批升级，或滚动期
+  显式注册 `TextSseFanoutCodec` Bean 钉住 `text-v1`。载荷以 JSON 明文进 Redis Pub/Sub，敏感字段需业务侧先脱敏。
+- **`ypbin-starter-extension-tenant`：`IdentityTenantProvider`（微服务租户来源下沉）**（#98）。
+  下游服务直接从网关/身份层注入的 `IdentityContext.getTenantId()` 取租户，业务工程无需再写 100% 重复的胶水
+  Provider（更不该违规注册进业务工程的 `AutoConfiguration.imports`）。生效条件：`ypbin.tenant.enabled=true`
+  （与租户功能同一总开关，默认关闭；关闭时**零** `TenantProvider` Bean）+ classpath 存在 security（optional）；
+  经 `@AutoConfigureBefore(TenantAutoConfiguration.class)` 让默认空租户 provider 正确退让；业务自定义
+  `TenantProvider` 始终优先，`TenantContext` 已写入的租户优先于本 provider。
+- 与既有能力的边界（**不重复实现**）：#96 的「服务侧内部端点自动守卫」已由 `ypbin-starter-security` 的
+  `InternalTokenGuardAutoConfiguration`（`ypbin.security.internal-token.*`）提供，本次只补网关侧与调用侧携带；
+  #98 的「CSV 防公式注入导出」已由 `ypbin-starter-excel` 的 `CsvUtils`（UTF-8 BOM / RFC 4180 / 公式注入中和 / 流式导出）
+  提供，**不在 tools 重复实现**，避免两套安全工具漂移。
+
 ### 修复
 
 - 🔴 **`AiRagAutoConfiguration` 的 `@ConditionalOnBean(VectorStore.class)` 恒假**（2026-10-15 v3.9.1 同类**第 5 例**，静默失效）。
@@ -144,6 +183,10 @@
   （POI 与 fesod-sheet 期望的 5.5.1 对齐，消除宿主同时引入 ai/excel 时 poi 与 poi-ooxml 的版本分裂）并在 ai 模块声明
   `<optional>true</optional>`；相应地 `DocumentLoader` 把 POI/jsoup 字节码隔离到 `PoiDocumentParser` / `HtmlDocumentParser`，
   依赖缺席时抛明确 `IllegalStateException` 而非静默降级或类校验失败。
+- 🟠 **`ypbin-starter-messaging`：`SseEmitterManager` 内部 codec 恒为 `new TextSseFanoutCodec()`**（#97 实现过程中发现的真缺陷）。
+  发布侧用 Text、订阅侧用容器里的 `SseFanoutCodec` Bean，二者不一致时帧里的 codecId 对不上，对端会把
+  <strong>全部</strong>跨实例帧丢弃（宿主自定义或新增 Jackson codec 后比修复前更糟）。修复：管理器从容器取同一个
+  codec Bean 回填（无该 Bean 时退回 Text），发布与订阅两侧始终一致；Bean 名保持 `sseFanoutCodec` 不变。
 
 ### 门禁增强
 

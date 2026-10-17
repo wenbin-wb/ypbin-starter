@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +56,10 @@ import org.springframework.test.web.reactive.server.WebTestClient;
         "spring.cloud.gateway.server.webflux.routes[0].id=downstream",
         "spring.cloud.gateway.server.webflux.routes[0].uri=http://localhost:${ypbin.test.downstream-port}",
         "spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/api/**",
+        // 用真实注册的 /internal/** 路由作对照：若网关层没有阻断，该请求会被真的转发到下游桩
+        "spring.cloud.gateway.server.webflux.routes[1].id=internal-route",
+        "spring.cloud.gateway.server.webflux.routes[1].uri=http://localhost:${ypbin.test.downstream-port}",
+        "spring.cloud.gateway.server.webflux.routes[1].predicates[0]=Path=/internal/**",
         "ypbin.gateway.header-sanitize.headers[0]=X-User-Id"
     })
 class GatewayE2ETest {
@@ -63,6 +68,9 @@ class GatewayE2ETest {
 
     /** 下游收到的最近一次请求头快照，供断言透传/清洗行为 */
     private static final Map<String, String> RECEIVED_HEADERS = new ConcurrentHashMap<>();
+
+    /** 下游 {@code /internal/**} 是否被真实访问过（证明网关层已阻断、未转发） */
+    private static final AtomicBoolean DOWNSTREAM_INTERNAL_HIT = new AtomicBoolean();
 
     @LocalServerPort
     private int port;
@@ -87,6 +95,14 @@ class GatewayE2ETest {
                 }
             });
             byte[] body = "downstream-ok".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        });
+        downstream.createContext("/internal/", exchange -> {
+            DOWNSTREAM_INTERNAL_HIT.set(true);
+            byte[] body = "should-not-reach-downstream".getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(body);
@@ -146,6 +162,29 @@ class GatewayE2ETest {
             .expectBody()
             .jsonPath("$.success").isEqualTo(false)
             .jsonPath("$.code").isEqualTo(404);
+    }
+
+    /**
+     * 内部端点通配阻断的真运行时验证（GitHub issue #96）。
+     *
+     * <p>对照设计：{@code /internal/**} 是<b>已注册的真实路由</b>（指向下游桩），因此本用例同时证明
+     * 了两件事——① 阻断发生在转发之前（下游桩的 {@code /internal/} 上下文从未被访问）；② 命中后
+     * 返回的是不含路径细节的统一 404 信封。</p>
+     */
+    @Test
+    void shouldBlockInternalPathAtGatewayWithoutForwarding() {
+        DOWNSTREAM_INTERNAL_HIT.set(false);
+
+        webTestClient.get().uri("/internal/secret")
+            .exchange()
+            .expectStatus().isNotFound()
+            .expectBody()
+            .jsonPath("$.success").isEqualTo(false)
+            .jsonPath("$.code").isEqualTo(404);
+
+        assertThat(DOWNSTREAM_INTERNAL_HIT)
+            .as("被阻断的内部路径请求绝不能被转发到下游")
+            .isFalse();
     }
 
     @SpringBootConfiguration
