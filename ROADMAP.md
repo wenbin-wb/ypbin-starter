@@ -11,7 +11,7 @@
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 21 · Spring Boot 4.1.1 · Spring Cloud 2025.1.3 · spring-cloud-alibaba 2025.1.0.0
-- **发布状态**：v1.0.0 起的全部版本已发布至 Maven Central，最新 **v3.8.0**（2026-10-07）；当前开发版 **3.8.1-SNAPSHOT**
+- **发布状态**：v1.0.0 起的全部版本已发布至 Maven Central，最新 **v4.0.0**（2026-10-17，含经授权的主版本破坏性变更）；下一开发版 **4.1.0-SNAPSHOT**
 - **CI**：`-Pit` 集成测试（GitHub Actions + Testcontainers）已接入为独立作业
 - **后续可选**：示例工程
 
