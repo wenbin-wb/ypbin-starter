@@ -111,6 +111,14 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 集成测试基座（Testcontainers Redis + 外部实例回退 + @EnabledIfRedisAvailable）：
+             SSE 跨实例扇出的「真实 Redis Pub/Sub 可达性」只能在真 Redis 上验证（内存频道测不出
+             订阅建立/序列化/回环丢弃在真实传输下的行为），复用既有基座而非自行引入 Testcontainers -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <properties>

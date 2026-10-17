@@ -9,8 +9,43 @@
 
 ## [未发布]
 
-> 本轮按「攒批发版」执行：以下反哺一并累积，**待攒够后一次性发版**（计划 `3.10.0`，新能力向后兼容）。
+> 本轮按「攒批发版」执行：以下反哺一并累积，**待攒够后一次性发版**。
+> **注意**：本轮包含经用户明确授权的公开 API 破坏性变更（集中登记于下方「破坏性变更」）。按本仓
+> 语义化版本纪律（主版本 = 不兼容 API 变更），这些变更要求**升主版本**（如 `4.0.0`），原计划的
+> `3.10.0`（次版本，本应只含向后兼容新增）已不适用，发版前需确认版本号。
 > 合入前已由独立子代理逐项验收；两处顺序缺陷均经变异证伪。
+
+### ⚠️ 破坏性变更
+
+> 下列不兼容变更均经用户明确授权（「任何修改不需要考虑兼容旧的，以完美为准」），集中登记于此。
+> CI 的 `api-compat` 门禁会因此失败，PR 需打 `api-breaking-approved` 标签（或 workflow_dispatch 勾选
+> `allow_breaking`）后重跑。已用 japicmp 0.23.1 对已发布基线 **`3.9.1`** 本地复核：37 个可发布模块中
+> **3 个存在不兼容项**（cache/messaging/tools），其余 34 个 API 向后兼容。
+
+- **`ypbin-starter-tools`：`DistributedLockAspect` 构造器 1 参 → 2 参**（新增自动续期能力，#93 遗留诉求）。
+  旧 `DistributedLockAspect(LockService)` 与 `ToolsAutoConfiguration#distributedLockAspect(LockService)`
+  Bean 方法一并移除，改为 `(LockService, LockRenewalScheduler)`；自动装配已提供
+  `ScheduledLockRenewalScheduler`，且 `autoRenew` 默认关闭 ⇒ **不开启续期的宿主运行行为不变**。
+  - **迁移**：勿手工 `new DistributedLockAspect(lockService)`；自定义该 Bean 时额外注入
+    `LockRenewalScheduler`（或直接使用自动装配的默认 Bean）。
+- **`ypbin-starter-tools`：`LockService` 新增抽象方法 `renew(String key, String owner, Duration ttl)`**
+  （原子续期：仅 owner 匹配才延长 TTL，绝不重建已失效锁）。
+  - **迁移**：第三方 `LockService` 实现须补实现 `renew`。内置 `InMemoryLockService`/`RedisLockService`
+    已实现；自定义实现若不支持续期可返回 `false`（开启 `autoRenew` 时会按「续期失败」记 WARN 并停止
+    续期，不会假装仍持锁），仅在存储不可用时才应抛异常。
+- **`ypbin-starter-messaging`：`SseFanoutSubscriber` 3 参构造器 → 2 参**（订阅侧不再持有独立 codec）。
+  旧 `SseFanoutSubscriber(manager, instanceId, codec)` 移除；codec 统一取 `SseEmitterManager#getCodec()`，
+  从结构上保证发布侧/订阅侧 codecId 一致（宿主自定义管理器时也不会整批丢帧）。
+  - **迁移**：改为 `new SseFanoutSubscriber(manager, instanceId)`；自定义 codec 请注册
+    `SseFanoutCodec` Bean，或在构造 `SseEmitterManager` 时注入。
+- **`ypbin-starter-messaging`：`SseEmitterManager#getCodec()` 改为 `final`**。
+  - **迁移**：若此前覆写该方法，请改为构造期注入 codec（4 参构造器）——「发布与订阅同源」是必须由单一
+    终态字段承载的不变量，覆写会重新引入 codecId 不一致的静默失效。
+- **`ypbin-starter-cache`：`MultiLevelCacheAutoConfiguration#cacheService(...)` 签名变更**
+  （新增 `ObjectProvider<CacheMetricsRecorder>` 参数，用于多级缓存指标埋点）。
+  - **迁移**：宿主若覆盖该 `@Bean`，签名需同步（多一个 `ObjectProvider<CacheMetricsRecorder>`）；
+    更推荐直接自定义 `MultiLevelCacheService` Bean（`@ConditionalOnMissingBean` 会让默认实现退让）。
+    未引入 micrometer、未注册 `MeterRegistry` 时埋点为零开销 `NOOP`，行为与旧版一致。
 
 ### 新增
 
@@ -135,6 +170,12 @@
   `SseEmitterManager` 也不会出现发布/订阅 codecId 不一致）；⑤ 双实例 E2E 改为经容器装配，端到端钉住
   「订阅者跟随管理器 codec」这条接线（生产 `sseEmitterManager` 自身的 codec 选择由装配单测覆盖，不把
   E2E 的保护面说过头）。
+- **`ypbin-starter-messaging`：SSE 跨实例扇出真实 Redis 集成测试**（此前只有内存频道模拟传输）。
+  新增 `SseFanoutRedisIT`：两个「实例」均经 `SseAutoConfiguration` 真实装配（各自的
+  `RedisMessageListenerContainer` + `RedisSseFanoutPublisher` + 同一真实 Redis），验证「A 实例推送 →
+  B 实例连接收到」与「自广播回环被丢弃（A 的本地连接恰好 1 条，出现 2 条即回环去重失效）」；并断言
+  发布器为 Redis 实现、频道名取配置值、两实例的扇出标识互不相同，排除「静默退化为单实例」的假通过。
+  复用 `ypbin-starter-test` 的 Testcontainers 基座（redis:7-alpine；Docker 不可用时显式跳过）。
 - **`ypbin-starter-cache`：指标标签可区分实例 + 埋点不影响主流程**。新增
   `ypbin.cache.multi-level.metrics-cache-name`（默认 `multi-level`；多实例建议配 `${HOSTNAME}`；空白值
   启动失败）；新增 `SafeCacheMetricsRecorder` 包装——宿主自定义 recorder 抛 `RuntimeException` 时记
