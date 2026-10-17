@@ -64,11 +64,49 @@ public class AsyncAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(AsyncAutoConfiguration.class);
 
     /**
+     * 秒 → 毫秒换算系数。
+     *
+     * <p>{@code AsyncProperties#getAwaitTerminationSeconds()} 以秒为单位，
+     * 而 {@code SimpleAsyncTaskExecutor#setTaskTerminationTimeout(long)} 以<strong>毫秒</strong>为单位
+     * （Spring Framework 7.0.9 源码：{@code setTaskTerminationTimeout} 的 Javadoc 明确 “the timeout in
+     * milliseconds”，{@code close()} 中以 {@code threads.wait(timeout)} 消费该值）。
+     */
+    private static final long MILLIS_PER_SECOND = 1000L;
+
+    /**
      * 统一业务执行器。
      *
      * <p>虚拟线程模式：{@link SimpleAsyncTaskExecutor} + JDK 21 {@link Thread#ofVirtual()} 工厂，
      * 无池化上限，直接利用平台虚拟线程调度，零空闲线程开销，适合大量短生命周期 I/O 任务。
      * 平台线程模式：有界 {@link ThreadPoolTaskExecutor}，所有池化参数生效。
+     *
+     * <p><b>两种模式的停机语义并不一致，差异只在「等待超时后是否中断剩余线程」</b>——以下均依
+     * Spring Framework 7.0.9 字节码实测（{@code javap -c SimpleAsyncTaskExecutor#close()}、
+     * {@code javap -c ExecutorConfigurationSupport#shutdown()}），接线时切勿为追求「一致」而改写：
+     * <ul>
+     *   <li><b>虚拟线程模式（销毁走 {@link SimpleAsyncTaskExecutor#close()}，Spring 按
+     *       {@code AutoCloseable} 推导的 destroy 方法）</b>：
+     *       等待时长来自 {@code await-termination-seconds}（接线处换算为
+     *       {@code setTaskTerminationTimeout} 的毫秒值）。{@code close()} 在
+     *       {@code taskTerminationTimeout > 0} 时等待 {@code activeThreads} 至多该时长，<b>等待结束后无论
+     *       是否还剩线程，都会对剩余活动线程逐个 {@code interrupt()}</b>（本仓未开
+     *       {@code cancelRemainingTasksOnClose}，走的是 {@code close()} 末尾那段「未取消则中断」逻辑）。
+     *       即：<b>虚拟线程模式受 Spring API 固有语义限制——等待超时后必然中断</b>，无法配置成「只告警不中断」。
+     *       {@code await-termination-seconds=0} ⇒ timeout=0 ⇒ {@code close()} 直接返回，<b>既不等待也不中断</b>。
+     *       {@code await-termination=false} 时接 {@code setCancelRemainingTasksOnClose(true)}：{@code close()}
+     *       立即中断在途线程（对齐平台线程池的 {@code shutdownNow()}），不等待。</li>
+     *   <li><b>平台线程模式（销毁走
+     *       {@link org.springframework.scheduling.concurrent.ExecutorConfigurationSupport#shutdown()}）</b>：
+     *       等待时长来自 {@code await-termination-seconds}（{@code setAwaitTerminationSeconds}）。
+     *       {@code await-termination=true} ⇒ {@code waitForTasksToCompleteOnShutdown=true}：先
+     *       {@code ExecutorService.shutdown()} 优雅停机（不中断），再在
+     *       {@code awaitTerminationIfNecessary} 中等待；<b>超时后只 {@code logger.warn}
+     *       （“did not terminate within …”），不会中断剩余线程</b>。
+     *       {@code await-termination-seconds=0} ⇒ 不等待、不中断。
+     *       {@code await-termination=false} ⇒ {@code waitForTasksToCompleteOnShutdown=false}：直接
+     *       {@code shutdownNow()} 并对排空出的任务调用 {@code cancelRemainingTask}（{@code Future.cancel(true)}
+     *       ⇒ 中断在途任务）。</li>
+     * </ul>
      */
     @Bean(name = "ypbinTaskExecutor")
     @ConditionalOnMissingBean(name = "ypbinTaskExecutor")
@@ -77,6 +115,14 @@ public class AsyncAutoConfiguration {
         if (properties.isVirtualThreads()) {
             SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor(properties.getThreadNamePrefix());
             executor.setVirtualThreads(true);
+            if (properties.isAwaitTermination()) {
+                // 单位毫秒；0 表示不等待（与平台线程池 awaitTerminationMillis=0 的语义一致）
+                executor.setTaskTerminationTimeout(
+                    properties.getAwaitTerminationSeconds() * MILLIS_PER_SECOND);
+            } else {
+                // 不等待时与平台线程池的 shutdownNow() 对齐：close() 立即中断在途线程
+                executor.setCancelRemainingTasksOnClose(true);
+            }
             taskDecorator.ifAvailable(executor::setTaskDecorator);
             log.info("[ypbin-starter] 已启用虚拟线程执行器（{}），池化参数不生效。",
                 properties.getThreadNamePrefix() + "*");

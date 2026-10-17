@@ -148,6 +148,9 @@ public final class ContainerSupport {
                         // 保留 debug：这是「环境是否具备 Docker」的显式能力探测，返回值即契约（调用方据此
                         // 决定跳过或失败）；CI 侧由 tools/preflight.sh 在 Docker 缺失时显式失败兜底，
                         // 不依赖本日志，故不升 WARN（避免无 Docker 的机器上每次探测刷屏）
+                        // 刻意不打堆栈（异常对象不传给 logger）：Docker 不可用是环境事实而非缺陷，
+                        // 堆栈只是 docker-java 的连接失败帧、无定位价值；调用方已据返回值分流，
+                        // preflight 也会以明确文案失败，故此处保持单行 debug。
                         log.debug("[ypbin-test] Docker 不可用：{}", e.getMessage());
                         cached = false;
                     }

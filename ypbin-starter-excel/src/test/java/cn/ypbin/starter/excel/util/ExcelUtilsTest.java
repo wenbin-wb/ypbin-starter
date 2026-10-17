@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 import org.apache.fesod.sheet.annotation.ExcelProperty;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 /**
  * {@link ExcelUtils} 读写往返单元测试。
@@ -104,5 +105,35 @@ class ExcelUtilsTest {
         assertThat(aggregated).hasSize(3);
         assertThat(aggregated.get(0).getUsername()).isEqualTo("user1");
         assertThat(aggregated.get(2).getUsername()).isEqualTo("user3");
+    }
+
+    /**
+     * 响应头行为回归：{@code prepareResponse} 复用 tools 的
+     * {@code cn.ypbin.starter.tools.web.DownloadResponses} 后，
+     * 对外可见的 Content-Type / 编码 / RFC 5987 文件名必须逐字节不变。
+     */
+    @Test
+    void export_shouldKeepContentTypeAndRfc5987FileName() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        ExcelUtils.export(response, "设备台账", Row.class, List.of(new Row("alice", 20)));
+
+        assertThat(response.getContentType())
+            .isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8");
+        assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
+        assertThat(response.getHeader("Content-Disposition"))
+            .isEqualTo("attachment;filename*=utf-8''%E8%AE%BE%E5%A4%87%E5%8F%B0%E8%B4%A6.xlsx");
+        assertThat(response.getContentAsByteArray()).isNotEmpty();
+    }
+
+    /** 文件名含空格时必须编码为 %20（共享实现后不得退化为 +）。 */
+    @Test
+    void export_shouldEncodeSpaceAsPercent20() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        ExcelUtils.export(response, "设备 台账", Row.class, List.of());
+
+        assertThat(response.getHeader("Content-Disposition"))
+            .isEqualTo("attachment;filename*=utf-8''%E8%AE%BE%E5%A4%87%20%E5%8F%B0%E8%B4%A6.xlsx");
     }
 }

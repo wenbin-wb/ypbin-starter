@@ -47,7 +47,7 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration
 @AutoConfigureBefore(DataAutoConfiguration.class)
 @ConditionalOnClass(AuditorProvider.class)
-@ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = SecurityProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SecurityAuditorAutoConfiguration {
 
     /**

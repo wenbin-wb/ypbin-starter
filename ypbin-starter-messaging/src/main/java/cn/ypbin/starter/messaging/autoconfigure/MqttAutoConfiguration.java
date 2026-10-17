@@ -49,7 +49,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass(MqttClient.class)
-@ConditionalOnProperty(prefix = "ypbin.mqtt", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = MqttProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(MqttProperties.class)
 public class MqttAutoConfiguration {
 

@@ -41,13 +41,13 @@ import tools.jackson.databind.ObjectMapper;
  */
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.api-crypto", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = ApiCryptoProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(ApiCryptoProperties.class)
 public class ApiCryptoAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.api-crypto", name = "key")
+    @ConditionalOnProperty(prefix = ApiCryptoProperties.PREFIX, name = "key")
     public ApiCryptoProvider apiCryptoProvider(ApiCryptoProperties properties) {
         return new AesApiCryptoProvider(properties.getKey());
     }

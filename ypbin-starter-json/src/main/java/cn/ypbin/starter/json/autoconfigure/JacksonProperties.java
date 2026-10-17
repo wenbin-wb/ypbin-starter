@@ -113,6 +113,9 @@ public class JacksonProperties {
      */
     public static class RefText {
 
+        /** 配置前缀。 */
+        public static final String PREFIX = "ypbin.json.ref-text";
+
         /** 翻译结果缓存有效期（秒），默认 5 分钟 */
         private long ttlSeconds = 300L;
 

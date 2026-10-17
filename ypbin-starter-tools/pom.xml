@@ -71,6 +71,13 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 集成测试基座（Testcontainers 容器支持 + 外部实例回退 + @EnabledIfRedisAvailable 条件）：
+             限流与分布式锁的 Lua 语义只能在真实 Redis 上验证，复用既有基座而非自行引入 Testcontainers 版本 -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <properties>

@@ -34,11 +34,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author wenbin
  * @since 2026-09-05
  */
-@ConfigurationProperties(prefix = "ypbin.xxl-job")
+@ConfigurationProperties(prefix = XxlJobProperties.PREFIX)
 // 字段由 Spring Boot 在对象构造后绑定（@ConfigurationProperties），构造器结束时必然为 null；
 // NullAway 的「字段未初始化」在此属框架装配语义，故按类抑制并在此说明原因
 @SuppressWarnings("NullAway.Init")
 public class XxlJobProperties {
+
+    /** 配置前缀。 */
+    public static final String PREFIX = "ypbin.xxl-job";
 
     /** 是否启用 XXL-JOB 执行器 */
     private boolean enabled;

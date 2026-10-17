@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.ai.autoconfigure.tool;
 
+import cn.ypbin.starter.ai.autoconfigure.AiProperties;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass(ToolCallbackProvider.class)
-@ConditionalOnProperty(prefix = "ypbin.ai", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = AiProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 public class AiToolAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(AiToolAutoConfiguration.class);

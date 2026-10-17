@@ -18,6 +18,7 @@ package cn.ypbin.starter.messaging.autoconfigure;
 import cn.ypbin.starter.messaging.push.DefaultPushService;
 import cn.ypbin.starter.messaging.push.PushService;
 import cn.ypbin.starter.messaging.sse.InMemorySseTicketStore;
+import cn.ypbin.starter.messaging.sse.JacksonSseFanoutCodec;
 import cn.ypbin.starter.messaging.sse.RedisSseFanoutPublisher;
 import cn.ypbin.starter.messaging.sse.RedisSseTicketStore;
 import cn.ypbin.starter.messaging.sse.SseAudienceResolver;
@@ -52,6 +53,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * SSE 与统一推送门面自动配置。
@@ -82,9 +84,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @ConditionalOnClass(SseEmitter.class)
 @AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.sse", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(SseProperties.class)
-@Import({SseAutoConfiguration.RedisTicketStoreConfiguration.class, SseAutoConfiguration.RedisFanoutConfiguration.class})
+@Import({SseAutoConfiguration.RedisTicketStoreConfiguration.class, SseAutoConfiguration.RedisFanoutConfiguration.class,
+    SseAutoConfiguration.JacksonCodecConfiguration.class})
 public class SseAutoConfiguration {
 
     /**
@@ -96,6 +99,19 @@ public class SseAutoConfiguration {
      */
     @Nullable
     private final ObjectProvider<SseAudienceResolver> audienceResolver;
+
+    /**
+     * 容器内的扇出 codec 提供者：{@link SseEmitterManager} 必须与 {@code SseFanoutSubscriber} 用
+     * <strong>同一个</strong> codec（发布侧写进帧的 codecId 会被订阅侧比对，不一致即整批丢弃），
+     * 故这里把容器里选中的那个 Bean（宿主自定义 / Jackson / Text 兜底）回填给管理器。
+     *
+     * <p>为何不放进构造器：本类已发布版本的构造器签名不得改动（japicmp 比对 Central 上一发布版，
+     * 增删参数判为 binary incompatible），故新增依赖走 setter 注入；{@link Autowired} 方法同样在
+     * {@code @Bean} 方法被调用<em>之前</em>完成注入。用 {@link ObjectProvider} 而不是直接注入 codec：
+     * 取值推迟到 Bean <em>实例化</em>阶段，那时全部 Bean 定义已注册完毕，<b>与自动配置顺序无关</b>。</p>
+     */
+    @Nullable
+    private ObjectProvider<SseFanoutCodec> sseFanoutCodecProvider;
 
     /**
      * 保留无参构造器：本类已发布版本只有隐式默认构造器，新增带参构造器会让默认构造器消失，
@@ -112,6 +128,16 @@ public class SseAutoConfiguration {
     }
 
     /**
+     * 注入容器内的扇出 codec 提供者（见 {@link #sseFanoutCodecProvider}）。
+     *
+     * @param sseFanoutCodecProvider codec 提供者（延迟取值）
+     */
+    @Autowired
+    void setSseFanoutCodecProvider(ObjectProvider<SseFanoutCodec> sseFanoutCodecProvider) {
+        this.sseFanoutCodecProvider = sseFanoutCodecProvider;
+    }
+
+    /**
      * 连接管理器。默认装配为<strong>单实例</strong>形态（无扇出桥）；若 classpath 与容器都存在
      * {@code StringRedisTemplate}，{@link RedisFanoutConfiguration} 里条件装配的扇出桥会通过
      * {@link SseEmitterManager#setFanoutBridge} 回填，使其升级为多实例扇出。
@@ -120,18 +146,79 @@ public class SseAutoConfiguration {
      * 管理器需要在发布时拿到桥——构造注入会成环。用 {@code @Import} 让 Redis 相关装配先于本 Bean
      * 注册，再由一个显式的 {@code fanoutWiring} Bean 完成回填，既无环、也不改既有 Bean 方法签名
      * （api-compat 门禁要求）。</p>
+     *
+     * <p><strong>codec 取容器里的 Bean</strong>：发布侧（本管理器的 {@code publishFanout}）与订阅侧
+     * （{@code SseFanoutSubscriber}）必须用同一个 codec，否则帧里的 codecId 对不上，对端会把
+     * <em>全部</em>跨实例帧丢弃。此前这里恒用 {@code new TextSseFanoutCodec()}，宿主的
+     * {@link SseFanoutCodec} Bean 只被订阅侧使用 ⇒ 自定义/Jackson codec 下跨实例扇出实际失效。
+     * 现在直接走 4 参构造器把同一个 Bean 交进去（该构造器早已发布，签名未变）。</p>
      */
     @Bean
     @ConditionalOnMissingBean
     public SseEmitterManager sseEmitterManager(SseProperties properties) {
-        return new SseEmitterManager(properties.getTimeout(), properties.getHeartbeatIntervalSeconds());
+        ObjectProvider<SseFanoutCodec> provider = sseFanoutCodecProvider;
+        SseFanoutCodec codec = provider == null
+            ? new TextSseFanoutCodec()
+            : provider.getIfAvailable(TextSseFanoutCodec::new);
+        return new SseEmitterManager(properties.getTimeout(), properties.getHeartbeatIntervalSeconds(), null, codec);
     }
 
-    /** 扇出载荷 codec：无 Redis 时也用得上（管理器始终持有默认实现），故不由 Redis 配置限定。 */
+    /**
+     * 扇出载荷 codec 的 <strong>Text 兜底</strong>：类路径无 Jackson、或容器里没有 {@code ObjectMapper}
+     * Bean 时生效（无 Redis 时也用得上——管理器始终持有默认实现，故不由 Redis 配置限定）。
+     *
+     * <p>类路径存在 Jackson 且容器里有 {@code ObjectMapper} Bean 时，由 {@link JacksonCodecConfiguration}
+     * 先注册同名 Bean（结构化载荷走 JSON）；两者都注册为 {@code sseFanoutCodec}，
+     * 故宿主按名字或类型注入的写法在升级前后一致。</p>
+     */
     @Bean
     @ConditionalOnMissingBean(SseFanoutCodec.class)
     public SseFanoutCodec sseFanoutCodec() {
         return new TextSseFanoutCodec();
+    }
+
+    /**
+     * Jackson 结构化载荷 codec 装配：类路径存在 Jackson 3 的 {@link ObjectMapper} 且容器里有该 Bean 时，
+     * 由本配置注册 {@link JacksonSseFanoutCodec}（否则退回 {@link TextSseFanoutCodec}）。
+     *
+     * <p><strong>为何是「类级 {@code @ConditionalOnClass} + {@code ObjectProvider}」，而不是
+     * {@code @ConditionalOnBean(ObjectMapper.class)}</strong>：{@code @ConditionalOnBean} 只看得到
+     * <em>先于它处理完</em>的 Bean 定义，而 {@code ObjectMapper} 由 Boot 的 Jackson 自动配置提供，
+     * 本模块包名 {@code cn.ypbin.*} 在 Boot 自动配置排序中排在 {@code org.springframework.*}
+     * <strong>之前</strong>（无显式顺序时按类名字典序）⇒ 条件会在 Boot 注册 mapper 之前求值、
+     * <b>恒假</b> ⇒ Jackson codec 静默不生效（正是本仓 2026-10-15 那类事故的形态）。
+     * {@link ObjectProvider} 在 Bean <em>实例化</em>阶段才取值，那时全部 Bean 定义已注册完毕，
+     * 故与自动配置顺序无关；类级 {@code @ConditionalOnClass} 则在 Jackson 缺席时整体跳过本类，
+     * 使其 {@code @Bean} 方法不被内省、不触碰 {@link ObjectMapper}（与
+     * {@link RedisTicketStoreConfiguration} 同一模式）。</p>
+     *
+     * <p><strong>为何取不到 mapper 时返回 {@link TextSseFanoutCodec} 而不是 {@code null}</strong>：
+     * {@code @Bean} 方法返回 {@code null} 会被 Spring 注册成 {@code NullBean}——Bean 定义仍在，
+     * 外层 {@link SseAutoConfiguration#sseFanoutCodec()} 的 {@code @ConditionalOnMissingBean} 会退让，最终容器里
+     * <strong>没有任何可用的 codec</strong>（实测 {@code getBeanProvider(SseFanoutCodec.class)
+     * .getIfAvailable()} 为 {@code null}，比不装配更糟：启动不报错、SSE 投递才失败）。故此处显式兜底。</p>
+     *
+     * <p><strong>Bean 名与注册顺序</strong>：本嵌套配置类经外层 {@code @Import} 引入，先于本类自身的
+     * {@code @Bean} 方法注册（与 {@link RedisTicketStoreConfiguration} 同理），故 Text 兜底会正确退让；
+     * 方法名刻意与外层同名，使升级前后 Bean 名都保持 {@code sseFanoutCodec}。即便顺序被破坏，两侧都有
+     * {@code @ConditionalOnMissingBean}，后注册的一方会退让，不会出现同名覆盖异常。</p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(ObjectMapper.class)
+    static class JacksonCodecConfiguration {
+
+        /**
+         * Jackson codec；无 {@code ObjectMapper} Bean 时返回 Text 实现（见类注释）。
+         *
+         * @param objectMapperProvider 容器里的 Jackson 序列化器（弱依赖：缺席即退回纯文本协议）
+         * @return 扇出载荷 codec
+         */
+        @Bean
+        @ConditionalOnMissingBean(SseFanoutCodec.class)
+        SseFanoutCodec sseFanoutCodec(ObjectProvider<ObjectMapper> objectMapperProvider) {
+            ObjectMapper objectMapper = objectMapperProvider.getIfAvailable();
+            return objectMapper == null ? new TextSseFanoutCodec() : new JacksonSseFanoutCodec(objectMapper);
+        }
     }
 
     @Bean
@@ -195,6 +282,26 @@ public class SseAutoConfiguration {
         }
 
         /**
+         * 扇出订阅者：收到其它实例的帧后投给<strong>本实例</strong>的连接。
+         *
+         * <p><strong>独立成 Bean</strong>而不是在监听容器里就地 {@code new}：① 宿主自建
+         * {@link RedisMessageListenerContainer} 时（见 {@link #sseFanoutListenerContainer} 的
+         * {@code @ConditionalOnMissingBean}）可直接注入本 Bean 挂上，不必自己拼装；② 装配用例可从容器
+         * 里拿到订阅者，端到端验证「管理器与订阅者用同一个 codec」这条约束。</p>
+         *
+         * <p><strong>codec 不再作为参数</strong>：订阅者一律用
+         * {@link SseEmitterManager#getCodec()}（见 {@link SseFanoutSubscriber} 类注释）。于是即便宿主
+         * 自定义 {@code SseEmitterManager}（其 codec 未必等于容器里的 {@link SseFanoutCodec} Bean），
+         * 发布侧与订阅侧仍结构上同源，不会出现 codecId 对不上导致跨实例帧被整批丢弃。</p>
+         */
+        @Bean
+        @ConditionalOnMissingBean
+        SseFanoutSubscriber sseFanoutSubscriber(SseEmitterManager sseEmitterManager,
+                                                SseFanoutBridge sseFanoutBridge) {
+            return new SseFanoutSubscriber(sseEmitterManager, sseFanoutBridge.instanceId());
+        }
+
+        /**
          * 订阅容器：收到其它实例的扇出帧后投给<strong>本实例</strong>的连接。
          *
          * <p>Bean 交给 Spring 管理生命周期（启动即订阅、容器关闭自动停止），照抄同仓
@@ -203,22 +310,17 @@ public class SseAutoConfiguration {
          * 异常处理。</p>
          *
          * <p>{@code @ConditionalOnMissingBean(RedisMessageListenerContainer.class)}：宿主已有自己的订阅
-         * 容器时不重复建连（与 cache 模块同一取舍）。注意这意味着宿主自建容器时需自行挂上
-         * {@link SseFanoutSubscriber}。</p>
+         * 容器时不重复建连（与 cache 模块同一取舍）。宿主自建容器时可注入本配置注册的
+         * {@link SseFanoutSubscriber} Bean 挂上（该 Bean 始终存在，与宿主是否自建容器无关）。</p>
          */
         @Bean
-        @ConditionalOnBean(SseFanoutBridge.class)
         @ConditionalOnMissingBean(RedisMessageListenerContainer.class)
         RedisMessageListenerContainer sseFanoutListenerContainer(RedisConnectionFactory connectionFactory,
-                                                                 SseEmitterManager sseEmitterManager,
-                                                                 SseFanoutCodec sseFanoutCodec,
-                                                                 SseFanoutBridge sseFanoutBridge,
+                                                                 SseFanoutSubscriber sseFanoutSubscriber,
                                                                  SseProperties properties) {
             RedisMessageListenerContainer container = new RedisMessageListenerContainer();
             container.setConnectionFactory(connectionFactory);
-            container.addMessageListener(
-                new SseFanoutSubscriber(sseEmitterManager, sseFanoutBridge.instanceId(), sseFanoutCodec),
-                new ChannelTopic(properties.getFanoutChannel()));
+            container.addMessageListener(sseFanoutSubscriber, new ChannelTopic(properties.getFanoutChannel()));
             return container;
         }
     }
@@ -254,7 +356,7 @@ public class SseAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(SseUserIdResolver.class)
-    @ConditionalOnProperty(prefix = "ypbin.sse", name = "register-endpoint", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "register-endpoint", havingValue = "true", matchIfMissing = true)
     public SseSubscribeController sseSubscribeController(
         SseEmitterManager sseEmitterManager, SseUserIdResolver sseUserIdResolver, SseTicketStore sseTicketStore) {
         // 可选扩展点经构造器注入的 ObjectProvider 取（见本类构造器）：没有 SseAudienceResolver 时为 null
@@ -274,7 +376,7 @@ public class SseAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(SseUserIdResolver.class)
-    @ConditionalOnProperty(prefix = "ypbin.sse", name = "register-endpoint", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "register-endpoint", havingValue = "true", matchIfMissing = true)
     public SseTicketController sseTicketController(
         SseTicketStore sseTicketStore, SseUserIdResolver sseUserIdResolver, SseProperties properties) {
         return new SseTicketController(

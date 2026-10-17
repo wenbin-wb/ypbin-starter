@@ -73,4 +73,51 @@ class InMemoryLockServiceTest {
         assertThat(lock.unlock("k", "owner-a")).isFalse();
         assertThat(lock.mapSize()).isZero();
     }
+
+    // ------------------------------------------------------------------ 续期（可注入时钟，不真等）
+
+    @Test
+    void renewShouldPushExpiryForward() {
+        MutableClock clock = new MutableClock(1_000_000L);
+        InMemoryLockService timed = new InMemoryLockService(clock);
+        timed.tryLock("k", "owner-a", Duration.ofSeconds(10));
+        assertThat(timed.expireAtMillis("k")).isEqualTo(1_010_000L);
+
+        clock.advance(4_000L);
+        assertThat(timed.renew("k", "owner-a", Duration.ofSeconds(10))).isTrue();
+        assertThat(timed.expireAtMillis("k"))
+            .as("续期后到期时刻 = 当前时刻 + ttl")
+            .isEqualTo(1_014_000L);
+    }
+
+    @Test
+    void renewShouldRejectNonHolder() {
+        MutableClock clock = new MutableClock(1_000_000L);
+        InMemoryLockService timed = new InMemoryLockService(clock);
+        timed.tryLock("k", "owner-a", Duration.ofSeconds(10));
+
+        assertThat(timed.renew("k", "owner-b", Duration.ofSeconds(10))).isFalse();
+        assertThat(timed.expireAtMillis("k")).as("他人续期不得改动到期时刻").isEqualTo(1_010_000L);
+    }
+
+    @Test
+    void renewShouldRejectAbsentKeyAndNeverRecreateIt() {
+        MutableClock clock = new MutableClock(1_000_000L);
+        InMemoryLockService timed = new InMemoryLockService(clock);
+
+        assertThat(timed.renew("missing", "owner-a", Duration.ofSeconds(10))).isFalse();
+        assertThat(timed.mapSize()).as("续期绝不把不存在的锁造出来").isZero();
+    }
+
+    @Test
+    void renewExpiredLockShouldFailAndNotReviveIt() {
+        MutableClock clock = new MutableClock(1_000_000L);
+        InMemoryLockService timed = new InMemoryLockService(clock);
+        timed.tryLock("k", "owner-a", Duration.ofSeconds(10));
+
+        clock.advance(10_000L);
+        assertThat(timed.renew("k", "owner-a", Duration.ofSeconds(10)))
+            .as("已过期的锁在语义上已不属于任何人，续期等于复活他人可能已抢到的锁")
+            .isFalse();
+    }
 }

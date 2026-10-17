@@ -80,7 +80,9 @@ public class CaptchaService {
             if (resourceReloader == null) {
                 throw e;
             }
-            log.warn("[ypbin-starter] captcha 生成失败（{}），尝试补载默认资源后重试一次。", e.getMessage());
+            // 带 Throwable：生成失败虽有「store 为空」这一常见成因，但 IllegalStateException 也可能来自
+            // tianai 其它内部状态错误，仅凭 message 无法区分；重试一旦成功异常便不再向上抛出，此处是唯一留痕点。
+            log.warn("[ypbin-starter] captcha 生成失败（{}），尝试补载默认资源后重试一次。", e.getMessage(), e);
             resourceReloader.reload();
             return application.generateCaptcha(type);
         }

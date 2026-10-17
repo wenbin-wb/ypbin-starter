@@ -54,7 +54,7 @@ import software.amazon.awssdk.services.s3.S3Client;
  * @since 2026-07-30
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.storage", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = StorageProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(StorageProperties.class)
 public class StorageAutoConfiguration {
 

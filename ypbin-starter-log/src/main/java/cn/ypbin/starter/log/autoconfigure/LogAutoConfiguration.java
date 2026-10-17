@@ -52,7 +52,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @AutoConfiguration
 @ConditionalOnClass(ProceedingJoinPoint.class)
-@ConditionalOnProperty(prefix = "ypbin.log", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = LogProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(LogProperties.class)
 public class LogAutoConfiguration {
 

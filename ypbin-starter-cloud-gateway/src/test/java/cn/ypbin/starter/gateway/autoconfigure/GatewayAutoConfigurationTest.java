@@ -18,12 +18,18 @@ package cn.ypbin.starter.gateway.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
+import cn.ypbin.starter.gateway.filter.InternalPathBlockGlobalFilter;
+import cn.ypbin.starter.gateway.filter.InternalPathBlockProperties;
 import cn.ypbin.starter.gateway.filter.RequestIdGlobalFilter;
 import cn.ypbin.starter.gateway.handler.GatewayExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.cors.reactive.CorsWebFilter;
+import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -45,12 +51,62 @@ class GatewayAutoConfigurationTest {
             assertThat(context).hasSingleBean(HeaderSanitizeGlobalFilter.class);
             assertThat(context).hasSingleBean(GatewayExceptionHandler.class);
             assertThat(context).hasSingleBean(GatewayProperties.class);
+            // 内部路径阻断默认启用（安全默认：内部端点不应经网关对外暴露）
+            assertThat(context).hasSingleBean(InternalPathBlockGlobalFilter.class);
         });
+    }
+
+    @Test
+    void shouldDisableInternalPathBlockWhenTurnedOff() {
+        runner.withPropertyValues("ypbin.gateway.internal-path-block.enabled=false")
+            .run(context -> assertThat(context).doesNotHaveBean(InternalPathBlockGlobalFilter.class));
+    }
+
+    @Test
+    void shouldBindInternalPathBlockProperties() {
+        runner.withPropertyValues(
+                "ypbin.gateway.internal-path-block.path-patterns[0]=/api/private/**",
+                "ypbin.gateway.internal-path-block.not-found-status=200")
+            .run(context -> {
+                InternalPathBlockProperties properties = context.getBean(InternalPathBlockProperties.class);
+                assertThat(properties.isEnabled()).isTrue();
+                assertThat(properties.getPathPatterns()).containsExactly("/api/private/**");
+                assertThat(properties.getNotFoundStatus()).isEqualTo(200);
+            });
     }
 
     @Test
     void shouldNotRegisterCorsFilterByDefault() {
         runner.run(context -> assertThat(context).doesNotHaveBean(CorsWebFilter.class));
+    }
+
+    /**
+     * 「默认开启」必须同时被<b>字段默认值</b>与<b>实际行为</b>两条断言保护。
+     *
+     * <p>此前的用例只覆盖了行为侧（Bean 装配依赖 {@code @ConditionalOnProperty(matchIfMissing=true)}），
+     * 而 {@link InternalPathBlockProperties#isEnabled()} 的字段默认值只被一条「顺带绑定」断言保护：
+     * 把它改成 {@code false} 时，过滤器<b>仍会装配并照常拦截</b>（装配与行为都不读该字段），
+     * 于是唯一的失败点很隐蔽，且配置元数据导出的 {@code defaultValue} 会静默变成 {@code false}。
+     * 本用例直接断言字段默认值，并用「零配置下真的拦得住」覆盖行为侧。</p>
+     */
+    @Test
+    void internalPathBlockShouldBeEnabledAndEffectiveWithoutAnyConfiguration() {
+        assertThat(new InternalPathBlockProperties().isEnabled())
+            .as("字段默认值必须为 true（它是配置元数据 defaultValue 的来源）")
+            .isTrue();
+
+        runner.run(context -> {
+            assertThat(context).hasSingleBean(InternalPathBlockGlobalFilter.class);
+            InternalPathBlockGlobalFilter filter = context.getBean(InternalPathBlockGlobalFilter.class);
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/internal/secret"));
+
+            filter.filter(exchange, ignored -> Mono.empty()).block();
+
+            assertThat(exchange.getResponse().getStatusCode())
+                .as("未配置任何属性时也必须实际拦截内部路径，而不是『装配了但空转』")
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        });
     }
 
     @Test

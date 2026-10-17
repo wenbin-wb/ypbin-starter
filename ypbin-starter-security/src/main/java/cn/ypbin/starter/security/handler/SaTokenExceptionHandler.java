@@ -41,6 +41,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * Sa-Token 异常，web 兜底 {@code Exception}，互不冲突。标注更高优先级以确保在多 advice 场景优先匹配。
  * 业务方提供自定义同类处理器可覆盖（本 Bean 用 {@code @ConditionalOnMissingBean} 装配）。</p>
  *
+ * <p><strong>日志降噪约定（请勿“修正”为传入 Throwable）</strong>：本类所有日志都刻意只记 message 与关键
+ * 字段、<b>不</b>打印异常堆栈。这里处理的全部是<b>预期内的鉴权结果</b>——未登录、token 过期、被顶下线、
+ * 无权限、账号封禁等，由正常业务流量高频触发（前端 token 过期、爬虫穷举路径）；其实异常堆栈只是
+ * Sa-Token 拦截器/工具类的内部帧，对定位没有增量信息，却会让 WARN 日志量随拒绝量线性放大，淹没真实故障。
+ * 需要堆栈的「非预期」异常不会进入本处理器（最终落 web 模块 {@code GlobalExceptionHandler} 的
+ * {@code Exception} 分支，那里已带堆栈）。</p>
+ *
  * @author wenbin
  * @since 2026-07-31
  */

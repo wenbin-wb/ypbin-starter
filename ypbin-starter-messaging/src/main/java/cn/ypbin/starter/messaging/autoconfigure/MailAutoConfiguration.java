@@ -42,17 +42,14 @@ import org.springframework.mail.javamail.JavaMailSender;
  */
 @AutoConfiguration
 @ConditionalOnClass(JavaMailSender.class)
-@ConditionalOnProperty(prefix = "ypbin.mail", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = MailConfig.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 public class MailAutoConfiguration {
-
-    /** 邮件配置前缀 */
-    private static final String MAIL_PREFIX = "ypbin.mail";
 
     /**
      * 邮件配置，绑定 {@code ypbin.mail.*}。
      */
     @Bean
-    @ConfigurationProperties(prefix = MAIL_PREFIX)
+    @ConfigurationProperties(prefix = MailConfig.PREFIX)
     @ConditionalOnMissingBean
     public MailConfig mailConfig() {
         return new MailConfig();

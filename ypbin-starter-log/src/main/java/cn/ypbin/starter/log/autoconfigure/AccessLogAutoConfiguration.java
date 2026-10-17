@@ -41,7 +41,7 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfiguration
 @ConditionalOnClass(RestController.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.log.access", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = AccessLogProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(AccessLogProperties.class)
 public class AccessLogAutoConfiguration {
 

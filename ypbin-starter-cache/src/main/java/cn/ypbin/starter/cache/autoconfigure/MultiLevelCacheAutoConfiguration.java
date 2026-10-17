@@ -18,12 +18,15 @@ package cn.ypbin.starter.cache.autoconfigure;
 import cn.ypbin.starter.cache.core.CacheService;
 import cn.ypbin.starter.cache.multilevel.CacheInvalidationListener;
 import cn.ypbin.starter.cache.multilevel.CacheInvalidationPublisher;
+import cn.ypbin.starter.cache.multilevel.CacheMetricsRecorder;
+import cn.ypbin.starter.cache.multilevel.MicrometerCacheMetrics;
 import cn.ypbin.starter.cache.multilevel.MultiLevelCacheProperties;
 import cn.ypbin.starter.cache.multilevel.MultiLevelCacheService;
 import cn.ypbin.starter.cache.multilevel.RedisCacheInvalidationPublisher;
 import cn.ypbin.starter.cache.redis.RedisCacheService;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
@@ -34,6 +37,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -95,9 +99,11 @@ public class MultiLevelCacheAutoConfiguration {
     @ConditionalOnMissingBean(MultiLevelCacheService.class)
     public MultiLevelCacheService cacheService(RedisTemplate<String, Object> redisTemplate,
             Cache<String, Object> l1Cache,
-            ObjectProvider<CacheInvalidationPublisher> publisher) {
+            ObjectProvider<CacheInvalidationPublisher> publisher,
+            ObjectProvider<CacheMetricsRecorder> metricsRecorder) {
         CacheService l2 = new RedisCacheService(redisTemplate);
-        return new MultiLevelCacheService(l2, l1Cache, publisher.getIfAvailable());
+        return new MultiLevelCacheService(l2, l1Cache, publisher.getIfAvailable(),
+            metricsRecorder.getIfAvailable(() -> CacheMetricsRecorder.NOOP));
     }
 
     /**
@@ -113,5 +119,42 @@ public class MultiLevelCacheAutoConfiguration {
         container.addMessageListener(new CacheInvalidationListener(cacheService, cacheInstanceId),
             new ChannelTopic(properties.getInvalidationChannel()));
         return container;
+    }
+
+    /**
+     * Micrometer 运行时指标装配（可选依赖）。
+     *
+     * <p><strong>为什么必须放在类级 {@code @ConditionalOnClass} 的嵌套配置里</strong>：
+     * {@code micrometer-core} 是 optional 依赖，方法级条件拦不住 Spring 对配置类的方法内省——本嵌套类的
+     * {@code @Bean} 方法体引用 {@link MicrometerCacheMetrics}（其字节码引用 Micrometer 类型），若在未引入
+     * micrometer 的宿主上被内省，可能在类校验阶段抛 {@code NoClassDefFoundError}。类级条件在内省方法之前
+     * 判定，缺依赖时整类跳过（与 {@code RedisLeaseLockStoreConfiguration} 同一处理）。</p>
+     *
+     * <p><strong>为什么用 {@link ObjectProvider} 而不是 {@code @ConditionalOnBean(MeterRegistry.class)}</strong>：
+     * 后者会引入本仓反复出现的「顺序陷阱」——{@code MeterRegistry} 由 Boot 的 metrics 自动配置提供，
+     * 若不声明 {@code @AutoConfigureAfter} 指向它，条件求值时机早于提供者 ⇒ 守卫恒假、指标静默不装配。
+     * 用 {@link ObjectProvider} 弱依赖在 Bean 创建时取值，既不依赖条件求值顺序，也能在「引了 micrometer
+     * 但宿主没注册 MeterRegistry」时干净退化为空实现。</p>
+     *
+     * <p><strong>为什么 {@code cache} 标签值取自配置而非写死常量</strong>：写死 {@code multi-level} 会让多副本
+     * 的指标聚合到同一序列，排障时看不出是哪台机器的缓存异常；标签值改由
+     * {@link MultiLevelCacheProperties#getMetricsCacheName()} 提供（默认值
+     * {@link MultiLevelCacheProperties#DEFAULT_METRICS_CACHE_NAME} 与旧常量一致，未配置时行为不变），
+     * 实例身份的注入交给宿主的占位符（如 {@code ${HOSTNAME}}），本模块不猜实例名——猜错会把同一逻辑缓存
+     * 的指标打散成无数序列。</p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(MeterRegistry.class)
+    static class CacheMetricsConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public CacheMetricsRecorder cacheMetricsRecorder(ObjectProvider<MeterRegistry> registryProvider,
+                MultiLevelCacheProperties properties) {
+            MeterRegistry registry = registryProvider.getIfAvailable();
+            return registry == null
+                ? CacheMetricsRecorder.NOOP
+                : MicrometerCacheMetrics.of(registry, properties.getMetricsCacheName());
+        }
     }
 }

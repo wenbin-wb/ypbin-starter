@@ -58,7 +58,7 @@ import org.springframework.web.method.HandlerMethod;
  */
 @AutoConfiguration
 @ConditionalOnClass(OpenAPI.class)
-@ConditionalOnProperty(prefix = "ypbin.api-doc", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = ApiDocProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(ApiDocProperties.class)
 public class ApiDocAutoConfiguration {
 
@@ -102,7 +102,7 @@ public class ApiDocAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.api-doc", name = "default-group-enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = ApiDocProperties.PREFIX, name = "default-group-enabled", havingValue = "true", matchIfMissing = true)
     public GroupedOpenApi ypbinDefaultGroupedOpenApi(ApiDocProperties properties) {
         GroupedOpenApi.Builder builder = GroupedOpenApi.builder()
             .group(properties.getGroupName())
@@ -144,7 +144,7 @@ public class ApiDocAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(name = "ypbinApiDocOpenApiCustomizer")
-    @ConditionalOnProperty(prefix = "ypbin.api-doc", name = "order-enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = ApiDocProperties.PREFIX, name = "order-enabled", havingValue = "true", matchIfMissing = true)
     public GlobalOpenApiCustomizer ypbinApiDocOpenApiCustomizer() {
         return openApi -> {
             Paths paths = openApi.getPaths();

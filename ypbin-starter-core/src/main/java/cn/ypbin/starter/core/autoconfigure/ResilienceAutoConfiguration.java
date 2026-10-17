@@ -43,8 +43,15 @@ import org.springframework.resilience.annotation.EnableResilientMethods;
  */
 @AutoConfiguration
 @ConditionalOnClass(EnableResilientMethods.class)
-@ConditionalOnProperty(prefix = "ypbin.resilience", name = "enabled", havingValue = "true",
+@ConditionalOnProperty(prefix = ResilienceAutoConfiguration.PREFIX, name = "enabled", havingValue = "true",
     matchIfMissing = true)
 @EnableResilientMethods
 public class ResilienceAutoConfiguration {
+
+    /**
+     * 配置前缀。
+     *
+     * <p>本能力只有装配开关、没有绑定字段，故前缀常量就近定义在本自动配置类内。
+     */
+    public static final String PREFIX = "ypbin.resilience";
 }

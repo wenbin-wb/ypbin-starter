@@ -53,11 +53,47 @@ import reactor.core.publisher.Hooks;
  * spring.ai.openai.chat.options.model=gpt-5.6
  * </pre>
  *
+ * <p><b>为何必须显式声明与第三方提供者的顺序：</b>本类的
+ * {@code chatClient} Bean 用 {@code @ConditionalOnBean(ChatModel.class)}、{@code aiChatService} Bean 用
+ * {@code @ConditionalOnBean(ChatMemory.class)} 做守卫，而 {@code @ConditionalOnBean} 是
+ * {@code REGISTER_BEAN} 相位条件，<b>只看得见「先于本配置类处理完」的 Bean 定义</b>。
+ * {@link ChatModel} 与 {@link ChatMemory} 均由<b>第三方（Spring AI）自动配置</b>提供：本模块 pom 以
+ * {@code optional} 声明了 OpenAI / DeepSeek / Ollama 模型 starter（其
+ * {@code AutoConfiguration.imports} 分别注册 {@code OpenAiChatAutoConfiguration}、
+ * {@code DeepSeekChatAutoConfiguration}、{@code OllamaChatAutoConfiguration}，均提供
+ * {@code ChatModel}）以及 {@code spring-ai-autoconfigure-model-chat-memory}（
+ * {@code ChatMemoryAutoConfiguration}，提供 {@code ChatMemory}）；这些第三方自动配置<b>都没有</b>声明
+ * 与本类的顺序。不加顺序约束时，{@code cn.ypbin.starter.ai.*} 在 Boot 自动配置排序中排在
+ * {@code org.springframework.*} <b>之前</b>（无显式顺序时按类名字典序）⇒ 条件求值时第三方
+ * {@code ChatModel}/{@code ChatMemory} 尚未注册 ⇒ <b>条件恒假</b> ⇒ {@code ChatClient} 乃至
+ * {@code AiChatService} 整块静默不装配（无任何报错）⇒ 宿主引入模型 starter 并配好 yml 模型后，
+ * starter 却静默回退到 {@code AiModelConfigResolver} 动态构建路径（或直接不可用）。</p>
+ *
+ * <p>这是 2026-10-15 starter v3.9.1 修掉的「{@code @ConditionalOnBean} 判定自动配置提供的类型导致
+ * 条件恒假」同一根因（本处为同类第 6 例）。运行时实证见
+ * {@code AiChatChatModelOrderingRuntimeTest}：未加顺序时条件报告为
+ * {@code @ConditionalOnBean ... did not find any beans of type ChatModel}，而 {@code ChatModel} Bean
+ * 实际存在。</p>
+ *
+ * <p><b>为何用 {@code name} 而非 {@code Class} 引用第三方提供者：</b>三个模型 starter 均为
+ * {@code optional} 依赖，宿主可能只引其一或都不引；{@code name} 形式的 FQCN 由 Boot 的
+ * {@code AutoConfigurationSorter} 通过元数据读取，<b>不会类加载</b>，未出现在当前 classpath 的名字被
+ * 排序器直接忽略（仅在与本次实际参与的自动配置集合求交时生效），这与本仓 v3.9.1 各处既有处方一致。
+ * 仓内的 {@link AiMemoryAutoConfiguration} 仍然用 {@code Class} 引用（编译期可见，顺序仍需保留）。</p>
+ *
+ * <p><b>各路径的分工：</b>仓内记忆路径靠 {@code value = AiMemoryAutoConfiguration.class} 成立；
+ * 第三方模型/记忆路径靠下面 {@code name} 中的第三方提供者成立。两条路径互补，均不得删除。</p>
+ *
  * @author wenbin
  * @since 2026-08-15
  */
 @AutoConfiguration
-@AutoConfigureAfter(AiMemoryAutoConfiguration.class)
+@AutoConfigureAfter(value = AiMemoryAutoConfiguration.class, name = {
+    "org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration",
+    "org.springframework.ai.model.deepseek.autoconfigure.DeepSeekChatAutoConfiguration",
+    "org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration",
+    "org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration"
+})
 @ConditionalOnClass(ChatModel.class)
 @ConditionalOnProperty(prefix = AiChatProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(AiChatProperties.class)

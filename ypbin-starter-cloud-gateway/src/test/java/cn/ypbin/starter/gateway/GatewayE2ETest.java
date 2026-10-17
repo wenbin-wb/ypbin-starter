@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,8 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * 网关真运行时端到端测试。
@@ -55,6 +58,10 @@ import org.springframework.test.web.reactive.server.WebTestClient;
         "spring.cloud.gateway.server.webflux.routes[0].id=downstream",
         "spring.cloud.gateway.server.webflux.routes[0].uri=http://localhost:${ypbin.test.downstream-port}",
         "spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/api/**",
+        // 用真实注册的 /internal/** 路由作对照：若网关层没有阻断，该请求会被真的转发到下游桩
+        "spring.cloud.gateway.server.webflux.routes[1].id=internal-route",
+        "spring.cloud.gateway.server.webflux.routes[1].uri=http://localhost:${ypbin.test.downstream-port}",
+        "spring.cloud.gateway.server.webflux.routes[1].predicates[0]=Path=/internal/**",
         "ypbin.gateway.header-sanitize.headers[0]=X-User-Id"
     })
 class GatewayE2ETest {
@@ -63,6 +70,9 @@ class GatewayE2ETest {
 
     /** 下游收到的最近一次请求头快照，供断言透传/清洗行为 */
     private static final Map<String, String> RECEIVED_HEADERS = new ConcurrentHashMap<>();
+
+    /** 下游 {@code /internal/**} 是否被真实访问过（证明网关层已阻断、未转发） */
+    private static final AtomicBoolean DOWNSTREAM_INTERNAL_HIT = new AtomicBoolean();
 
     @LocalServerPort
     private int port;
@@ -87,6 +97,14 @@ class GatewayE2ETest {
                 }
             });
             byte[] body = "downstream-ok".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        });
+        downstream.createContext("/internal/", exchange -> {
+            DOWNSTREAM_INTERNAL_HIT.set(true);
+            byte[] body = "should-not-reach-downstream".getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(body);
@@ -146,6 +164,63 @@ class GatewayE2ETest {
             .expectBody()
             .jsonPath("$.success").isEqualTo(false)
             .jsonPath("$.code").isEqualTo(404);
+    }
+
+    /**
+     * 内部端点通配阻断的真运行时验证（GitHub issue #96）。
+     *
+     * <p>对照设计：{@code /internal/**} 是<b>已注册的真实路由</b>（指向下游桩），因此本用例同时证明
+     * 了两件事——① 阻断发生在转发之前（下游桩的 {@code /internal/} 上下文从未被访问）；② 命中后
+     * 返回的是不含路径细节的统一 404 信封。</p>
+     */
+    @Test
+    void shouldBlockInternalPathAtGatewayWithoutForwarding() {
+        DOWNSTREAM_INTERNAL_HIT.set(false);
+
+        webTestClient.get().uri("/internal/secret")
+            .exchange()
+            .expectStatus().isNotFound()
+            .expectBody()
+            .jsonPath("$.success").isEqualTo(false)
+            .jsonPath("$.code").isEqualTo(404);
+
+        assertThat(DOWNSTREAM_INTERNAL_HIT)
+            .as("被阻断的内部路径请求绝不能被转发到下游")
+            .isFalse();
+    }
+
+    /**
+     * issue #96 的核心验收：内部端点阻断的 404 与未知路由的 404 对调用方<b>不可区分</b>。
+     *
+     * <p>两者在真实运行时走完全不同的代码路径（未知路由 → {@code GatewayExceptionHandler}；
+     * 内部路径 → {@code InternalPathBlockGlobalFilter}），本用例取回两个响应体、剔除动态
+     * {@code timestamp} 后逐字段比较，确保文案与字段结构不再漂移。HTTP 状态码差异
+     * （未知路由沿用既有 HTTP 200 约定、内部路径按 issue #96 要求返回 404）是刻意保留的——issue 只要求
+     * 阻断侧为 404，并未要求改变未知路由既有契约，故本用例只比较响应体。</p>
+     */
+    @Test
+    void blockedInternalPathShouldBeIndistinguishableFromUnknownRoute() {
+        byte[] unknownRouteBody = webTestClient.get().uri("/no-such-route")
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody().returnResult().getResponseBody();
+
+        byte[] blockedBody = webTestClient.get().uri("/internal/secret")
+            .exchange()
+            .expectStatus().isNotFound()
+            .expectBody().returnResult().getResponseBody();
+
+        assertThat(envelopeWithoutTimestamp(blockedBody))
+            .as("两个来源的 404 响应体必须逐字段一致（除动态 timestamp），否则内部端点存在性对外可探测")
+            .isEqualTo(envelopeWithoutTimestamp(unknownRouteBody));
+    }
+
+    /** 解析响应体并剔除动态 {@code timestamp}，用于「除时间戳外逐字段一致」的比较。 */
+    private static ObjectNode envelopeWithoutTimestamp(byte[] body) {
+        assertThat(body).as("404 信封必须返回响应体").isNotNull();
+        ObjectNode envelope = (ObjectNode) new ObjectMapper().readTree(body);
+        envelope.remove("timestamp");
+        return envelope;
     }
 
     @SpringBootConfiguration

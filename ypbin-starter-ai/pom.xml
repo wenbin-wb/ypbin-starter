@@ -68,18 +68,25 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- 文档解析：docx / xlsx（Apache POI 5.4.x，兼容 JDK21）-->
+        <!--
+          文档解析：docx / xlsx（Apache POI，版本由 ypbin-starter-dependencies 统一管理）。
+          optional：仅真正使用 DocumentLoader 解析 docx/xlsx 的宿主需显式引入 poi-ooxml，
+          避免所有引入 AI 模块的宿主被强制拉取重依赖。
+        -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
-            <version>5.4.1</version>
+            <optional>true</optional>
         </dependency>
 
-        <!-- 文档解析：html（jsoup 抽取正文文本）-->
+        <!--
+          文档解析：html（jsoup 抽取正文文本，版本由 ypbin-starter-dependencies 统一管理）。
+          optional：仅真正使用 DocumentLoader 解析 html 的宿主需显式引入 jsoup。
+        -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.23.2</version>
+            <optional>true</optional>
         </dependency>
 
         <!-- 模型：DeepSeek（首选，V4-Flash/Pro，OpenAI 兼容协议）-->

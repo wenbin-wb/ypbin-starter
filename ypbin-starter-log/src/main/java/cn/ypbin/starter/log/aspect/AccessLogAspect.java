@@ -124,9 +124,11 @@ public class AccessLogAspect {
         } catch (Throwable t) {
             long cost = System.currentTimeMillis() - start;
             log.info("================  Response Start  ================");
-            // 此处刻意只打异常 message 不打堆栈：本块末尾把异常原样 rethrow，异常并未被吞掉，
-            // 访问日志只负责流水块格式；若在此打堆栈，会让每个失败请求的日志量翻倍，
-            // 真实堆栈由全局异常处理器/框架统一打印。
+            // 此处刻意只打异常 message、不打堆栈（保留 LogSanitizer，异常文案可能含请求体等外部输入）：
+            // 本块末尾把异常原样 rethrow，异常并未被吞掉，未预期异常的堆栈由 web 模块
+            // GlobalExceptionHandler 的 `log.error("[系统异常] {}", uri, e)` 统一打印；预期内的鉴权类异常
+            // 则由 SaTokenExceptionHandler 按降噪策略处理。访问日志只负责流水块格式，若在此再打堆栈，
+            // 会让每个失败请求的日志量翻倍且与全局处理器重复。
             log.info("===Result===  exception: {}", LogSanitizer.sanitize(t.getMessage()));
             log.info("<=== {}: {} ({} ms)", method, uri, cost);
             log.info("================   Response End   ================");

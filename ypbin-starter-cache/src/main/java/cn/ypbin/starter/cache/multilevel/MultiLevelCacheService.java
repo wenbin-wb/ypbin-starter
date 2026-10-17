@@ -19,15 +19,18 @@ import cn.ypbin.starter.cache.core.CacheService;
 import com.github.benmanes.caffeine.cache.Cache;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 /**
  * 多级缓存实现：L1 本地（Caffeine）+ L2 分布式（委托底层 {@link CacheService}，通常为 Redis）。
  *
- * <p>读路径：先查 L1，命中直接返回；未命中查 L2，命中则回填 L1；仍未命中经 L2 的 {@link #getOrLoad}
- * 回源（含防击穿/穿透/雪崩）后回填 L1。写/删路径：更新 L2 并失效本地 L1，同时通过
- * {@link CacheInvalidationPublisher} 广播失效，通知其它实例摘除各自 L1，保证多实例最终一致。</p>
+ * <p>读路径：{@link #get} 先查 L1，命中直接返回；未命中查 L2，命中回填 L1，<strong>L2 也未命中则回填
+ * 空值哨兵</strong>（与 {@link #getOrLoad} 同一口径，防穿透；L1 空值哨兵的陈旧窗口边界见
+ * {@link #get} 方法注释）。{@link #getOrLoad} 同样先查 L1，未命中经 L2 回源（含防击穿/穿透/雪崩）
+ * 后回填 L1。写/删路径：更新 L2 并失效本地 L1，同时通过 {@link CacheInvalidationPublisher}
+ * 广播失效，通知其它实例摘除各自 L1，保证多实例最终一致。</p>
  *
  * <p>L1 极大降低热点 key 的 Redis 往返；代价是本地缓存存在极短的不一致窗口（广播延迟内），
  * 适合读多写少、可容忍秒级不一致的场景。强一致数据不应启用多级缓存。</p>
@@ -41,15 +44,35 @@ public class MultiLevelCacheService implements CacheService {
     private final Cache<String, Object> l1;
     @Nullable
     private final CacheInvalidationPublisher invalidationPublisher;
+    /** 指标记录器，恒为 {@link SafeCacheMetricsRecorder}（埋点异常不外溢到缓存主流程） */
+    private final CacheMetricsRecorder metrics;
 
     /** 空值哨兵：与 L2 一致，L1 也缓存空值防穿透 */
     private static final Object NULL_SENTINEL = new Object();
 
     public MultiLevelCacheService(CacheService l2, Cache<String, Object> l1,
             @Nullable CacheInvalidationPublisher invalidationPublisher) {
-        this.l2 = l2;
-        this.l1 = l1;
+        this(l2, l1, invalidationPublisher, CacheMetricsRecorder.NOOP);
+    }
+
+    /**
+     * 带运行时指标记录的构造器（公开重载，既有三参构造器保持兼容）。
+     *
+     * <p>传入的 {@code metrics} 会被 {@link SafeCacheMetricsRecorder} 套一层防御：其方法抛出的
+     * {@link RuntimeException} 只记日志、不影响缓存读写返回值（详见该类注释）。</p>
+     *
+     * @param l2                    L2 缓存（非空）
+     * @param l1                    L1 本地缓存（非空）
+     * @param invalidationPublisher 失效广播器，可为 {@code null}（不广播）
+     * @param metrics               指标记录器（非空；未接入 Micrometer 时传
+     *                              {@link CacheMetricsRecorder#NOOP}）；其抛出的运行时异常由防御装饰器隔离
+     */
+    public MultiLevelCacheService(CacheService l2, Cache<String, Object> l1,
+            @Nullable CacheInvalidationPublisher invalidationPublisher, CacheMetricsRecorder metrics) {
+        this.l2 = Objects.requireNonNull(l2, "l2 不能为空");
+        this.l1 = Objects.requireNonNull(l1, "l1 不能为空");
         this.invalidationPublisher = invalidationPublisher;
+        this.metrics = new SafeCacheMetricsRecorder(Objects.requireNonNull(metrics, "metrics 不能为空"));
     }
 
     @Override
@@ -71,17 +94,52 @@ public class MultiLevelCacheService implements CacheService {
         return stored;
     }
 
+    /**
+     * 读取缓存：L1 命中直接返回（空值哨兵返回 {@code null}）；L1 未命中查 L2，并<strong>无论是否命中
+     * 都回填 L1</strong>——L2 也没有时回填空值哨兵，防止不存在的 key 每次都穿透 L1 打到 L2。
+     *
+     * <p><strong>空值哨兵的陈旧窗口（部署/配置边界）</strong>：L1 里空值哨兵的存活时间等于
+     * {@code l1Cache} 的 Caffeine {@code expireAfterWrite}（见
+     * {@code MultiLevelCacheAutoConfiguration#l1Cache}，默认
+     * {@code MultiLevelCacheProperties#localExpireSeconds} = 300s）。窗口内若数据在 L2 出现，
+     * 只有满足下列条件之一才会被摘除：</p>
+     * <ul>
+     *   <li>写入方经由本类写路径（{@code set}/{@code setIfAbsent}/{@code delete}/
+     *       {@code compareAndDelete}/{@code increment}/{@code expire}）→ 本机 {@code l1.invalidate}
+     *       并广播；其它实例经 {@link #invalidateLocalOnly(String)} 摘除；</li>
+     *   <li>哨兵自然到期（最长 {@code localExpireSeconds}）。</li>
+     * </ul>
+     * <p>因此<strong>绕过本类直接写 L2（如外部系统、另一进程直写同一 Redis key）时，本机最长
+     * {@code localExpireSeconds} 内仍会返回 {@code null}</strong>。把 {@code localExpireSeconds}
+     * 配置得远大于可接受的陈旧窗口会放大该影响；强一致场景不应启用多级缓存（类注释已声明）。</p>
+     *
+     * @param key  键
+     * @param type 期望类型
+     * @param <T>  泛型
+     * @return 值，不存在时为 {@code null}
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> @Nullable T get(String key, Class<T> type) {
         Object local = l1.getIfPresent(key);
         if (local != null) {
-            return local == NULL_SENTINEL ? null : (T) local;
+            metrics.l1Hit();
+            if (local == NULL_SENTINEL) {
+                // 被空值哨兵拦截：本地命中但结果为 null，即一次「防穿透阻断」
+                metrics.nullSentinelHit();
+                return null;
+            }
+            return (T) local;
         }
+        metrics.l1Miss();
         T value = l2.get(key, type);
-        if (value != null) {
-            l1.put(key, value);
+        if (value == null) {
+            metrics.l2Miss();
+        } else {
+            metrics.l2Hit();
         }
+        // 与 getOrLoad 同一口径：L2 也没有时回填空值哨兵，否则不存在的 key 每次都穿透 L1 打到 L2
+        l1.put(key, value == null ? NULL_SENTINEL : value);
         return value;
     }
 
@@ -142,10 +200,17 @@ public class MultiLevelCacheService implements CacheService {
     public <T> @Nullable T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
         Object local = l1.getIfPresent(key);
         if (local != null) {
-            return local == NULL_SENTINEL ? null : (T) local;
+            metrics.l1Hit();
+            if (local == NULL_SENTINEL) {
+                metrics.nullSentinelHit();
+                return null;
+            }
+            return (T) local;
         }
+        metrics.l1Miss();
         // L2 的 getOrLoad 已含防击穿/穿透/雪崩，回源结果回填 L1
         T value = l2.getOrLoad(key, type, loader, ttl);
+        metrics.load();
         l1.put(key, value == null ? NULL_SENTINEL : value);
         return value;
     }

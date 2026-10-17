@@ -67,7 +67,7 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfiguration
 @AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.sign", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = SignProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(SignProperties.class)
 @Import(SignAutoConfiguration.RedisNonceStoreConfiguration.class)
 public class SignAutoConfiguration {

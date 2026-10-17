@@ -50,6 +50,41 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
             <optional>true</optional>
         </dependency>
+        <!--
+          SSE 结构化载荷的 JSON 编解码（JacksonSseFanoutCodec，Jackson 3 = tools.jackson.*）：仅当
+          宿主容器里存在 ObjectMapper Bean 时自动装配，缺失则退回 TextSseFanoutCodec（行为不变）。
+          必须 optional：邮件/短信/MQTT/WebSocket 与纯标量 SSE 扇出都不需要 Jackson，设成强依赖会把
+          jackson-databind 强推给每个引入 messaging 的宿主（Boot 4 的 Jackson 3 自动配置位于
+          spring-boot-jackson 模块，databind 在其中为 compile 依赖）。本模块自身编译/测试可见，不向宿主传递。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!--
+          Flux → SSE 流式桥接（SseStreamBridge）：仅流式响应场景需要，可选依赖。
+          必须 optional：本模块绝大多数能力（邮件/短信/MQTT/WebSocket/SSE 扇出）都不需要 Reactor，
+          设成强依赖会把 reactor-core 强推给每一个引入 messaging 的宿主（含纯 servlet 应用）。
+          版本由 spring-boot-dependencies（4.1.1）经 reactor-bom 统一管理，无需在此声明版本。
+        -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!--
+          流式桥接的跨线程上下文传播：micrometer context-propagation 的 ContextRegistry 承载各模块
+          （如租户的 TenantThreadLocalAccessor）注册的 ThreadLocal 访问器。同样必须 optional：
+          它只是「能把租户/用户上下文带过 Reactor 线程切换」的增强，缺席时 SseStreamBridge 退化为
+          不传播且不报错（见 SseContextPropagator#micrometerOrNoop 的类存在性守卫）。
+          版本由 spring-boot-dependencies（4.1.1）经 micrometer-bom 统一管理，无需在此声明版本。
+        -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>context-propagation</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
@@ -74,6 +109,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 集成测试基座（Testcontainers Redis + 外部实例回退 + @EnabledIfRedisAvailable）：
+             SSE 跨实例扇出的「真实 Redis Pub/Sub 可达性」只能在真 Redis 上验证（内存频道测不出
+             订阅建立/序列化/回环丢弃在真实传输下的行为），复用既有基座而非自行引入 Testcontainers -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

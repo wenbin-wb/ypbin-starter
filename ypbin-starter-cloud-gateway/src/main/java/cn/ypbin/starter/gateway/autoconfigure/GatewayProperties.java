@@ -90,6 +90,9 @@ public class GatewayProperties {
      */
     public static class Cors {
 
+        /** 配置前缀。 */
+        public static final String PREFIX = "ypbin.gateway.cors";
+
         /** 是否启用跨域，默认关闭 */
         private boolean enabled = false;
 
@@ -173,6 +176,9 @@ public class GatewayProperties {
      */
     public static class HeaderSanitize {
 
+        /** 配置前缀。 */
+        public static final String PREFIX = "ypbin.gateway.header-sanitize";
+
         /** 是否清洗客户端传入的身份类请求头，默认开启 */
         private boolean enabled = true;
 
@@ -201,6 +207,9 @@ public class GatewayProperties {
      * 统一认证配置。
      */
     public static class Auth {
+
+        /** 配置前缀。 */
+        public static final String PREFIX = "ypbin.gateway.auth";
 
         /** 是否启用统一认证，默认关闭；需同时提供 GatewayAuthProvider Bean */
         private boolean enabled = false;

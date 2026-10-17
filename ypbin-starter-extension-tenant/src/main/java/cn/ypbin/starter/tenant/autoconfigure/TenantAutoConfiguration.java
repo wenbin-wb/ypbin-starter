@@ -49,7 +49,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnClass(TenantLineInnerInterceptor.class)
-@ConditionalOnProperty(prefix = "ypbin.tenant", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = TenantProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(TenantProperties.class)
 public class TenantAutoConfiguration {
 

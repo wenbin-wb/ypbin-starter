@@ -34,7 +34,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
  * @since 2026-09-17
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.data-permission", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = DataPermissionAutoConfiguration.PREFIX, name = "enabled", havingValue = "true")
 public class DataPermissionMissingHandlerAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(DataPermissionMissingHandlerAutoConfiguration.class);

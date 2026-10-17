@@ -26,6 +26,12 @@
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-core</artifactId>
         </dependency>
+        <!-- CSV 防公式注入导出与下载响应头（Content-Disposition/RFC 5987）统一由 tools 提供：
+             Excel 与 CSV 必须共用同一份实现，否则含空格文件名的编码会在两处漂移（issue #98） -->
+        <dependency>
+            <groupId>cn.ypbin</groupId>
+            <artifactId>ypbin-starter-tools</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.fesod</groupId>
@@ -36,6 +42,19 @@
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <!-- 测试用 MockHttpServletResponse 断言下载响应头（BOM 字节 / 内容类型 / RFC 5987 文件名）。
+             spring-test 的 MockHttpServletResponse 依赖 spring-web 的 MediaType，故一并声明为 test 作用域 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

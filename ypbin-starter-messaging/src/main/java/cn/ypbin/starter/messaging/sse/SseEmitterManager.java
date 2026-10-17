@@ -78,7 +78,13 @@ public class SseEmitterManager implements DisposableBean {
     @Nullable
     private volatile SseFanoutBridge fanoutBridge;
 
-    /** 载荷 codec：桥不存在时用不到，但始终有默认实现（避免可空判断散落各处） */
+    /**
+     * 载荷 codec：桥不存在时用不到，但始终有默认实现（避免可空判断散落各处）。
+     *
+     * <p><strong>final 且无 setter</strong>：发布侧（{@link #publishFanout}）与订阅侧
+     * （{@link SseFanoutSubscriber} 经 {@link #getCodec()}）必须用同一个实例，否则帧里的 codecId
+     * 对不上、跨实例帧会被整批丢弃；构造后可变会让这个不变量失效。</p>
+     */
     private final SseFanoutCodec codec;
 
     /**
@@ -119,11 +125,16 @@ public class SseEmitterManager implements DisposableBean {
     }
 
     /**
-     * 当前扇出载荷编解码器。
+     * 当前扇出载荷编解码器（发布侧与订阅侧<strong>唯一</strong>的 codec 来源）。
+     *
+     * <p>发布时写进帧的 {@code codecId} 与 {@link SseFanoutSubscriber} 的比对/解码都取这里，故
+     * 「管理器与订阅者用不同 codec ⇒ 跨实例帧被整批丢弃」在结构上不可能发生。方法声明为
+     * {@code final} 是有意的：子类覆盖它会重新打开这个缺陷；同理本类<strong>不提供</strong>
+     * codec setter——运行期换 codec 会让已发布帧与新解码器错配，需要换请在构造时传入（4 参构造器）。</p>
      *
      * @return codec
      */
-    public SseFanoutCodec getCodec() {
+    public final SseFanoutCodec getCodec() {
         return codec;
     }
 
@@ -369,18 +380,29 @@ public class SseEmitterManager implements DisposableBean {
      * 发布跨实例扇出消息（桥不存在时静默跳过 = 单实例行为）。
      *
      * <p>载荷无法被 codec 编码时记 WARN 并<strong>只投本实例</strong>：跨实例部分显式丢失，不静默降级成
-     * 垃圾帧（见 {@link SseFanoutCodec#encode(Object)}）。</p>
+     * 垃圾帧（见 {@link SseFanoutCodec#encode(Object)}）。<strong>codec 抛异常与「无法编码」同等处理</strong>：
+     * 自定义 codec 的 bug 不得反向抛回业务发布线程（实时流是业务写入的旁路），只记 WARN + 完整堆栈。</p>
      */
     private void publishFanout(String eventName, @Nullable String audience, Object data) {
         SseFanoutBridge bridge = fanoutBridge;
         if (bridge == null) {
             return;
         }
-        String encoded = codec.encode(data).orElse(null);
+        String encoded;
+        try {
+            encoded = codec.encode(data).orElse(null);
+        } catch (Exception e) {
+            // 宿主自定义 codec 可能抛任意运行时异常：本实例投递已在调用本方法前完成，
+            // 跨实例部分显式丢失即可，绝不能把编码器缺陷反向抛给业务发布线程
+            log.warn("[ypbin-starter] SSE 载荷编码异常，仅投本实例（跨实例部分丢失）："
+                + "event={}, audience={}, codec={}, payloadType={}",
+                eventName, audience, codec.id(), payloadType(data), e);
+            return;
+        }
         if (encoded == null) {
             log.warn("[ypbin-starter] SSE 载荷无法被 codec={} 编码，仅投本实例（跨实例部分丢失）："
                 + "event={}, audience={}, payloadType={}",
-                codec.id(), eventName, audience, data.getClass().getName());
+                codec.id(), eventName, audience, payloadType(data));
             return;
         }
         try {
@@ -390,6 +412,16 @@ public class SseEmitterManager implements DisposableBean {
             log.warn("[ypbin-starter] SSE 跨实例扇出发布失败（本实例投递不受影响）：event={}, audience={}",
                 eventName, audience, e);
         }
+    }
+
+    /**
+     * 载荷类型名（仅用于日志；{@code data} 允许为 {@code null}，日志语句不得自行 NPE）。
+     *
+     * @param data 载荷
+     * @return 类型名；{@code null} 载荷返回 {@code "null"}
+     */
+    private static String payloadType(@Nullable Object data) {
+        return data == null ? "null" : data.getClass().getName();
     }
 
     /**

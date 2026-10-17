@@ -31,6 +31,14 @@
         <springdoc.version>3.1.1</springdoc.version>
         <aws-sdk-v2.version>2.55.14</aws-sdk-v2.version>
         <fesod.version>2.1.0-incubating</fesod.version>
+        <!--
+          Apache POI：ai 模块的 docx/xlsx 解析（DocumentLoader）与 excel 模块的 fesod-sheet 2.1.0-incubating
+          共同使用。fesod-sheet 传递引入的即 poi/poi-ooxml 5.5.1，故全仓统一钉到 5.5.1（与 fesod 期望版本一致，
+          避免 ai/excel 同场时 poi 与 poi-ooxml 版本分裂）。
+        -->
+        <poi.version>5.5.1</poi.version>
+        <!-- jsoup：ai 模块 html 正文抽取（DocumentLoader）使用 -->
+        <jsoup.version>1.23.2</jsoup.version>
         <tianai-captcha.version>1.5.5</tianai-captcha.version>
         <bouncycastle.version>1.86</bouncycastle.version>
         <justauth.version>1.16.7</justauth.version>
@@ -125,6 +133,30 @@
                 <groupId>org.apache.fesod</groupId>
                 <artifactId>fesod-sheet</artifactId>
                 <version>${fesod.version}</version>
+            </dependency>
+
+            <!--
+              Apache POI 版本统一：poi 与 poi-ooxml 必须同版本（poi-ooxml 对 poi 有同版本硬约束）。
+              ai 模块的 docx/xlsx 解析与 excel 模块的 fesod-sheet 都会引入 POI，此前 ai 侧硬编码 5.4.1、
+              fesod 侧传递 5.5.1，宿主同时引入两模块时会出现 poi 5.5.1 + poi-ooxml 5.4.1 的隐性分裂。
+              这里统一到 5.5.1（fesod-sheet 2.1.0-incubating 的期望版本），互不降级。
+            -->
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+
+            <!-- HTML 正文抽取（jsoup）：仅 ai 模块使用，声明为 optional 由宿主按需引入 -->
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
             </dependency>
 
             <!--

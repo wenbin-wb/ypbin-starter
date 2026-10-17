@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.ai.autoconfigure.memory;
 
+import cn.ypbin.starter.ai.autoconfigure.AiProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -40,7 +41,7 @@ import org.springframework.context.annotation.Import;
  * @since 2026-08-15
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.ai", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = AiProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(AiMemoryProperties.class)
 @Import(AiMemoryAutoConfiguration.JdbcMemoryConfiguration.class)
 public class AiMemoryAutoConfiguration {
@@ -70,7 +71,7 @@ public class AiMemoryAutoConfiguration {
      */
     @Configuration
     @ConditionalOnClass(JdbcChatMemoryRepository.class)
-    @ConditionalOnProperty(prefix = "ypbin.ai.memory", name = "type", havingValue = "jdbc")
+    @ConditionalOnProperty(prefix = AiMemoryProperties.PREFIX, name = "type", havingValue = "jdbc")
     static class JdbcMemoryConfiguration {
 
         @Bean

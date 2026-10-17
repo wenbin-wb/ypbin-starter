@@ -46,7 +46,7 @@ import reactor.core.publisher.Flux;
  */
 @AutoConfiguration
 @ConditionalOnClass(SwaggerUiConfigProperties.class)
-@ConditionalOnProperty(prefix = "ypbin.gateway.swagger", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = GatewaySwaggerAggregationProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(GatewaySwaggerAggregationProperties.class)
 public class GatewaySwaggerAutoConfiguration {
 

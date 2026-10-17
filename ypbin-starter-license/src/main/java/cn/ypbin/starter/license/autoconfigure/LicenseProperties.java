@@ -129,6 +129,9 @@ public class LicenseProperties {
     @SuppressWarnings("NullAway.Init")
     public static class Online {
 
+        /** 配置前缀。 */
+        public static final String PREFIX = "ypbin.license.online";
+
         /** 联机校验服务根地址（如 {@code http://license-admin:8080}）；为空则不装配联机校验 */
         private String baseUrl;
 

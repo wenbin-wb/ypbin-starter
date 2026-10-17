@@ -18,9 +18,11 @@ package cn.ypbin.starter.sign.core;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -156,5 +158,137 @@ class SignCheckerTest {
         SignResult replay = checker.check(signedRequestAt("ak-001", now));
         assertThat(replay.success()).isFalse();
         assertThat(replay.message()).contains("重复");
+    }
+
+    // ------------------------------------------------------------------ JSON 请求体：fail-closed 回归
+
+    @Test
+    void shouldFailClosedWhenJsonBodyMalformed() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        // Query 参数上的签名完全合法，仅请求体是畸形 JSON：历史实现会只记一条 WARN 后按 Query 验签通过，
+        // 而业务侧的容错解析仍可能读出字段 ⇒ 签名降级绕过。必须 fail-closed。
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setContentType("application/json");
+        request.setContent("{\"orderNo\": \"A100\", ".getBytes(StandardCharsets.UTF_8));
+
+        SignResult result = checker.check(request);
+
+        assertThat(result.success())
+            .as("Content-Type 声明 JSON 且请求体畸形时必须拒绝，不得仅按 Query 参数验签通过")
+            .isFalse();
+        assertThat(result.message()).isEqualTo("JSON 请求体格式非法");
+    }
+
+    @Test
+    void shouldRejectWhenJsonBodyCarriesUnsignedField() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        // 客户端只对 orderNo 签名，却在 body 里多塞一个字段：JSON 必须参与签名计算，多出字段即不匹配。
+        // 本用例是「JSON 合并逻辑不得被旁路」的守卫：若有人把 mergeJsonBody 改成 no-op，它会失败。
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setContentType("application/json;charset=UTF-8");
+        request.setContent("{\"orderNo\":\"A100\",\"extra\":\"x\"}".getBytes(StandardCharsets.UTF_8));
+
+        SignResult result = checker.check(request);
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.message()).isEqualTo("签名验证失败");
+    }
+
+    @Test
+    void shouldPassWhenJsonBodyMatchesSignedParams() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setContentType("application/json");
+        request.setContent("{\"orderNo\":\"A100\"}".getBytes(StandardCharsets.UTF_8));
+
+        SignResult result = checker.check(request);
+
+        assertThat(result.success()).as("合法 JSON body 不应被 fail-closed 逻辑误伤").isTrue();
+    }
+
+    @Test
+    void shouldPassWhenJsonContentTypeWithEmptyBody() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        // 空请求体两侧都读不到 body 字段，不存在降级空间，保持放行（与历史行为一致）
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setContentType("application/json");
+        request.setContent(new byte[0]);
+
+        SignResult result = checker.check(request);
+
+        assertThat(result.success()).as("空请求体不构成解析失败").isTrue();
+    }
+
+    // ---------------------------------------- 结构化 JSON 后缀（application/*+json）：与 Spring MVC 口径一致
+
+    @Test
+    void shouldRejectUnsignedFieldInStructuredJsonContentType() {
+        // Spring MVC 默认 Jackson 转换器同时接受 application/json 与 application/*+json。
+        // 若签名侧只认字面量 application/json，攻击者只改一个 Content-Type 头就能让 body 里的
+        // 未签名字段绕过签名（业务侧依然读得到）—— 这正是必须堵死的降级绕过。
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setContentType("application/vnd.api+json");
+        request.setContent("{\"extra\":\"x\"}".getBytes(StandardCharsets.UTF_8));
+
+        SignResult result = checker.check(request);
+
+        assertThat(result.success())
+            .as("application/*+json 的请求体必须参与签名计算")
+            .isFalse();
+        assertThat(result.message()).isEqualTo("签名验证失败");
+    }
+
+    @Test
+    void shouldFailClosedOnMalformedStructuredJsonBody() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setContentType("application/merge-patch+json");
+        request.setContent("{\"orderNo\": ".getBytes(StandardCharsets.UTF_8));
+
+        SignResult result = checker.check(request);
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.message()).isEqualTo("JSON 请求体格式非法");
+    }
+
+    @Test
+    void shouldPassWithStructuredJsonBodyMatchingSignature() {
+        SignApp app = new SignApp("ak-001", SECRET);
+        SignChecker checker = checker(accessKey -> Optional.of(app));
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setContentType("application/vnd.api+json;charset=UTF-8");
+        request.setContent("{\"orderNo\":\"A100\"}".getBytes(StandardCharsets.UTF_8));
+
+        SignResult result = checker.check(request);
+
+        assertThat(result.success()).as("结构化 JSON 后缀不应被误伤").isTrue();
+    }
+
+    @Test
+    void shouldRejectJsonContentTypeUnderTurkishLocale() {
+        // toLowerCase() 不带 Locale 时，tr-TR 会把 'I' 转成无点的 'ı'（'APPLICATION/JSON' → 'applıcatıon/json'），
+        // 曾使 JSON 判定失效。这里显式钉住「默认 Locale 不影响判定」。
+        Locale original = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+        try {
+            SignApp app = new SignApp("ak-001", SECRET);
+            SignChecker checker = checker(accessKey -> Optional.of(app));
+            MockHttpServletRequest request = signedRequest("ak-001");
+            request.setContentType("APPLICATION/JSON");
+            request.setContent("{\"extra\":\"x\"}".getBytes(StandardCharsets.UTF_8));
+
+            SignResult result = checker.check(request);
+
+            assertThat(result.success()).as("tr-TR 区域下 JSON 判定不得失效").isFalse();
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

@@ -42,7 +42,7 @@ import tools.jackson.databind.json.JsonMapper;
 @AutoConfiguration
 @ConditionalOnClass({BlockExceptionHandler.class, HttpServletRequest.class})
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.cloud.sentinel", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = SentinelProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(SentinelProperties.class)
 public class SentinelAutoConfiguration {
 

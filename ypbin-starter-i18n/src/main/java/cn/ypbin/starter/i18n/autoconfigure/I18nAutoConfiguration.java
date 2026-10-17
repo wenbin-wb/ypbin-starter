@@ -39,7 +39,7 @@ import org.springframework.web.servlet.LocaleResolver;
  * @since 2026-07-30
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "ypbin.i18n", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = I18nProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(I18nProperties.class)
 public class I18nAutoConfiguration {
 

@@ -155,6 +155,9 @@ public final class LoginHelper {
         } catch (SaTokenException | NumberFormatException e) {
             // 无 Sa-Token 上下文（异步线程、定时任务等）或登录 ID 非数字：视为无当前登录人，不抛异常。
             // 关键场景：审计填充 AuditorProvider 走本方法，异步落库时须安全跳过而非崩溃。
+            // 刻意不打堆栈（异常对象不传给 logger）：这是 debug 级的正常分支——「当前无登录上下文」是
+            // 异步/定时任务线程的常态，堆栈只会指向 StpUtil / Long.valueOf 内部；message 与调用方上下文
+            // 已足以判断原因（无 Sa-Token 上下文或登录 ID 非数字），故不为这条高频正常路径放大日志。
             log.debug("[ypbin-starter] 无法获取当前登录人，按无登录上下文处理：{}", e.getMessage());
             return Optional.empty();
         }

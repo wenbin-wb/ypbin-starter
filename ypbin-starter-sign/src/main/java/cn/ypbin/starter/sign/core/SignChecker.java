@@ -25,10 +25,13 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.InvalidMediaTypeException;
+import org.springframework.http.MediaType;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.SerializationFeature;
 
@@ -51,7 +54,12 @@ public class SignChecker {
     private static final String TIMESTAMP = "timestamp";
     private static final String NONCE = "nonce";
     private static final String SIGN = "sign";
-    private static final String JSON_TYPE = "application/json";
+
+    /** {@code application} 类型前缀（用于 {@code application/*+json} 判定）。 */
+    private static final String APPLICATION_TYPE = "application";
+
+    /** 结构化后缀：{@code application/vnd.api+json} 一类。 */
+    private static final String JSON_SUFFIX = "+json";
 
     /** 明文密钥的参数名（库内只存哈希时，第三方经此传入明文以参与验签）。 */
     private static final String SECRET_PARAM = "secret";
@@ -146,7 +154,17 @@ public class SignChecker {
             return SignResult.fail("签名已过期");
         }
 
-        Map<String, String> params = collectParams(request);
+        CollectedParams collected = collectParams(request);
+        if (collected.jsonBodyInvalid()) {
+            // fail-closed：Content-Type 已声明 JSON 且带了请求体，解析失败说明「签名覆盖的字段集合」
+            // 与「业务实际读取到的内容」不再一致——下游若用容错解析（忽略尾部垃圾/取首个 JSON 对象）
+            // 仍能读出字段，即形成签名降级绕过。历史实现在此只记一条 WARN 后继续按 Query 验签，
+            // 必须直接拒绝。（空请求体不算失败：两侧都读不到 body 字段，无降级空间。）
+            log.warn("[ypbin-starter] JSON 请求体格式非法，拒绝验签 accessKey={}",
+                LogSanitizer.sanitize(accessKey));
+            return SignResult.fail("JSON 请求体格式非法");
+        }
+        Map<String, String> params = collected.params();
         String secret = resolveSecret(request, app);
         if (secret.isEmpty()) {
             // 无可用密钥（库内只有哈希且未通过业务校验）⇒ 按验签失败处理。
@@ -366,8 +384,14 @@ public class SignChecker {
 
     /**
      * 收集参与签名的参数：Query/表单参数 + JSON body 顶层字段，排除 sign 与配置排除项。
+     *
+     * <p>返回值同时携带「声明了 JSON 却解析失败」的标记：该标记必须由调用方 fail-closed 处理，
+     * 不能在此吞掉（历史实现只记一条 WARN 便继续验签，构成签名降级绕过）。</p>
+     *
+     * @param request 请求
+     * @return 参数表与 JSON 请求体解析状态
      */
-    private Map<String, String> collectParams(HttpServletRequest request) {
+    private CollectedParams collectParams(HttpServletRequest request) {
         List<String> skip = new ArrayList<>();
         skip.add(SIGN);
         skip.addAll(properties.getSkipParamNames());
@@ -385,21 +409,78 @@ public class SignChecker {
             }
         }
 
+        boolean jsonBodyInvalid = false;
         String contentType = request.getContentType();
-        if (contentType != null && contentType.toLowerCase().contains(JSON_TYPE)) {
-            mergeJsonBody(request, skip, params);
+        if (isJsonContentType(contentType)) {
+            jsonBodyInvalid = !mergeJsonBody(request, skip, params);
         }
-        return params;
+        return new CollectedParams(params, jsonBodyInvalid);
     }
 
+    /**
+     * 判断请求是否声明了 JSON 请求体——口径必须与 Spring MVC 默认 Jackson 转换器<strong>一致</strong>。
+     *
+     * <p><strong>为什么不能用 {@code contentType.contains("application/json")}</strong>：Spring MVC 的
+     * {@code JacksonJsonHttpMessageConverter} 支持的媒体类型是 {@code application/json} <b>与
+     * {@code application/*+json}</b>（结构化后缀，如 {@code application/vnd.api+json}、
+     * {@code application/merge-patch+json}）。若这里只认字面量 {@code application/json}，攻击者只需把
+     * 请求头改成 {@code application/vnd.api+json} 并给 body 追加未签名字段：签名侧不合并 body ⇒ 按 Query
+     * 验签依旧通过，而业务侧 {@code @RequestBody} 仍能读到该字段 ⇒ <strong>同一签名降级绕过完整存活</strong>。</p>
+     *
+     * <p>无法解析的 Content-Type 一律视为「声明了 JSON」（fail-closed 方向）：宁可要求请求体合法，
+     * 也不放过潜在的签名覆盖缺口。</p>
+     *
+     * <p>用小写化时显式指定 {@link Locale#ROOT}：{@code toLowerCase()} 使用默认 Locale 时，
+     * tr-TR 等区域会把 {@code I} 转成无点的 {@code ı}，导致判定失效。</p>
+     *
+     * @param contentType 请求的 Content-Type（可空）
+     * @return 是否按 JSON 请求体处理
+     */
+    private static boolean isJsonContentType(@Nullable String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return false;
+        }
+        MediaType mediaType;
+        try {
+            mediaType = MediaType.parseMediaType(contentType);
+        } catch (InvalidMediaTypeException e) {
+            // 解析不了：Spring MVC 侧多半直接 415，不会把 body 交给业务；此处按「声明了 JSON」处理更安全
+            return true;
+        }
+        if (MediaType.APPLICATION_JSON.isCompatibleWith(mediaType)) {
+            return true;
+        }
+        return APPLICATION_TYPE.equalsIgnoreCase(mediaType.getType())
+            && mediaType.getSubtype().toLowerCase(Locale.ROOT).endsWith(JSON_SUFFIX);
+    }
+
+    /**
+     * 把 JSON 请求体的顶层字段并入参与签名的参数表。
+     *
+     * <p><strong>fail-closed</strong>：Content-Type 声明 JSON、请求体非空但解析失败时返回
+     * {@code false}，由 {@link #check(HttpServletRequest)} 直接判定验签失败——绝不"少算几个参数后
+     * 继续按 Query 验签"。</p>
+     *
+     * @param request 请求
+     * @param skip    不参与签名的参数名
+     * @param params  参与签名的参数表（本方法就地追加 JSON 顶层字段）
+     * @return 解析成功或无需解析返回 {@code true}；请求体非法返回 {@code false}
+     */
     @SuppressWarnings("unchecked")
-    private void mergeJsonBody(HttpServletRequest request, List<String> skip, Map<String, String> params) {
+    private boolean mergeJsonBody(HttpServletRequest request, List<String> skip, Map<String, String> params) {
         try {
             String body = new String(request.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (body.isBlank()) {
-                return;
+                // 空请求体不算失败：签名侧与业务侧都读不到 body 字段，不存在"签名未覆盖却被业务读到"的降级空间
+                return true;
             }
             Map<String, Object> json = objectMapper.readValue(body, Map.class);
+            if (json == null) {
+                // 字面量 null：是合法 JSON 但不是对象，没有任何可参与签名的字段。显式判定失败，
+                // 避免下一行 entrySet() 抛 NPE 打出一条误导性的空指针堆栈
+                log.warn("[ypbin-starter] JSON 请求体为字面量 null，没有任何可参与签名的字段，判定失败");
+                return false;
+            }
             for (Map.Entry<String, Object> entry : json.entrySet()) {
                 Object value = entry.getValue();
                 if (skip.contains(entry.getKey()) || value == null) {
@@ -414,13 +495,24 @@ public class SignChecker {
                 };
                 params.put(entry.getKey(), strVal);
             }
+            return true;
         } catch (Exception e) {
             // e.getMessage() 可能内嵌**客户端请求体片段**（如 Jackson 的报错会带出错处的原文），
             // 故与其它外部可控值一视同仁做 sanitize —— 同类问题在本批已出现两次，
             // 统一处理避免"只修被扫出来的那一处"。
-            log.warn("[ypbin-starter] 解析 JSON 请求体用于签名失败，本次验签将缺少 JSON 参数: {}",
+            log.warn("[ypbin-starter] 解析 JSON 请求体用于签名失败，本次验签判定失败: {}",
                 LogSanitizer.sanitize(e.getMessage()), e);
+            return false;
         }
+    }
+
+    /**
+     * 参与签名的参数收集结果。
+     *
+     * @param params          参与签名的参数表
+     * @param jsonBodyInvalid Content-Type 声明 JSON 且请求体非空但解析失败（须 fail-closed 拒绝）
+     */
+    private record CollectedParams(Map<String, String> params, boolean jsonBodyInvalid) {
     }
 
     private boolean isBlank(String s) {

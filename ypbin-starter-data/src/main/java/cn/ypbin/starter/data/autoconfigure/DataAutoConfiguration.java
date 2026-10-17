@@ -51,7 +51,7 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
  */
 @AutoConfiguration
 @ConditionalOnClass(MybatisPlusInterceptor.class)
-@ConditionalOnProperty(prefix = "ypbin.data", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = DataProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(DataProperties.class)
 public class DataAutoConfiguration {
 
@@ -125,7 +125,7 @@ public class DataAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "ypbin.data.encrypt", name = "key")
+    @ConditionalOnProperty(prefix = DataProperties.Encrypt.PREFIX, name = "key")
     public FieldEncryptor fieldEncryptor(DataProperties properties) {
         String key = properties.getEncrypt().getKey();
         FieldEncryptor encryptor = new AesFieldEncryptor(key);

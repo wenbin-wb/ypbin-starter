@@ -32,8 +32,11 @@ import org.springframework.core.Ordered;
  * @author wenbin
  * @since 2026-10-02
  */
-@ConfigurationProperties(prefix = "ypbin.gateway.rate-limit")
+@ConfigurationProperties(prefix = RateLimitProperties.PREFIX)
 public class RateLimitProperties {
+
+    /** 配置前缀（单一来源：{@code @ConfigurationProperties} 与 {@code @ConditionalOnProperty} 均引用本常量）。 */
+    public static final String PREFIX = "ypbin.gateway.rate-limit";
 
     /** 是否启用（默认关闭：新过滤器不得在业务方不知情时激活）。 */
     private boolean enabled;

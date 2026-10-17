@@ -49,7 +49,7 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration
 @AutoConfigureBefore(SseAutoConfiguration.class)
 @ConditionalOnClass(SseUserIdResolver.class)
-@ConditionalOnProperty(prefix = "ypbin.security", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = SecurityProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SecuritySseAutoConfiguration {
 
     /**
@@ -83,7 +83,7 @@ public class SecuritySseAutoConfiguration {
      */
     @Bean
     @ConditionalOnBean(SseUserIdResolver.class)
-    @ConditionalOnProperty(prefix = "ypbin.sse", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = SseProperties.PREFIX, name = "enabled", havingValue = "true")
     public SecurityExcludePathProvider sseSubscribeExcludePathProvider(
         @Value("${ypbin.sse.path:" + SseProperties.DEFAULT_PATH + "}") String subscribePath) {
         return () -> List.of(subscribePath);

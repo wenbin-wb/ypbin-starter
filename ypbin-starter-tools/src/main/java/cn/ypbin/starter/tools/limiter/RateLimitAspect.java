@@ -40,11 +40,18 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
  * （{@code request.getRemoteAddr()}），不信任可伪造的 X-Forwarded-For 等转发头；确经可信
  * 反向代理清洗过转发头时，通过 {@code ypbin.tools.rate-limit.trust-forwarded=true} 开启。</p>
  *
+ * <p><strong>配置校验</strong>：{@link RateLimit#window()} 必须 &gt;= 1 秒——window&lt;=0 会让计数键立即
+ * 过期（Redis 的 {@code EXPIRE key 0} 等价于删除、内存实现的窗口也立即失效），每次请求都被当作新窗口，
+ * 限流形同虚设。该配置错误在首次调用时抛 {@link IllegalArgumentException}，不做静默降级。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
 @Aspect
 public class RateLimitAspect {
+
+    /** 窗口下限（秒）：window &lt; 1 会让 EXPIRE 立即删键、窗口立即过期，限流形同虚设 */
+    private static final int MIN_WINDOW_SECONDS = 1;
 
     private final RateLimiterStore store;
     private final boolean trustForwarded;
@@ -66,8 +73,16 @@ public class RateLimitAspect {
 
     @Around("@annotation(rateLimit)")
     public Object around(ProceedingJoinPoint point, RateLimit rateLimit) throws Throwable {
+        // fail-fast：window<=0 时 Duration.ofSeconds(window) 非正，Redis 侧 EXPIRE key 0（或负数）会
+        // 立即删除计数键、内存侧窗口立即过期 ⇒ 每次调用都是「新窗口」，计数器永远归零，限流形同虚设。
+        // 这种配置错误必须在首次调用时就暴露，而不是静默放行所有请求。
+        int windowSeconds = rateLimit.window();
+        if (windowSeconds < MIN_WINDOW_SECONDS) {
+            throw new IllegalArgumentException("@RateLimit.window 必须 >= " + MIN_WINDOW_SECONDS
+                + " 秒（当前 " + windowSeconds + "）：window<=0 会让计数键立即过期，限流失效");
+        }
         String key = buildKey(point, rateLimit);
-        long current = store.incrementAndGet(key, Duration.ofSeconds(rateLimit.window()));
+        long current = store.incrementAndGet(key, Duration.ofSeconds(windowSeconds));
         if (current > rateLimit.count()) {
             throw new RateLimitException(rateLimit.message());
         }

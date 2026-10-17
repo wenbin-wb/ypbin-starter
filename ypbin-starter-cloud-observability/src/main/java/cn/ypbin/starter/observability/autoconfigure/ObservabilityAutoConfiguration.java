@@ -40,7 +40,7 @@ import org.springframework.core.Ordered;
 @AutoConfiguration
 @ConditionalOnClass(HttpServletRequest.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@ConditionalOnProperty(prefix = "ypbin.observability", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = ObservabilityProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(ObservabilityProperties.class)
 public class ObservabilityAutoConfiguration {
 
