@@ -47,6 +47,10 @@ import tools.jackson.databind.ObjectMapper;
  * {@link LogCollector}。仅在 AOP 存在且 {@code ypbin.log.enabled=true} 时生效，
  * 所有 Bean 均可被业务方覆盖。</p>
  *
+ * <p><strong>微服务跨服务上报</strong>：宿主提供 {@code RemoteLogIngestClient} Bean 时，
+ * {@link RemoteLogAutoConfiguration} 会先于本类装配远端 {@link LogDao}，本类的默认实现随之退让——
+ * 宿主既不需要自己实现 {@code LogDao}，也不需要写任何装配顺序注解。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
@@ -63,8 +67,9 @@ public class LogAutoConfiguration {
     public LogDao logDao() {
         // 启动期显式告知：默认实现只把操作日志打到日志文件、不落库。否则宿主"以为已落库、查库/查表为空"
         // 属于最难排查的一类静默失效（无异常、无提示），这里用一行 INFO 把事实摆出来。
-        log.info("[ypbin-starter] 未检测到自定义 LogDao，操作日志不会落库，仅打印到 ypbin.access-log 日志；"
-            + "需要持久化请提供 LogDao Bean。");
+        log.info("[ypbin-starter] 未检测到自定义 LogDao 或 RemoteLogIngestClient，操作日志不会落库，"
+            + "仅打印到 ypbin.access-log 日志；需要持久化请提供 LogDao Bean，微服务跨服务上报请提供"
+            + " RemoteLogIngestClient Bean（starter 会自动装配远端实现）。");
         return new DefaultLogDao();
     }
 

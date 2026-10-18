@@ -45,6 +45,19 @@ List<MenuNode> tree = TreeUtils.build(flatList);        // 自动识别根节点
 List<MenuNode> tree2 = TreeUtils.build(flatList, 0L);   // 指定根父 ID
 ```
 
+字段名与接口不一致（例如实体用 `pid` 而不是 `getParentId()`）时**不必实现接口**，用函数式重载即可，
+内部与接口式 `build` 共用同一份 O(n) 实现（同一复杂度、同一根判定，不存在第二套算法）：
+
+```java
+// 宿主实体：字段是 id / pid，没有 getParentId()
+List<Dept> tree = TreeUtils.build(depts, Dept::getId, Dept::getPid, Dept::setChildren);
+List<Dept> tree2 = TreeUtils.build(depts, Dept::getId, Dept::getPid, Dept::setChildren, 0L); // 指定根父 ID
+```
+
+`TreeUtils.getDescendantIds(node)` 收集子孙 ID 时内置**环防护**（迭代 + 已访问集合）：部门/菜单只有单父列，
+两次编辑就可能造出 A→B→A 的环，旧递归实现会 `StackOverflowError`；现在对合法树输出不变，
+对成环数据返回已访问子集（不重复、不含起始节点自身）。
+
 **启动自省清单** `StarterStartupSummary`：应用就绪（`ApplicationReadyEvent`）时打印**一行** INFO，汇总本次真正装配成功的 ypbin starter 自动配置，形如
 `[ypbin-starter] Activated: cache(2), core(1), security(6) | starter auto-configurations=12 | Spring Boot … / Java …`：
 
@@ -56,6 +69,36 @@ ypbin:
 ```
 
 数据取自 Boot `ConditionEvaluationReport` 的**条件全匹配**集合（不是扫 classpath）：classpath 上有 jar ≠ 实际装配成功，条件报告反映真实求值结果，因此能直接暴露「引了但没装配」这类静默失效。模块名按 `cn.ypbin.starter.<module>.*` 取包段近似（如 `cache`、`security`；`extension.*` 取 `extension`），仅供日志可读。清单生成过程任何异常只记 WARN（带完整堆栈）并继续，**不阻断启动**。
+
+#### 指标命名约定（跨服务可观测性契约）
+
+starter 与宿主此前各自拼指标名，同一次故障会产出两个名字（如出口丢弃既有 `iot.access.egress.dropped`
+又有 `ypbin.iot.errors{type=...}`），值班不知道该看哪个。约定收敛在 core 的 `MetricNames` /
+`MetricsSupport`（`cn.ypbin.starter.core.metrics`），**新埋点必须遵守**：
+
+| 项 | 约定 | 常量 |
+|---|---|---|
+| 前缀 | 全部指标以 `ypbin` 开头，形如 `ypbin.<module>.<name>` | `MetricNames.PREFIX` / `MetricNames.of(module, name)` |
+| 标签键 | 只用 `type` / `result` / `level` / `module`，禁止散落字面量 | `MetricNames.TAG_TYPE` / `TAG_RESULT` / `TAG_LEVEL` / `TAG_MODULE` |
+| `module` 标签 | 由 `MetricsSupport` 按入参自动补齐，调用方**不要**重复传 | `MetricsSupport.counter/increment/gauge` |
+| 标签顺序 | 按 key 字典序，同一组标签无论传参顺序都落到同一个 `Meter` | `MetricsSupport.tags(module, "k","v",...)` |
+| 改名 | 指标名/标签值是**对外契约**（看板、告警规则、SLI 口径）：**改名必须同步更新运维看板与告警并登记变更**，不得为好看单方面改名 | — |
+
+```java
+// 推荐：走薄封装，自动带前缀与 module 标签（module 同时作为指标名的模块段）
+MetricsSupport.increment(registry, "cache", "requests", MetricNames.TAG_LEVEL, "l1", MetricNames.TAG_RESULT, "hit");
+// → ypbin.cache.requests{module=cache,level=l1,result=hit}
+
+// 只需要命名、不用封装时
+String name = MetricNames.of("lock", "skipped");   // "ypbin.lock.skipped"
+```
+
+- 名称段只允许字母/数字/下划线/连字符与**内部**点号（如 `null.sentinel.hits`）；空、空白、连续点号、
+  首尾点号、含空格等一律抛 `IllegalArgumentException`（**拒绝而非静默清洗**——静默改写的代价就是埋点与看板各拼一份）。
+- 标签必须成对传入；`key` 为空、`value` 为 `null`、`key` 重复、重复传保留键 `module` 一律拒绝。
+- **不强制存量改名**：`ypbin.cache.*`、`ypbin.lock.*` 已符合前缀约定可直接沿用；改名属对外契约破坏，
+  须单独评估并同步运维面板。
+- `micrometer-core` 在 core 是 `optional`：不引入 micrometer 的宿主不会传递依赖，`MetricNames` 零依赖可单独使用。
 
 ### web — Web 层
 
@@ -496,13 +539,20 @@ Optional<Long> post = UserContext.getAttribute("postId", Long.class);
 
 ```java
 @Component
-public class MyPermissionProvider implements PermissionProvider {
+public class MyPermissionProvider extends AbstractPermissionProvider {
     @Override
-    public List<String> getPermissions(Object loginId, String loginType) {
-        return permissionService.listByUserId(Long.valueOf(loginId.toString()));
+    protected List<String> permissionsOf(long userId) {
+        return permissionService.listByUserId(userId);
+    }
+
+    @Override
+    protected List<String> rolesOf(long userId) {
+        return roleService.listCodesByUserId(userId);
     }
 }
 ```
+
+推荐继承 `AbstractPermissionProvider`（**新增类型，不改变 `PermissionProvider` 签名**）：它把「Sa-Token loginId → 业务 userId」的解析口径（`null`/非数字/带空白的数字）与 fail-closed 骨架收敛到框架侧——解析失败记 WARN 并返回空集合且不发起数据源调用，数据源返回 `null` 记 ERROR 并返回空集合；数据源自身抛出的异常原样上抛（不伪装成「空权限」）。直接实现 `PermissionProvider` 仍然合法，需要虚拟主体等特殊分支时也可覆写 `getPermissions`/`getRoles`。
 
 引入本模块后会自动对接 data 的审计字段（用当前登录用户填充 createUser/updateUser）。
 
@@ -766,7 +816,17 @@ public R<Void> create(@RequestBody OrderReq req) { ... }
 - 请求体从 AOP 入参序列化（能拿到 `@RequestBody` 的 JSON），过滤文件流等不可序列化参数。
 - 浏览器/操作系统由 User-Agent 解析分别提取（如 `Chrome 120` / `Windows 10`），非原始 UA 整串。
 - 持久化：实现 `LogDao` 落库（默认仅打印到日志）；操作人来源实现 `LogUserProvider`。
-- 操作人（`userId`）与登录客户端信息（`clientId/clientType/authType`）：**引入 security 模块后自动对接登录会话**（security 桥接 `LogUserProvider`/`LogClientProvider` 并前置于 log 默认空实现注册），无需业务实现即可记录“谁、从哪个客户端、用什么方式”操作。
+- **微服务跨服务上报（推荐）**：下游服务没有数据源时，不必自己实现 `LogDao`、也不必写任何自动配置顺序——只需把自家的远程客户端适配成窄端口 `RemoteLogIngestClient`，starter 会自动用远端实现替换默认的「只打印」实现并保证先于默认实现求值：
+
+  ```java
+  @Bean
+  RemoteLogIngestClient remoteLogIngestClient(ISystemClient systemClient) {
+      return systemClient::ingestLog;   // 返回 starter 的 R<Void>，不依赖任何业务结果类型
+  }
+  ```
+
+  `RemoteLogDao` 的失败语义是**记完整堆栈并上抛**（传输异常原样重抛；业务失败显式构造 `IllegalStateException`），绝不静默丢日志；异常由异步监听器捕获并记录，不影响业务请求。
+- 操作人（`userId`）与登录客户端信息（`clientId/clientType/authType`）：**引入 security 模块后自动对接登录态，身份头模式与单体会话均生效**（security 桥接 `LogUserProvider`/`LogClientProvider` 并前置于 log 默认空实现注册），无需业务实现即可记录“谁、从哪个客户端、用什么方式”操作。其中 `userId` 取自适应入口（身份头**优先**、无身份头回退 Sa-Token 会话——两者同时存在时取身份头值）；三个客户端字段不在网关签发的身份头里，由 security 按 userId 从账号会话中的 `LoginUser` 读取，读不到时留空并记 error（不臆造取值）。
 - IP 归属地（`location`）：默认不解析（字段留空）。需要时实现 `IpLocationResolver` 扩展点（接 ip2region 等 IP 库），采集时自动填充：
 
 ```java
@@ -834,6 +894,17 @@ public class LoginReq {
 | `tracking`（埋点） | 用户怎么用、卡在哪 | **是** | 可匿名 |
 
 **默认关闭**（`ypbin.tracking.enabled=false`，采集端点另有 `ingest-enabled`）：埋点会引入一个匿名可写入口，默认开启不是合理的默认值。开启后应覆盖 `TrackEventSink` 落库；未覆盖时装配期会打印一次 WARN 并只把事件打到应用日志——刻意不静默，避免「配了埋点却没有数据」。
+
+**微服务跨服务上报（推荐）**：下游服务没有 `sys_track_event` 数据源时，只需提供窄端口 `RemoteTrackIngestClient` 适配 Bean，starter 会自动装配远端 `TrackEventSink`（先于默认「只打印」落点求值，宿主无需写 `beforeName`）：
+
+```java
+@Bean
+RemoteTrackIngestClient remoteTrackIngestClient(ISystemClient systemClient) {
+    return systemClient::ingestTrackEvents;
+}
+```
+
+失败同样是「记完整堆栈并上抛」：由采集链路计入失败计数、退避后重试一次后丢弃（不无限重试），不会波及业务请求线程。
 
 ```yaml
 ypbin:
@@ -1002,6 +1073,22 @@ public void handle(Long orderId) { ... }   // 抢不到锁默认跳过，返回 
 @DistributedLock(key = "job:daily-settle", ttl = 300)
 public void dailySettle() { ... }
 ```
+
+**WARN 节流** `WarnThrottled`（`cn.ypbin.starter.tools.warn`，线程安全、无 Spring 依赖）：同一类告警按
+**最小间隔**只打一次，避免「队列满/租约抖/对账不一致」这类持续性问题把日志刷满、淹没真正的线索：
+
+```java
+private static final WarnThrottled WARN_DROP = new WarnThrottled(60_000);   // 间隔毫秒，0 = 不节流
+
+WARN_DROP.tryWarn("读数上报队列已满，已抑制 {} 条（累计丢弃 {}）", WARN_DROP.suppressedCount(), dropped);
+```
+
+- `tryWarn(format, args...)` 返回**本次是否真的打了日志**（间隔内被抑制返回 `false`），便于断言与分支；
+  SLF4J 语义一致：占位符 `{}`，末位传 `Throwable` 时按异常输出。间隔内被抑制的条数累计在
+  `suppressedCount()`，可放进 WARN 文案或注册成 Gauge（本类不依赖 micrometer）。
+- 构造参数 `minIntervalMillis < 0` 属配置错误，**构造即抛** `IllegalArgumentException`（不静默当作 0）。
+- 时钟回拨（系统时间被调早）时按「已到期」立即放行一次，而不是静默等到追平——宁可多打一条也不静默。
+- 需要把日志分类到业务组件的日志器时用 `new WarnThrottled(interval, logger)`。
 
 **AES 加解密** `AesUtils`：AES-GCM 认证加密，随机 IV 前置：
 
@@ -1199,6 +1286,51 @@ public class MyDataScopeHandler implements DataScopeHandler {
 @DataPermission
 public List<Order> listByScope(OrderQuery q) { ... }
 ```
+
+**算法上收（推荐用法）**：本模块现在提供「算法与机制」，业务只需提供数据源与身份/超管判定。
+`DataScopeCalculator` 是**纯逻辑**（零 IO、零 Spring）的数据范围算法，`AbstractDataScopeHandler`
+是把它接到 `DataScopeHandler` SPI 上的骨架：
+
+```java
+@Component
+public class MyDataScopeHandler extends AbstractDataScopeHandler {
+    @Override protected Optional<Long> currentUserId() { return IdentityContext.getUserId(); }
+    @Override protected Long currentUserDeptId() { return IdentityContext.getLoginUser().map(LoginUser::getDeptId).orElse(null); }
+    @Override protected boolean isSuperAdmin(long userId) { return permissionService.isSuperAdmin(userId); }
+    @Override protected List<RoleScope> loadRoleScopes(long userId) {
+        return roleMapper.selectByUserId(userId).stream()
+            .map(role -> new RoleScope(ScopeType.fromCode(role.getDataScope()), customDeptIdsOf(role)))
+            .toList();
+    }
+    @Override protected Map<Long, List<Long>> loadDeptChildren() { /* 一次全量查询建 pid 索引 */ }
+}
+```
+
+基类负责的部分（业务不要再写一遍）：
+
+- **多角色取并集（最大范围）**：任一角色为「全部」⇒ 不加条件；否则部门与「仅本人」合并。
+  **不得取交集**——取交集会让「一个角色管全公司 + 一个角色管本部门」的用户只剩本部门可见。
+- `ScopeType` 枚举与 `sys_role.data_scope` 码值一一对应（1 全部 / 2 本部门及以下 / 3 本部门 / 4 仅本人 / 5 自定义），
+  `ScopeType.fromCode(Integer)` 解析；**未知/脏 code 该角色不贡献任何范围**（收窄而非放大，是否留痕由调用方决定）。
+- `DEPT_AND_CHILD` / `CUSTOM` 含部门树后代；`collectDescendants` 为**迭代 + 已访问集合**，
+  部门数据成环（A→B→A）也正常返回而不栈溢出。
+- **fail-closed**：无角色、或部门范围角色但用户没有部门 ⇒ 读路径 `id = -1`（查不到任何行）、
+  写路径 `isDeptWithinScope` 拒绝；取不到当前用户（无身份头）同样拒绝并记 error。
+- **重入防护**：解析范围时的查询（角色/部门/超管判定）若也带 `@DataPermission`，回调会被短路为
+  「不叠加数据范围」，不会无限递归（`ThreadLocal` 标记，异常路径也保证清理）。
+- **写路径校验** `isDeptWithinScope(deptId)` 与读路径共用同一份算法；目标部门为空一律拒绝
+  （读路径是 `dept_id IN (...)`，NULL 不匹配任何部门，写进去就再也读不到）。
+
+`DataScopeCalculator` 也可脱离 Spring 直接单测/复用：
+
+```java
+ResolvedScope scope = DataScopeCalculator.resolve(roles, userDeptId, deptChildren);
+String sql = DataScopeCalculator.toSql(scope, userId, "id", "dept_id"); // null = 不限；空范围 = "id = -1"
+```
+
+> **已知边界**：`DataScopeHandler#getDataScopeSql(mappedStatementId, tableName)` 的签名没有表别名，
+> 生成的片段**不带别名前缀**，只适用于单表查询；在 `@DataPermission` 作用域内 JOIN 另一张也有 `dept_id`
+> 的表会出现列名歧义，需改写 SQL 或自定义处理器。
 
 ### async — 异步与线程池
 

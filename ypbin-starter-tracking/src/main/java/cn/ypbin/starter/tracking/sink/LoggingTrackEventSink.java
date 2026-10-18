@@ -26,8 +26,9 @@ import org.slf4j.LoggerFactory;
  * 默认埋点持久化实现：打印到应用日志。
  *
  * <p>零配置即可看到事件，适合开发调试。<strong>它不是落库实现</strong>——宿主应覆盖
- * {@link TrackEventSink} Bean 落库；未覆盖时装配期会打印一次 WARN 提示（避免「看起来配好了、
- * 其实没有落库」的静默降级）。</p>
+ * {@link TrackEventSink} Bean 落库（微服务跨服务上报可提供
+ * {@link cn.ypbin.starter.tracking.spi.RemoteTrackIngestClient}，由 starter 自动装配远端落点）；
+ * 两者都未提供时装配期会打印一次 WARN 提示（避免「看起来配好了、其实没有落库」的静默降级）。</p>
  *
  * <p><strong>刻意不打印 payload</strong>：属性表可能含用户可控内容，打印会同时带来日志噪音与
  * 日志注入面；日志只输出事件码与去重键，且经 {@link LogSanitizer} 处理。</p>

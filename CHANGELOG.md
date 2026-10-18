@@ -11,6 +11,145 @@
 
 > 下一开发版 `4.1.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
 
+### 新增
+
+- **`ypbin-starter-log` / `ypbin-starter-tracking`：跨服务日志/埋点上报下沉（#100）**——新增窄 SPI
+  `RemoteLogIngestClient`（`R<Void> ingestLog(LogRecord)`）与 `RemoteTrackIngestClient`
+  （`R<Void> ingestTrackEvents(List<TrackEvent>)`），端口放在各自能力模块内（**不放 cloud-core**：
+  L1 依赖 L3 会被 `LayeringRulesTest` 判违规，且会让只用日志的宿主被迫拖入 Spring Cloud；返回值用
+  starter 自己的 `R`，不依赖任何业务仓结果类型）。宿主只需把自家远程客户端适配成一个 Bean
+  （通常一行方法引用），starter 自动装配 `RemoteLogDao` / `RemoteTrackEventSink`：
+  - `RemoteLogAutoConfiguration` 用 `@AutoConfigureBefore(LogAutoConfiguration.class)`、
+    `RemoteTrackAutoConfiguration` 用 `@AutoConfigureBefore(TrackingAutoConfiguration.class)`，
+    保证先于各自的 `@ConditionalOnMissingBean` 默认实现求值——**宿主不再需要写
+    `@AutoConfiguration(beforeName = "...starter 内部类")`**（该知识原先指向 starter 内部类全限定名，
+    拼错即静默退回「只打印」默认实现，日志看似记录实则全丢）。
+  - 失败语义保持业务仓已生产验证的口径：传输异常记完整堆栈后**原样重抛**；业务失败（失败 `R` 或
+    `null` 响应）显式构造 `IllegalStateException` 后记录并抛出，绝不静默丢日志。
+  - 新增用例覆盖：有/无 Ingest 客户端 Bean 时装配的是远端实现还是默认实现（含端到端接线断言）、
+    宿主自定义实现优先、开关关闭不生效，以及**反向对照**（去掉 `@AutoConfigureBefore` 的孪生自动配置
+    必须让默认实现抢先注册，证明顺序注解真的必要而非类名字典序侥幸）。
+- **`ypbin-starter-security`：`AbstractPermissionProvider` 抽象基类（#101）**——把「Sa-Token loginId →
+  业务 userId」的解析口径与 fail-closed 骨架收敛到框架侧，宿主只需实现 `permissionsOf(long)` /
+  `rolesOf(long)` 两个数据源方法（原先这段解析在 4 个业务模块逐字节重复，口径变更要改 4 处，
+  漏一处即「该服务权限恒空、403」的静默失效）。`userIdOf(loginId, loginType)` 统一
+  `null` / 非数字 / **带空白数字**（trim 后合法）三种输入；解析失败记 WARN 并返回空集合且**不发起数据源调用**；
+  数据源返回 `null` 记 ERROR 并返回空集合；数据源自身抛异常原样上抛（不伪装成「空权限」）。
+  **非破坏性新增**：`PermissionProvider` 签名未改、既有 API 未删，直接实现接口仍然合法。
+  新增 `AbstractPermissionProviderTest` 覆盖上述四类输入与日志级别。
+- **`ypbin-starter-tools`：CSV 解析侧 `CsvReader` / `CsvLimits` / `CsvRowError`**（#102）。
+  此前 `CsvUtils` 只有写出半边（BOM + RFC 4180 转义 + 公式注入中和），读取侧完全缺失，导致每个需要
+  「导入 CSV」的宿主都要自建解析器，而 CSV 的引号/跨行/BOM 语义是对外契约的一部分。本次补齐：
+  - **RFC 4180 读取**：引号内逗号、引号内换行（单元格可放多行备注）、连续引号表示字面引号、
+    CRLF/LF/裸 CR 混用、UTF-8 BOM 自动剥离；**严格 UTF-8 解码**（非法字节报 `FILE_NOT_UTF8`，
+    不用 U+FFFD 静默替换掩盖「文件编码不对」这一真实病因）。
+  - **资源上限 `CsvLimits`**（默认 2 MiB / 1 万记录 / 256 列）：字节、记录数、列数任一超限
+    立即抛 `CsvLimitExceededException`，**绝不截断后返回部分结果**（禁静默截断）。记录数上限按
+    「扫描到的全部记录」计（含语法错误行），否则「一万行全错」仍会打满内存。
+    `CsvUtils` 的业务配额口径不变：`CsvLimits` 只是机制兜底，业务配额仍由业务层用更小值覆盖。
+  - **逐行错误 `CsvRowError` + `CsvErrorCode`**：行号（物理行号，跨行字段后仍指向真实起始行）+ 稳定错误码
+    可聚合为导入报告；非法引号形态（未闭合 / 字段中部出现引号 / 引号段后有多余字符）**显式报错**，
+    不按字面量静默吞掉。列数以首条合法记录（通常表头）为基准，不齐记 `COLUMN_COUNT_MISMATCH`。
+  - **两个入口**：`parse` 返回「成功记录 + 逐行错误」（能导入的先导入），`read` 要求全对（否则抛
+    `CsvParseException` 并带全部行级明细）。`CsvUtils` 增加 `parse`/`parseText` 委托，实现只有一份。
+  - **写读对拍（round-trip）**：`CsvUtils.toCsv` / `write` 写出的内容能被 `CsvReader` 原样读回；
+    唯一单向变换是公式注入中和（危险首字符加 `'` 前缀，安全优先、有意为之），测试逐单元格钉住。
+- **`BaseEnum` 三处集成：JSON / MyBatis / Web**（#102）。
+  `cn.ypbin.starter.core.enums.BaseEnum` 此前全仓**零引用**——接口注释写着「`value` 用于存储/传输」，
+  但没有任何机制兑现它，业务只能各自写 `@JsonValue`、`typeHandler`、手工转换。本次三处落地，
+  **均默认开启、可用配置关闭、均不影响未实现该接口的枚举**（各配回归用例）：
+  - **`ypbin-starter-json`：`BaseEnumModule`**。自定义 `JacksonModule` 实现枚举序列化/反序列化钩子
+    （`SimpleModule#addSerializer(Class,…)` 对枚举子类不生效，故不用它）。序列化输出 `getValue()`；
+    反序列化接受数字/字符串/布尔并按 `value` 匹配，未知值**显式失败并列出可选值**（不返回 null、
+    不取第一个常量）。**三条让位原则**：不碰非 `BaseEnum` 枚举、跳过 `@JsonValue` 标注的枚举、
+    跳过 `@JsonFormat(shape=POJO/OBJECT)` 的枚举——保证既有枚举的对外 JSON 一个字节不变。
+    开关 `ypbin.json.base-enum.enabled`（默认 true）。
+  - **`ypbin-starter-data`：`BaseEnumTypeHandler`**。按 `value` 落库、按 `value` 回填，取代默认
+    `EnumTypeHandler`（存 `name()`）与 `EnumOrdinalTypeHandler`（存序号，改枚举顺序即数据错位）。
+    注册走 **MyBatis-Plus `ConfigurationCustomizer` + 按具体枚举类型逐个注册**：接口级注册
+    （`register(BaseEnum.class, handlerClass)`）对实体字段声明的具体枚举**不命中**，
+    而改默认枚举处理器会连带影响未实现 `BaseEnum` 的既有枚举（静态全局语义），故都不采用。
+    候选枚举由 `BaseEnumScanner` 扫描（默认 `cn.ypbin`，可配 `ypbin.data.base-enum.scan-packages`）——
+    MyBatis 的注册表无法按接口自动匹配。库中值与枚举定义不一致时**显式抛异常**，不静默返回 null。
+    开关 `ypbin.data.base-enum.enabled`（默认 true）。H2 端到端验证 value → 库 → 枚举往返。
+  - **`ypbin-starter-web`：`BaseEnumConverterFactory`**。让 `?status=1` 直接绑定到枚举（Spring 默认
+    `StringToEnumConverterFactory` 只认常量名，前端按契约传 value 会 400）。实现
+    `ConditionalConverter` 是**必需而非优化**：`ConvertersForPair` 用 `addFirst` 插入并按逆序匹配，
+    本工厂晚于内置工厂注册，若不限定目标类型就会抢走**所有**枚举（含非 `BaseEnum`）的绑定、破坏既有行为。
+    空串/纯空白绑定为 null（前端「清空筛选」），未知值抛 `IllegalArgumentException` → 400。
+    开关 `ypbin.web.base-enum.enabled`（默认 true）。
+  - **宿主侧迁移不在本次范围**：admin/iot 仓库的 `@Value` → `@ConfigurationProperties` 改造、
+    既有业务枚举改为实现 `BaseEnum`、以及 iot `deviceimport` 迁移到 starter 能力，均属业务仓变更，
+    由各自任务跟进；本仓只保证 starter 侧 API 足以覆盖该能力。
+- **`ypbin-starter-cloud-core`：下游服务默认属性注入 `DownstreamDefaultsEnvironmentPostProcessor`**（#103）。
+  微服务下游服务（无 Sa-Token 会话、身份来自网关注入头）需要在每个宿主重复抄同一段配置，漏抄的后果
+  不显眼但都很严重。本后处理器以**最低优先级**注入默认值，且**只默认注入方向安全（fail-closed）的项**：
+  - **`ypbin.tenant.fail-on-missing-tenant=true`（默认注入）**：它把「无租户上下文」从「可能放行查询」
+    收紧为「明确失败」，避免跨租户数据泄露，方向安全，故默认注入。
+  - **`ypbin.security.interceptor=false`（默认不注入，需显式 opt-in）**：该项是**关闭**全局登录拦截
+    （不再执行 `StpUtil.checkLogin()`），默认注入等于默认放宽安全面，违反 fail-closed。
+    更关键的是**「下游服务」没有可靠自动判据**：`ypbin-auth` 这类既有服务依赖 `cloud-core`，
+    但有真实用户会话，且 admin/iot 两仓的 `deploy/nacos/ypbin-auth.yaml` **都没有配**该项——
+    若默认注入 `false`，升级后 auth 的 `/user/info`、`/codes`、`/menu/all`、`/check`、`/social/*`
+    等未标注 `@SaCheckLogin` 的端点会**静默失去全局登录校验**，属升级即引入的越权风险
+    （#103 验收标准 4「不得改变既有部署行为」）。故改为**显式 opt-in**：宿主声明
+    `ypbin.downstream.security-interceptor-disabled=true`（默认 false）后才注入
+    `ypbin.security.interceptor=false`；即便启用，注解鉴权 `annotation-check` 仍默认开启。
+  - 业务显式配置**逐项优先**（逐 key 判断 `containsProperty`，只覆盖一项时另一项仍取默认）。
+  - **`ypbin.cloud.feign.trusted-source-token` 刻意不提供任何默认值**：那是真实凭据，默认值意味着所有宿主
+    共享同一把密钥且密钥进入仓库，等同没有校验（测试显式断言该键不出现在注入的属性源中）。
+  - 配置键字面量全部抽为 `public static final` 常量（`ENABLED_PROPERTY` /
+    `SECURITY_INTERCEPTOR_DISABLED_OPT_IN` / `SECURITY_INTERCEPTOR_PROPERTY` /
+    `TENANT_FAIL_ON_MISSING_PROPERTY`），避免魔法值与测试硬编码漂移。
+  - 总开关 `ypbin.downstream.defaults-enabled`（默认 true）。
+  **注册方式说明**：`EnvironmentPostProcessor` 在自动配置阶段之前就要参与 `@ConditionalOnProperty` /
+  配置绑定判断，只能用 `EnvironmentPostProcessor`；而它**没有** `AutoConfiguration.imports` 之外的
+  注册途径，因此本类按 Boot 官方要求注册在 `META-INF/spring.factories` 的
+  `org.springframework.boot.EnvironmentPostProcessor` 键下。这**不违反**本仓「禁止用 `spring.factories`
+  注册自动配置」的约定——该约定针对 `@AutoConfiguration` 类，`EnvironmentPostProcessor` 是唯一的例外，
+  且有 `SourceConventionTest`（源码级注册校验）复核。
+- **`ypbin-starter-extension-datapermission`：数据范围算法上收（#107，纯新增、不改既有 SPI 签名）**。
+  模块此前「只有机制、没有算法」（只负责把 SQL 片段并进 `WHERE`，片段怎么算完全交给宿主）。现新增：
+  - `DataScopeCalculator`：纯逻辑（零 IO、零 Spring）的数据范围算法。`ScopeType` 枚举（与
+    `sys_role.data_scope` 的 1/2/3/4/5 对应，`fromCode` 解析，脏值 → `UNKNOWN`）、`RoleScope` 输入值对象、
+    `ResolvedScope` 输出值对象（不可变，`denyAll()` / `isEmpty()`）、`resolve`（**多角色取并集/最大范围**，
+    `DEPT_AND_CHILD`/`CUSTOM` 含部门树后代，未知 code 不贡献，无角色 ⇒ 拒绝全部，
+    部门范围角色 + 用户无部门 ⇒ 拒绝全部）、`collectDescendants`（**迭代 + 已访问集合**，部门成环不栈溢出）、
+    `toSql`（片段拼装；不可见时 `null` 表示不限，空范围返回 `id = -1`）。
+  - `AbstractDataScopeHandler`：`DataScopeHandler` 的抽象骨架，把重入防护（`ThreadLocal`）、超管短路、
+    拒绝全部、写路径 `isDeptWithinScope`、读路径编排全部收进基类，业务只实现 5 个抽象方法
+    （`currentUserId` / `currentUserDeptId` / `isSuperAdmin` / `loadRoleScopes` / `loadDeptChildren`）。
+  - `DataScopeHandler#getDataScopeSql` 补 `@Nullable` 标注（**仅空值语义注解，签名与行为不变**，
+    与接口 Javadoc 早已声明的「无限制时返回 null」对齐）。
+- **`ypbin-starter-core`：`TreeUtils` 函数式建树重载（#106①）**：
+  `build(flat, idFn, parentIdFn, childrenSetter[, rootParentId])` 让字段名与 `TreeNode` 不一致的宿主
+  （如实体用 `pid`）无需适配方法即可 O(n) 建树；内部**复用同一份实现**，不存在第二套算法。
+- **`ypbin-starter-core`：`TreeUtils.getDescendantIds` 补环防护（#107 验收 3）**：改为迭代 + 已访问集合，
+  对合法树行为不变；成环数据（A→B→A，业务校验只拒绝「父是自己」时仍可能造出）从 `StackOverflowError`
+  变成返回已访问子集。
+- **`ypbin-starter-tools`：`WarnThrottled`（#106②，`cn.ypbin.starter.tools.warn`）**：按最小间隔节流的 WARN
+  输出器（线程安全、无 Spring 依赖），`tryWarn` 返回是否真的打了日志，`suppressedCount()` 返回被抑制条数；
+  可注入 `Clock` 使「跨间隔」可确定性测试。收敛宿主机里「同一 key 告警按间隔打」的同构复制。
+- **`ypbin-starter-core`：指标命名约定 `MetricNames` / `MetricsSupport`（#106③）**：统一前缀 `ypbin`、
+  统一标签键 `type`/`result`/`level`/`module`，`MetricsSupport` 自动补 `module` 标签并按 key 排序保证
+  标签顺序稳定；非法名称段/标签一律**拒绝**而不是静默清洗。`docs/MODULES.md` 新增「指标命名约定」一节
+  （含「改名必须同步看板」纪律）。**不强制存量指标改名**（改名属对外契约破坏，需单独评估）。
+
+### 修复
+
+- **`ypbin-starter-security`：`SecurityLogClientAutoConfiguration` 两个默认 provider 在微服务身份头模式下失效（#100）**：
+  - `securityLogUserProvider()` 从 `LoginHelper::getUserIdSafely`（只读 Sa-Token 会话）改为自适应入口
+    `UserContext::getUserIdSafely`——身份头模式（下游服务无会话）由「userId 恒空」变为能取到真实操作人。
+    ⚠️ **这是行为变更，不是等价替换**：身份头与会话**同时存在**时新实现返回**身份头** userId（旧实现返回会话
+    userId）。该优先级已作为契约用三条用例钉死（仅身份头 / 仅会话 / 两者共存取身份头）。
+  - `securityLogClientProvider()` 从「读当前登录用户」改为 `SessionLogClientProvider`：网关签发的身份头
+    只有 id/username/tenantId/deptId/roles 五项，**不含** clientId/clientType/authType，故这三个字段改为按
+    userId 读账号会话中的 `LoginUser`（`StpUtil.getSessionByLoginId`，与在线用户读会话同一套机制）；
+    身份头与单体两种形态共用同一实现。读会话异常/类型不可识别记 error 并带完整堆栈后返回空
+    （为 3 个附加字段丢掉整条审计记录得不偿失，但不静默）；会话中本就没回填则返回空、不臆造取值。
+    新 Bean **留在既有 `@ConditionalOnClass(LogClientProvider.class)` 类级条件内**，未新起无该条件的配置类
+    （starter-log 对本模块是 optional 依赖，另起配置类会在未引 log 的宿主上 `NoClassDefFoundError`）。
+
 ## [4.0.0] - 2026-10-17
 
 > 本版本为**主版本升级（`3.9.1` → `4.0.0`）**：新能力向后兼容，但包含三处经授权的公开 API
