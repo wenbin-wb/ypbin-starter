@@ -65,6 +65,14 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- 指标命名约定与薄封装（可选）：MetricsSupport 需要 micrometer-core，
+             不引入 micrometer 的宿主不会传递该依赖，只是用不到 MetricsSupport（MetricNames 零依赖） -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- 测试依赖：JUnit 5 / AssertJ / Spring Boot Test（SpringUtils 集成测试需要容器） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

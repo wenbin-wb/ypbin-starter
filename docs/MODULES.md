@@ -45,6 +45,19 @@ List<MenuNode> tree = TreeUtils.build(flatList);        // 自动识别根节点
 List<MenuNode> tree2 = TreeUtils.build(flatList, 0L);   // 指定根父 ID
 ```
 
+字段名与接口不一致（例如实体用 `pid` 而不是 `getParentId()`）时**不必实现接口**，用函数式重载即可，
+内部与接口式 `build` 共用同一份 O(n) 实现（同一复杂度、同一根判定，不存在第二套算法）：
+
+```java
+// 宿主实体：字段是 id / pid，没有 getParentId()
+List<Dept> tree = TreeUtils.build(depts, Dept::getId, Dept::getPid, Dept::setChildren);
+List<Dept> tree2 = TreeUtils.build(depts, Dept::getId, Dept::getPid, Dept::setChildren, 0L); // 指定根父 ID
+```
+
+`TreeUtils.getDescendantIds(node)` 收集子孙 ID 时内置**环防护**（迭代 + 已访问集合）：部门/菜单只有单父列，
+两次编辑就可能造出 A→B→A 的环，旧递归实现会 `StackOverflowError`；现在对合法树输出不变，
+对成环数据返回已访问子集（不重复、不含起始节点自身）。
+
 **启动自省清单** `StarterStartupSummary`：应用就绪（`ApplicationReadyEvent`）时打印**一行** INFO，汇总本次真正装配成功的 ypbin starter 自动配置，形如
 `[ypbin-starter] Activated: cache(2), core(1), security(6) | starter auto-configurations=12 | Spring Boot … / Java …`：
 
@@ -56,6 +69,36 @@ ypbin:
 ```
 
 数据取自 Boot `ConditionEvaluationReport` 的**条件全匹配**集合（不是扫 classpath）：classpath 上有 jar ≠ 实际装配成功，条件报告反映真实求值结果，因此能直接暴露「引了但没装配」这类静默失效。模块名按 `cn.ypbin.starter.<module>.*` 取包段近似（如 `cache`、`security`；`extension.*` 取 `extension`），仅供日志可读。清单生成过程任何异常只记 WARN（带完整堆栈）并继续，**不阻断启动**。
+
+#### 指标命名约定（跨服务可观测性契约）
+
+starter 与宿主此前各自拼指标名，同一次故障会产出两个名字（如出口丢弃既有 `iot.access.egress.dropped`
+又有 `ypbin.iot.errors{type=...}`），值班不知道该看哪个。约定收敛在 core 的 `MetricNames` /
+`MetricsSupport`（`cn.ypbin.starter.core.metrics`），**新埋点必须遵守**：
+
+| 项 | 约定 | 常量 |
+|---|---|---|
+| 前缀 | 全部指标以 `ypbin` 开头，形如 `ypbin.<module>.<name>` | `MetricNames.PREFIX` / `MetricNames.of(module, name)` |
+| 标签键 | 只用 `type` / `result` / `level` / `module`，禁止散落字面量 | `MetricNames.TAG_TYPE` / `TAG_RESULT` / `TAG_LEVEL` / `TAG_MODULE` |
+| `module` 标签 | 由 `MetricsSupport` 按入参自动补齐，调用方**不要**重复传 | `MetricsSupport.counter/increment/gauge` |
+| 标签顺序 | 按 key 字典序，同一组标签无论传参顺序都落到同一个 `Meter` | `MetricsSupport.tags(module, "k","v",...)` |
+| 改名 | 指标名/标签值是**对外契约**（看板、告警规则、SLI 口径）：**改名必须同步更新运维看板与告警并登记变更**，不得为好看单方面改名 | — |
+
+```java
+// 推荐：走薄封装，自动带前缀与 module 标签（module 同时作为指标名的模块段）
+MetricsSupport.increment(registry, "cache", "requests", MetricNames.TAG_LEVEL, "l1", MetricNames.TAG_RESULT, "hit");
+// → ypbin.cache.requests{module=cache,level=l1,result=hit}
+
+// 只需要命名、不用封装时
+String name = MetricNames.of("lock", "skipped");   // "ypbin.lock.skipped"
+```
+
+- 名称段只允许字母/数字/下划线/连字符与**内部**点号（如 `null.sentinel.hits`）；空、空白、连续点号、
+  首尾点号、含空格等一律抛 `IllegalArgumentException`（**拒绝而非静默清洗**——静默改写的代价就是埋点与看板各拼一份）。
+- 标签必须成对传入；`key` 为空、`value` 为 `null`、`key` 重复、重复传保留键 `module` 一律拒绝。
+- **不强制存量改名**：`ypbin.cache.*`、`ypbin.lock.*` 已符合前缀约定可直接沿用；改名属对外契约破坏，
+  须单独评估并同步运维面板。
+- `micrometer-core` 在 core 是 `optional`：不引入 micrometer 的宿主不会传递依赖，`MetricNames` 零依赖可单独使用。
 
 ### web — Web 层
 
@@ -1031,6 +1074,22 @@ public void handle(Long orderId) { ... }   // 抢不到锁默认跳过，返回 
 public void dailySettle() { ... }
 ```
 
+**WARN 节流** `WarnThrottled`（`cn.ypbin.starter.tools.warn`，线程安全、无 Spring 依赖）：同一类告警按
+**最小间隔**只打一次，避免「队列满/租约抖/对账不一致」这类持续性问题把日志刷满、淹没真正的线索：
+
+```java
+private static final WarnThrottled WARN_DROP = new WarnThrottled(60_000);   // 间隔毫秒，0 = 不节流
+
+WARN_DROP.tryWarn("读数上报队列已满，已抑制 {} 条（累计丢弃 {}）", WARN_DROP.suppressedCount(), dropped);
+```
+
+- `tryWarn(format, args...)` 返回**本次是否真的打了日志**（间隔内被抑制返回 `false`），便于断言与分支；
+  SLF4J 语义一致：占位符 `{}`，末位传 `Throwable` 时按异常输出。间隔内被抑制的条数累计在
+  `suppressedCount()`，可放进 WARN 文案或注册成 Gauge（本类不依赖 micrometer）。
+- 构造参数 `minIntervalMillis < 0` 属配置错误，**构造即抛** `IllegalArgumentException`（不静默当作 0）。
+- 时钟回拨（系统时间被调早）时按「已到期」立即放行一次，而不是静默等到追平——宁可多打一条也不静默。
+- 需要把日志分类到业务组件的日志器时用 `new WarnThrottled(interval, logger)`。
+
 **AES 加解密** `AesUtils`：AES-GCM 认证加密，随机 IV 前置：
 
 ```java
@@ -1227,6 +1286,51 @@ public class MyDataScopeHandler implements DataScopeHandler {
 @DataPermission
 public List<Order> listByScope(OrderQuery q) { ... }
 ```
+
+**算法上收（推荐用法）**：本模块现在提供「算法与机制」，业务只需提供数据源与身份/超管判定。
+`DataScopeCalculator` 是**纯逻辑**（零 IO、零 Spring）的数据范围算法，`AbstractDataScopeHandler`
+是把它接到 `DataScopeHandler` SPI 上的骨架：
+
+```java
+@Component
+public class MyDataScopeHandler extends AbstractDataScopeHandler {
+    @Override protected Optional<Long> currentUserId() { return IdentityContext.getUserId(); }
+    @Override protected Long currentUserDeptId() { return IdentityContext.getLoginUser().map(LoginUser::getDeptId).orElse(null); }
+    @Override protected boolean isSuperAdmin(long userId) { return permissionService.isSuperAdmin(userId); }
+    @Override protected List<RoleScope> loadRoleScopes(long userId) {
+        return roleMapper.selectByUserId(userId).stream()
+            .map(role -> new RoleScope(ScopeType.fromCode(role.getDataScope()), customDeptIdsOf(role)))
+            .toList();
+    }
+    @Override protected Map<Long, List<Long>> loadDeptChildren() { /* 一次全量查询建 pid 索引 */ }
+}
+```
+
+基类负责的部分（业务不要再写一遍）：
+
+- **多角色取并集（最大范围）**：任一角色为「全部」⇒ 不加条件；否则部门与「仅本人」合并。
+  **不得取交集**——取交集会让「一个角色管全公司 + 一个角色管本部门」的用户只剩本部门可见。
+- `ScopeType` 枚举与 `sys_role.data_scope` 码值一一对应（1 全部 / 2 本部门及以下 / 3 本部门 / 4 仅本人 / 5 自定义），
+  `ScopeType.fromCode(Integer)` 解析；**未知/脏 code 该角色不贡献任何范围**（收窄而非放大，是否留痕由调用方决定）。
+- `DEPT_AND_CHILD` / `CUSTOM` 含部门树后代；`collectDescendants` 为**迭代 + 已访问集合**，
+  部门数据成环（A→B→A）也正常返回而不栈溢出。
+- **fail-closed**：无角色、或部门范围角色但用户没有部门 ⇒ 读路径 `id = -1`（查不到任何行）、
+  写路径 `isDeptWithinScope` 拒绝；取不到当前用户（无身份头）同样拒绝并记 error。
+- **重入防护**：解析范围时的查询（角色/部门/超管判定）若也带 `@DataPermission`，回调会被短路为
+  「不叠加数据范围」，不会无限递归（`ThreadLocal` 标记，异常路径也保证清理）。
+- **写路径校验** `isDeptWithinScope(deptId)` 与读路径共用同一份算法；目标部门为空一律拒绝
+  （读路径是 `dept_id IN (...)`，NULL 不匹配任何部门，写进去就再也读不到）。
+
+`DataScopeCalculator` 也可脱离 Spring 直接单测/复用：
+
+```java
+ResolvedScope scope = DataScopeCalculator.resolve(roles, userDeptId, deptChildren);
+String sql = DataScopeCalculator.toSql(scope, userId, "id", "dept_id"); // null = 不限；空范围 = "id = -1"
+```
+
+> **已知边界**：`DataScopeHandler#getDataScopeSql(mappedStatementId, tableName)` 的签名没有表别名，
+> 生成的片段**不带别名前缀**，只适用于单表查询；在 `@DataPermission` 作用域内 JOIN 另一张也有 `dept_id`
+> 的表会出现列名歧义，需改写 SQL 或自定义处理器。
 
 ### async — 异步与线程池
 

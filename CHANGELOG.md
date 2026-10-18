@@ -96,6 +96,32 @@
   `org.springframework.boot.EnvironmentPostProcessor` 键下。这**不违反**本仓「禁止用 `spring.factories`
   注册自动配置」的约定——该约定针对 `@AutoConfiguration` 类，`EnvironmentPostProcessor` 是唯一的例外，
   且有 `SourceConventionTest`（源码级注册校验）复核。
+- **`ypbin-starter-extension-datapermission`：数据范围算法上收（#107，纯新增、不改既有 SPI 签名）**。
+  模块此前「只有机制、没有算法」（只负责把 SQL 片段并进 `WHERE`，片段怎么算完全交给宿主）。现新增：
+  - `DataScopeCalculator`：纯逻辑（零 IO、零 Spring）的数据范围算法。`ScopeType` 枚举（与
+    `sys_role.data_scope` 的 1/2/3/4/5 对应，`fromCode` 解析，脏值 → `UNKNOWN`）、`RoleScope` 输入值对象、
+    `ResolvedScope` 输出值对象（不可变，`denyAll()` / `isEmpty()`）、`resolve`（**多角色取并集/最大范围**，
+    `DEPT_AND_CHILD`/`CUSTOM` 含部门树后代，未知 code 不贡献，无角色 ⇒ 拒绝全部，
+    部门范围角色 + 用户无部门 ⇒ 拒绝全部）、`collectDescendants`（**迭代 + 已访问集合**，部门成环不栈溢出）、
+    `toSql`（片段拼装；不可见时 `null` 表示不限，空范围返回 `id = -1`）。
+  - `AbstractDataScopeHandler`：`DataScopeHandler` 的抽象骨架，把重入防护（`ThreadLocal`）、超管短路、
+    拒绝全部、写路径 `isDeptWithinScope`、读路径编排全部收进基类，业务只实现 5 个抽象方法
+    （`currentUserId` / `currentUserDeptId` / `isSuperAdmin` / `loadRoleScopes` / `loadDeptChildren`）。
+  - `DataScopeHandler#getDataScopeSql` 补 `@Nullable` 标注（**仅空值语义注解，签名与行为不变**，
+    与接口 Javadoc 早已声明的「无限制时返回 null」对齐）。
+- **`ypbin-starter-core`：`TreeUtils` 函数式建树重载（#106①）**：
+  `build(flat, idFn, parentIdFn, childrenSetter[, rootParentId])` 让字段名与 `TreeNode` 不一致的宿主
+  （如实体用 `pid`）无需适配方法即可 O(n) 建树；内部**复用同一份实现**，不存在第二套算法。
+- **`ypbin-starter-core`：`TreeUtils.getDescendantIds` 补环防护（#107 验收 3）**：改为迭代 + 已访问集合，
+  对合法树行为不变；成环数据（A→B→A，业务校验只拒绝「父是自己」时仍可能造出）从 `StackOverflowError`
+  变成返回已访问子集。
+- **`ypbin-starter-tools`：`WarnThrottled`（#106②，`cn.ypbin.starter.tools.warn`）**：按最小间隔节流的 WARN
+  输出器（线程安全、无 Spring 依赖），`tryWarn` 返回是否真的打了日志，`suppressedCount()` 返回被抑制条数；
+  可注入 `Clock` 使「跨间隔」可确定性测试。收敛宿主机里「同一 key 告警按间隔打」的同构复制。
+- **`ypbin-starter-core`：指标命名约定 `MetricNames` / `MetricsSupport`（#106③）**：统一前缀 `ypbin`、
+  统一标签键 `type`/`result`/`level`/`module`，`MetricsSupport` 自动补 `module` 标签并按 key 排序保证
+  标签顺序稳定；非法名称段/标签一律**拒绝**而不是静默清洗。`docs/MODULES.md` 新增「指标命名约定」一节
+  （含「改名必须同步看板」纪律）。**不强制存量指标改名**（改名属对外契约破坏，需单独评估）。
 
 ### 修复
 
