@@ -90,7 +90,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(b') 多角色 DEPT + DEPT_AND_CHILD ⇒ 部门取并集（大范围覆盖小范围）")
+    @DisplayName("(b-2) 多角色 DEPT + DEPT_AND_CHILD ⇒ 部门取并集（大范围覆盖小范围）")
     void multipleDeptRolesShouldUnionDeptIds() {
         ResolvedScope scope = DataScopeCalculator.resolve(
             List.of(role(ScopeType.DEPT), role(ScopeType.DEPT_AND_CHILD)), 2L, deptTree());
@@ -100,7 +100,26 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(b'') 任一角色 ALL ⇒ 整体不限（最大范围优先）")
+    @DisplayName("(b-3) 并集与角色顺序无关（交换律）：正序与倒序结果一致")
+    void unionShouldBeOrderIndependent() {
+        List<RoleScope> forward = List.of(
+            new RoleScope(ScopeType.DEPT, List.of()),
+            new RoleScope(ScopeType.SELF, List.of()),
+            customRole(5L));
+        List<RoleScope> reversed = List.of(customRole(5L), role(ScopeType.SELF), role(ScopeType.DEPT));
+
+        ResolvedScope byForward = DataScopeCalculator.resolve(forward, 2L, deptTree());
+        ResolvedScope byReversed = DataScopeCalculator.resolve(reversed, 2L, deptTree());
+
+        // 并集必须交换律成立；若实现退化成「按顺序取交集/单向覆盖」，两者会不一致
+        assertThat(byForward.deptIds()).isEqualTo(byReversed.deptIds());
+        assertThat(byForward.deptIds()).containsExactlyInAnyOrder(2L, 5L);
+        assertThat(byForward.self()).isTrue();
+        assertThat(byReversed.self()).isTrue();
+    }
+
+    @Test
+    @DisplayName("(b-4) 任一角色 ALL ⇒ 整体不限（最大范围优先）")
     void anyAllRoleShouldDominate() {
         ResolvedScope scope = DataScopeCalculator.resolve(
             List.of(role(ScopeType.DEPT), role(ScopeType.ALL), role(ScopeType.SELF)), 2L, deptTree());
@@ -123,7 +142,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(c') DEPT 只含本部门、不含后代")
+    @DisplayName("(c-2) DEPT 只含本部门、不含后代")
     void deptShouldNotIncludeDescendants() {
         ResolvedScope scope = DataScopeCalculator.resolve(List.of(role(ScopeType.DEPT)), 1L, deptTree());
 
@@ -142,7 +161,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(d') 同角色多份 CUSTOM 声明、以及 DEPT+SELF+CUSTOM 组合均取并集")
+    @DisplayName("(d-2) 同角色多份 CUSTOM 声明、以及 DEPT+SELF+CUSTOM 组合均取并集")
     void customCombinedWithOtherRoles() {
         ResolvedScope scope = DataScopeCalculator.resolve(
             List.of(customRole(3L), role(ScopeType.SELF), role(ScopeType.DEPT)), 1L, deptTree());
@@ -172,7 +191,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(e') 脏 code 经 fromCode 解析为 UNKNOWN；合法 code 解析出对应类型")
+    @DisplayName("(e-2) 脏 code 经 fromCode 解析为 UNKNOWN；合法 code 解析出对应类型")
     void fromCodeShouldParseCodes() {
         assertThat(ScopeType.fromCode(1)).isEqualTo(ScopeType.ALL);
         assertThat(ScopeType.fromCode(2)).isEqualTo(ScopeType.DEPT_AND_CHILD);
@@ -195,7 +214,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(e'') RoleScope 入参规整：null 类型按 UNKNOWN、null 部门列表按空集合")
+    @DisplayName("(e-3) RoleScope 入参规整：null 类型按 UNKNOWN、null 部门列表按空集合")
     void roleScopeShouldNormalizeNulls() {
         RoleScope nullType = new RoleScope(null, null);
 
@@ -218,7 +237,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(f') 角色列表含 null 元素时跳过而不失败")
+    @DisplayName("(f-2) 角色列表含 null 元素时跳过而不失败")
     void nullRoleElementShouldBeSkipped() {
         List<RoleScope> roles = new ArrayList<>();
         roles.add(null);
@@ -243,7 +262,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(g') 空 deptId 但角色含 SELF ⇒ 仍可看本人（不是拒绝全部）")
+    @DisplayName("(g-2) 空 deptId 但角色含 SELF ⇒ 仍可看本人（不是拒绝全部）")
     void nullUserDeptIdWithSelfRoleShouldStillSeeSelf() {
         ResolvedScope scope = DataScopeCalculator.resolve(List.of(role(ScopeType.SELF)), null, deptTree());
 
@@ -268,7 +287,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(h') 自环 + 空入参 ⇒ 不爆栈、返回空集合")
+    @DisplayName("(h-2) 自环 + 空入参 ⇒ 不爆栈、返回空集合")
     void collectDescendantsEdgeCases() {
         Map<Long, List<Long>> selfLoop = new HashMap<>();
         selfLoop.put(7L, new ArrayList<>(List.of(7L)));
@@ -289,7 +308,7 @@ class DataScopeCalculatorTest {
     }
 
     @Test
-    @DisplayName("(h'') 深层部门链（10 万层）不栈溢出：迭代实现")
+    @DisplayName("(h-3) 深层部门链（10 万层）不栈溢出：迭代实现")
     void collectDescendantsShouldHandleDeepChain() {
         int depth = 100_000;
         Map<Long, List<Long>> chain = new HashMap<>();
