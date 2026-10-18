@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.datapermission.core;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 数据范围处理扩展点。
  *
@@ -38,5 +40,6 @@ public interface DataScopeHandler {
      * @param tableName         当前查询主表名
      * @return SQL 条件片段（不含 WHERE 关键字），无限制时返回 {@code null}
      */
+    @Nullable
     String getDataScopeSql(String mappedStatementId, String tableName);
 }
