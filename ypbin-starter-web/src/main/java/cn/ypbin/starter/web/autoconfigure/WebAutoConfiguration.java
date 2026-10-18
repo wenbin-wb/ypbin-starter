@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -31,7 +32,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
-import org.springframework.core.convert.converter.ConverterFactory;
+import org.springframework.core.convert.converter.GenericConverter;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -99,16 +100,25 @@ public class WebAutoConfiguration {
      * {@code WebMvcConfigurer#addFormatters} 是 Spring MVC 提供的唯一稳定扩展点，
      * 由 {@code WebMvcAutoConfigurationAdapter} 在创建 {@code mvcConversionService} 时回调。</p>
      *
-     * @param converterFactory BaseEnum 转换器工厂
+     * <p>参数按具体类型 {@link BaseEnumConverterFactory} 注入（而不是泛化的
+     * {@link GenericConverter}）：容器里可能还有其它 {@code GenericConverter}，
+     * 按泛化类型注入会产生歧义。</p>
+     *
+     * <p>用 {@code @ConditionalOnBean} 绑定转换器 bean 的存在性：关闭
+     * {@code ypbin.web.base-enum.enabled} 时转换器不装配，本配置器也必须一并缺席，
+     * 否则会因缺少依赖而启动失败。</p>
+     *
+     * @param converterFactory BaseEnum 转换器
      * @return MVC 配置器
      */
     @Bean
+    @ConditionalOnBean(BaseEnumConverterFactory.class)
     @ConditionalOnMissingBean(name = "baseEnumFormatterRegistrar")
-    public WebMvcConfigurer baseEnumFormatterRegistrar(ConverterFactory<String, Enum<?>> converterFactory) {
+    public WebMvcConfigurer baseEnumFormatterRegistrar(BaseEnumConverterFactory converterFactory) {
         return new WebMvcConfigurer() {
             @Override
             public void addFormatters(FormatterRegistry registry) {
-                registry.addConverterFactory(converterFactory);
+                registry.addConverter(converterFactory);
             }
         };
     }
