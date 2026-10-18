@@ -23,6 +23,10 @@ import java.util.List;
  * <p>采集链路只负责把事件投入有界队列，落库由本接口的实现决定（数据库 / 消息队列 / 文件）。
  * 默认实现 {@code LoggingTrackEventSink} 仅打印到应用日志，宿主覆盖本 Bean 即可落库。</p>
  *
+ * <p><strong>微服务跨服务上报请优先用窄端口
+ * {@link cn.ypbin.starter.tracking.spi.RemoteTrackIngestClient}</strong>：宿主只需把远程客户端适配成
+ * 一个 Bean，starter 会自动装配远端实现并保证先于默认落点求值，无需自己实现本接口。</p>
+ *
  * <p><strong>调用语义</strong>：本接口在采集侧<strong>消费者线程</strong>上被调用，与业务请求线程隔离，
  * 因此允许阻塞（批量写库）；但实现应保持幂等——同一 {@code eventId} 重复写入不得产生重复数据行。</p>
  *

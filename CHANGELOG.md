@@ -11,6 +11,48 @@
 
 > 下一开发版 `4.1.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
 
+### 新增
+
+- **`ypbin-starter-log` / `ypbin-starter-tracking`：跨服务日志/埋点上报下沉（#100）**——新增窄 SPI
+  `RemoteLogIngestClient`（`R<Void> ingestLog(LogRecord)`）与 `RemoteTrackIngestClient`
+  （`R<Void> ingestTrackEvents(List<TrackEvent>)`），端口放在各自能力模块内（**不放 cloud-core**：
+  L1 依赖 L3 会被 `LayeringRulesTest` 判违规，且会让只用日志的宿主被迫拖入 Spring Cloud；返回值用
+  starter 自己的 `R`，不依赖任何业务仓结果类型）。宿主只需把自家远程客户端适配成一个 Bean
+  （通常一行方法引用），starter 自动装配 `RemoteLogDao` / `RemoteTrackEventSink`：
+  - `RemoteLogAutoConfiguration` 用 `@AutoConfigureBefore(LogAutoConfiguration.class)`、
+    `RemoteTrackAutoConfiguration` 用 `@AutoConfigureBefore(TrackingAutoConfiguration.class)`，
+    保证先于各自的 `@ConditionalOnMissingBean` 默认实现求值——**宿主不再需要写
+    `@AutoConfiguration(beforeName = "...starter 内部类")`**（该知识原先指向 starter 内部类全限定名，
+    拼错即静默退回「只打印」默认实现，日志看似记录实则全丢）。
+  - 失败语义保持业务仓已生产验证的口径：传输异常记完整堆栈后**原样重抛**；业务失败（失败 `R` 或
+    `null` 响应）显式构造 `IllegalStateException` 后记录并抛出，绝不静默丢日志。
+  - 新增用例覆盖：有/无 Ingest 客户端 Bean 时装配的是远端实现还是默认实现（含端到端接线断言）、
+    宿主自定义实现优先、开关关闭不生效，以及**反向对照**（去掉 `@AutoConfigureBefore` 的孪生自动配置
+    必须让默认实现抢先注册，证明顺序注解真的必要而非类名字典序侥幸）。
+- **`ypbin-starter-security`：`AbstractPermissionProvider` 抽象基类（#101）**——把「Sa-Token loginId →
+  业务 userId」的解析口径与 fail-closed 骨架收敛到框架侧，宿主只需实现 `permissionsOf(long)` /
+  `rolesOf(long)` 两个数据源方法（原先这段解析在 4 个业务模块逐字节重复，口径变更要改 4 处，
+  漏一处即「该服务权限恒空、403」的静默失效）。`userIdOf(loginId, loginType)` 统一
+  `null` / 非数字 / **带空白数字**（trim 后合法）三种输入；解析失败记 WARN 并返回空集合且**不发起数据源调用**；
+  数据源返回 `null` 记 ERROR 并返回空集合；数据源自身抛异常原样上抛（不伪装成「空权限」）。
+  **非破坏性新增**：`PermissionProvider` 签名未改、既有 API 未删，直接实现接口仍然合法。
+  新增 `AbstractPermissionProviderTest` 覆盖上述四类输入与日志级别。
+
+### 修复
+
+- **`ypbin-starter-security`：`SecurityLogClientAutoConfiguration` 两个默认 provider 在微服务身份头模式下失效（#100）**：
+  - `securityLogUserProvider()` 从 `LoginHelper::getUserIdSafely`（只读 Sa-Token 会话）改为自适应入口
+    `UserContext::getUserIdSafely`——身份头模式（下游服务无会话）由「userId 恒空」变为能取到真实操作人。
+    ⚠️ **这是行为变更，不是等价替换**：身份头与会话**同时存在**时新实现返回**身份头** userId（旧实现返回会话
+    userId）。该优先级已作为契约用三条用例钉死（仅身份头 / 仅会话 / 两者共存取身份头）。
+  - `securityLogClientProvider()` 从「读当前登录用户」改为 `SessionLogClientProvider`：网关签发的身份头
+    只有 id/username/tenantId/deptId/roles 五项，**不含** clientId/clientType/authType，故这三个字段改为按
+    userId 读账号会话中的 `LoginUser`（`StpUtil.getSessionByLoginId`，与在线用户读会话同一套机制）；
+    身份头与单体两种形态共用同一实现。读会话异常/类型不可识别记 error 并带完整堆栈后返回空
+    （为 3 个附加字段丢掉整条审计记录得不偿失，但不静默）；会话中本就没回填则返回空、不臆造取值。
+    新 Bean **留在既有 `@ConditionalOnClass(LogClientProvider.class)` 类级条件内**，未新起无该条件的配置类
+    （starter-log 对本模块是 optional 依赖，另起配置类会在未引 log 的宿主上 `NoClassDefFoundError`）。
+
 ## [4.0.0] - 2026-10-17
 
 > 本版本为**主版本升级（`3.9.1` → `4.0.0`）**：新能力向后兼容，但包含三处经授权的公开 API

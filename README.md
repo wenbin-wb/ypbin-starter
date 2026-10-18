@@ -248,6 +248,7 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
 | `SensitiveWordProvider` / `AuthRequestProvider` / `GatewayAuthProvider` | sensitive-words/social/gateway | 可选 | 词库 / OAuth 平台 / 网关鉴权 |
 | `JobHandler`(+`@YpbinJob`) / `JobExecutionListener` | job | 可选 | 定时任务执行体 / 执行日志落库 |
 | `IpLocationResolver` | log | 可选 | 操作日志 IP 归属地解析 |
+| `RemoteLogIngestClient` / `RemoteTrackIngestClient` | log / tracking | 微服务跨服务上报时 | 把操作日志 / 埋点事件上报给有数据源的服务，starter 自动装配远端实现 |
 
 除「必须」项外均有默认实现（多为读配置文件），想接数据库/后台配置时才覆盖。所有能力 Bean 均 `@ConditionalOnMissingBean`，定义同类型 Bean 即覆盖。
 

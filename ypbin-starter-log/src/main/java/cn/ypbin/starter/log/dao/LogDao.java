@@ -23,6 +23,10 @@ import cn.ypbin.starter.log.model.LogRecord;
  * <p>采集到的 {@link LogRecord} 交由本接口落地。默认实现仅打印到应用日志，
  * 业务方实现本接口即可对接数据库 / ES / MQ 等，通过 {@code @ConditionalOnMissingBean} 覆盖。</p>
  *
+ * <p><strong>微服务跨服务上报请优先用窄端口 {@link cn.ypbin.starter.log.spi.RemoteLogIngestClient}</strong>：
+ * 只需把远程客户端适配成一个 Bean，starter 会自动装配 {@link RemoteLogDao} 并保证先于本类默认实现求值，
+ * 宿主无需自己实现 {@code LogDao}、也无需了解自动配置顺序。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */

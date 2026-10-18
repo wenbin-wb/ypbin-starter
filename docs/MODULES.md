@@ -496,13 +496,20 @@ Optional<Long> post = UserContext.getAttribute("postId", Long.class);
 
 ```java
 @Component
-public class MyPermissionProvider implements PermissionProvider {
+public class MyPermissionProvider extends AbstractPermissionProvider {
     @Override
-    public List<String> getPermissions(Object loginId, String loginType) {
-        return permissionService.listByUserId(Long.valueOf(loginId.toString()));
+    protected List<String> permissionsOf(long userId) {
+        return permissionService.listByUserId(userId);
+    }
+
+    @Override
+    protected List<String> rolesOf(long userId) {
+        return roleService.listCodesByUserId(userId);
     }
 }
 ```
+
+推荐继承 `AbstractPermissionProvider`（**新增类型，不改变 `PermissionProvider` 签名**）：它把「Sa-Token loginId → 业务 userId」的解析口径（`null`/非数字/带空白的数字）与 fail-closed 骨架收敛到框架侧——解析失败记 WARN 并返回空集合且不发起数据源调用，数据源返回 `null` 记 ERROR 并返回空集合；数据源自身抛出的异常原样上抛（不伪装成「空权限」）。直接实现 `PermissionProvider` 仍然合法，需要虚拟主体等特殊分支时也可覆写 `getPermissions`/`getRoles`。
 
 引入本模块后会自动对接 data 的审计字段（用当前登录用户填充 createUser/updateUser）。
 
@@ -766,7 +773,17 @@ public R<Void> create(@RequestBody OrderReq req) { ... }
 - 请求体从 AOP 入参序列化（能拿到 `@RequestBody` 的 JSON），过滤文件流等不可序列化参数。
 - 浏览器/操作系统由 User-Agent 解析分别提取（如 `Chrome 120` / `Windows 10`），非原始 UA 整串。
 - 持久化：实现 `LogDao` 落库（默认仅打印到日志）；操作人来源实现 `LogUserProvider`。
-- 操作人（`userId`）与登录客户端信息（`clientId/clientType/authType`）：**引入 security 模块后自动对接登录会话**（security 桥接 `LogUserProvider`/`LogClientProvider` 并前置于 log 默认空实现注册），无需业务实现即可记录“谁、从哪个客户端、用什么方式”操作。
+- **微服务跨服务上报（推荐）**：下游服务没有数据源时，不必自己实现 `LogDao`、也不必写任何自动配置顺序——只需把自家的远程客户端适配成窄端口 `RemoteLogIngestClient`，starter 会自动用远端实现替换默认的「只打印」实现并保证先于默认实现求值：
+
+  ```java
+  @Bean
+  RemoteLogIngestClient remoteLogIngestClient(ISystemClient systemClient) {
+      return systemClient::ingestLog;   // 返回 starter 的 R<Void>，不依赖任何业务结果类型
+  }
+  ```
+
+  `RemoteLogDao` 的失败语义是**记完整堆栈并上抛**（传输异常原样重抛；业务失败显式构造 `IllegalStateException`），绝不静默丢日志；异常由异步监听器捕获并记录，不影响业务请求。
+- 操作人（`userId`）与登录客户端信息（`clientId/clientType/authType`）：**引入 security 模块后自动对接登录态，身份头模式与单体会话均生效**（security 桥接 `LogUserProvider`/`LogClientProvider` 并前置于 log 默认空实现注册），无需业务实现即可记录“谁、从哪个客户端、用什么方式”操作。其中 `userId` 取自适应入口（身份头**优先**、无身份头回退 Sa-Token 会话——两者同时存在时取身份头值）；三个客户端字段不在网关签发的身份头里，由 security 按 userId 从账号会话中的 `LoginUser` 读取，读不到时留空并记 error（不臆造取值）。
 - IP 归属地（`location`）：默认不解析（字段留空）。需要时实现 `IpLocationResolver` 扩展点（接 ip2region 等 IP 库），采集时自动填充：
 
 ```java
@@ -834,6 +851,17 @@ public class LoginReq {
 | `tracking`（埋点） | 用户怎么用、卡在哪 | **是** | 可匿名 |
 
 **默认关闭**（`ypbin.tracking.enabled=false`，采集端点另有 `ingest-enabled`）：埋点会引入一个匿名可写入口，默认开启不是合理的默认值。开启后应覆盖 `TrackEventSink` 落库；未覆盖时装配期会打印一次 WARN 并只把事件打到应用日志——刻意不静默，避免「配了埋点却没有数据」。
+
+**微服务跨服务上报（推荐）**：下游服务没有 `sys_track_event` 数据源时，只需提供窄端口 `RemoteTrackIngestClient` 适配 Bean，starter 会自动装配远端 `TrackEventSink`（先于默认「只打印」落点求值，宿主无需写 `beforeName`）：
+
+```java
+@Bean
+RemoteTrackIngestClient remoteTrackIngestClient(ISystemClient systemClient) {
+    return systemClient::ingestTrackEvents;
+}
+```
+
+失败同样是「记完整堆栈并上抛」：由采集链路计入失败计数、退避后重试一次后丢弃（不无限重试），不会波及业务请求线程。
 
 ```yaml
 ypbin:

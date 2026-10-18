@@ -21,6 +21,7 @@ import cn.ypbin.starter.tracking.core.TrackIdentityProvider;
 import cn.ypbin.starter.tracking.core.TrackRecorder;
 import cn.ypbin.starter.tracking.core.TrackingEventCatalog;
 import cn.ypbin.starter.tracking.sink.LoggingTrackEventSink;
+import cn.ypbin.starter.tracking.spi.RemoteTrackIngestClient;
 import cn.ypbin.starter.tracking.support.BoundedEventQueue;
 import cn.ypbin.starter.tracking.support.TrackCounters;
 import cn.ypbin.starter.tracking.support.TrackFlusher;
@@ -58,15 +59,17 @@ public class TrackingAutoConfiguration {
      * 默认事件落点：仅打印到应用日志。
      *
      * <p>刻意在装配期打印 WARN：默认实现不落库，若不提示会造成「配置了埋点却没有数据」的静默降级。
-     * 宿主覆盖 {@link TrackEventSink} Bean 后本方法不再执行，警告随之消失。</p>
+     * 宿主覆盖 {@link TrackEventSink} Bean（或提供 {@link RemoteTrackIngestClient}，由
+     * {@link RemoteTrackAutoConfiguration} 装配远端落点）后本方法不再执行，警告随之消失。</p>
      *
      * @return 默认落点
      */
     @Bean
     @ConditionalOnMissingBean
     public TrackEventSink trackEventSink() {
-        log.warn("[ypbin-starter] tracking enabled but no TrackEventSink bean found; "
-            + "events will only be written to application log. Override TrackEventSink to persist them.");
+        log.warn("[ypbin-starter] tracking enabled but no TrackEventSink / RemoteTrackIngestClient bean found; "
+            + "events will only be written to application log. Override TrackEventSink or provide "
+            + "RemoteTrackIngestClient to persist them.");
         return new LoggingTrackEventSink();
     }
 
