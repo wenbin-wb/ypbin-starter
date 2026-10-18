@@ -1,2 +1,3 @@
 org.springframework.boot.EnvironmentPostProcessor=\
-cn.ypbin.starter.cloud.autoconfigure.FeignDefaultsEnvironmentPostProcessor
+cn.ypbin.starter.cloud.autoconfigure.FeignDefaultsEnvironmentPostProcessor,\
+cn.ypbin.starter.cloud.autoconfigure.DownstreamDefaultsEnvironmentPostProcessor

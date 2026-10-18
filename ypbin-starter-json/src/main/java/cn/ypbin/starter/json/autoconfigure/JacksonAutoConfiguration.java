@@ -17,9 +17,11 @@ package cn.ypbin.starter.json.autoconfigure;
 
 import static tools.jackson.databind.ser.std.ToStringSerializer.instance;
 
+import cn.ypbin.starter.core.enums.BaseEnum;
 import cn.ypbin.starter.json.dict.DictCache;
 import cn.ypbin.starter.json.dict.DictProvider;
 import cn.ypbin.starter.json.dict.DictUtils;
+import cn.ypbin.starter.json.enums.BaseEnumModule;
 import cn.ypbin.starter.json.ref.RefTextCache;
 import cn.ypbin.starter.json.ref.RefTextManager;
 import cn.ypbin.starter.json.ref.RefTextProvider;
@@ -121,6 +123,31 @@ public class JacksonAutoConfiguration {
                 new LocalTimeDeserializer(time));
             builder.addModule(javaTimeModule);
         };
+    }
+
+    /**
+     * {@code BaseEnum} 的 Jackson 集成：让实现 {@link BaseEnum} 的枚举
+     * 按 {@code value}（而非 {@code name()}）序列化与反序列化。
+     *
+     * <p><b>装配方式</b>：以 {@link JacksonModule} bean 形式提供，由 Spring Boot 的
+     * {@code StandardJsonMapperBuilderCustomizer} 收集 {@code Collection<JacksonModule>} 后统一
+     * {@code addModule}。{@code MapperBuilder} 按 {@code getRegistrationId()} 去重，因此即使本 bean
+     * 与 Boot 自身的模块注册路径重叠也不会重复生效。用 bean 而不是写死在 customizer 里，是为了让宿主
+     * 可用 {@code @ConditionalOnMissingBean} 语义整体替换（见下方条件）。</p>
+     *
+     * <p><b>不改变既有行为</b>：模块内部只处理实现了 {@code BaseEnum} 且未标注 {@code @JsonValue}
+     * 的枚举，其余枚举（包括既有 {@code @JsonValue} 枚举）走 Jackson 原生逻辑，输出与升级前一致。
+     * 可用 {@code ypbin.json.base-enum.enabled=false} 整体关闭。</p>
+     *
+     * @return BaseEnum Jackson 模块
+     */
+    @Bean
+    @ConditionalOnMissingBean(BaseEnumModule.class)
+    @ConditionalOnProperty(prefix = JacksonProperties.BaseEnum.PREFIX, name = "enabled",
+        havingValue = "true", matchIfMissing = true)
+    public BaseEnumModule baseEnumModule() {
+        log.debug("[ypbin-starter] base-enum jackson module registered (value-based enum ser/deser).");
+        return new BaseEnumModule();
     }
 
     /**

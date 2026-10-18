@@ -50,7 +50,16 @@ import org.jspecify.annotations.Nullable;
  *
  * <p><b>业务配额不在此处</b>：单次导出行数上限（如设备/告警导出的 10000 条）取决于具体业务对
  * 内存、响应时间与产品策略的取舍，属<b>业务配额</b>而非通用能力。本类<b>有意不提供</b>行数上限常量，
- * 由业务层自行定义并显式拒绝超限请求（禁止静默截断）。</p>
+ * 由业务层自行定义并显式拒绝超限请求（禁止静默截断）。读取侧同理：{@link CsvReader} 的
+ * {@link CsvLimits} 只是<b>机制上限</b>（防打满堆内存的兜底），业务配额仍由业务层用更小的值覆盖。</p>
+ *
+ * <p><b>读侧入口</b>：本类只负责写出，读取用 {@link CsvReader}（同包：RFC 4180 读取 + 上限 + 逐行错误）。
+ * 为免调用方在两个类之间来回找，本类另提供 {@link #parseText} / {@link #parse} 两个便捷委托，
+ * 语义与 {@link CsvReader} 完全相同（不复制实现，避免两份解析逻辑漂移）。</p>
+ *
+ * <p><b>写读一致（round-trip）</b>：{@link #toCsv} 写出的内容必须能被 {@link CsvReader} 原样读回。
+ * 唯一的「不原样」是公式注入中和：以 {@code = + - @ TAB CR} 开头的单元格会被加上 {@code '} 前缀，
+ * 这是<b>有意</b>的单向变换（安全优先）。除此之外引号、逗号、换行、空串都严格对称。</p>
  *
  * <p><b>空值约定</b>：单元格允许为 {@code null}（输出为空串），{@link #formatDateTime(LocalDateTime)}
  * 对 {@code null} 返回空串；{@link #toCsv} 的表头与数据行列表本身不可为 {@code null}。</p>
@@ -123,6 +132,59 @@ public final class CsvUtils {
     public static String formatDateTime(@Nullable LocalDateTime value) {
         return value == null ? "" : DATE_TIME_FORMATTER.format(value);
     }
+
+    // ------------------------------------------------------------------ 读侧委托（实现在 CsvReader）
+
+    /**
+     * 解析 CSV 文本（委托 {@link CsvReader#parseText(String)}，默认上限）。
+     *
+     * <p>放在本类只为「写与读在同一个入口类」，实现只有 {@link CsvReader} 一份。</p>
+     *
+     * @param text CSV 文本（可为 {@code null}，视为空文本）
+     * @return 解析结果（含成功记录与逐行错误；<b>不为 null</b>）
+     * @throws CsvLimitExceededException 记录数/列数/字节数超限
+     */
+    public static CsvDocument parseText(@Nullable String text) {
+        return CsvReader.parseText(text);
+    }
+
+    /**
+     * 解析 CSV 文本（委托 {@link CsvReader#parseText(String, CsvLimits)}）。
+     *
+     * @param text   CSV 文本（可为 {@code null}，视为空文本）
+     * @param limits 解析上限（不可为 {@code null}）
+     * @return 解析结果（含成功记录与逐行错误；<b>不为 null</b>）
+     * @throws CsvLimitExceededException 记录数/列数/字节数超限
+     */
+    public static CsvDocument parseText(@Nullable String text, CsvLimits limits) {
+        return CsvReader.parseText(text, limits);
+    }
+
+    /**
+     * 解析 CSV 字节（委托 {@link CsvReader#parse(byte[])}，严格 UTF-8 + 默认上限）。
+     *
+     * @param content 文件字节（可为 {@code null}，视为空文件）
+     * @return 解析结果（含成功记录与逐行错误；<b>不为 null</b>）
+     * @throws CsvLimitExceededException 字节数/记录数/列数超限
+     * @throws CsvParseException         内容不是合法 UTF-8
+     */
+    public static CsvDocument parse(@Nullable byte[] content) {
+        return CsvReader.parse(content);
+    }
+
+    /**
+     * 解析 CSV 字节（委托 {@link CsvReader#parse(byte[], CsvLimits)}）。
+     *
+     * @param content 文件字节（可为 {@code null}，视为空文件）
+     * @param limits  解析上限（不可为 {@code null}）
+     * @return 解析结果（含成功记录与逐行错误；<b>不为 null</b>）
+     * @throws CsvLimitExceededException 字节数/记录数/列数超限
+     * @throws CsvParseException         内容不是合法 UTF-8
+     */
+    public static CsvDocument parse(@Nullable byte[] content, CsvLimits limits) {
+        return CsvReader.parse(content, limits);
+    }
+
 
     // ------------------------------------------------------------------ 导出到 HTTP 响应
 

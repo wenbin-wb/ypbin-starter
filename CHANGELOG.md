@@ -37,6 +37,65 @@
   数据源返回 `null` 记 ERROR 并返回空集合；数据源自身抛异常原样上抛（不伪装成「空权限」）。
   **非破坏性新增**：`PermissionProvider` 签名未改、既有 API 未删，直接实现接口仍然合法。
   新增 `AbstractPermissionProviderTest` 覆盖上述四类输入与日志级别。
+- **`ypbin-starter-tools`：CSV 解析侧 `CsvReader` / `CsvLimits` / `CsvRowError`**（#102）。
+  此前 `CsvUtils` 只有写出半边（BOM + RFC 4180 转义 + 公式注入中和），读取侧完全缺失，导致每个需要
+  「导入 CSV」的宿主都要自建解析器，而 CSV 的引号/跨行/BOM 语义是对外契约的一部分。本次补齐：
+  - **RFC 4180 读取**：引号内逗号、引号内换行（单元格可放多行备注）、连续引号表示字面引号、
+    CRLF/LF/裸 CR 混用、UTF-8 BOM 自动剥离；**严格 UTF-8 解码**（非法字节报 `FILE_NOT_UTF8`，
+    不用 U+FFFD 静默替换掩盖「文件编码不对」这一真实病因）。
+  - **资源上限 `CsvLimits`**（默认 2 MiB / 1 万记录 / 256 列）：字节、记录数、列数任一超限
+    立即抛 `CsvLimitExceededException`，**绝不截断后返回部分结果**（禁静默截断）。记录数上限按
+    「扫描到的全部记录」计（含语法错误行），否则「一万行全错」仍会打满内存。
+    `CsvUtils` 的业务配额口径不变：`CsvLimits` 只是机制兜底，业务配额仍由业务层用更小值覆盖。
+  - **逐行错误 `CsvRowError` + `CsvErrorCode`**：行号（物理行号，跨行字段后仍指向真实起始行）+ 稳定错误码
+    可聚合为导入报告；非法引号形态（未闭合 / 字段中部出现引号 / 引号段后有多余字符）**显式报错**，
+    不按字面量静默吞掉。列数以首条合法记录（通常表头）为基准，不齐记 `COLUMN_COUNT_MISMATCH`。
+  - **两个入口**：`parse` 返回「成功记录 + 逐行错误」（能导入的先导入），`read` 要求全对（否则抛
+    `CsvParseException` 并带全部行级明细）。`CsvUtils` 增加 `parse`/`parseText` 委托，实现只有一份。
+  - **写读对拍（round-trip）**：`CsvUtils.toCsv` / `write` 写出的内容能被 `CsvReader` 原样读回；
+    唯一单向变换是公式注入中和（危险首字符加 `'` 前缀，安全优先、有意为之），测试逐单元格钉住。
+- **`BaseEnum` 三处集成：JSON / MyBatis / Web**（#102）。
+  `cn.ypbin.starter.core.enums.BaseEnum` 此前全仓**零引用**——接口注释写着「`value` 用于存储/传输」，
+  但没有任何机制兑现它，业务只能各自写 `@JsonValue`、`typeHandler`、手工转换。本次三处落地，
+  **均默认开启、可用配置关闭、均不影响未实现该接口的枚举**（各配回归用例）：
+  - **`ypbin-starter-json`：`BaseEnumModule`**。自定义 `JacksonModule` 实现枚举序列化/反序列化钩子
+    （`SimpleModule#addSerializer(Class,…)` 对枚举子类不生效，故不用它）。序列化输出 `getValue()`；
+    反序列化接受数字/字符串/布尔并按 `value` 匹配，未知值**显式失败并列出可选值**（不返回 null、
+    不取第一个常量）。**三条让位原则**：不碰非 `BaseEnum` 枚举、跳过 `@JsonValue` 标注的枚举、
+    跳过 `@JsonFormat(shape=POJO/OBJECT)` 的枚举——保证既有枚举的对外 JSON 一个字节不变。
+    开关 `ypbin.json.base-enum.enabled`（默认 true）。
+  - **`ypbin-starter-data`：`BaseEnumTypeHandler`**。按 `value` 落库、按 `value` 回填，取代默认
+    `EnumTypeHandler`（存 `name()`）与 `EnumOrdinalTypeHandler`（存序号，改枚举顺序即数据错位）。
+    注册走 **MyBatis-Plus `ConfigurationCustomizer` + 按具体枚举类型逐个注册**：接口级注册
+    （`register(BaseEnum.class, handlerClass)`）对实体字段声明的具体枚举**不命中**，
+    而改默认枚举处理器会连带影响未实现 `BaseEnum` 的既有枚举（静态全局语义），故都不采用。
+    候选枚举由 `BaseEnumScanner` 扫描（默认 `cn.ypbin`，可配 `ypbin.data.base-enum.scan-packages`）——
+    MyBatis 的注册表无法按接口自动匹配。库中值与枚举定义不一致时**显式抛异常**，不静默返回 null。
+    开关 `ypbin.data.base-enum.enabled`（默认 true）。H2 端到端验证 value → 库 → 枚举往返。
+  - **`ypbin-starter-web`：`BaseEnumConverterFactory`**。让 `?status=1` 直接绑定到枚举（Spring 默认
+    `StringToEnumConverterFactory` 只认常量名，前端按契约传 value 会 400）。实现
+    `ConditionalConverter` 是**必需而非优化**：`ConvertersForPair` 用 `addFirst` 插入并按逆序匹配，
+    本工厂晚于内置工厂注册，若不限定目标类型就会抢走**所有**枚举（含非 `BaseEnum`）的绑定、破坏既有行为。
+    空串/纯空白绑定为 null（前端「清空筛选」），未知值抛 `IllegalArgumentException` → 400。
+    开关 `ypbin.web.base-enum.enabled`（默认 true）。
+  - **宿主侧迁移不在本次范围**：admin/iot 仓库的 `@Value` → `@ConfigurationProperties` 改造、
+    既有业务枚举改为实现 `BaseEnum`、以及 iot `deviceimport` 迁移到 starter 能力，均属业务仓变更，
+    由各自任务跟进；本仓只保证 starter 侧 API 足以覆盖该能力。
+- **`ypbin-starter-cloud-core`：下游服务默认属性注入 `DownstreamDefaultsEnvironmentPostProcessor`**（#103）。
+  微服务下游服务（无 Sa-Token 会话、身份来自网关注入头）需要在每个宿主重复抄同一段配置，漏抄的后果
+  分别是「所有接口 401」与「跨租户数据泄露」，都是安全相关且不显眼的错误。本后处理器以**最低优先级**
+  注入两项下游恒成立的默认值：`ypbin.security.interceptor=false`（登录拦截关闭，注解鉴权仍默认开启）
+  与 `ypbin.tenant.fail-on-missing-tenant=true`（无租户上下文时 fail-closed）。
+  业务显式配置**逐项优先**（逐 key 判断 `containsProperty`，只覆盖一项时另一项仍取默认）。
+  **`ypbin.cloud.feign.trusted-source-token` 刻意不提供任何默认值**：那是真实凭据，默认值意味着所有宿主
+  共享同一把密钥且密钥进入仓库，等同没有校验（测试显式断言该键不出现在注入的属性源中）。
+  总开关 `ypbin.downstream.defaults-enabled`（默认 true）。
+  **注册方式说明**：`EnvironmentPostProcessor` 在自动配置阶段之前就要参与 `@ConditionalOnProperty` /
+  配置绑定判断，只能用 `EnvironmentPostProcessor`；而它**没有** `AutoConfiguration.imports` 之外的
+  注册途径，因此本类按 Boot 官方要求注册在 `META-INF/spring.factories` 的
+  `org.springframework.boot.EnvironmentPostProcessor` 键下。这**不违反**本仓「禁止用 `spring.factories`
+  注册自动配置」的约定——该约定针对 `@AutoConfiguration` 类，`EnvironmentPostProcessor` 是唯一的例外，
+  且有 `SourceConventionTest`（源码级注册校验）复核。
 
 ### 修复
 

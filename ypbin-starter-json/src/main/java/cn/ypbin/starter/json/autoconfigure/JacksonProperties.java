@@ -52,6 +52,9 @@ public class JacksonProperties {
     /** 字典翻译（@DictText / DictUtils）配置 */
     private Dict dict = new Dict();
 
+    /** BaseEnum 按 value 序列化/反序列化配置 */
+    private BaseEnum baseEnum = new BaseEnum();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -108,6 +111,14 @@ public class JacksonProperties {
         this.dict = dict;
     }
 
+    public BaseEnum getBaseEnum() {
+        return baseEnum;
+    }
+
+    public void setBaseEnum(BaseEnum baseEnum) {
+        this.baseEnum = baseEnum;
+    }
+
     /**
      * 引用翻译缓存配置。
      */
@@ -147,6 +158,34 @@ public class JacksonProperties {
 
         public void setMaxSize(int maxSize) {
             this.maxSize = maxSize;
+        }
+    }
+
+    /**
+     * {@code BaseEnum} 的 JSON 集成开关。
+     *
+     * <p><b>默认开启</b>：{@code BaseEnum} 的接口注释即约定「{@code value} 用于存储与传输」，
+     * 实现该接口的枚举本就应该按 {@code value} 输出，让业务再写一遍 {@code @JsonValue} 是重复劳动。
+     * 保持可关闭是为了给「仓促升级、需要先回归既有对外契约」的宿主一个逃生开关。</p>
+     */
+    public static class BaseEnum {
+
+        /** 配置前缀。 */
+        public static final String PREFIX = "ypbin.json.base-enum";
+
+        /**
+         * 是否启用「实现 {@code BaseEnum} 的枚举按 value 序列化/反序列化」，默认开启。
+         *
+         * <p>关闭后这些枚举退回 Jackson 默认的 {@code name()} 行为，与升级前完全一致。</p>
+         */
+        private boolean enabled = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
         }
     }
 

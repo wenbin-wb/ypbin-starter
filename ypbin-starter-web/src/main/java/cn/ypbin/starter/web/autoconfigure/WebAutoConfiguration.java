@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.web.autoconfigure;
 
+import cn.ypbin.starter.web.enums.BaseEnumConverterFactory;
 import cn.ypbin.starter.web.handler.GlobalExceptionHandler;
 import cn.ypbin.starter.web.request.RepeatableReadRequestFilter;
 import cn.ypbin.starter.web.xss.XssFilter;
@@ -30,9 +31,12 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
+import org.springframework.core.convert.converter.ConverterFactory;
+import org.springframework.format.FormatterRegistry;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -54,6 +58,60 @@ import tools.jackson.databind.ObjectMapper;
 public class WebAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(WebAutoConfiguration.class);
+
+    /**
+     * {@code BaseEnum} 参数绑定的配置前缀。
+     *
+     * <p>独立前缀而非塞进已有 {@code ypbin.web.*} 子类：「枚举按 value 绑定」是横跨 JSON / 持久化 /
+     * Web 三层的同一约定，各模块用自己的开关便于宿主按需取舍。</p>
+     */
+    public static final String BASE_ENUM_PREFIX = "ypbin.web.base-enum";
+
+    /**
+     * {@code BaseEnum} 参数绑定：让实现 {@link cn.ypbin.starter.core.enums.BaseEnum} 的枚举支持
+     * {@code ?status=1} 形式的 URL 参数/表单字段绑定（按 {@code value} 匹配）。
+     *
+     * <p><b>注册方式</b>：本 bean 只声明转换器，实际注册进 MVC 的 {@code FormattingConversionService}
+     * 由 {@link BaseEnumFormatterRegistrar}（{@link WebMvcConfigurer}）完成。分成两个 bean 是为了让
+     * 「转换逻辑」可脱离 Spring MVC 单测（直接调 {@code matches}/{@code getConverter}），
+     * 也便于宿主用 {@code @ConditionalOnMissingBean} 替换实现。</p>
+     *
+     * <p><b>不改变既有行为</b>：转换器实现了 {@code ConditionalConverter}，只对实现了
+     * {@code BaseEnum} 的目标类型生效；未实现该接口的枚举仍由 Spring 内置
+     * {@code StringToEnumConverterFactory} 按常量名绑定，行为不变。
+     * 可用 {@code ypbin.web.base-enum.enabled=false} 关闭。</p>
+     *
+     * @return BaseEnum 转换器工厂
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = WebAutoConfiguration.BASE_ENUM_PREFIX, name = "enabled",
+        havingValue = "true", matchIfMissing = true)
+    public BaseEnumConverterFactory baseEnumConverterFactory() {
+        log.debug("[ypbin-starter] base-enum converter factory registered (value-based enum binding).");
+        return new BaseEnumConverterFactory();
+    }
+
+    /**
+     * 把 {@link BaseEnumConverterFactory} 注册进 Spring MVC 的转换服务。
+     *
+     * <p>以 {@link WebMvcConfigurer} 形式装配而不是直接操作 {@code WebMvcAutoConfiguration}：
+     * {@code WebMvcConfigurer#addFormatters} 是 Spring MVC 提供的唯一稳定扩展点，
+     * 由 {@code WebMvcAutoConfigurationAdapter} 在创建 {@code mvcConversionService} 时回调。</p>
+     *
+     * @param converterFactory BaseEnum 转换器工厂
+     * @return MVC 配置器
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "baseEnumFormatterRegistrar")
+    public WebMvcConfigurer baseEnumFormatterRegistrar(ConverterFactory<String, Enum<?>> converterFactory) {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addFormatters(FormatterRegistry registry) {
+                registry.addConverterFactory(converterFactory);
+            }
+        };
+    }
 
     /**
      * 全局异常处理器。

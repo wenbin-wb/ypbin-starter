@@ -20,7 +20,10 @@ import cn.ypbin.starter.data.core.InnerInterceptorProvider;
 import cn.ypbin.starter.data.crypto.AesFieldEncryptor;
 import cn.ypbin.starter.data.crypto.FieldEncryptor;
 import cn.ypbin.starter.data.crypto.FieldEncryptorHolder;
+import cn.ypbin.starter.data.enums.BaseEnumScanner;
+import cn.ypbin.starter.data.enums.BaseEnumTypeHandlerRegistrar;
 import cn.ypbin.starter.data.handler.DefaultMetaObjectHandler;
+import com.baomidou.mybatisplus.autoconfigure.ConfigurationCustomizer;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
@@ -28,6 +31,7 @@ import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerIntercept
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -132,6 +136,40 @@ public class DataAutoConfiguration {
         FieldEncryptorHolder.setEncryptor(encryptor);
         log.debug("[ypbin-starter] field encryptor initialized.");
         return encryptor;
+    }
+
+    /**
+     * {@code BaseEnum} 的 MyBatis 集成：让实现 {@link cn.ypbin.starter.core.enums.BaseEnum} 的枚举
+     * 按 {@code value} 落库与回填，而不是按常量名或序号。
+     *
+     * <p><b>装配形态</b>：返回 MyBatis-Plus 的 {@link ConfigurationCustomizer} bean，由
+     * {@code MybatisPlusAutoConfiguration} 收集后应用到每个 {@code MybatisConfiguration}。
+     * 用 customizer 而不是在 starter 里直接改 {@code MybatisConfiguration}，是因为配置对象在业务
+     * 容器启动时才由 MyBatis-Plus 创建，starter 不能假设它已经存在。</p>
+     *
+     * <p><b>扫描范围</b>：默认扫描 {@code cn.ypbin}（starter 自身与业务代码的公共根包），可用
+     * {@code ypbin.data.base-enum.scan-packages} 覆盖。之所以必须扫描：MyBatis 的类型处理器注册是
+     * 「具体类型 → 处理器」的显式映射，无法按接口自动匹配，实体字段声明的又是具体枚举类。</p>
+     *
+     * <p><b>不改变既有行为</b>：只注册「实现了 {@code BaseEnum} 的枚举」，未实现该接口的枚举继续走
+     * MyBatis-Plus 的默认枚举处理（{@code name()} / {@code @EnumValue}），行为一个字节都不变。
+     * 可用 {@code ypbin.data.base-enum.enabled=false} 关闭。</p>
+     *
+     * @param properties 数据访问配置
+     * @return MyBatis 配置定制器
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "baseEnumTypeHandlerCustomizer")
+    @ConditionalOnProperty(prefix = DataProperties.BaseEnum.PREFIX, name = "enabled",
+        havingValue = "true", matchIfMissing = true)
+    public ConfigurationCustomizer baseEnumTypeHandlerCustomizer(DataProperties properties) {
+        Set<String> scanPackages = properties.getBaseEnum().getScanPackages();
+        return configuration -> {
+            List<Class<?>> enumTypes = BaseEnumScanner.scan(scanPackages);
+            List<Class<?>> registered = BaseEnumTypeHandlerRegistrar.register(configuration, enumTypes);
+            log.debug("[ypbin-starter] base-enum type handler registered for {} enum type(s): {}",
+                registered.size(), registered.stream().map(Class::getSimpleName).toList());
+        };
     }
 
     /**
