@@ -19,13 +19,13 @@ import cn.ypbin.starter.core.enums.BaseEnum;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.convert.TypeDescriptor;
-import org.springframework.core.convert.converter.ConditionalConverter;
-import org.springframework.core.convert.converter.Converter;
-import org.springframework.core.convert.converter.ConverterFactory;
+import org.springframework.core.convert.converter.ConditionalGenericConverter;
+import org.springframework.core.convert.converter.GenericConverter;
 import org.springframework.util.StringUtils;
 
 /**
@@ -35,24 +35,30 @@ import org.springframework.util.StringUtils;
  * 只认常量名。于是接口声明 {@code @RequestParam DeviceStatus status} 时，前端按对外契约传
  * {@code value}（{@code ?status=1}）会 400；业务只好把参数改成 {@code String} 自己转，
  * 或者让枚举 {@code name()} 迁就前端——两种结局都破坏了「按 value 传输」的契约。
- * 本工厂让 {@code ?status=1} 直接绑定到枚举，与 JSON / 持久化两侧的 value 语义对齐。</p>
+ * 本转换器让 {@code ?status=1} 直接绑定到枚举，与 JSON / 持久化两侧的 value 语义对齐。</p>
  *
- * <p><b>必须实现 {@link ConditionalConverter}（关键，不是可选优化）</b>：
- * {@code GenericConversionService} 中同类转换器的候选队列是 <b>{@code addFirst}</b> 插入、
- * 按插入逆序匹配——后注册的排在前面。本工厂在 Web 层晚于 Spring 内置工厂注册，
- * 若不带条件判断，它会对<b>所有</b>枚举（含未实现 {@code BaseEnum} 的）先被选中，
- * 从而把 Spring 原生的 {@code name()} 绑定一并破坏。实现 {@code matches} 后，
- * 非 {@code BaseEnum} 目标返回 {@code false}，队列继续向后查找，Spring 内置工厂照旧生效。</p>
+ * <p><b>为什么实现 {@link GenericConverter} 而不是 {@code ConverterFactory<String, Enum<?>>}</b>：
+ * 空字符串在 Spring MVC 中是「参数未提供」的常规形态（{@code ?status=} 表示清空筛选），本类型必须把它
+ * 绑定为 {@code null}。但 {@code Converter#convert(S)} 在 Spring 7 中<b>没有</b>标注
+ * {@code @Nullable}（实测字节码：{@code Object convert(Object)} 无 return type annotation），
+ * 而 {@link GenericConverter#convert(Object, TypeDescriptor, TypeDescriptor)} 的返回类型
+ * <b>官方就标注了 {@code org.jspecify.annotations.Nullable}</b>。本模块又是 {@code @NullMarked}
+ * （未标注即非空），在 {@code Converter} 上补 {@code @Nullable} 会直接违反 NullAway 的 override 规则
+ * （实测报错：「method returns @Nullable, but superclass method ... returns @NonNull」）。
+ * 因此选 {@link GenericConverter}：既能让 {@code null} 语义合法表达，又不需要任何
+ * {@code @SuppressWarnings} 之类的糊弄手段。<b>Spring 自身的 {@code StringToEnumConverterFactory}
+ * 内部对空串同样返回 null，说明这是框架层面的既定行为，不是本类引入的例外。</b></p>
  *
- * <p><b>为什么泛型是 {@code ConverterFactory<String, Enum<?>>} 而不是 {@code <String, BaseEnum>}</b>：
- * {@code GenericConversionService} 用 {@code ResolvableType} 从类声明解析出
- * {@code ConvertiblePair(String, Enum)}，再按「目标类型的类层级」查找候选对；
- * 写 {@code BaseEnum} 时配对键会变成 {@code (String, BaseEnum)}，而实际查找键是
- * {@code (String, DeviceStatus)}，能否命中取决于层级探测实现，属脆弱写法。
- * 与 Spring 内置 {@code StringToEnumConverterFactory} 保持一致用 {@code Enum} 最稳妥。</p>
+ * <p><b>必须实现 {@link org.springframework.core.convert.converter.ConditionalConverter}（关键）</b>：
+ * {@code GenericConversionService$ConvertersForPair} 用 {@code addFirst} 插入、按插入逆序匹配——
+ * 后注册的排在前面。本转换器在 Web 层晚于 Spring 内置转换器注册，若不带条件判断，它会先被选中而
+ * 对<b>所有</b>枚举（含未实现 {@code BaseEnum} 的）生效，从而把 Spring 原生的 {@code name()} 绑定
+ * 一并破坏。{@link #matches} 只在目标「是枚举且实现了 BaseEnum」时返回 {@code true}，
+ * 其余目标返回 {@code false}，让队列继续向后查找，Spring 内置转换器照旧生效。</p>
  *
- * <p><b>空值语义</b>：空串与纯空白返回 {@code null}（Spring 对「缺省参数」的常规处理），
- * 不当成「找不到枚举」报错——{@code ?status=} 是前端「清空筛选」的常见写法。</p>
+ * <p><b>注册方式</b>：以 {@code (String → Enum)} 的 {@link GenericConverter.ConvertiblePair}
+ * 注册到 Spring MVC 的转换服务；具体目标是哪个枚举不在注册时确定，而由每次转换时的
+ * {@link TypeDescriptor} 给出，故按类型缓存 value 索引。</p>
  *
  * <p><b>未匹配必须失败</b>：抛 {@link IllegalArgumentException}，由 Spring 转成 400。
  * 不返回 {@code null}、不静默取第一个常量：那会让「参数写错」变成「静默按第一个枚举处理」，
@@ -61,10 +67,19 @@ import org.springframework.util.StringUtils;
  * @author wenbin
  * @since 2026-10-18
  */
-public final class BaseEnumConverterFactory implements ConverterFactory<String, Enum<?>>, ConditionalConverter {
+public final class BaseEnumConverterFactory implements ConditionalGenericConverter {
+
+    /** 本转换器负责的转换对：String → 任意枚举（具体枚举由运行时目标类型确定）。 */
+    private static final Set<GenericConverter.ConvertiblePair> CONVERTIBLE_TYPES =
+        Set.of(new GenericConverter.ConvertiblePair(String.class, Enum.class));
 
     /** 按枚举类型缓存 value → 常量索引，避免每次请求重扫常量数组。 */
     private final Map<Class<?>, Map<String, ? extends Enum<?>>> indexCache = new ConcurrentHashMap<>();
+
+    @Override
+    public Set<GenericConverter.ConvertiblePair> getConvertibleTypes() {
+        return CONVERTIBLE_TYPES;
+    }
 
     /**
      * 只对实现了 {@link BaseEnum} 的枚举目标生效。
@@ -79,13 +94,37 @@ public final class BaseEnumConverterFactory implements ConverterFactory<String, 
     @Override
     public boolean matches(TypeDescriptor sourceType, TypeDescriptor targetType) {
         Class<?> targetClass = targetType.getObjectType();
-        return targetClass.isEnum() && BaseEnum.class.isAssignableFrom(targetClass);
+        return supports(targetClass);
     }
 
+    /**
+     * 转换：按 {@code value} 把字符串绑定到目标枚举。
+     *
+     * <p>空串/纯空白返回 {@code null}（前端「清空筛选」）；{@code null} 源同样返回 {@code null}
+     * ——{@code GenericConversionService} 对 null 源走 {@code convertNullSource} 不会进到这里，
+     * 这里兼容它是为了防御直接调用方。</p>
+     *
+     * @param source     源对象（期望 String；{@code null} 或非 String 时返回 {@code null}）
+     * @param sourceType 源类型
+     * @param targetType 目标类型（必须是实现了 {@code BaseEnum} 的枚举）
+     * @return 匹配的枚举常量；空输入返回 {@code null}
+     * @throws IllegalArgumentException 值不在枚举的 value 集合中
+     */
     @Override
-    public <T extends Enum<?>> Converter<String, T> getConverter(Class<T> targetType) {
-        Objects.requireNonNull(targetType, "targetType");
-        return new BaseEnumConverter<>(targetType, indexOf(targetType));
+    @Nullable
+    public Object convert(@Nullable Object source, TypeDescriptor sourceType, TypeDescriptor targetType) {
+        if (!(source instanceof String sourceText) || !StringUtils.hasText(sourceText)) {
+            return null;
+        }
+        Class<?> enumType = targetType.getObjectType();
+        Map<String, ? extends Enum<?>> index = indexOf(enumType);
+        String valueText = sourceText.trim();
+        Enum<?> matched = index.get(valueText);
+        if (matched == null) {
+            throw new IllegalArgumentException("参数值 '" + valueText + "' 不是 " + enumType.getSimpleName()
+                + " 的合法取值，可选值：" + index.keySet().stream().collect(Collectors.joining(", ")));
+        }
+        return matched;
     }
 
     /**
@@ -117,35 +156,13 @@ public final class BaseEnumConverterFactory implements ConverterFactory<String, 
     }
 
     /**
-     * 具体枚举转换器。
+     * 判断某个类型是否由本转换器接管。
      *
-     * @param <T> 枚举类型
+     * @param enumType 候选类型
+     * @return 是实现了 {@code BaseEnum} 的枚举时返回 {@code true}
      */
-    private static final class BaseEnumConverter<T extends Enum<?>> implements Converter<String, T> {
-
-        private final Class<T> targetType;
-
-        private final Map<String, ? extends Enum<?>> index;
-
-        BaseEnumConverter(Class<T> targetType, Map<String, ? extends Enum<?>> index) {
-            this.targetType = targetType;
-            this.index = index;
-        }
-
-        @Override
-        @Nullable
-        @SuppressWarnings("unchecked")
-        public T convert(String source) {
-            if (!StringUtils.hasText(source)) {
-                return null;
-            }
-            String valueText = source.trim();
-            Enum<?> matched = index.get(valueText);
-            if (matched == null) {
-                throw new IllegalArgumentException("参数值 '" + valueText + "' 不是 " + targetType.getSimpleName()
-                    + " 的合法取值，可选值：" + index.keySet().stream().collect(Collectors.joining(", ")));
-            }
-            return (T) matched;
-        }
+    public static boolean supports(Class<?> enumType) {
+        Objects.requireNonNull(enumType, "enumType");
+        return enumType.isEnum() && BaseEnum.class.isAssignableFrom(enumType);
     }
 }

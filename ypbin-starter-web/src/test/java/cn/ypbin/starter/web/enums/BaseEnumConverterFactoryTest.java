@@ -106,8 +106,14 @@ class BaseEnumConverterFactoryTest {
      */
     private static FormattingConversionService conversionService() {
         DefaultFormattingConversionService service = new DefaultFormattingConversionService();
-        service.addConverterFactory(new BaseEnumConverterFactory());
+        service.addConverter(new BaseEnumConverterFactory());
         return service;
+    }
+
+    /** 直接调用转换器（等价于 GenericConversionService 内部的调用形态）。 */
+    private static Object convert(BaseEnumConverterFactory factory, Class<?> targetType, String source) {
+        return factory.convert(source, TypeDescriptor.valueOf(String.class),
+            TypeDescriptor.valueOf(targetType));
     }
 
     /** 装配了转换器的 standalone MockMvc（standalone 默认不含本转换器，需显式注入）。 */
@@ -185,6 +191,11 @@ class BaseEnumConverterFactoryTest {
         assertThat(factory.matches(stringType, TypeDescriptor.valueOf(Status.class))).isTrue();
         assertThat(factory.matches(stringType, TypeDescriptor.valueOf(PlainStatus.class))).isFalse();
         assertThat(factory.matches(stringType, TypeDescriptor.valueOf(Integer.class))).isFalse();
+        // 转换对只声明 String → Enum，具体枚举由运行时目标类型确定
+        assertThat(factory.getConvertibleTypes()).hasSize(1).allSatisfy(pair -> {
+            assertThat(pair.getSourceType()).isEqualTo(String.class);
+            assertThat(pair.getTargetType()).isEqualTo(Enum.class);
+        });
     }
 
     // ------------------------------------------------------------------ 转换语义
@@ -194,8 +205,8 @@ class BaseEnumConverterFactoryTest {
     void converterShouldMatchByValue() {
         BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
 
-        assertThat(factory.getConverter(Status.class).convert("1")).isEqualTo(Status.ENABLED);
-        assertThat(factory.getConverter(Status.class).convert("0")).isEqualTo(Status.DISABLED);
+        assertThat(convert(factory, Status.class, "1")).isEqualTo(Status.ENABLED);
+        assertThat(convert(factory, Status.class, "0")).isEqualTo(Status.DISABLED);
     }
 
     @Test
@@ -203,7 +214,7 @@ class BaseEnumConverterFactoryTest {
     void converterShouldTrimWhitespace() {
         BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
 
-        assertThat(factory.getConverter(Status.class).convert(" 1 ")).isEqualTo(Status.ENABLED);
+        assertThat(convert(factory, Status.class, " 1 ")).isEqualTo(Status.ENABLED);
     }
 
     @Test
@@ -211,8 +222,8 @@ class BaseEnumConverterFactoryTest {
     void converterShouldReturnNullForBlank() {
         BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
 
-        assertThat(factory.getConverter(Status.class).convert("")).isNull();
-        assertThat(factory.getConverter(Status.class).convert("   ")).isNull();
+        assertThat(convert(factory, Status.class, "")).isNull();
+        assertThat(convert(factory, Status.class, "   ")).isNull();
     }
 
     @Test
@@ -220,7 +231,7 @@ class BaseEnumConverterFactoryTest {
     void converterShouldFailOnUnknownValue() {
         BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
 
-        assertThatThrownBy(() -> factory.getConverter(Status.class).convert("99"))
+        assertThatThrownBy(() -> convert(factory, Status.class, "99"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("99")
             .hasMessageContaining("0")
@@ -232,7 +243,7 @@ class BaseEnumConverterFactoryTest {
     void duplicateValueShouldFailFast() {
         BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
 
-        assertThatThrownBy(() -> factory.getConverter(DuplicateValue.class))
+        assertThatThrownBy(() -> convert(factory, DuplicateValue.class, "1"))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("重复的 value");
     }
@@ -262,11 +273,23 @@ class BaseEnumConverterFactoryTest {
     }
 
     @Test
-    @DisplayName("converter 对 null 目标类型显式失败")
-    void nullTargetTypeShouldBeRejected() {
-        BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
+    @DisplayName("supports 对 null 类型显式失败；对非枚举类型返回 false")
+    void supportsShouldValidateInput() {
+        assertThatThrownBy(() -> BaseEnumConverterFactory.supports(null))
+            .isInstanceOf(NullPointerException.class);
+        assertThat(BaseEnumConverterFactory.supports(Status.class)).isTrue();
+        assertThat(BaseEnumConverterFactory.supports(PlainStatus.class)).isFalse();
+        assertThat(BaseEnumConverterFactory.supports(String.class)).isFalse();
+    }
 
-        assertThatThrownBy(() -> factory.getConverter(null)).isInstanceOf(NullPointerException.class);
+    @Test
+    @DisplayName("null 源与非 String 源返回 null（防御直接调用方）")
+    void nullOrNonStringSourceShouldYieldNull() {
+        BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
+        TypeDescriptor target = TypeDescriptor.valueOf(Status.class);
+
+        assertThat(factory.convert(null, TypeDescriptor.valueOf(String.class), target)).isNull();
+        assertThat(factory.convert(1, TypeDescriptor.valueOf(Integer.class), target)).isNull();
     }
 
     @Test
@@ -274,8 +297,8 @@ class BaseEnumConverterFactoryTest {
     void converterShouldBeReusable() {
         BaseEnumConverterFactory factory = new BaseEnumConverterFactory();
 
-        assertThat(factory.getConverter(Status.class).convert("1")).isEqualTo(Status.ENABLED);
-        assertThat(factory.getConverter(Status.class).convert("1")).isEqualTo(Status.ENABLED);
-        assertThat(factory.getConverter(Status.class).convert("0")).isEqualTo(Status.DISABLED);
+        assertThat(convert(factory, Status.class, "1")).isEqualTo(Status.ENABLED);
+        assertThat(convert(factory, Status.class, "1")).isEqualTo(Status.ENABLED);
+        assertThat(convert(factory, Status.class, "0")).isEqualTo(Status.DISABLED);
     }
 }

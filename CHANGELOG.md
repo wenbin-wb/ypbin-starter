@@ -83,13 +83,25 @@
     由各自任务跟进；本仓只保证 starter 侧 API 足以覆盖该能力。
 - **`ypbin-starter-cloud-core`：下游服务默认属性注入 `DownstreamDefaultsEnvironmentPostProcessor`**（#103）。
   微服务下游服务（无 Sa-Token 会话、身份来自网关注入头）需要在每个宿主重复抄同一段配置，漏抄的后果
-  分别是「所有接口 401」与「跨租户数据泄露」，都是安全相关且不显眼的错误。本后处理器以**最低优先级**
-  注入两项下游恒成立的默认值：`ypbin.security.interceptor=false`（登录拦截关闭，注解鉴权仍默认开启）
-  与 `ypbin.tenant.fail-on-missing-tenant=true`（无租户上下文时 fail-closed）。
-  业务显式配置**逐项优先**（逐 key 判断 `containsProperty`，只覆盖一项时另一项仍取默认）。
-  **`ypbin.cloud.feign.trusted-source-token` 刻意不提供任何默认值**：那是真实凭据，默认值意味着所有宿主
-  共享同一把密钥且密钥进入仓库，等同没有校验（测试显式断言该键不出现在注入的属性源中）。
-  总开关 `ypbin.downstream.defaults-enabled`（默认 true）。
+  不显眼但都很严重。本后处理器以**最低优先级**注入默认值，且**只默认注入方向安全（fail-closed）的项**：
+  - **`ypbin.tenant.fail-on-missing-tenant=true`（默认注入）**：它把「无租户上下文」从「可能放行查询」
+    收紧为「明确失败」，避免跨租户数据泄露，方向安全，故默认注入。
+  - **`ypbin.security.interceptor=false`（默认不注入，需显式 opt-in）**：该项是**关闭**全局登录拦截
+    （不再执行 `StpUtil.checkLogin()`），默认注入等于默认放宽安全面，违反 fail-closed。
+    更关键的是**「下游服务」没有可靠自动判据**：`ypbin-auth` 这类既有服务依赖 `cloud-core`，
+    但有真实用户会话，且 admin/iot 两仓的 `deploy/nacos/ypbin-auth.yaml` **都没有配**该项——
+    若默认注入 `false`，升级后 auth 的 `/user/info`、`/codes`、`/menu/all`、`/check`、`/social/*`
+    等未标注 `@SaCheckLogin` 的端点会**静默失去全局登录校验**，属升级即引入的越权风险
+    （#103 验收标准 4「不得改变既有部署行为」）。故改为**显式 opt-in**：宿主声明
+    `ypbin.downstream.security-interceptor-disabled=true`（默认 false）后才注入
+    `ypbin.security.interceptor=false`；即便启用，注解鉴权 `annotation-check` 仍默认开启。
+  - 业务显式配置**逐项优先**（逐 key 判断 `containsProperty`，只覆盖一项时另一项仍取默认）。
+  - **`ypbin.cloud.feign.trusted-source-token` 刻意不提供任何默认值**：那是真实凭据，默认值意味着所有宿主
+    共享同一把密钥且密钥进入仓库，等同没有校验（测试显式断言该键不出现在注入的属性源中）。
+  - 配置键字面量全部抽为 `public static final` 常量（`ENABLED_PROPERTY` /
+    `SECURITY_INTERCEPTOR_DISABLED_OPT_IN` / `SECURITY_INTERCEPTOR_PROPERTY` /
+    `TENANT_FAIL_ON_MISSING_PROPERTY`），避免魔法值与测试硬编码漂移。
+  - 总开关 `ypbin.downstream.defaults-enabled`（默认 true）。
   **注册方式说明**：`EnvironmentPostProcessor` 在自动配置阶段之前就要参与 `@ConditionalOnProperty` /
   配置绑定判断，只能用 `EnvironmentPostProcessor`；而它**没有** `AutoConfiguration.imports` 之外的
   注册途径，因此本类按 Boot 官方要求注册在 `META-INF/spring.factories` 的

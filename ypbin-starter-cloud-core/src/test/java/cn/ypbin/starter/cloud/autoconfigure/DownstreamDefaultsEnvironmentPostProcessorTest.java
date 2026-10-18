@@ -32,28 +32,72 @@ import org.springframework.core.io.support.SpringFactoriesLoader;
 /**
  * {@link DownstreamDefaultsEnvironmentPostProcessor} 单元测试（#103 验收）。
  *
- * <p><b>四条主线索</b>：默认值确实注入、业务显式配置优先、总开关能关闭、
- * 真实凭据<b>没有</b>被给默认值。最后一条是这个需求最容易写错、后果也最严重的一条
- * （默认凭据等同于没有凭据校验），必须显式钉住。</p>
+ * <p><b>本类最重要的一条不是「默认值有没有注入」，而是「安全开关默认不被改宽」</b>。
+ * 早期实现默认注入 {@code ypbin.security.interceptor=false}，会使依赖 {@code cloud-core}
+ * 却未显式配置该项的既有服务（如 {@code ypbin-auth}）在升级后静默失去全局登录校验——
+ * 那是升级即引入的越权风险。#103 验收标准 4「不得改变既有部署行为」正是指这类默认值外溢，
+ * 故本测试把「默认不注入」列为第一条断言。</p>
  *
  * @author wenbin
  * @since 2026-10-18
  */
 class DownstreamDefaultsEnvironmentPostProcessorTest {
 
-    private static final String SECURITY_INTERCEPTOR = "ypbin.security.interceptor";
-    private static final String TENANT_FAIL_ON_MISSING = "ypbin.tenant.fail-on-missing-tenant";
+    private static final String SECURITY_INTERCEPTOR =
+        DownstreamDefaultsEnvironmentPostProcessor.SECURITY_INTERCEPTOR_PROPERTY;
+    private static final String TENANT_FAIL_ON_MISSING =
+        DownstreamDefaultsEnvironmentPostProcessor.TENANT_FAIL_ON_MISSING_PROPERTY;
+    private static final String SECURITY_OPT_IN =
+        DownstreamDefaultsEnvironmentPostProcessor.SECURITY_INTERCEPTOR_DISABLED_OPT_IN;
+    private static final String ENABLED =
+        DownstreamDefaultsEnvironmentPostProcessor.ENABLED_PROPERTY;
     private static final String TRUSTED_SOURCE_TOKEN = "ypbin.cloud.feign.trusted-source-token";
 
     private final DownstreamDefaultsEnvironmentPostProcessor processor =
         new DownstreamDefaultsEnvironmentPostProcessor();
 
-    // ------------------------------------------------------------------ 默认注入
+    // ------------------------------------------------------------------ 安全红线：默认不注入
 
     @Test
-    @DisplayName("★ 默认注入下游两项：关闭登录拦截 + 缺租户上下文时失败")
-    void shouldInjectDownstreamDefaults() {
+    @DisplayName("★★ 默认不注入 security.interceptor（既有宿主如 auth 的登录拦截行为不变）")
+    void securityInterceptorMustNotBeInjectedByDefault() {
         StandardEnvironment environment = new StandardEnvironment();
+
+        processor.postProcessEnvironment(environment, new SpringApplication());
+
+        assertThat(environment.getProperty(SECURITY_INTERCEPTOR))
+            .as("默认不得关闭全局登录拦截：那会让 auth 等既有宿主静默失去登录校验")
+            .isNull();
+        MapPropertySource source = (MapPropertySource) environment.getPropertySources()
+            .get("ypbinDownstreamDefaults");
+        assertThat(source).isNotNull();
+        assertThat(source.getPropertyNames())
+            .as("安全开关不得出现在默认注入的属性源里")
+            .doesNotContain(SECURITY_INTERCEPTOR);
+    }
+
+    @Test
+    @DisplayName("★ 默认只注入 fail-closed 方向的租户项（方向安全才允许默认）")
+    void onlySafeDefaultsShouldBeInjectedByDefault() {
+        StandardEnvironment environment = new StandardEnvironment();
+
+        processor.postProcessEnvironment(environment, new SpringApplication());
+
+        assertThat(environment.getProperty(TENANT_FAIL_ON_MISSING, Boolean.class)).isTrue();
+        MapPropertySource source = (MapPropertySource) environment.getPropertySources()
+            .get("ypbinDownstreamDefaults");
+        assertThat(source).isNotNull();
+        assertThat(source.getPropertyNames()).containsExactly(TENANT_FAIL_ON_MISSING);
+    }
+
+    // ------------------------------------------------------------------ 显式 opt-in
+
+    @Test
+    @DisplayName("★ 显式 opt-in 后才注入 security.interceptor=false")
+    void securityInterceptorShouldBeInjectedWhenOptedIn() {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("application", Map.of(
+            SECURITY_OPT_IN, "true")));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
 
@@ -62,49 +106,71 @@ class DownstreamDefaultsEnvironmentPostProcessorTest {
     }
 
     @Test
-    @DisplayName("★ 注入位置是最低优先级属性源（业务配置一定覆盖它）")
-    void defaultsShouldBeLowestPrecedence() {
+    @DisplayName("opt-in 显式为 false 时不注入（与默认口径一致）")
+    void securityInterceptorShouldNotBeInjectedWhenOptInFalse() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("application", Map.of(
-            "ypbin.security.interceptor", "true")));
+            SECURITY_OPT_IN, "false")));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
 
-        List<String> names = new ArrayList<>();
-        environment.getPropertySources().forEach(source -> names.add(source.getName()));
-        assertThat(names).last().isEqualTo("ypbinDownstreamDefaults");
+        assertThat(environment.getProperty(SECURITY_INTERCEPTOR)).isNull();
+    }
+
+    @Test
+    @DisplayName("opt-in 后业务显式配置的 security.interceptor 仍然优先")
+    void explicitSecurityConfigShouldWinEvenWhenOptedIn() {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("application", Map.of(
+            SECURITY_OPT_IN, "true",
+            SECURITY_INTERCEPTOR, "true")));
+
+        processor.postProcessEnvironment(environment, new SpringApplication());
+
         assertThat(environment.getProperty(SECURITY_INTERCEPTOR, Boolean.class)).isTrue();
     }
 
     // ------------------------------------------------------------------ 业务覆盖
 
     @Test
-    @DisplayName("★ 业务显式配置优先：只覆盖一项时另一项仍用默认值（逐项判断，而非整源跳过）")
-    void explicitOverrideShouldWinPerProperty() {
+    @DisplayName("★ 业务显式配置优先：显式设 fail-on-missing-tenant=false 时不被默认值覆盖")
+    void explicitOverrideShouldWin() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("application", Map.of(
-            SECURITY_INTERCEPTOR, "false",
             TENANT_FAIL_ON_MISSING, "false")));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
 
-        // 业务把 fail-on-missing-tenant 显式设为 false（如单体应用），默认值不得覆盖它
         assertThat(environment.getProperty(TENANT_FAIL_ON_MISSING, Boolean.class)).isFalse();
-        assertThat(environment.getProperty(SECURITY_INTERCEPTOR, Boolean.class)).isFalse();
     }
 
     @Test
-    @DisplayName("★ 业务只配一项时，未配的那项仍获得默认值")
-    void partialOverrideShouldKeepOtherDefault() {
+    @DisplayName("注入位置是最低优先级属性源（业务配置一定覆盖它）")
+    void defaultsShouldBeLowestPrecedence() {
+        StandardEnvironment environment = new StandardEnvironment();
+        // 用与默认项无关的业务配置，保证注入确实发生（否则若业务覆盖了全部默认项，
+        // 本类会正确地「不添加属性源」，此时断言属性源存在就没有意义）
+        environment.getPropertySources().addFirst(new MapPropertySource("application", Map.of(
+            "server.port", "8080")));
+
+        processor.postProcessEnvironment(environment, new SpringApplication());
+
+        List<String> names = new ArrayList<>();
+        environment.getPropertySources().forEach(source -> names.add(source.getName()));
+        assertThat(names).last().isEqualTo("ypbinDownstreamDefaults");
+    }
+
+    @Test
+    @DisplayName("业务已覆盖全部默认项时不添加空属性源（不制造无意义属性源）")
+    void noPropertySourceShouldBeAddedWhenNothingToInject() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("application", Map.of(
             TENANT_FAIL_ON_MISSING, "false")));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
 
+        assertThat(environment.getPropertySources().contains("ypbinDownstreamDefaults")).isFalse();
         assertThat(environment.getProperty(TENANT_FAIL_ON_MISSING, Boolean.class)).isFalse();
-        // 未配置的登录拦截仍被关闭（否则下游必然 401）
-        assertThat(environment.getProperty(SECURITY_INTERCEPTOR, Boolean.class)).isFalse();
     }
 
     // ------------------------------------------------------------------ 总开关
@@ -114,24 +180,23 @@ class DownstreamDefaultsEnvironmentPostProcessorTest {
     void disabledSwitchShouldSkipInjection() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("application", Map.of(
-            DownstreamDefaultsEnvironmentPostProcessor.ENABLED_PROPERTY, "false")));
+            ENABLED, "false")));
 
         processor.postProcessEnvironment(environment, new SpringApplication());
 
-        assertThat(environment.getProperty(SECURITY_INTERCEPTOR)).isNull();
         assertThat(environment.getProperty(TENANT_FAIL_ON_MISSING)).isNull();
+        assertThat(environment.getProperty(SECURITY_INTERCEPTOR)).isNull();
     }
 
     @Test
-    @DisplayName("总开关默认开启（未配置时按 true 处理）")
+    @DisplayName("总开关默认开启")
     void switchShouldDefaultToEnabled() {
         StandardEnvironment environment = new StandardEnvironment();
 
         processor.postProcessEnvironment(environment, new SpringApplication());
 
-        assertThat(environment.getProperty(DownstreamDefaultsEnvironmentPostProcessor.ENABLED_PROPERTY,
-            Boolean.class, true)).isTrue();
-        assertThat(environment.getProperty(SECURITY_INTERCEPTOR)).isNotNull();
+        assertThat(environment.getProperty(ENABLED, Boolean.class, true)).isTrue();
+        assertThat(environment.getProperty(TENANT_FAIL_ON_MISSING)).isNotNull();
     }
 
     // ------------------------------------------------------------------ 凭据红线
@@ -146,25 +211,10 @@ class DownstreamDefaultsEnvironmentPostProcessorTest {
         assertThat(environment.getProperty(TRUSTED_SOURCE_TOKEN))
             .as("trusted-source-token 是真实凭据，starter 不得提供任何默认值")
             .isNull();
-        // 属性源里也不应出现该键（避免后续版本「顺手加个默认」）
         MapPropertySource source = (MapPropertySource) environment.getPropertySources()
             .get("ypbinDownstreamDefaults");
         assertThat(source).isNotNull();
         assertThat(source.getPropertyNames()).doesNotContain(TRUSTED_SOURCE_TOKEN);
-    }
-
-    @Test
-    @DisplayName("★ 属性源不包含除两项下游默认之外的其它键（防止默认值面无序扩大）")
-    void propertySourceShouldOnlyContainDownstreamDefaults() {
-        StandardEnvironment environment = new StandardEnvironment();
-
-        processor.postProcessEnvironment(environment, new SpringApplication());
-
-        MapPropertySource source = (MapPropertySource) environment.getPropertySources()
-            .get("ypbinDownstreamDefaults");
-        assertThat(source).isNotNull();
-        assertThat(source.getPropertyNames()).containsExactlyInAnyOrder(
-            SECURITY_INTERCEPTOR, TENANT_FAIL_ON_MISSING);
     }
 
     // ------------------------------------------------------------------ 幂等与注册
@@ -178,7 +228,7 @@ class DownstreamDefaultsEnvironmentPostProcessorTest {
         processor.postProcessEnvironment(environment, new SpringApplication());
 
         assertThat(environment.getPropertySources().contains("ypbinDownstreamDefaults")).isTrue();
-        assertThat(environment.getProperty(SECURITY_INTERCEPTOR, Boolean.class)).isFalse();
+        assertThat(environment.getProperty(TENANT_FAIL_ON_MISSING, Boolean.class)).isTrue();
     }
 
     @Test
@@ -193,7 +243,7 @@ class DownstreamDefaultsEnvironmentPostProcessorTest {
                 SpringFactoriesLoader.ArgumentResolver.none(),
                 (factoryType, factoryName, failure) -> failures.add(factoryName))
             .stream()
-            .map(processor -> processor.getClass().getName())
+            .map(found -> found.getClass().getName())
             .toList();
 
         assertThat(discovered)
@@ -205,7 +255,7 @@ class DownstreamDefaultsEnvironmentPostProcessorTest {
     }
 
     @Test
-    @DisplayName("顺序为最低优先级（其它后处理器先执行，本类的默认值不被更晚的覆盖意图打乱）")
+    @DisplayName("顺序为最低优先级")
     void orderShouldBeLowestPrecedence() {
         assertThat(processor.getOrder()).isEqualTo(Ordered.LOWEST_PRECEDENCE);
     }

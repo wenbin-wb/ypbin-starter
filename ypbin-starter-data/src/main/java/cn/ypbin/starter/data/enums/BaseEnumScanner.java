@@ -21,6 +21,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -90,10 +91,12 @@ public final class BaseEnumScanner {
      * 普通类（非枚举）纳入；此处再按「枚举 + 非抽象」过滤，避免把非枚举类型注册给 MyBatis
      * 的类型处理器（MyBatis 会因此报错或静默不匹配）。</p>
      *
-     * @param className 候选类名（可为 null）
+     * @param className 候选类名（可为 {@code null}：{@code BeanDefinition#getBeanClassName} 在
+     *                  「由工厂方法/Supplier 定义」的候选上返回 null，扫描器必须容忍）
      * @return 枚举类型；不是具体枚举时返回 {@code null}
      */
-    private static Class<?> resolveEnumType(String className) {
+    @Nullable
+    private static Class<?> resolveEnumType(@Nullable String className) {
         if (className == null) {
             return null;
         }

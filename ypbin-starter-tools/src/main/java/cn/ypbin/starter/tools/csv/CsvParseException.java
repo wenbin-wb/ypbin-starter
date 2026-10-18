@@ -17,6 +17,7 @@ package cn.ypbin.starter.tools.csv;
 
 import java.io.Serial;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * CSV 解析失败（文件级或严格读取时的行级错误聚合）。
@@ -56,9 +57,9 @@ public class CsvParseException extends RuntimeException {
      *
      * @param errorCode 错误码
      * @param message   说明
-     * @param cause     原因
+     * @param cause     原因（可为 {@code null}，表示不保留底层异常）
      */
-    public CsvParseException(CsvErrorCode errorCode, String message, Throwable cause) {
+    public CsvParseException(CsvErrorCode errorCode, String message, @Nullable Throwable cause) {
         this(errorCode, message, List.of(), cause);
     }
 
@@ -79,9 +80,10 @@ public class CsvParseException extends RuntimeException {
      * @param errorCode 错误码
      * @param message   说明
      * @param errors    行级错误明细（不可为 null）
-     * @param cause     原因（可为 null）
+     * @param cause     原因（可为 {@code null}，表示不保留底层异常）
      */
-    public CsvParseException(CsvErrorCode errorCode, String message, List<CsvRowError> errors, Throwable cause) {
+    public CsvParseException(
+        CsvErrorCode errorCode, String message, List<CsvRowError> errors, @Nullable Throwable cause) {
         super(message, cause);
         this.errorCode = errorCode;
         this.errors = List.copyOf(errors);
