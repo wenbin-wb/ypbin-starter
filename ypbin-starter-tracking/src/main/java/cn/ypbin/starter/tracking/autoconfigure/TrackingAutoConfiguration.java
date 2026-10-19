@@ -158,8 +158,9 @@ public class TrackingAutoConfiguration {
     /**
      * 后端业务事件切面。
      *
-     * @param recorder   采集门面
-     * @param properties 配置项
+     * @param recorder         采集门面
+     * @param properties       配置项
+     * @param identityProvider 登录身份提供者（缺省 {@link TrackIdentityProvider#NONE}）
      * @return 切面
      */
     @Bean
@@ -172,5 +173,24 @@ public class TrackingAutoConfiguration {
         log.debug("[ypbin-starter] @Tracked aspect configured with identityProvider={}.",
             identityProvider.getClass().getName());
         return new TrackedAspect(recorder, appId, identityProvider);
+    }
+
+    /**
+     * 旧签名的 {@code trackedAspect}，<b>仅为二进制兼容保留</b>（2026-10-19 补）。
+     *
+     * <p>4.1.0 的该方法是 {@code (TrackRecorder, TrackingProperties)} 两参版本；本版为了让
+     * {@code @Tracked} 事件带上 userId/tenantId，加了第三个参数。直接<b>删除</b>旧方法会被
+     * japicmp 判为 binary incompatible（仓库 {@code api-compat} 门禁会红）——尽管它是
+     * {@code @Bean} 工厂方法、实际无人手工调用，仍不应让主版本之外出现二进制不兼容。
+     * 故保留旧签名并委托三参版本（行为等价于「不提供身份维度」）。</p>
+     *
+     * @param recorder   采集门面
+     * @param properties 配置项
+     * @return 切面（不带身份维度）
+     * @deprecated 请注入 {@link TrackIdentityProvider} 后使用三参版本；本方法仅为兼容保留
+     */
+    @Deprecated(since = "4.2.0")
+    public TrackedAspect trackedAspect(TrackRecorder recorder, TrackingProperties properties) {
+        return trackedAspect(recorder, properties, TrackIdentityProvider.NONE);
     }
 }

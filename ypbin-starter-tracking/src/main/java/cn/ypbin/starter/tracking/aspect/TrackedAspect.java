@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -136,8 +137,7 @@ public class TrackedAspect {
      * @param dimension 维度名（仅用于日志）
      * @return 维度值；失败时为 {@code null}
      */
-    private static @Nullable Long resolveQuietly(java.util.function.Supplier<@Nullable Long> supplier,
-                                                 String dimension) {
+    private static @Nullable Long resolveQuietly(Supplier<Long> supplier, String dimension) {
         try {
             return supplier.get();
         } catch (RuntimeException ex) {
