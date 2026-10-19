@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-17T07:06:57.016Z",
+  "generatedAt": "2026-10-19T00:13:47.647Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 378,
+    "customPropertyCount": 382,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 418,
+    "totalEntryCount": 422,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -3458,7 +3458,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2023
+              "line": 2058
             }
           ],
           "default": null,
@@ -3468,7 +3468,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2023
+              "line": 2058
             }
           ]
         }
@@ -4550,7 +4550,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1930
+              "line": 1965
             }
           ],
           "default": null,
@@ -4560,7 +4560,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1930
+              "line": 1965
             }
           ]
         },
@@ -4580,7 +4580,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1930
+              "line": 1965
             }
           ],
           "default": null,
@@ -4590,7 +4590,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1930
+              "line": 1965
             }
           ]
         },
@@ -4892,7 +4892,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2119
+              "line": 2154
             }
           ],
           "default": null,
@@ -4902,7 +4902,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2119
+              "line": 2154
             }
           ]
         },
@@ -4924,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2119
+              "line": 2154
             }
           ],
           "default": null,
@@ -4936,7 +4936,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2119
+              "line": 2154
             }
           ]
         },
@@ -4956,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2119
+              "line": 2154
             }
           ],
           "default": null,
@@ -4966,7 +4966,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2119
+              "line": 2154
             }
           ]
         }
@@ -5056,7 +5056,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2173
+              "line": 2208
             }
           ],
           "default": null,
@@ -5066,7 +5066,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2173
+              "line": 2208
             }
           ]
         },
@@ -5086,7 +5086,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2173
+              "line": 2208
             }
           ],
           "default": null,
@@ -5096,7 +5096,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2173
+              "line": 2208
             }
           ]
         }
@@ -5247,6 +5247,46 @@
       "configurationProperties": [
         {
           "module": "ypbin-starter-data",
+          "key": "ypbin.data.base-enum.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用「实现 BaseEnum 的枚举按 value 落库/回填」，默认开启。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.data",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-data",
+          "key": "ypbin.data.base-enum.scan-packages",
+          "type": "java.util.Set<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "扫描 BaseEnum 枚举实现的根包，默认 cn.ypbin。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.data",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-data",
           "key": "ypbin.data.db-type",
           "type": "com.baomidou.mybatisplus.annotation.DbType",
           "defaultDefined": true,
@@ -5261,7 +5301,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 37
+              "line": 39
             }
           ],
           "default": "mysql",
@@ -5271,7 +5311,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 37
+              "line": 39
             }
           ],
           "group": "ypbin.data",
@@ -5293,7 +5333,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 34
+              "line": 36
             }
           ],
           "default": true,
@@ -5303,7 +5343,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 34
+              "line": 36
             }
           ],
           "group": "ypbin.data",
@@ -5349,7 +5389,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 40
+              "line": 42
             }
           ],
           "default": 500,
@@ -5359,7 +5399,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 40
+              "line": 42
             }
           ],
           "group": "ypbin.data",
@@ -5381,7 +5421,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 43
+              "line": 45
             }
           ],
           "default": false,
@@ -5391,7 +5431,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-data/src/main/java/cn/ypbin/starter/data/autoconfigure/DataProperties.java",
-              "line": 43
+              "line": 45
             }
           ],
           "group": "ypbin.data",
@@ -5836,7 +5876,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1725
+              "line": 1760
             }
           ],
           "default": "messages",
@@ -5846,7 +5886,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1725
+              "line": 1760
             }
           ]
         }
@@ -5955,6 +5995,26 @@
     },
     "ypbin-starter-json": {
       "configurationProperties": [
+        {
+          "module": "ypbin-starter-json",
+          "key": "ypbin.json.base-enum.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用「实现 BaseEnum 的枚举按 value 序列化/反序列化」，默认开启。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.json",
+          "deprecation": null
+        },
         {
           "module": "ypbin-starter-json",
           "key": "ypbin.json.date-format",
@@ -8212,7 +8272,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1423
+              "line": 1458
             }
           ],
           "default": null,
@@ -8222,7 +8282,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1423
+              "line": 1458
             }
           ]
         }
@@ -9956,7 +10016,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 332
+              "line": 367
             }
           ],
           "default": 2592000,
@@ -9966,7 +10026,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 332
+              "line": 367
             }
           ]
         },
@@ -9986,7 +10046,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 332
+              "line": 367
             }
           ],
           "default": 1800,
@@ -9996,7 +10056,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 332
+              "line": 367
             }
           ]
         },
@@ -10016,7 +10076,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 332
+              "line": 367
             }
           ],
           "default": true,
@@ -10026,7 +10086,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 332
+              "line": 367
             }
           ]
         }
@@ -11425,7 +11485,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 709
+              "line": 744
             }
           ],
           "default": null,
@@ -11435,7 +11495,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 709
+              "line": 744
             }
           ]
         },
@@ -11455,7 +11515,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 709
+              "line": 744
             }
           ],
           "default": null,
@@ -11465,7 +11525,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 709
+              "line": 744
             }
           ]
         }
@@ -12474,6 +12534,42 @@
               "kind": "java-property",
               "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/ApiVersionProperties.java",
               "line": 53
+            }
+          ],
+          "group": "ypbin.web",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-web",
+          "key": "ypbin.web.base-enum.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": "true",
+          "required": false,
+          "requiredWhen": null,
+          "description": "条件开关：ypbin.web.base-enum.enabled=true 时装配 WebAutoConfiguration。",
+          "allowedValues": [
+            "true"
+          ],
+          "enablement": "需显式满足该条件（WebAutoConfiguration）。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "conditional-on-property",
+              "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebAutoConfiguration.java",
+              "line": 89
+            }
+          ],
+          "default": "true",
+          "values": [
+            "true"
+          ],
+          "notes": [],
+          "source": [
+            {
+              "kind": "conditional-on-property",
+              "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebAutoConfiguration.java",
+              "line": 89
             }
           ],
           "group": "ypbin.web",

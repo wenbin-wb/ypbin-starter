@@ -1047,6 +1047,8 @@
   - `docs/MODULES.md` 的 data 一节补充该配置陷阱与 WARN 语义表。
 
 ### 性能
+- **单体模式操作日志的会话读取 2 次 → 1 次**（security）：`SessionLogClientProvider#getCurrentClient` 原先无条件「先 `getUserIdSafely()`（内部读会话取 loginId）→ 再 `StpUtil.getSessionByLoginId(userId, false)`（又读一次账号会话）」，单体模式下同一次日志采集读了 **2 次**会话——而单体模式的 `LoginUser` 本来就在当前 token 会话里，第二次读纯属多余。改为按模式分支：**单体模式**直接 `UserContext.getLoginUser()`（1 次会话读，不再跨 loginId 查账号会话）；**身份头模式保持不变**仍按 loginId 读账号会话（身份头只有 id/username/tenantId/deptId/roles，不含 client 三元组，且下游服务无 token 会话可读——这一次不能省）。失败语义完全保持（读会话异常/类型不可识别 ⇒ `log.error` 带完整堆栈并返回空；三元组未回填 ⇒ 返回空不记错误）。类注释以表格写明两种模式各读几次会话，作为该性能约定的依据。新增 `SessionLogClientProviderSessionReadCountTest` 7 用例，用 `mockStatic(StpUtil.class)` **计数**断言：单体模式 `getSessionByLoginId` 调用次数为 `never()`、`getSession()` 恰为 1 次；身份头模式仍 `times(1)` 读账号会话。**已用变异测试证伪**：把实现改回旧的二次读取逻辑后，两条计数用例立即变红（`Wanted but not invoked`），说明断言确有拦截力、非遗漏通过。
+
 - **向量库落盘消除 O(N²)**（ai）：抽出 `PersistCoordinator` 统一落盘——并发合并（单飞 + 脏标记循环复查，保证最后一次变更必落盘）+ 原子替换（先写 `.tmp` 再 `ATOMIC_MOVE`，避免半个 JSON 导致下次启动加载失败）+ 可选防抖 `ypbin.ai.rag.persist-debounce-ms`（默认 0 写透，设为正值可把顺序 N 次变更合并为约 1 次；正常关闭强制 flush）。新增 `PersistCoordinatorTest`（并发不丢数据、防抖合并、原子替换无残留、失败清理）。
 
 ### 修复
