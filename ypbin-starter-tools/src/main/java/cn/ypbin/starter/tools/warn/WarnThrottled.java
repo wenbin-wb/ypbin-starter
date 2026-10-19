@@ -86,13 +86,18 @@ public final class WarnThrottled {
     }
 
     /**
-     * 测试用构造器：注入时钟，使「跨间隔」这类时序语义可确定性验证。
+     * 构造节流器并注入时钟：使「跨间隔」这类时序语义可确定性验证。
      *
-     * @param minIntervalMillis 最小输出间隔（毫秒）
+     * <p><b>为什么公开</b>（2026-10-19）：此前该构造器是包内可见，宿主无法为自己的
+     * 节流逻辑写确定性测试，只能各自手写一份「可注入时钟的节流器」——这正是
+     * 「通用能力焊在业务仓」的形态（iot 的 {@code LogThrottle} 就是因此自建的）。
+     * 时钟是纯粹的测试/可观测性接缝，公开它不会让生产误用（生产应优先用两参构造器）。</p>
+     *
+     * @param minIntervalMillis 最小输出间隔（毫秒），不得为负；0 表示不节流
      * @param log               日志器
      * @param clock             时钟
      */
-    WarnThrottled(long minIntervalMillis, Logger log, Clock clock) {
+    public WarnThrottled(long minIntervalMillis, Logger log, Clock clock) {
         if (minIntervalMillis < 0) {
             // 负数间隔等价于「永远不节流」是配置错误，直接拒绝而不是静默放行（禁静默降级）
             throw new IllegalArgumentException("minIntervalMillis 不能为负数: " + minIntervalMillis);
