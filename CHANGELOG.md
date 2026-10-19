@@ -1039,6 +1039,13 @@
 - **API 版本管理**（web）：新增 `ypbin.web.api-version.*`（默认关闭），支持 `@GetMapping(value = "/user", version = "1.0")` 与请求头/查询参数/路径段三种解析方式、缺省版本与支持版本清单。
 - **`InetAddressFilter` SSRF 防护**：starter 侧无用户 URL 抓取路径（`DocumentLoader` 只处理字节流），存量手写地址校验由消费方（ypbin-admin AI 知识库导入）改用 Spring Boot 4.1 的 `InetAddressFilter.externalAddresses()`，覆盖含 CGNAT 在内的特殊用途网段。**注意不可对出站客户端全局套用**，否则会切断 `lb://` 内网服务调用。
 
+### 修复
+- **`BaseEnum` 落库「扫描 0 命中」静默降级**（data）：`BaseEnumScanner` 默认只扫 `cn.ypbin`，宿主业务包名不同（或拼错）时**扫描 0 个枚举、无任何告警**，所有 `BaseEnum` 静默按 `name()` 落库——与本能力「按 value 存储」的契约不符，且与其它服务/前端按 value 约定的数据不一致（违反「禁静默降级」）。
+  - 启动期显式区分两种「0 命中」：classpath 上**没有任何** `BaseEnum` 实现 ⇒ `INFO`（宿主未用该能力，正常，不制造噪音）；classpath 上**有实现但都不在** `scan-packages` 内 ⇒ **`WARN`**（真正的配置错误），文案含实际生效的 `scan-packages`、实现数量与示例类名、以及要修改的配置项 `ypbin.data.base-enum.scan-packages`——可据此直接修正。
+  - `BaseEnumScanner` 新增 `scanAll()`（不带包过滤的全 classpath 扫描）用于上述判别；**成本上限保护**：全量扫描只在「按配置扫描 0 命中」这一分支触发一次，正常宿主（能命中）不付这份启动成本。
+  - 新增 `BaseEnumScanWarningTest` 5 用例：命中⇒注册数正确且无 WARN、有实现但包名错⇒WARN 且注册 0 个、WARN 含可操作配置项名、示例列表限量不刷屏、完全无实现⇒只 INFO 不 WARN（防噪音回归）。
+  - `docs/MODULES.md` 的 data 一节补充该配置陷阱与 WARN 语义表。
+
 ### 性能
 - **向量库落盘消除 O(N²)**（ai）：抽出 `PersistCoordinator` 统一落盘——并发合并（单飞 + 脏标记循环复查，保证最后一次变更必落盘）+ 原子替换（先写 `.tmp` 再 `ATOMIC_MOVE`，避免半个 JSON 导致下次启动加载失败）+ 可选防抖 `ypbin.ai.rag.persist-debounce-ms`（默认 0 写透，设为正值可把顺序 N 次变更合并为约 1 次；正常关闭强制 flush）。新增 `PersistCoordinatorTest`（并发不丢数据、防抖合并、原子替换无残留、失败清理）。
 

@@ -154,6 +154,41 @@ private String idCard;   // 入库密文，查询回来自动解密
 
 默认 AES-GCM 实现；需要国密/KMS 时实现 `FieldEncryptor` 覆盖默认 Bean。
 
+**枚举按 value 落库** `BaseEnumTypeHandler`：实现 `BaseEnum<V>` 的枚举默认按 `getValue()`
+落库与回填，而不是 MyBatis 默认的 `name()`（改常量名要刷数据）或序号（插入常量即错位）。
+引入即生效、无需在实体字段上挂 `@TableField`。
+
+```java
+public enum DeviceStatus implements BaseEnum<Integer> {
+    OFFLINE(0, "离线"), ONLINE(1, "在线");
+    // getValue() / getDescription()
+}
+```
+
+> ⚠️ **配置陷阱：`scan-packages` 必须覆盖你的枚举所在包**
+>
+> 该能力需要预先知道候选枚举类型（MyBatis 的类型处理器注册是「具体类型 → 处理器」的显式映射，
+> 无法按接口自动匹配），因此靠扫描发现实现类，默认扫描 **`cn.ypbin`**：
+>
+> ```yaml
+> ypbin:
+>   data:
+>     base-enum:
+>       scan-packages: cn.ypbin,com.yourcompany   # 默认值仅 cn.ypbin
+> ```
+>
+> **业务包名不在扫描范围内（或拼错）时，所有 `BaseEnum` 会静默退回 `name()` 落库**，
+> 与本能力「按 value 存储」的契约不符，也与其它服务/前端按 value 约定的数据不一致。
+> 为此启动期会显式区分两种「扫描 0 命中」：
+>
+> | 情况 | 日志级别 | 含义 |
+> |---|---|---|
+> | classpath 上没有任何 `BaseEnum` 实现 | `INFO` | 正常：宿主没用这个能力，不打扰 |
+> | classpath 上有实现，但都不在 `scan-packages` 内 | **`WARN`** | 配置错误：当前无任何枚举按 value 落库，需把业务包名加入 `scan-packages` |
+>
+> 该 WARN 文案包含实际生效的 `scan-packages`、实现数量与示例类名、以及要修改的配置项，
+> 可直接据此修正。兜底的全 classpath 扫描只在「扫描 0 命中」时执行一次，正常宿主不付这份启动成本。
+
 ### json — 序列化
 
 统一 Jackson 配置，引入即生效：
