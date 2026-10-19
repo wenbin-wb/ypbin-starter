@@ -137,6 +137,25 @@
 
 ### 修复
 
+- **`ypbin-starter-data`：`BaseEnum` 扫描 0 命中时不再静默降级（技术债清零）**：`scan-packages`
+  默认 `cn.ypbin`，业务包名不同或写错时此前**无任何告警**，所有 `BaseEnum` 静默按 `name()` 落库——
+  与「按 value 存储」的契约不符，也与其它服务/前端按 value 约定的数据不一致。现在区分两种成因：
+  classpath 上没有实现 ⇒ **INFO**（宿主没用这能力，不制造噪音）；**有实现但都不在扫描范围 ⇒ WARN**，
+  文案含实际 `scan-packages`、实现数量与示例、以及可直接照做的修正项。全 classpath 兜底扫描
+  **只在 0 命中分支触发一次**（成本上限见注释），正常宿主不付这份启动成本。
+- **`ypbin-starter-security`：单体模式操作日志的会话读取 2 次 → 1 次（性能）**：
+  `SessionLogClientProvider` 此前在单体模式下先 `getUserIdSafely()`（内部读会话）再
+  `getSessionByLoginId(userId)`（又读一次账号会话）；而单体模式的 `LoginUser` 就在**当前 token 会话**里，
+  第二次读纯属多余。改为按模式分支：单体 ⇒ `UserContext#getLoginUser()`（1 次）；
+  身份头模式 ⇒ **保持**按 loginId 读账号会话（身份头只含 userId，三元组必须从会话取）。
+  失败语义未变（读会话异常/类型不可识别 ⇒ `log.error` 带完整堆栈并返回空；未回填 ⇒ 返回空不记错误）。
+- **`tools/export-config-metadata.mjs`：补齐「缩小守卫」（工具链保护此前只是注释）**：
+  文件头一直声称「禁止模块集合静默缩小；用 `--allow-shrink` 显式声明」，但**代码里从未实现**，
+  连该参数都没解析。生成器只读各模块 `target/classes`，先跑过 `clean` 或只构建部分模块时
+  模块/条目会静默缩小，此后 `--check` 永远通过（假绿）——本轮已实际误删 9000 行（`ypbin.ai.*`）。
+  现在写文件前与已提交基线比较，**模块集合或配置项减少即失败**并报出丢失项，
+  给出「先全量 `package`」与「确属删除则加 `--allow-shrink`」两条处置。
+
 - **`ypbin-starter-security`：`SecurityLogClientAutoConfiguration` 两个默认 provider 在微服务身份头模式下失效（#100）**：
   - `securityLogUserProvider()` 从 `LoginHelper::getUserIdSafely`（只读 Sa-Token 会话）改为自适应入口
     `UserContext::getUserIdSafely`——身份头模式（下游服务无会话）由「userId 恒空」变为能取到真实操作人。
