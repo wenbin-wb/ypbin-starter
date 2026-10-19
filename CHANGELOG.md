@@ -11,6 +11,20 @@
 
 > 下一开发版 `4.2.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
 
+### 新增
+
+- **`ypbin-starter-tools`：`KeyedWarnThrottled` 按键分桶 WARN 节流 + `WarnThrottled` 时钟构造器公开**（反哺）。
+  `WarnThrottled` 是「整条告警一个窗口」，适合单一告警源；但业务侧存在「每个点位/设备各一个窗口」的场景
+  （如 `ypbin-iot` 的 `SeriesValueWarnThrottle`）——共用一个窗口会让一台设备刷屏**抑制掉其它设备的告警**，
+  等于静默丢失其余故障。业务仓因此各自手写了约 30 行「按 key 分桶 + 可注入时钟」的节流器，
+  属「通用能力焊在业务仓」。本次上收：
+  - 新增 `KeyedWarnThrottled`：按 key 独立计时/计数；`tryWarn(key, format, args)` 返回是否真输出；
+    `acquire(key)` 返回「本次放行前被抑制条数」（被抑制返回 -1，与业务仓既有语义一致）；
+    `suppressedCount(key)` 累计值供指标；`windowCount()` 供基数监控（Map 不淘汰，key 必须有界）。
+  - `WarnThrottled(long, Logger, Clock)` 构造器由包内可见改为 **public**：此前宿主无法为自己的节流逻辑
+    写确定性测试，只能自建可注入时钟的实现。
+  - 7 条测试，核心是**分桶隔离**（dev-1 刷屏 100 次后 dev-2 仍必须输出）+ 并发安全 + 计数语义。
+
 ## [4.1.0] - 2026-10-19
 
 > 本版本为**次版本升级（`4.0.0` → `4.1.0`）**：全部为向后兼容的新增与修复，无破坏性变更。
