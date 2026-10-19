@@ -18,10 +18,13 @@ package cn.ypbin.starter.tracking.aspect;
 import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.tracking.annotation.Tracked;
 import cn.ypbin.starter.tracking.core.TrackEvent;
+import cn.ypbin.starter.tracking.core.TrackIdentityProvider;
 import cn.ypbin.starter.tracking.core.TrackRecorder;
+import cn.ypbin.starter.tracking.core.TrackRequestContext;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -51,15 +54,38 @@ public class TrackedAspect {
 
     private final @Nullable String appId;
 
+    private final TrackIdentityProvider identityProvider;
+
     /**
-     * 创建切面。
+     * 创建切面（不带身份维度）。
      *
      * @param recorder 采集门面
      * @param appId    应用标识；为空表示不写该维度
      */
     public TrackedAspect(TrackRecorder recorder, @Nullable String appId) {
+        this(recorder, appId, TrackIdentityProvider.NONE);
+    }
+
+    /**
+     * 创建切面并注入登录身份提供者。
+     *
+     * <p><b>为什么需要身份维度</b>（2026-10-19 反哺自 {@code ypbin-admin}/{@code ypbin-iot}）：
+     * {@code @Tracked} 此前记录的事件 {@code userId}/{@code tenantId} <b>恒为空</b>——切面没有 HTTP
+     * 请求上下文，而 {@link TrackEvent} 的用户维度来自 {@link TrackRequestContext}。后果是
+     * 「登录事件没有 userId 就无法按人做漏斗，等于白采」，于是每个宿主都手写一遍 tracker
+     * （{@code LoginEventTracker} 在 admin/iot 各一份）绕过注解直接调 {@code TrackRecorder}。
+     * 本构造器复用<b>已有的</b> {@link TrackIdentityProvider} SPI（{@code TrackRequestContextResolver}
+     * 用的是同一个），因此宿主只要提供该 Bean，注解事件就自动带上身份维度。</p>
+     *
+     * @param recorder         采集门面
+     * @param appId            应用标识；为空表示不写该维度
+     * @param identityProvider 登录身份提供者（缺省为 {@link TrackIdentityProvider#NONE}）
+     */
+    public TrackedAspect(TrackRecorder recorder, @Nullable String appId,
+                         TrackIdentityProvider identityProvider) {
         this.recorder = recorder;
         this.appId = appId;
+        this.identityProvider = Objects.requireNonNull(identityProvider, "identityProvider");
     }
 
     /**
@@ -87,12 +113,37 @@ public class TrackedAspect {
     private void recordQuietly(String eventCode, long elapsedNanos, boolean success) {
         try {
             long durationMillis = Duration.ofNanos(elapsedNanos).toMillis();
-            // 后端切面没有 HTTP 请求上下文（IP/UA 无法获取），故用少参构造器显式表达「不带请求维度」
+            // 后端切面没有 HTTP 请求上下文（IP/UA 无法获取），但**有登录身份**：
+            // 通过 TrackIdentityProvider 取 userId/tenantId，否则按人分析漏斗时事件全被丢弃。
+            TrackRequestContext context = new TrackRequestContext(null, null, null,
+                resolveQuietly(identityProvider::userId, "userId"),
+                resolveQuietly(identityProvider::tenantId, "tenantId"));
             recorder.record(new TrackEvent(UUID.randomUUID().toString(), eventCode, Instant.now(), appId,
-                null, null, null, null, durationMillis, success, Map.of()));
+                null, null, null, null, durationMillis, success, Map.of(), context));
         } catch (RuntimeException ex) {
             log.error("[ypbin-starter] @Tracked aspect failed to record event: {}",
                 LogSanitizer.sanitize(eventCode), ex);
+        }
+    }
+
+    /**
+     * 取身份维度；失败只记 WARN 并返回 null（埋点是旁路能力，身份实现故障不该让事件丢失）。
+     *
+     * <p>与 {@code TrackRequestContextResolver} 的口径一致：失败<b>会</b>打日志（事件缺维度是可见的），
+     * 不是静默降级。</p>
+     *
+     * @param supplier 取值函数
+     * @param dimension 维度名（仅用于日志）
+     * @return 维度值；失败时为 {@code null}
+     */
+    private static @Nullable Long resolveQuietly(java.util.function.Supplier<@Nullable Long> supplier,
+                                                 String dimension) {
+        try {
+            return supplier.get();
+        } catch (RuntimeException ex) {
+            log.warn("[ypbin-starter] @Tracked 取 {} 失败，本次事件缺失该维度：{}",
+                dimension, ex.getMessage(), ex);
+            return null;
         }
     }
 }

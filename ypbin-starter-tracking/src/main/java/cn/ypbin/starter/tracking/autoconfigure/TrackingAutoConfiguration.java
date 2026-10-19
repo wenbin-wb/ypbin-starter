@@ -164,8 +164,13 @@ public class TrackingAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    public TrackedAspect trackedAspect(TrackRecorder recorder, TrackingProperties properties) {
+    public TrackedAspect trackedAspect(TrackRecorder recorder, TrackingProperties properties,
+                                       TrackIdentityProvider identityProvider) {
         @Nullable String appId = properties.getAppId().isBlank() ? null : properties.getAppId();
-        return new TrackedAspect(recorder, appId);
+        // 注入身份提供者：@Tracked 事件此前 userId/tenantId 恒为空（切面无 HTTP 上下文），
+        // 导致「按人分析漏斗」时事件不可用。与 TrackRequestContextResolver 用同一个 SPI。
+        log.debug("[ypbin-starter] @Tracked aspect configured with identityProvider={}.",
+            identityProvider.getClass().getName());
+        return new TrackedAspect(recorder, appId, identityProvider);
     }
 }

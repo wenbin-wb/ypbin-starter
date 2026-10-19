@@ -156,23 +156,16 @@
   标签顺序稳定；非法名称段/标签一律**拒绝**而不是静默清洗。`docs/MODULES.md` 新增「指标命名约定」一节
   （含「改名必须同步看板」纪律）。**不强制存量指标改名**（改名属对外契约破坏，需单独评估）。
 
-### 新增
-
-- **`ypbin-starter-core`：`UserAgentFormatter`（UA 解析与格式化上收）**（反哺自 admin/iot）。
-  「把 UA 格式化成『浏览器 版本』、版本缺失只留名称」这段逻辑此前有**三份**：
-  `LogCollector` 里一份私有实现 + admin/iot 的 `LoginSupport` 各抄一份，且后者注释写着
-  「与 starter 操作日志的写法保持一致」——靠注释维持一致性正是要消除的形态。
-  现上收为 `UserAgentFormatter`（`parse` / `formatBrowser` / `formatBrowserHeader`），
-  `LogCollector` 已改用它；口径与原实现逐条一致（`Unknown`/空白/null 都只留名称，浏览器缺失返回 null）。
+- **`ypbin-starter-tracking`：`@Tracked` 事件补上 userId/tenantId 身份维度**（反哺自 admin/iot）。
+  切面没有 HTTP 请求上下文，此前把 `TrackRequestContext` 传 `EMPTY` ⇒ **事件 `userId` 恒为空**。
+  后果是「登录事件没有 userId 就无法按人做漏斗，等于白采」，于是每个宿主都手写一遍
+  `LoginEventTracker` 绕过注解直接调 `TrackRecorder`（admin/iot 各一份）。
+  现复用**已有的** `TrackIdentityProvider` SPI（`TrackRequestContextResolver` 用的是同一个）：
+  `TrackedAspect` 新增三参构造器注入该 SPI，装配点同步接线。宿主只要提供该 Bean，
+  注解事件即自动带身份维度；未提供时走 `NONE`，行为与改动前**逐字一致**（向后兼容）。
+  身份取值失败只 WARN 并留 null，**事件不丢**（埋点是旁路能力）。
 
 ### 修复
-
-- **`ypbin-starter-sign`：`RedisNonceStore` 补 fail-closed 语义**（反哺自 `ypbin-iot` 的同名实现）。
-  nonce 防重放是**安全校验**，但原实现在 Redis 异常时直接上抛 ⇒ `SignChecker#check` 整体异常退出——
-  那既不是「放行」也不是「拒绝」，而是**未定义失败形态**，且把中间件故障放大成业务不可用。
-  现按 fail-closed 处理：捕获 `RuntimeException`、记 ERROR（key 经 `LogSanitizer` 脱敏，防 Log Injection）、
-  **返回 `false`（拒绝本次请求）**。Lua 返回 `null`（连接层面不确定）同样按拒绝处理。
-  语义取向：**宁可拒绝合法请求（可重试、可告警），也绝不在「无法判断是否重放」时放行**（那是安全漏洞）。
 
 - **`ypbin-starter-data`：`BaseEnum` 扫描 0 命中时不再静默降级（技术债清零）**：`scan-packages`
   默认 `cn.ypbin`，业务包名不同或写错时此前**无任何告警**，所有 `BaseEnum` 静默按 `name()` 落库——

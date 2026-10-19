@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import cn.ypbin.starter.tracking.annotation.Tracked;
 import cn.ypbin.starter.tracking.core.TrackEvent;
+import cn.ypbin.starter.tracking.core.TrackIdentityProvider;
 import cn.ypbin.starter.tracking.core.TrackRecorder;
 import cn.ypbin.starter.tracking.core.TrackingEventCatalog;
 import cn.ypbin.starter.tracking.core.TrackingEventCodes;
@@ -100,5 +101,98 @@ class TrackedAspectTest {
 
         assertThat(queue.isEmpty()).isTrue();
         assertThat(counters.snapshot().rejectedByReason()).containsEntry("unregistered", 1L);
+    }
+
+    /**
+     * <b>身份维度</b>：注入 {@code TrackIdentityProvider} 后，{@code @Tracked} 事件必须带上
+     * {@code userId}/{@code tenantId}。
+     *
+     * <p><b>为什么这是关键缺口</b>（2026-10-19 反哺）：切面没有 HTTP 请求上下文，
+     * 此前 {@code TrackRequestContext} 传 {@code EMPTY} ⇒ 事件 {@code userId} 恒为空。
+     * 后果是「登录事件没有 userId 就无法按人做漏斗，等于白采」，于是每个宿主都手写一遍
+     * {@code LoginEventTracker} 绕过注解。本用例钉住修复后的契约。</p>
+     */
+    @Test
+    void shouldCarryUserIdAndTenantIdWhenIdentityProviderPresent() throws Throwable {
+        TrackRecorder recorder = new TrackRecorder(queue, counters,
+            new TrackingEventCatalog(new ObjectMapper()));
+        TrackedAspect withIdentity = new TrackedAspect(recorder, "ypbin-admin",
+            new TrackIdentityProvider() {
+                @Override
+                public Long userId() {
+                    return 42L;
+                }
+
+                @Override
+                public Long tenantId() {
+                    return 7L;
+                }
+            });
+
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        Tracked tracked = mock(Tracked.class);
+        when(tracked.value()).thenReturn(TrackingEventCodes.AUTH_USER_LOGIN);
+        when(joinPoint.proceed()).thenReturn("ok");
+
+        withIdentity.around(joinPoint, tracked);
+
+        TrackEvent event = queue.poll(10L);
+        assertThat(event).isNotNull();
+        assertThat(event.context()).isNotNull();
+        assertThat(event.context().userId()).as("userId 必须被采集，否则按人漏斗无法分析").isEqualTo(42L);
+        assertThat(event.context().tenantId()).isEqualTo(7L);
+    }
+
+    /**
+     * 身份提供者抛异常：事件仍然记录，只是缺该维度（埋点是旁路能力，不能因身份故障丢事件）。
+     */
+    @Test
+    void shouldStillRecordEventWhenIdentityProviderFails() throws Throwable {
+        TrackRecorder recorder = new TrackRecorder(queue, counters,
+            new TrackingEventCatalog(new ObjectMapper()));
+        TrackedAspect withBrokenIdentity = new TrackedAspect(recorder, "ypbin-admin",
+            new TrackIdentityProvider() {
+                @Override
+                public Long userId() {
+                    throw new IllegalStateException("identity unavailable");
+                }
+
+                @Override
+                public Long tenantId() {
+                    return 7L;
+                }
+            });
+
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        Tracked tracked = mock(Tracked.class);
+        when(tracked.value()).thenReturn(TrackingEventCodes.AUTH_USER_LOGIN);
+        when(joinPoint.proceed()).thenReturn("ok");
+
+        assertThat(withBrokenIdentity.around(joinPoint, tracked)).isEqualTo("ok");
+
+        TrackEvent event = queue.poll(10L);
+        assertThat(event).as("身份取值失败不得导致事件丢失").isNotNull();
+        assertThat(event.context()).isNotNull();
+        assertThat(event.context().userId()).isNull();
+        assertThat(event.context().tenantId()).as("另一维度不受影响").isEqualTo(7L);
+    }
+
+    /**
+     * 未注入身份提供者（旧构造器）：行为与改动前逐字一致（context 各项为 null）。
+     */
+    @Test
+    void shouldKeepLegacyBehaviourWithoutIdentityProvider() throws Throwable {
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        Tracked tracked = mock(Tracked.class);
+        when(tracked.value()).thenReturn(TrackingEventCodes.AUTH_USER_LOGIN);
+        when(joinPoint.proceed()).thenReturn("ok");
+
+        aspect.around(joinPoint, tracked);
+
+        TrackEvent event = queue.poll(10L);
+        assertThat(event).isNotNull();
+        assertThat(event.context()).isNotNull();
+        assertThat(event.context().userId()).isNull();
+        assertThat(event.context().tenantId()).isNull();
     }
 }
