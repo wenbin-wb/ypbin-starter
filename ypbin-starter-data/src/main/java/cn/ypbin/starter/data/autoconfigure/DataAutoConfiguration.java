@@ -61,6 +61,9 @@ public class DataAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(DataAutoConfiguration.class);
 
+    /** 告警文案里展示的示例枚举数量上限（避免一个超长列表刷屏日志）。 */
+    private static final long WARN_SAMPLE_LIMIT = 5L;
+
     /**
      * 分页拦截器贡献者。
      *
@@ -166,10 +169,51 @@ public class DataAutoConfiguration {
         Set<String> scanPackages = properties.getBaseEnum().getScanPackages();
         return configuration -> {
             List<Class<?>> enumTypes = BaseEnumScanner.scan(scanPackages);
+            if (enumTypes.isEmpty()) {
+                // 全 classpath 扫描只在这个分支发生一次（成本上限保护），用于区分「没这能力」与「配置错」
+                reportEmptyScan(scanPackages, BaseEnumScanner.scanAll());
+            }
             List<Class<?>> registered = BaseEnumTypeHandlerRegistrar.register(configuration, enumTypes);
             log.debug("[ypbin-starter] base-enum type handler registered for {} enum type(s): {}",
                 registered.size(), registered.stream().map(Class::getSimpleName).toList());
         };
+    }
+
+    /**
+     * 「扫描到 0 个枚举」时区分两种成因并给出正确级别的日志。
+     *
+     * <p><b>为什么要区分</b>：扫描 0 命中意味着所有 {@code BaseEnum} 会静默按 {@code name()} 落库，
+     * 与本能力「按 value 存储」的契约不符，也与其它服务/前端按 value 约定的数据不一致——属静默降级。
+     * 但「0 命中」有两种成因，混为一谈会制造噪音或放过真实故障：</p>
+     * <ul>
+     *   <li>classpath 上<b>没有</b>任何 {@code BaseEnum} 实现 ⇒ 宿主没用这能力，属正常，记 INFO；</li>
+     *   <li>classpath 上<b>有</b>实现但不在 {@code scan-packages} 内 ⇒ 配置错误，记 WARN
+     *       并给出可直接照做的修正项。</li>
+     * </ul>
+     *
+     * <p><b>为什么把「全量清单」作为参数而不是在方法内扫描</b>：便于测试直接覆盖两种分支
+     * （尤其「classpath 上确实没有实现」这一分支在测试 classpath 上无法自然构造——测试代码本身就带着
+     * {@code BaseEnum} 实现）。生产调用方传入 {@link BaseEnumScanner#scanAll()} 的真实结果。</p>
+     *
+     * <p><b>成本控制</b>：全 classpath 扫描只在「scan 命中 0 个」这个分支上由调用方执行一次，
+     * 正常宿主（能命中）不会付这份代价。</p>
+     *
+     * @param scanPackages 实际生效的扫描根包（用于告警文案）
+     * @param allBaseEnums classpath 上全部 {@code BaseEnum} 实现（用于判别成因；空表示宿主没用该能力）
+     */
+    static void reportEmptyScan(Set<String> scanPackages, List<Class<?>> allBaseEnums) {
+        if (allBaseEnums.isEmpty()) {
+            // 宿主没有使用该能力：正常情况，不打扰
+            log.info("[ypbin-starter] 未发现任何 BaseEnum 实现（scan-packages={}），"
+                + "本能力不参与装配；如后续引入枚举请保持包名在扫描范围内。", scanPackages);
+            return;
+        }
+        log.warn("[ypbin-starter] 存在 {} 个 BaseEnum 实现，但全部不在扫描范围内（scan-packages={}），"
+                + "当前没有任何枚举按 value 落库——它们将静默退回 MyBatis 默认的 name() 存储，"
+                + "与按 value 约定存储的数据不一致。请把业务包名加入 "
+                + "ypbin.data.base-enum.scan-packages（当前实现示例：{}）。",
+            allBaseEnums.size(), scanPackages,
+            allBaseEnums.stream().map(Class::getName).limit(WARN_SAMPLE_LIMIT).toList());
     }
 
     /**

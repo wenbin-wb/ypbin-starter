@@ -1104,7 +1104,16 @@
 - **API 版本管理**（web）：新增 `ypbin.web.api-version.*`（默认关闭），支持 `@GetMapping(value = "/user", version = "1.0")` 与请求头/查询参数/路径段三种解析方式、缺省版本与支持版本清单。
 - **`InetAddressFilter` SSRF 防护**：starter 侧无用户 URL 抓取路径（`DocumentLoader` 只处理字节流），存量手写地址校验由消费方（ypbin-admin AI 知识库导入）改用 Spring Boot 4.1 的 `InetAddressFilter.externalAddresses()`，覆盖含 CGNAT 在内的特殊用途网段。**注意不可对出站客户端全局套用**，否则会切断 `lb://` 内网服务调用。
 
+### 修复
+- **`BaseEnum` 落库「扫描 0 命中」静默降级**（data）：`BaseEnumScanner` 默认只扫 `cn.ypbin`，宿主业务包名不同（或拼错）时**扫描 0 个枚举、无任何告警**，所有 `BaseEnum` 静默按 `name()` 落库——与本能力「按 value 存储」的契约不符，且与其它服务/前端按 value 约定的数据不一致（违反「禁静默降级」）。
+  - 启动期显式区分两种「0 命中」：classpath 上**没有任何** `BaseEnum` 实现 ⇒ `INFO`（宿主未用该能力，正常，不制造噪音）；classpath 上**有实现但都不在** `scan-packages` 内 ⇒ **`WARN`**（真正的配置错误），文案含实际生效的 `scan-packages`、实现数量与示例类名、以及要修改的配置项 `ypbin.data.base-enum.scan-packages`——可据此直接修正。
+  - `BaseEnumScanner` 新增 `scanAll()`（不带包过滤的全 classpath 扫描）用于上述判别；**成本上限保护**：全量扫描只在「按配置扫描 0 命中」这一分支触发一次，正常宿主（能命中）不付这份启动成本。
+  - 新增 `BaseEnumScanWarningTest` 5 用例：命中⇒注册数正确且无 WARN、有实现但包名错⇒WARN 且注册 0 个、WARN 含可操作配置项名、示例列表限量不刷屏、完全无实现⇒只 INFO 不 WARN（防噪音回归）。
+  - `docs/MODULES.md` 的 data 一节补充该配置陷阱与 WARN 语义表。
+
 ### 性能
+- **单体模式操作日志的会话读取 2 次 → 1 次**（security）：`SessionLogClientProvider#getCurrentClient` 原先无条件「先 `getUserIdSafely()`（内部读会话取 loginId）→ 再 `StpUtil.getSessionByLoginId(userId, false)`（又读一次账号会话）」，单体模式下同一次日志采集读了 **2 次**会话——而单体模式的 `LoginUser` 本来就在当前 token 会话里，第二次读纯属多余。改为按模式分支：**单体模式**直接 `UserContext.getLoginUser()`（1 次会话读，不再跨 loginId 查账号会话）；**身份头模式保持不变**仍按 loginId 读账号会话（身份头只有 id/username/tenantId/deptId/roles，不含 client 三元组，且下游服务无 token 会话可读——这一次不能省）。失败语义完全保持（读会话异常/类型不可识别 ⇒ `log.error` 带完整堆栈并返回空；三元组未回填 ⇒ 返回空不记错误）。类注释以表格写明两种模式各读几次会话，作为该性能约定的依据。新增 `SessionLogClientProviderSessionReadCountTest` 7 用例，用 `mockStatic(StpUtil.class)` **计数**断言：单体模式 `getSessionByLoginId` 调用次数为 `never()`、`getSession()` 恰为 1 次；身份头模式仍 `times(1)` 读账号会话。**已用变异测试证伪**：把实现改回旧的二次读取逻辑后，两条计数用例立即变红（`Wanted but not invoked`），说明断言确有拦截力、非遗漏通过。
+
 - **向量库落盘消除 O(N²)**（ai）：抽出 `PersistCoordinator` 统一落盘——并发合并（单飞 + 脏标记循环复查，保证最后一次变更必落盘）+ 原子替换（先写 `.tmp` 再 `ATOMIC_MOVE`，避免半个 JSON 导致下次启动加载失败）+ 可选防抖 `ypbin.ai.rag.persist-debounce-ms`（默认 0 写透，设为正值可把顺序 N 次变更合并为约 1 次；正常关闭强制 flush）。新增 `PersistCoordinatorTest`（并发不丢数据、防抖合并、原子替换无残留、失败清理）。
 
 ### 修复
