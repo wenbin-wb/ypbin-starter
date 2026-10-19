@@ -75,6 +75,32 @@ class CacheUtilsTest {
         assertThat(CacheUtils.exists("k")).isTrue();
     }
 
+    /**
+     * 新重载（无 Class 参数）应委托到接口的 default 实现，并最终走同一套 getOrLoad 逻辑。
+     *
+     * <p><b>这是本改动的核心契约</b>：业务侧用它缓存 {@code List<String>} 这类泛型集合时，
+     * 不再需要 {@code (Class<List<T>>) (Class<?>)} 双重强转。断言两件事：
+     * ① 回源结果正确返回；② 委托确实经过四参 getOrLoad（不是另写一套逻辑）。</p>
+     */
+    @Test
+    void untypedGetOrLoadShouldDelegateToSamePath() throws Exception {
+        // 用 CALLS_REAL_METHODS 让接口的 default 实现真正执行（普通 mock 会把 default 方法也桩掉、
+        // 直接返回 null，那测的就只是「mock 行为」而不是「default 委托」）
+        CacheService realDefault = mock(CacheService.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        AtomicInteger loads = new AtomicInteger();
+        when(realDefault.getOrLoad(anyString(), any(Class.class), any(), any(Duration.class)))
+            .thenAnswer(inv -> "loaded-" + loads.incrementAndGet());
+        java.lang.reflect.Field field = CacheUtils.class.getDeclaredField("cacheService");
+        field.setAccessible(true);
+        field.set(null, realDefault);
+
+        // 注意：这里没有 Class 参数——缓存泛型集合时调用方正是这种形态
+        String result = CacheUtils.getOrLoad("k", () -> "never", Duration.ofSeconds(5));
+
+        assertThat(result).isEqualTo("loaded-1");
+        verify(realDefault).getOrLoad(anyString(), any(Class.class), any(), any(Duration.class));
+    }
+
     @Test
     void getOrLoadShouldDelegateToService() {
         AtomicInteger loads = new AtomicInteger();

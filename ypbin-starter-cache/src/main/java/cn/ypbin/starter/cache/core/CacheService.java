@@ -137,4 +137,43 @@ public interface CacheService {
      * @return 缓存值或回源结果，数据源也无数据时返回 {@code null}
      */
     <T> @Nullable T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl);
+
+    /**
+     * 读取缓存，未命中则回源加载并回填（<b>无需 Class 参数</b>的默认重载）。
+     *
+     * <p><b>为什么需要它</b>（2026-10-19）：{@link #getOrLoad(String, Class, Supplier, Duration)}
+     * 的 {@code type} 参数在现有实现里<b>只用于 (T) 强转、从不参与反序列化</b>——真正的类型还原由
+     * Value 序列化器（{@code GenericJacksonJsonRedisSerializer}）按 JSON 内的类型信息完成。
+     * 于是当业务要缓存泛型集合（如 {@code List<String>}）时，无法给出正确的 {@code Class}，
+     * 只能写 {@code (Class<List<T>>) (Class<?>) List.class} 这种<b>双重强转</b>：
+     * 既产生 unchecked 警告，又把「类型安全」的假象带进业务代码
+     * （{@code ypbin-admin}/{@code ypbin-iot} 的 {@code SysCache} 各有 4 处，共 8 处）。</p>
+     *
+     * <p>本重载省掉该参数：调用方只有类型推断（由赋值目标/泛型上下文决定），没有可被误用的
+     * {@code Class} 实参。行为与四参版本<b>完全一致</b>（同一套防击穿/穿透/雪崩）。</p>
+     *
+     * @param key    键
+     * @param loader 回源加载函数（缓存未命中时调用；返回 {@code null} 表示数据源无此数据）
+     * @param ttl    缓存过期时长，{@code null} 表示永久（靠主动失效清理）
+     * @param <T>    泛型
+     * @return 缓存值或回源结果，数据源也无数据时返回 {@code null}
+     */
+    default <T> @Nullable T getOrLoad(String key, Supplier<T> loader, Duration ttl) {
+        // 默认实现委托四参版本：Class 仅作类型标记，Object.class 不影响任何实现的取值逻辑
+        return getOrLoad(key, castType(), loader, ttl);
+    }
+
+    /**
+     * 供 {@link #getOrLoad(String, Supplier, Duration)} 传递的占位类型。
+     *
+     * <p>{@code Object.class} 是安全的：现有两个实现（{@code RedisCacheService} /
+     * {@code MultiLevelCacheService}）都只把 type 用于 {@code (T)} 强转，不据此做反序列化。</p>
+     *
+     * @param <T> 泛型
+     * @return {@code Object.class}
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> Class<T> castType() {
+        return (Class<T>) Object.class;
+    }
 }

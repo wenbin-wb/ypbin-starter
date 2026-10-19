@@ -13,6 +13,13 @@
 
 ### 新增
 
+- **`ypbin-starter-cache`：`getOrLoad` 增加「无需 Class 参数」的重载**（`CacheService` 接口默认方法 + `CacheUtils` 静态便捷方法）。
+  四参版本的 `type` 在现有两个实现里**只用于 `(T)` 强转、从不参与反序列化**（真正的类型还原由
+  `GenericJacksonJsonRedisSerializer` 按 JSON 内的类型信息完成）⇒ 业务要缓存泛型集合（如 `List<String>`）时
+  拿不到正确 `Class`，只能写 `(Class<List<T>>) (Class<?>) List.class` 双重强转
+  （`ypbin-admin` / `ypbin-iot` 的 `SysCache` 各 4 处、共 8 处，且带 unchecked 警告）。
+  新重载省掉该参数，行为与四参版本**完全一致**（同一套防击穿/穿透/雪崩）。
+  **向后兼容**：japicmp 0.23.1 对 4.1.0 复核 —— 只有 `+++ NEW METHOD`，**零不兼容项**。
 - **`ypbin-starter-tools`：`KeyedWarnThrottled` 按键分桶 WARN 节流 + `WarnThrottled` 时钟构造器公开**（反哺）。
   `WarnThrottled` 是「整条告警一个窗口」，适合单一告警源；但业务侧存在「每个点位/设备各一个窗口」的场景
   （如 `ypbin-iot` 的 `SeriesValueWarnThrottle`）——共用一个窗口会让一台设备刷屏**抑制掉其它设备的告警**，

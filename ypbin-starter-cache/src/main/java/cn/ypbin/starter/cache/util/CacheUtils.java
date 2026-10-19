@@ -183,4 +183,20 @@ public final class CacheUtils {
     public static <T> @Nullable T getOrLoad(String key, Class<T> type, Supplier<T> loader, Duration ttl) {
         return cacheService().getOrLoad(key, type, loader, ttl);
     }
+
+    /**
+     * 读取缓存，未命中则回源加载并回填（<b>无需 Class 参数</b>）。
+     *
+     * <p>适用于缓存泛型集合（如 {@code List<String>}）等「拿不到精确 Class」的场景，
+     * 避免调用方写 {@code (Class<List<T>>) (Class<?>)} 双重强转。行为与四参版本一致。</p>
+     *
+     * @param key    键
+     * @param loader 回源加载函数
+     * @param ttl    过期时长，{@code null} 表示永久
+     * @param <T>    泛型
+     * @return 缓存值或回源结果
+     */
+    public static <T> @Nullable T getOrLoad(String key, Supplier<T> loader, Duration ttl) {
+        return cacheService().getOrLoad(key, loader, ttl);
+    }
 }
