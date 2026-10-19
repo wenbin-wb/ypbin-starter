@@ -13,13 +13,6 @@
 
 ### 新增
 
-- **`ypbin-starter-cache`：`getOrLoad` 增加「无需 Class 参数」的重载**（`CacheService` 接口默认方法 + `CacheUtils` 静态便捷方法）。
-  四参版本的 `type` 在现有两个实现里**只用于 `(T)` 强转、从不参与反序列化**（真正的类型还原由
-  `GenericJacksonJsonRedisSerializer` 按 JSON 内的类型信息完成）⇒ 业务要缓存泛型集合（如 `List<String>`）时
-  拿不到正确 `Class`，只能写 `(Class<List<T>>) (Class<?>) List.class` 双重强转
-  （`ypbin-admin` / `ypbin-iot` 的 `SysCache` 各 4 处、共 8 处，且带 unchecked 警告）。
-  新重载省掉该参数，行为与四参版本**完全一致**（同一套防击穿/穿透/雪崩）。
-  **向后兼容**：japicmp 0.23.1 对 4.1.0 复核 —— 只有 `+++ NEW METHOD`，**零不兼容项**。
 - **`ypbin-starter-tools`：`KeyedWarnThrottled` 按键分桶 WARN 节流 + `WarnThrottled` 时钟构造器公开**（反哺）。
   `WarnThrottled` 是「整条告警一个窗口」，适合单一告警源；但业务侧存在「每个点位/设备各一个窗口」的场景
   （如 `ypbin-iot` 的 `SeriesValueWarnThrottle`）——共用一个窗口会让一台设备刷屏**抑制掉其它设备的告警**，
@@ -164,6 +157,13 @@
   （含「改名必须同步看板」纪律）。**不强制存量指标改名**（改名属对外契约破坏，需单独评估）。
 
 ### 修复
+
+- **`ypbin-starter-sign`：`RedisNonceStore` 补 fail-closed 语义**（反哺自 `ypbin-iot` 的同名实现）。
+  nonce 防重放是**安全校验**，但原实现在 Redis 异常时直接上抛 ⇒ `SignChecker#check` 整体异常退出——
+  那既不是「放行」也不是「拒绝」，而是**未定义失败形态**，且把中间件故障放大成业务不可用。
+  现按 fail-closed 处理：捕获 `RuntimeException`、记 ERROR（key 经 `LogSanitizer` 脱敏，防 Log Injection）、
+  **返回 `false`（拒绝本次请求）**。Lua 返回 `null`（连接层面不确定）同样按拒绝处理。
+  语义取向：**宁可拒绝合法请求（可重试、可告警），也绝不在「无法判断是否重放」时放行**（那是安全漏洞）。
 
 - **`ypbin-starter-data`：`BaseEnum` 扫描 0 命中时不再静默降级（技术债清零）**：`scan-packages`
   默认 `cn.ypbin`，业务包名不同或写错时此前**无任何告警**，所有 `BaseEnum` 静默按 `name()` 落库——
