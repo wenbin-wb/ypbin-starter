@@ -7,9 +7,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [未发布]
+## [4.2.0] - 2026-10-20
 
-> 下一开发版 `4.2.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
+> 次版本升级（`4.1.0` → `4.2.0`），**全部向后兼容，无破坏性变更**（japicmp 对 4.1.0 复核：
+> cache/core/sign/tracking/tools/log 六个改动模块 `--error-on-binary-incompatibility
+> --error-on-source-incompatibility` **全部 exit=0**）。
+> 本版是**纯反哺版**：把业务仓（`ypbin-admin`/`ypbin-iot`）里重复实现或更安全的通用能力上收，
+> 业务仓随后删除各自副本（全局规范 1.6「底层能力反哺优先」）。
 
 ### 新增
 
