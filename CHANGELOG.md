@@ -156,6 +156,15 @@
   标签顺序稳定；非法名称段/标签一律**拒绝**而不是静默清洗。`docs/MODULES.md` 新增「指标命名约定」一节
   （含「改名必须同步看板」纪律）。**不强制存量指标改名**（改名属对外契约破坏，需单独评估）。
 
+### 新增
+
+- **`ypbin-starter-core`：`UserAgentFormatter`（UA 解析与格式化上收）**（反哺自 admin/iot）。
+  「把 UA 格式化成『浏览器 版本』、版本缺失只留名称」这段逻辑此前有**三份**：
+  `LogCollector` 里一份私有实现 + admin/iot 的 `LoginSupport` 各抄一份，且后者注释写着
+  「与 starter 操作日志的写法保持一致」——靠注释维持一致性正是要消除的形态。
+  现上收为 `UserAgentFormatter`（`parse` / `formatBrowser` / `formatBrowserHeader`），
+  `LogCollector` 已改用它；口径与原实现逐条一致（`Unknown`/空白/null 都只留名称，浏览器缺失返回 null）。
+
 ### 修复
 
 - **`ypbin-starter-sign`：`RedisNonceStore` 补 fail-closed 语义**（反哺自 `ypbin-iot` 的同名实现）。

@@ -17,6 +17,7 @@ package cn.ypbin.starter.log.support;
 
 import cn.hutool.http.useragent.UserAgent;
 import cn.hutool.http.useragent.UserAgentUtil;
+import cn.ypbin.starter.core.util.UserAgentFormatter;
 import cn.ypbin.starter.log.core.IpLocationResolver;
 import cn.ypbin.starter.log.core.LogClientProvider;
 import cn.ypbin.starter.log.core.LogUserProvider;
@@ -129,7 +130,7 @@ public class LogCollector {
                 UserAgent ua = UserAgentUtil.parse(userAgent);
                 if (ua != null) {
                     if (includes.contains(Include.BROWSER)) {
-                        record.setBrowser(formatBrowser(ua));
+                        record.setBrowser(UserAgentFormatter.formatBrowser(ua));
                     }
                     if (includes.contains(Include.OS)) {
                         record.setOs(ua.getOs() == null ? null : ua.getOs().getName());
@@ -174,21 +175,6 @@ public class LogCollector {
         return request.getRemoteAddr();
     }
 
-    /**
-     * 格式化浏览器为「名称 + 版本」，版本缺失时只留名称。
-     */
-    @Nullable
-    private String formatBrowser(UserAgent ua) {
-        if (ua.getBrowser() == null) {
-            return null;
-        }
-        String name = ua.getBrowser().getName();
-        String version = ua.getVersion();
-        if (version == null || version.isBlank() || "Unknown".equalsIgnoreCase(version)) {
-            return name;
-        }
-        return name + " " + version;
-    }
 
     @Nullable
     private String resolveParams(HttpServletRequest request) {
