@@ -13,6 +13,13 @@
 
 ### 新增
 
+- **`ypbin-starter-cache`：`getOrLoad` 增加「无需 Class 参数」的重载**（`CacheService` 接口默认方法 + `CacheUtils` 静态便捷方法）。
+  四参版本的 `type` 在现有两个实现里**只用于 `(T)` 强转、从不参与反序列化**（真正的类型还原由
+  `GenericJacksonJsonRedisSerializer` 按 JSON 内的类型信息完成）⇒ 业务要缓存泛型集合（如 `List<String>`）时
+  拿不到正确 `Class`，只能写 `(Class<List<T>>) (Class<?>) List.class` 双重强转
+  （`ypbin-admin` / `ypbin-iot` 的 `SysCache` 各 4 处、共 8 处，且带 unchecked 警告）。
+  新重载省掉该参数，行为与四参版本**完全一致**（同一套防击穿/穿透/雪崩）。
+  **向后兼容**：japicmp 0.23.1 对 4.1.0 复核 —— 只有 `+++ NEW METHOD`，**零不兼容项**。
 - **`ypbin-starter-tools`：`KeyedWarnThrottled` 按键分桶 WARN 节流 + `WarnThrottled` 时钟构造器公开**（反哺）。
   `WarnThrottled` 是「整条告警一个窗口」，适合单一告警源；但业务侧存在「每个点位/设备各一个窗口」的场景
   （如 `ypbin-iot` 的 `SeriesValueWarnThrottle`）——共用一个窗口会让一台设备刷屏**抑制掉其它设备的告警**，
@@ -24,6 +31,62 @@
   - `WarnThrottled(long, Logger, Clock)` 构造器由包内可见改为 **public**：此前宿主无法为自己的节流逻辑
     写确定性测试，只能自建可注入时钟的实现。
   - 7 条测试，核心是**分桶隔离**（dev-1 刷屏 100 次后 dev-2 仍必须输出）+ 并发安全 + 计数语义。
+
+- **`ypbin-starter-core`：`UserAgentFormatter`（UA 解析与格式化上收）**（反哺自 admin/iot）。
+  「把 UA 格式化成『浏览器 版本』、版本缺失只留名称」这段逻辑此前有**三份**：
+  `LogCollector` 里一份私有实现 + admin/iot 的 `LoginSupport` 各抄一份，且后者注释写着
+  「与 starter 操作日志的写法保持一致」——靠注释维持一致性正是要消除的形态。
+  现上收为 `UserAgentFormatter`（`parse` / `formatBrowser` / `formatBrowserHeader`），
+  `LogCollector` 已改用它；口径与原实现逐条一致（`Unknown`/空白/null 都只留名称，浏览器缺失返回 null）。
+- **`ypbin-starter-tracking`：`@Tracked` 事件补上 userId/tenantId 身份维度**（反哺自 admin/iot）。
+  切面没有 HTTP 请求上下文，此前把 `TrackRequestContext` 传 `EMPTY` ⇒ **事件 `userId` 恒为空**。
+  后果是「登录事件没有 userId 就无法按人做漏斗，等于白采」，于是每个宿主都手写一遍
+  `LoginEventTracker` 绕过注解直接调 `TrackRecorder`（admin/iot 各一份）。
+  现复用**已有的** `TrackIdentityProvider` SPI（`TrackRequestContextResolver` 用的是同一个）：
+  `TrackedAspect` 新增三参构造器注入该 SPI，装配点同步接线。宿主只要提供该 Bean，
+  注解事件即自动带身份维度；未提供时走 `NONE`，行为与改动前**逐字一致**（向后兼容）。
+  身份取值失败只 WARN 并留 null，**事件不丢**（埋点是旁路能力）。
+
+### 修复
+
+- **`ypbin-starter-sign`：`RedisNonceStore` 补 fail-closed 语义**（反哺自 `ypbin-iot` 的同名实现）。
+  nonce 防重放是**安全校验**，但原实现在 Redis 异常时直接上抛 ⇒ `SignChecker#check` 整体异常退出——
+  那既不是「放行」也不是「拒绝」，而是**未定义失败形态**，且把中间件故障放大成业务不可用。
+  现按 fail-closed 处理：捕获 `RuntimeException`、记 ERROR（key 经 `LogSanitizer` 脱敏，防 Log Injection）、
+  **返回 `false`（拒绝本次请求）**。Lua 返回 `null`（连接层面不确定）同样按拒绝处理。
+  语义取向：**宁可拒绝合法请求（可重试、可告警），也绝不在「无法判断是否重放」时放行**（那是安全漏洞）。
+
+- **`ypbin-starter-data`：`BaseEnum` 扫描 0 命中时不再静默降级（技术债清零）**：`scan-packages`
+  默认 `cn.ypbin`，业务包名不同或写错时此前**无任何告警**，所有 `BaseEnum` 静默按 `name()` 落库——
+  与「按 value 存储」的契约不符，也与其它服务/前端按 value 约定的数据不一致。现在区分两种成因：
+  classpath 上没有实现 ⇒ **INFO**（宿主没用这能力，不制造噪音）；**有实现但都不在扫描范围 ⇒ WARN**，
+  文案含实际 `scan-packages`、实现数量与示例、以及可直接照做的修正项。全 classpath 兜底扫描
+  **只在 0 命中分支触发一次**（成本上限见注释），正常宿主不付这份启动成本。
+- **`ypbin-starter-security`：单体模式操作日志的会话读取 2 次 → 1 次（性能）**：
+  `SessionLogClientProvider` 此前在单体模式下先 `getUserIdSafely()`（内部读会话）再
+  `getSessionByLoginId(userId)`（又读一次账号会话）；而单体模式的 `LoginUser` 就在**当前 token 会话**里，
+  第二次读纯属多余。改为按模式分支：单体 ⇒ `UserContext#getLoginUser()`（1 次）；
+  身份头模式 ⇒ **保持**按 loginId 读账号会话（身份头只含 userId，三元组必须从会话取）。
+  失败语义未变（读会话异常/类型不可识别 ⇒ `log.error` 带完整堆栈并返回空；未回填 ⇒ 返回空不记错误）。
+- **`tools/export-config-metadata.mjs`：补齐「缩小守卫」（工具链保护此前只是注释）**：
+  文件头一直声称「禁止模块集合静默缩小；用 `--allow-shrink` 显式声明」，但**代码里从未实现**，
+  连该参数都没解析。生成器只读各模块 `target/classes`，先跑过 `clean` 或只构建部分模块时
+  模块/条目会静默缩小，此后 `--check` 永远通过（假绿）——本轮已实际误删 9000 行（`ypbin.ai.*`）。
+  现在写文件前与已提交基线比较，**模块集合或配置项减少即失败**并报出丢失项，
+  给出「先全量 `package`」与「确属删除则加 `--allow-shrink`」两条处置。
+
+- **`ypbin-starter-security`：`SecurityLogClientAutoConfiguration` 两个默认 provider 在微服务身份头模式下失效（#100）**：
+  - `securityLogUserProvider()` 从 `LoginHelper::getUserIdSafely`（只读 Sa-Token 会话）改为自适应入口
+    `UserContext::getUserIdSafely`——身份头模式（下游服务无会话）由「userId 恒空」变为能取到真实操作人。
+    ⚠️ **这是行为变更，不是等价替换**：身份头与会话**同时存在**时新实现返回**身份头** userId（旧实现返回会话
+    userId）。该优先级已作为契约用三条用例钉死（仅身份头 / 仅会话 / 两者共存取身份头）。
+  - `securityLogClientProvider()` 从「读当前登录用户」改为 `SessionLogClientProvider`：网关签发的身份头
+    只有 id/username/tenantId/deptId/roles 五项，**不含** clientId/clientType/authType，故这三个字段改为按
+    userId 读账号会话中的 `LoginUser`（`StpUtil.getSessionByLoginId`，与在线用户读会话同一套机制）；
+    身份头与单体两种形态共用同一实现。读会话异常/类型不可识别记 error 并带完整堆栈后返回空
+    （为 3 个附加字段丢掉整条审计记录得不偿失，但不静默）；会话中本就没回填则返回空、不臆造取值。
+    新 Bean **留在既有 `@ConditionalOnClass(LogClientProvider.class)` 类级条件内**，未新起无该条件的配置类
+    （starter-log 对本模块是 optional 依赖，另起配置类会在未引 log 的宿主上 `NoClassDefFoundError`）。
 
 ## [4.1.0] - 2026-10-19
 
@@ -156,48 +219,6 @@
   标签顺序稳定；非法名称段/标签一律**拒绝**而不是静默清洗。`docs/MODULES.md` 新增「指标命名约定」一节
   （含「改名必须同步看板」纪律）。**不强制存量指标改名**（改名属对外契约破坏，需单独评估）。
 
-- **`ypbin-starter-tracking`：`@Tracked` 事件补上 userId/tenantId 身份维度**（反哺自 admin/iot）。
-  切面没有 HTTP 请求上下文，此前把 `TrackRequestContext` 传 `EMPTY` ⇒ **事件 `userId` 恒为空**。
-  后果是「登录事件没有 userId 就无法按人做漏斗，等于白采」，于是每个宿主都手写一遍
-  `LoginEventTracker` 绕过注解直接调 `TrackRecorder`（admin/iot 各一份）。
-  现复用**已有的** `TrackIdentityProvider` SPI（`TrackRequestContextResolver` 用的是同一个）：
-  `TrackedAspect` 新增三参构造器注入该 SPI，装配点同步接线。宿主只要提供该 Bean，
-  注解事件即自动带身份维度；未提供时走 `NONE`，行为与改动前**逐字一致**（向后兼容）。
-  身份取值失败只 WARN 并留 null，**事件不丢**（埋点是旁路能力）。
-
-### 修复
-
-- **`ypbin-starter-data`：`BaseEnum` 扫描 0 命中时不再静默降级（技术债清零）**：`scan-packages`
-  默认 `cn.ypbin`，业务包名不同或写错时此前**无任何告警**，所有 `BaseEnum` 静默按 `name()` 落库——
-  与「按 value 存储」的契约不符，也与其它服务/前端按 value 约定的数据不一致。现在区分两种成因：
-  classpath 上没有实现 ⇒ **INFO**（宿主没用这能力，不制造噪音）；**有实现但都不在扫描范围 ⇒ WARN**，
-  文案含实际 `scan-packages`、实现数量与示例、以及可直接照做的修正项。全 classpath 兜底扫描
-  **只在 0 命中分支触发一次**（成本上限见注释），正常宿主不付这份启动成本。
-- **`ypbin-starter-security`：单体模式操作日志的会话读取 2 次 → 1 次（性能）**：
-  `SessionLogClientProvider` 此前在单体模式下先 `getUserIdSafely()`（内部读会话）再
-  `getSessionByLoginId(userId)`（又读一次账号会话）；而单体模式的 `LoginUser` 就在**当前 token 会话**里，
-  第二次读纯属多余。改为按模式分支：单体 ⇒ `UserContext#getLoginUser()`（1 次）；
-  身份头模式 ⇒ **保持**按 loginId 读账号会话（身份头只含 userId，三元组必须从会话取）。
-  失败语义未变（读会话异常/类型不可识别 ⇒ `log.error` 带完整堆栈并返回空；未回填 ⇒ 返回空不记错误）。
-- **`tools/export-config-metadata.mjs`：补齐「缩小守卫」（工具链保护此前只是注释）**：
-  文件头一直声称「禁止模块集合静默缩小；用 `--allow-shrink` 显式声明」，但**代码里从未实现**，
-  连该参数都没解析。生成器只读各模块 `target/classes`，先跑过 `clean` 或只构建部分模块时
-  模块/条目会静默缩小，此后 `--check` 永远通过（假绿）——本轮已实际误删 9000 行（`ypbin.ai.*`）。
-  现在写文件前与已提交基线比较，**模块集合或配置项减少即失败**并报出丢失项，
-  给出「先全量 `package`」与「确属删除则加 `--allow-shrink`」两条处置。
-
-- **`ypbin-starter-security`：`SecurityLogClientAutoConfiguration` 两个默认 provider 在微服务身份头模式下失效（#100）**：
-  - `securityLogUserProvider()` 从 `LoginHelper::getUserIdSafely`（只读 Sa-Token 会话）改为自适应入口
-    `UserContext::getUserIdSafely`——身份头模式（下游服务无会话）由「userId 恒空」变为能取到真实操作人。
-    ⚠️ **这是行为变更，不是等价替换**：身份头与会话**同时存在**时新实现返回**身份头** userId（旧实现返回会话
-    userId）。该优先级已作为契约用三条用例钉死（仅身份头 / 仅会话 / 两者共存取身份头）。
-  - `securityLogClientProvider()` 从「读当前登录用户」改为 `SessionLogClientProvider`：网关签发的身份头
-    只有 id/username/tenantId/deptId/roles 五项，**不含** clientId/clientType/authType，故这三个字段改为按
-    userId 读账号会话中的 `LoginUser`（`StpUtil.getSessionByLoginId`，与在线用户读会话同一套机制）；
-    身份头与单体两种形态共用同一实现。读会话异常/类型不可识别记 error 并带完整堆栈后返回空
-    （为 3 个附加字段丢掉整条审计记录得不偿失，但不静默）；会话中本就没回填则返回空、不臆造取值。
-    新 Bean **留在既有 `@ConditionalOnClass(LogClientProvider.class)` 类级条件内**，未新起无该条件的配置类
-    （starter-log 对本模块是 optional 依赖，另起配置类会在未引 log 的宿主上 `NoClassDefFoundError`）。
 
 ## [4.0.0] - 2026-10-17
 
