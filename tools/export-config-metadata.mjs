@@ -31,6 +31,8 @@ const toolsDir = resolve(import.meta.dirname)
 const outFile = resolve(toolsDir, 'generated', 'starter-config-metadata.json')
 const extrasFile = resolve(toolsDir, 'config-metadata-extras.json')
 const checkMode = process.argv.includes('--check')
+/** 确实删除了模块/配置项时才允许显式声明，否则拒绝对已提交基线做「静默缩小」 */
+const allowShrink = process.argv.includes('--allow-shrink')
 
 const DEFAULT_ENABLEMENT = '绑定后由对应模块读取；模块还需满足类路径和自动装配条件。'
 
@@ -620,6 +622,41 @@ async function main() {
   result.prefixIndex = [...prefixes].sort()
 
   const serialized = `${JSON.stringify(result, null, 2)}\n`
+
+  // 缩小守卫（2026-10-19 加）：本脚本只读各模块 `target/classes`，若先跑过 `clean`（或只构建了
+  // 部分模块），模块集合/条目会**静默缩小**，而此后 `--check` 永远通过 —— 属「假绿」。
+  // 实测事故：某次生成误删 9000 行（ypbin.ai.* 等整段消失）。
+  // 判据：与已提交基线比较，模块集合或属性条目**减少**即失败，除非显式传 `--allow-shrink`。
+  if (!checkMode && existsSync(outFile)) {
+    const baseline = JSON.parse(await readFile(outFile, 'utf8'))
+    const baselineModules = new Set(Object.keys(baseline.modules ?? {}))
+    const currentModules = new Set(Object.keys(result.modules))
+    const lostModules = [...baselineModules].filter((m) => !currentModules.has(m))
+    const baselineKeys = new Set(
+      Object.values(baseline.modules ?? {}).flatMap((m) => (m.configurationProperties ?? []).map((e) => e.key)),
+    )
+    const currentKeys = new Set(
+      Object.values(result.modules).flatMap((m) => m.configurationProperties.map((e) => e.key)),
+    )
+    const lostKeys = [...baselineKeys].filter((k) => !currentKeys.has(k))
+    if (lostModules.length > 0 || lostKeys.length > 0) {
+      const detail = [
+        lostModules.length > 0 ? `丢失模块 ${lostModules.length} 个：${lostModules.slice(0, 5).join(', ')}` : null,
+        lostKeys.length > 0 ? `丢失配置项 ${lostKeys.length} 个：${lostKeys.slice(0, 8).join(', ')}` : null,
+      ].filter(Boolean).join('；')
+      if (!allowShrink) {
+        console.error(
+          `\u2716 生成结果比已提交基线**变小**（${detail}）。\n` +
+            '  这通常意味着本轮构建不完整（如先跑了 `clean`、或只构建了部分模块）——\n' +
+            '  生成器只读各模块 target/classes，缺产物就会静默丢条目。\n' +
+            '  处理：先 `mvn -DskipTests package` 全量构建再生成；确属删除能力/模块时显式加 `--allow-shrink`。',
+        )
+        process.exit(1)
+      }
+      console.warn(`\u26a0 已显式声明 --allow-shrink，接受缩小：${detail}`)
+    }
+  }
+
 
   reportAnchorIssues(anchorIssues)
 
