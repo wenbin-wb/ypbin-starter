@@ -17,14 +17,19 @@ package cn.ypbin.starter.security.identity;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.util.StringUtils;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -89,5 +94,32 @@ public class IdentityAutoConfiguration {
             + "校验来源标记头 {}；仅当服务位于可信网关之后且网关负责清洗外部 X-User-Id/X-Roles 头 "
             + "并签发内部身份头时方可开启", properties.getTrustedSourceHeader());
         return registration;
+    }
+
+    /**
+     * 「identity 模式 + 本地登录端点」冲突的启动告警装配。
+     *
+     * <p><b>为什么单独成嵌套配置类并带类级条件</b>：{@link RequestMappingHandlerMapping} 来自
+     * {@code spring-webmvc}，在本模块是 <b>optional</b> 依赖。若把它的 {@code @Bean} 直接写在
+     * {@link IdentityAutoConfiguration} 里，缺 spring-webmvc 的宿主在「条件求值期内省方法签名」时就会
+     * {@code NoClassDefFoundError}（2026-10-20 在宿主项目里踩过同类事故）。类级条件先求值、整类跳过，
+     * 方法签名根本不会被内省。</p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(RequestMappingHandlerMapping.class)
+    static class LocalLoginConflictWarningConfiguration {
+
+        /**
+         * 装配冲突告警器：启动完成后在容器里找含 {@code /login} 的请求映射并告警。
+         *
+         * @param handlerMappings 请求映射提供者（宿主未启用 Web MVC 时为空）
+         * @return 告警器
+         */
+        @Bean
+        @ConditionalOnMissingBean
+        IdentityLoginConflictWarner identityLoginConflictWarner(
+                ObjectProvider<RequestMappingHandlerMapping> handlerMappings) {
+            return new IdentityLoginConflictWarner(handlerMappings);
+        }
     }
 }

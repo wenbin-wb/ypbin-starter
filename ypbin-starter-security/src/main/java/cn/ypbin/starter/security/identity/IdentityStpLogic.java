@@ -17,6 +17,7 @@ package cn.ypbin.starter.security.identity;
 
 import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -138,5 +139,56 @@ public class IdentityStpLogic extends StpLogic {
      */
     private static String currentToken() {
         return IdentityContext.getUserId().map(String::valueOf).orElse(NO_IDENTITY_TOKEN);
+    }
+
+    // ------------------------------------------------------------------ 本地登录：一律 fail-fast
+    //
+    // 为什么在**这里**拦截：identity 模式下 StpUtil 的 token 值来自网关身份头，login() 要建的会话根本
+    // 无处可放。放任它走 Sa-Token 内部流程的结果是「重试若干次 → NotLoginException/SaTokenException」，
+    // 现象是**正确口令登录也返回 401**，与「token 过期」无法区分——2026-10-20 DEV 真实事故，
+    // 排查成本极高（错误口令反而返回 409，把方向引到口令上）。
+    // 故在入口处直接抛出**可自解释**的异常：调用方一眼看出「是 identity 模式冲突，不是口令/会话问题」。
+
+    @Override
+    public void login(Object id) {
+        throw localLoginUnsupported();
+    }
+
+    @Override
+    public void login(Object id, String device) {
+        throw localLoginUnsupported();
+    }
+
+    @Override
+    public void login(Object id, boolean isLastingCookie) {
+        throw localLoginUnsupported();
+    }
+
+    @Override
+    public void login(Object id, long timeout) {
+        throw localLoginUnsupported();
+    }
+
+    @Override
+    public void login(Object id, SaLoginParameter loginParameter) {
+        throw localLoginUnsupported();
+    }
+
+    /**
+     * 「identity 模式下本地登录不可用」的异常（唯一构造点，保证报文一致）。
+     *
+     * <p>取 {@link IllegalStateException} 而不是 {@code SaTokenException}：这不是「未登录/无权限」这类
+     * 可被全局异常处理器转成 401/403 的业务态，而是**部署配置错误**——必须显式暴露成 500，
+     * 否则又会被包装成「401 登录失败」，回到本次事故的迷惑形态。</p>
+     *
+     * @return 待抛出的异常（由各 login 重载 {@code throw}）
+     */
+    private static IllegalStateException localLoginUnsupported() {
+        return new IllegalStateException(
+            "[ypbin-starter] identity 模式（ypbin.security.identity.enabled=true）下不允许本地登录："
+                + "该模式下 StpUtil 的 token 取自网关签发的身份头，login() 无法建立会话。"
+                + "若本服务自己签发会话（如 auth），必须显式置 ypbin.security.identity.enabled=false"
+                + "（identity 只给『位于可信网关之后、不自己签发会话』的下游服务）；"
+                + "若确实需要本地登录而不改配置，请不要经由 StpUtil/LoginHelper 建会话。");
     }
 }

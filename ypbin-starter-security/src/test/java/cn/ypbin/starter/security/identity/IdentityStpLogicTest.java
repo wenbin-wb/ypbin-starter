@@ -264,4 +264,30 @@ class IdentityStpLogicTest {
             return List.of();
         }
     }
+
+    @Test
+    @DisplayName("★ identity 模式下本地登录一律 fail-fast，且异常自带排障指引（2026-10-20 事故）")
+    void localLoginShouldFailFastWithActionableMessage() {
+        IdentityStpLogic stpLogic = new IdentityStpLogic();
+
+        assertThatThrownBy(() -> stpLogic.login(42L))
+            .as("identity 模式下 login() 无法建会话：必须抛可自解释的异常，而不是让调用方看到 401")
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("identity")
+            .hasMessageContaining("ypbin.security.identity.enabled=false");
+
+        // 5 个 login 重载都必须覆盖：漏一个，那条路径就退化成「NotLoginException → 401」的迷惑形态
+        assertThatThrownBy(() -> stpLogic.login(42L, "pc")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> stpLogic.login(42L, true)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> stpLogic.login(42L, 3600L)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> stpLogic.login(42L, new cn.dev33.satoken.stp.parameter.SaLoginParameter()))
+            .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("异常类型刻意不是 SaTokenException：它是部署配置错误（应 500 暴露），不能被转成 401/403 业务态")
+    void localLoginExceptionMustNotBeSaTokenException() {
+        assertThatThrownBy(() -> new IdentityStpLogic().login(1L))
+            .isNotInstanceOf(cn.dev33.satoken.exception.SaTokenException.class);
+    }
 }

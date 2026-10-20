@@ -441,6 +441,18 @@ ypbin:
 
 `identity.enabled: true` 时 starter 会把 `IdentityStpLogic` 注册为 Sa-Token 账号体系实现：注解鉴权以身份头为账号来源，权限数据仍走宿主的 `PermissionProvider`。`StpPermissionAdapter` 会把平台超管约定的 `*:*:*` 归一为 Sa-Token 的 `*` 通配符——`*:*:*` **不是** Sa-Token 的官方通配符（官方「全权限」是单个 `*`），它只按普通权限码参与模糊匹配：能命中含两个及以上冒号的码（如 `system:user:add`），却命不中 `user:add`（只有一个冒号），不归一就会出现「超管反而没权限」。
 
+**identity 的适用边界（判据，也是 2026-10-20 登录 401 事故的结论）**：`identity` 只给
+**「位于可信网关之后、不自己签发会话」** 的下游服务（如 system/ai/iot）。**自己签发会话的宿主（如 auth）
+必须显式置 `ypbin.security.identity.enabled=false`**——identity 模式下 `StpUtil` 的 token 取自网关身份头，
+而 `/auth/login` 请求本身没有身份头 ⇒ 建会话失败 ⇒ **正确口令登录也返回 401**（错误口令反而 409，
+故障形态极迷惑）。starter 现在有两道机制兜底：
+
+- **启动告警**：identity 生效且容器里存在路径含 `/login` 的请求映射时，启动期打印 WARN
+  （`IdentityLoginConflictWarner`）；检测自身异常只降级为一条带堆栈的 WARN，绝不打断启动；
+- **登录 fail-fast**：identity 模式下 `StpUtil.login(...)` 的 5 个重载一律抛
+  `IllegalStateException` 并给出修法（取 `IllegalStateException` 而非 `SaTokenException`：
+  这是**部署配置错误**，必须 500 暴露，不能被全局异常处理器转成 401/403 而重回迷惑形态）。
+
 该模式下 token 生命周期由网关侧承担：`sa-token.active-timeout` 与自动续期不适用——**有身份头但无 Sa-Token 会话**时 `renewTimeout` 会抛 `SaTokenException`（由 `SaTokenExceptionHandler` 映射为 403），无身份头时按 Sa-Token 基类语义静默返回；`logout` 不改变登录态；`@SaCheckSafe` 等依赖会话的校验一律拒绝（fail-closed，返回 403）；按 token 反查的 API（`isValidToken` / `getLoginIdByToken`）只认与当前请求身份一致的 token。
 
 装配可被覆盖：自定义 `SaTokenWebConfigurer` Bean 可整体替换本配置；自定义 `StpLogic` Bean 会让身份头桥让位（此时账号体系由宿主负责）。**注意**：提供自定义 `WebMvcConfigurer` **不会**替代本配置——两者是并列注册的拦截器。

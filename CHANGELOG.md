@@ -11,6 +11,22 @@
 
 > 下一开发版 `4.3.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
 
+### 新增
+
+- **`ypbin-starter-security`：identity 模式的两道「本地登录冲突」兜底**（issue #112，2026-10-20 事故收口）。
+  背景：某宿主（auth）漏写 `ypbin.security.identity.enabled=false` 而继承了 `true`，identity 模式下
+  `StpUtil` 的 token 取自**网关身份头**，`/auth/login` 请求没有身份头 ⇒ 建会话失败 ⇒
+  **正确口令登录也返回 401**（错误口令反而 409，故障形态极迷惑）；而当时 CI 不红、启动无任何提示。
+  - **启动告警** `IdentityLoginConflictWarner`：identity 生效且容器里存在路径含 `/login` 的请求映射时，
+    启动期打印 WARN 并给出修法；检测自身异常**只降级为一条带堆栈的 WARN，绝不打断启动**
+    （避免重演「诊断把服务搞挂」，见 4.2.1 的 BaseEnum 事故）。
+    装配放在带类级 `@ConditionalOnClass` 的嵌套配置里——`RequestMappingHandlerMapping` 是 optional 依赖，
+    方法级条件不足以防 `NoClassDefFoundError`（同一教训在宿主仓已实测）。
+  - **登录 fail-fast**：identity 模式下 `StpUtil.login(...)` 的 5 个重载一律抛 `IllegalStateException`
+    并给出修法。刻意**不**用 `SaTokenException`：这是部署配置错误，必须 500 暴露，
+    不能被全局异常处理器转成 401/403 而重回「看不出原因」的形态。
+  - 文档：`docs/MODULES.md` 补 identity 适用边界判据（只给「不自己签发会话」的下游服务）。
+
 ## [4.2.1] - 2026-10-20
 
 > 补丁版（`4.2.0` → `4.2.1`）：**修一个启动期 OOM**，无新增能力、无破坏性变更
