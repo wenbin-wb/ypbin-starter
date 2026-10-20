@@ -169,8 +169,9 @@ public class DataAutoConfiguration {
         Set<String> scanPackages = properties.getBaseEnum().getScanPackages();
         return configuration -> {
             List<Class<?>> enumTypes = BaseEnumScanner.scan(scanPackages);
-            if (enumTypes.isEmpty()) {
-                // 全 classpath 扫描只在这个分支发生一次（成本上限保护），用于区分「没这能力」与「配置错」
+            if (enumTypes.isEmpty() && properties.getBaseEnum().isEmptyScanDiagnostic()) {
+                // 全 classpath 探测只在这个分支发生一次，且内部有硬上界与三方包跳过
+                // （2026-10-20 事故：无上界时读到 groovy 巨类在 -Xmx384m 下 OOM）
                 reportEmptyScan(scanPackages, BaseEnumScanner.scanAll());
             }
             List<Class<?>> registered = BaseEnumTypeHandlerRegistrar.register(configuration, enumTypes);

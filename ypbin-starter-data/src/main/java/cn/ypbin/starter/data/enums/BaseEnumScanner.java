@@ -16,6 +16,7 @@
 package cn.ypbin.starter.data.enums;
 
 import cn.ypbin.starter.core.enums.BaseEnum;
+import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
 /**
@@ -70,6 +72,23 @@ public final class BaseEnumScanner {
     /** 全 classpath 扫描的根包（空前缀 = 从 classpath 根开始）。 */
     private static final String CLASSPATH_ROOT = "";
 
+    /** 全量诊断扫描的默认资源上界（够覆盖普通应用，又不至于把低内存宿主的堆吃光）。 */
+    public static final long DEFAULT_MAX_RESOURCES = 20_000L;
+
+    /**
+     * 不可能定义本框架 {@code BaseEnum} 的类名前缀（全量诊断扫描时跳过）。
+     *
+     * <p>刻意用「前缀白名单外一律扫描」而不是「只扫某几个包」：本诊断的用途正是发现
+     * <b>未知位置</b>的实现，收得太紧会漏判。这里只排除确定无关且体积大的三方/平台包。</p>
+     */
+    private static final List<String> SKIPPED_CLASS_PREFIXES = List.of(
+        "java.", "javax.", "jakarta.", "jdk.", "sun.", "com.sun.",
+        "groovy.", "org.codehaus.groovy.",
+        "org.springframework.", "org.apache.", "org.slf4j.", "org.jspecify.",
+        "com.fasterxml.", "com.google.", "io.netty.", "io.micrometer.",
+        "ch.qos.", "lombok.", "org.junit.", "org.mockito.", "net.bytebuddy.",
+        "reactor.", "com.baomidou.", "com.zaxxer.", "cn.hutool.");
+
     private BaseEnumScanner() {
     }
 
@@ -110,8 +129,49 @@ public final class BaseEnumScanner {
      * @return 全 classpath 上的枚举实现（非 null；空列表表示宿主确实没有该能力的实现）
      */
     public static List<Class<?>> scanAll() {
+        return scanAll(DEFAULT_MAX_RESOURCES);
+    }
+
+    /**
+     * 带上界的全 classpath 扫描（诊断专用）。
+     *
+     * <p><b>为什么需要上界</b>（2026-10-20 真实事故）：某宿主（`-Xmx384m`）零个 {@code BaseEnum}
+     * 实现 ⇒ 走本诊断 ⇒ 以空前缀扫全 classpath 时读到 groovy 巨类，直接 {@code OutOfMemoryError}
+     * 把服务打挂。「诊断信息」不该有这个代价。故本方法：</p>
+     * <ol>
+     *   <li><b>跳过三方/平台的类名前缀</b>（{@link #SKIPPED_CLASS_PREFIXES}）——groovy、Spring、
+     *       Apache、Netty 等不可能定义本框架的 {@code BaseEnum}，白扫且最贵；</li>
+     *   <li><b>硬上界</b>：检查超过 {@code maxResources} 个资源即中止并返回已找到的结果
+     *       （中止原因记 WARN，不静默），避免「诊断」把内存吃光。</li>
+     * </ol>
+     *
+     * <p>语义退化说明：上界被触发时返回的是<b>部分</b>结果，可能误判为「宿主没有实现」。
+     * 这是刻意取舍——诊断结论的可信度低于服务可用性；日志里会写明「扫描已中止」。</p>
+     *
+     * @param maxResources 最多检查的 classpath 资源数（必须 &gt; 0）
+     * @return 扫描到的枚举实现（非 null；可能因上界而只是部分结果）
+     */
+    public static List<Class<?>> scanAll(long maxResources) {
+        if (maxResources <= 0) {
+            throw new IllegalArgumentException("maxResources 必须为正数: " + maxResources);
+        }
         Set<Class<?>> found = new LinkedHashSet<>();
-        collect(newScanner(), CLASSPATH_ROOT, found);
+        BoundedScanner scanner = new BoundedScanner(maxResources);
+        try {
+            for (BeanDefinition candidate : scanner.findCandidateComponents(CLASSPATH_ROOT)) {
+                Class<?> enumType = resolveEnumType(candidate.getBeanClassName());
+                if (enumType != null) {
+                    found.add(enumType);
+                }
+            }
+        } catch (RuntimeException ex) {
+            if (!isScanAborted(ex)) {
+                throw ex;
+            }
+            // 上界命中：诊断降级为「部分结果」，但必须留痕（禁静默降级）
+            log.warn("[ypbin-starter] base-enum 全量诊断扫描已达上界（{} 个资源）并中止，"
+                + "结论可能不完整（只用于判断「是否零实现」，不作业务判据）。", maxResources);
+        }
         if (log.isDebugEnabled()) {
             log.debug("[ypbin-starter] base-enum full-classpath scan finished, {} enum type(s) found.",
                 found.size());
@@ -125,6 +185,75 @@ public final class BaseEnumScanner {
             new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AssignableTypeFilter(BaseEnum.class));
         return scanner;
+    }
+
+    /**
+     * 带上界的候选扫描器：按资源数计上界，并在读元数据前按类名前缀跳过三方包。
+     *
+     * <p>上界通过抛出 {@link ScanAbortedException} 实现——Spring 的扫描 API 没有「提前停止」的钩子，
+     * 只有从 {@code isCandidateComponent} 抛异常才能中断遍历。异常不逃出本类：{@link #scanAll(long)}
+     * 捕获后按「部分结果」处理。</p>
+     */
+    private static final class BoundedScanner extends ClassPathScanningCandidateComponentProvider {
+
+        private final long maxResources;
+
+        private long examined;
+
+        BoundedScanner(long maxResources) {
+            super(false);
+            addIncludeFilter(new AssignableTypeFilter(BaseEnum.class));
+            this.maxResources = maxResources;
+        }
+
+        @Override
+        protected boolean isCandidateComponent(MetadataReader metadataReader) throws IOException {
+            if (++examined > maxResources) {
+                throw new ScanAbortedException();
+            }
+            if (isSkipped(metadataReader.getClassMetadata().getClassName())) {
+                return false;
+            }
+            return super.isCandidateComponent(metadataReader);
+        }
+
+        private static boolean isSkipped(String className) {
+            for (String prefix : SKIPPED_CLASS_PREFIXES) {
+                if (className.startsWith(prefix)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
+     * 判断异常链里是否含「扫描上界」信号。
+     *
+     * <p>Spring 会把 {@code isCandidateComponent} 抛出的运行时异常包装成
+     * {@link org.springframework.beans.factory.BeanDefinitionStoreException}，所以不能只 catch 本类异常，
+     * 必须沿 cause 链识别——否则上界信号会被当成真实故障抛给宿主，反而把启动搞崩。</p>
+     *
+     * @param throwable 捕获到的异常
+     * @return {@code true} = 这是上界中止信号（可安全按部分结果处理）
+     */
+    private static boolean isScanAborted(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ScanAbortedException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    /** 扫描上界命中的内部控制信号（不逃出本类）。 */
+    private static final class ScanAbortedException extends RuntimeException {
+
+        ScanAbortedException() {
+            super(null, null, false, false);
+        }
     }
 
     /** 扫描单个根包并把具体枚举收入 {@code found}。 */

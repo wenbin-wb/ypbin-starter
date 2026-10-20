@@ -129,12 +129,34 @@ public class DataProperties {
          */
         private Set<String> scanPackages = new LinkedHashSet<>(Set.of("cn.ypbin"));
 
+        /**
+         * 「零命中诊断」开关，默认开启。
+         *
+         * <p>开启时，若 {@code scan-packages} 扫到 0 个 {@code BaseEnum} 实现，会再做一次
+         * <b>带硬上界</b>的全 classpath 探测（{@code BaseEnumScanner#scanAll(long)}），用于区分
+         * 「宿主没用该能力」（INFO）与「有实现但配错扫描范围」（WARN）。</p>
+         *
+         * <p><b>什么情况该关</b>：宿主明确不使用该能力、且对启动期 classpath 遍历极其敏感
+         * （低内存、超大依赖树）。2026-10-20 的真实事故是：某宿主 {@code -Xmx384m} 下该诊断读到
+         * groovy 巨类导致 {@code OutOfMemoryError}——那次之后诊断本身已加上界与三方包跳过，
+         * 默认开启是安全的；但保留本开关以便极端环境彻底规避。</p>
+         */
+        private boolean emptyScanDiagnostic = true;
+
         public boolean isEnabled() {
             return enabled;
         }
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public boolean isEmptyScanDiagnostic() {
+            return emptyScanDiagnostic;
+        }
+
+        public void setEmptyScanDiagnostic(boolean emptyScanDiagnostic) {
+            this.emptyScanDiagnostic = emptyScanDiagnostic;
         }
 
         public Set<String> getScanPackages() {

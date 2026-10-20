@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-19T00:19:16.944Z",
+  "generatedAt": "2026-10-20T03:32:53.601Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 382,
+    "customPropertyCount": 383,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 422,
+    "totalEntryCount": 423,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -5245,6 +5245,26 @@
     },
     "ypbin-starter-data": {
       "configurationProperties": [
+        {
+          "module": "ypbin-starter-data",
+          "key": "ypbin.data.base-enum.empty-scan-diagnostic",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "「零命中诊断」开关，默认开启。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.data",
+          "deprecation": null
+        },
         {
           "module": "ypbin-starter-data",
           "key": "ypbin.data.base-enum.enabled",

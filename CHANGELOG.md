@@ -11,6 +11,16 @@
 
 > 下一开发版 `4.3.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
 
+### 修复
+
+- **`ypbin-starter-data`：`BaseEnum` 零命中诊断会 OOM 打挂低内存宿主（2026-10-20 dev 事故）**。
+  宿主零个 `BaseEnum` 实现时，诊断会以空前缀做**全 classpath** 扫描（`BaseEnumScanner#scanAll()`）；
+  实测在 `-Xmx384m` 下读到 groovy 巨类直接 `OutOfMemoryError`，服务起不来——「诊断信息」不该有这个代价。
+  现：① `scanAll()` 增加**硬上界**（默认 20000 个资源，超出即中止并按部分结果返回，日志 WARN 留痕）；
+  ② 跳过三方/平台类名前缀（groovy/Spring/Apache/Netty 等，不可能定义本框架 `BaseEnum`）；
+  ③ 新增开关 `ypbin.data.base-enum.empty-scan-diagnostic`（默认 true），极端环境可彻底关闭诊断。
+  上界中止信号由 Spring 包装成 `BeanDefinitionStoreException`，实现里沿 cause 链识别，**绝不外抛**。
+
 ## [4.2.0] - 2026-10-20
 
 > 次版本升级（`4.1.0` → `4.2.0`），**全部向后兼容，无破坏性变更**（japicmp 对 4.1.0 复核：
