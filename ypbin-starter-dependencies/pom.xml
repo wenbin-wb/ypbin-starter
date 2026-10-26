@@ -39,7 +39,7 @@
         <poi.version>5.5.1</poi.version>
         <!-- jsoup：ai 模块 html 正文抽取（DocumentLoader）使用 -->
         <jsoup.version>1.23.2</jsoup.version>
-        <tianai-captcha.version>1.5.5</tianai-captcha.version>
+        <tianai-captcha.version>1.5.6</tianai-captcha.version>
         <bouncycastle.version>1.86</bouncycastle.version>
         <justauth.version>1.16.7</justauth.version>
         <paho-mqtt.version>1.2.5</paho-mqtt.version>
