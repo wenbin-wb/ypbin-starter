@@ -63,6 +63,22 @@
   现只统计 token 键数量（计数包含已冻结但未过期的 token，精确明细仍用 `list()`）。
 - **SSE 心跳与发送解耦**：心跳实际发送改到发送执行器（虚拟线程），并对每条连接限制「最多一个在途心跳」，
   避免一个不读数据的客户端占住单线程调度器、让全实例心跳停摆。
+- **操作日志与访问日志收敛到同一份实现**：IP 解析（原访问日志只认 2 个代理头、操作日志认 4 个）与
+  「可记录参数」判定（原 8 类 vs 11 类）此前各写一份且已分叉，同一请求在两种日志里可能得到不同 IP、
+  同一参数类型在一边记录在另一边丢弃。现统一由 `LogCollector` 提供。
+
+### 废弃
+
+- `SseEmitterManager#onlineUsers()`：与 `onlineAudiences()` 完全等价，且「users」在 audience 语义下会误导。
+- `LoginClientHolder#isReady()`：仓库内无调用方。
+- `DefaultAiChatService#retrieveDocuments(...)`：无调用方，且返回值暴露 Spring AI 的 `Document` 类型，
+  违背「业务代码不触碰 `org.springframework.ai.*`」的契约；标记 `forRemoval`，下个主版本移除。
+
+### 清理
+
+- 移除 `RequestContextHolder` 外不可达的 `try/catch`（无请求上下文时它返回 `null`，不抛异常），
+  以及 `SensitiveType` 私有方法中重复的空值判断。
+- 分布式锁释放与幂等占位释放共用同一份 `compare_and_delete.lua`（原为两份等价实现）。
 
 ### 构建与文档
 

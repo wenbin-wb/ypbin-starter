@@ -42,6 +42,14 @@ public final class LoginClientHolder {
         return service;
     }
 
+    /**
+     * 是否已完成绑定。
+     *
+     * @return {@code true} 表示 {@link LoginClientService} 已绑定
+     * @deprecated 仓库内无调用方；需要在绑定前判空时直接用 {@code getService()} 的异常路径
+     *     或自行持有 {@link LoginClientService}，本方法仅为二进制兼容保留
+     */
+    @Deprecated(since = "4.3.0")
     public static boolean isReady() {
         return service != null;
     }

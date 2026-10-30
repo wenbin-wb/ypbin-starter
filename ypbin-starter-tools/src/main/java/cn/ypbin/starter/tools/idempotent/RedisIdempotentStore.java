@@ -36,9 +36,8 @@ public class RedisIdempotentStore implements IdempotentStore {
     /** 未指定属主的占位（历史两参 API）统一登记为该值。 */
     private static final String ANONYMOUS_OWNER = "1";
 
-    /** 仅当值仍等于调用方属主时才删除（compare-and-delete），避免误删他人的占位。 */
-    private static final String RELEASE_SCRIPT =
-        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+    /** 释放脚本位置：与分布式锁共用同一份 compare-and-delete，避免安全敏感原语出现两份实现。 */
+    private static final String RELEASE_SCRIPT_LOCATION = "META-INF/ypbin/compare_and_delete.lua";
 
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> script;
@@ -50,7 +49,10 @@ public class RedisIdempotentStore implements IdempotentStore {
         this.script.setResultType(Long.class);
         this.script.setScriptSource(new ResourceScriptSource(
             new ClassPathResource("META-INF/ypbin/idempotent.lua")));
-        this.releaseScript = new DefaultRedisScript<>(RELEASE_SCRIPT, Long.class);
+        this.releaseScript = new DefaultRedisScript<>();
+        this.releaseScript.setResultType(Long.class);
+        this.releaseScript.setScriptSource(
+            new ResourceScriptSource(new ClassPathResource(RELEASE_SCRIPT_LOCATION)));
     }
 
     @Override

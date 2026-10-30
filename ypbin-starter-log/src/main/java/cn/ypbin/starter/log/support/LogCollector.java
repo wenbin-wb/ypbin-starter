@@ -38,10 +38,12 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartRequest;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -151,19 +153,23 @@ public class LogCollector {
 
     @Nullable
     private HttpServletRequest currentRequest() {
-        try {
-            if (RequestContextHolder
-                .getRequestAttributes() instanceof ServletRequestAttributes attrs) {
-                return attrs.getRequest();
-            }
-        } catch (Exception e) {
-            // 无 Web 上下文时记录调试日志，便于排查日志采集链路异常
-            log.debug("[ypbin-starter] 当前线程不存在请求上下文，跳过请求信息采集: {}", e.getMessage(), e);
-        }
-        return null;
+        // getRequestAttributes() 在没有请求上下文时返回 null 而不是抛异常（异步线程、定时任务均如此），
+        // 原先的 try/catch 永远不会命中，那条「不存在请求上下文」的日志也因此从未出现过。
+        return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+            ? attrs.getRequest()
+            : null;
     }
 
-    private String resolveIp(HttpServletRequest request) {
+    /**
+     * 解析客户端 IP：依次尝试常见代理头，取不到时回退 {@code remoteAddr}。
+     *
+     * <p><strong>操作日志与访问日志共用这一份实现</strong>：两处各写一份时，头部列表与
+     * 「非可记录参数」判定会悄悄分叉，同一个请求在两种日志里出现不同 IP。</p>
+     *
+     * @param request 当前请求
+     * @return 客户端 IP
+     */
+    public static String resolveIp(HttpServletRequest request) {
         String[] headers = {"X-Forwarded-For", "X-Real-IP", "Proxy-Client-IP", "WL-Proxy-Client-IP"};
         for (String header : headers) {
             String value = request.getHeader(header);
@@ -216,7 +222,7 @@ public class LogCollector {
             return null;
         }
         List<Object> loggable = Arrays.stream(args)
-            .filter(this::isLoggable)
+            .filter(LogCollector::isLoggable)
             .toList();
         if (loggable.isEmpty()) {
             return null;
@@ -225,7 +231,16 @@ public class LogCollector {
         return serialize(loggable.size() == 1 ? loggable.getFirst() : loggable);
     }
 
-    private boolean isLoggable(Object arg) {
+    /**
+     * 判断单个入参是否可安全写入日志（排除请求/响应/文件/流等不可序列化或不可重复读的类型）。
+     *
+     * <p>操作日志与访问日志共用：两份实现若各自维护排除列表，会出现「同一类型在一个日志里记录、
+     * 另一个里丢弃」。新增排除类型时只改这里。</p>
+     *
+     * @param arg 方法入参（可为 {@code null}）
+     * @return 可记录返回 {@code true}
+     */
+    public static boolean isLoggable(@Nullable Object arg) {
         if (arg == null) {
             return false;
         }
@@ -236,7 +251,10 @@ public class LogCollector {
             && !(arg instanceof HttpSession)
             && !(arg instanceof MultipartRequest)
             && !(arg instanceof InputStream)
-            && !(arg instanceof OutputStream);
+            && !(arg instanceof OutputStream)
+            && !(arg instanceof Resource)
+            && !(arg instanceof byte[])
+            && !(arg instanceof StreamingResponseBody);
     }
 
     @Nullable

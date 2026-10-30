@@ -547,12 +547,13 @@ public class SseEmitterManager implements DisposableBean {
     /**
      * 当前所有在线扇出目标键（只读快照）。
      *
-     * <p>方法名保留历史签名；返回的含义是「当前有连接的注册键」。默认只按 userId 建连时即在线用户集合。</p>
-     *
      * @return 扇出目标键集合
+     * @deprecated 与 {@link #onlineAudiences()} 完全等价；「users」在按 audience 建连的语义下会误导，
+     *     保留仅为二进制兼容，新代码请用 {@link #onlineAudiences()}
      */
+    @Deprecated(since = "4.3.0")
     public Collection<String> onlineUsers() {
-        return Set.copyOf(emitters.keySet());
+        return onlineAudiences();
     }
 
     /**

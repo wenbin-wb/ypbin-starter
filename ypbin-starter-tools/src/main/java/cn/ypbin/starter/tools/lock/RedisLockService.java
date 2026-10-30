@@ -45,7 +45,8 @@ public class RedisLockService implements LockService {
     public RedisLockService(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
         this.renewScript = script("META-INF/ypbin/lock_renew.lua");
-        this.releaseScript = script("META-INF/ypbin/lock_release.lua");
+        // 与幂等占位释放共用同一份 compare-and-delete 脚本，避免安全敏感原语出现两份实现
+        this.releaseScript = script("META-INF/ypbin/compare_and_delete.lua");
     }
 
     @Override
