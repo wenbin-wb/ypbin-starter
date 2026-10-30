@@ -23,6 +23,7 @@ import cn.dev33.satoken.exception.NotSafeException;
 import cn.dev33.satoken.exception.SaTokenException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
+import cn.ypbin.starter.core.util.LogSanitizer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +67,7 @@ public class SaTokenExceptionHandler {
         // Sa-Token 的 NotLoginException.newInstance 会把请求 token 以 "：" + token 拼进 message
         // （INVALID/TOKEN_TIMEOUT/BE_REPLACED/KICK_OUT/TOKEN_FREEZE 均如此，其中 TOKEN_FREEZE 的
         // token 仍然有效），原样打日志等于把会话令牌写进日志中心，故先脱敏。
-        log.warn("[未认证] type={}, msg={}", e.getType(), maskToken(e.getMessage()));
+        log.warn("[未认证] type={}, msg={}", e.getType(), maskTokenInMessage(e.getMessage()));
         return R.fail(GlobalErrorCode.UNAUTHORIZED.getCode(), resolveNotLoginMessage(e));
     }
 
@@ -126,12 +127,12 @@ public class SaTokenExceptionHandler {
      * 脱敏 Sa-Token 消息末尾拼接的 token。
      *
      * <p>Sa-Token 的格式固定为 {@code 原始文案 + "：" + token}；冒号后若含空白则视为普通说明文字，
-     * 原样保留（避免误伤自定义异常文案）。脱敏口径与 {@code LoginVerifyListener} 一致：保留前 8 位。</p>
+     * 原样保留（避免误伤自定义异常文案）。token 的脱敏口径统一走 {@link LogSanitizer#maskToken}。</p>
      *
      * @param message 异常消息
      * @return 脱敏后的消息
      */
-    private static String maskToken(@Nullable String message) {
+    private static String maskTokenInMessage(@Nullable String message) {
         if (message == null) {
             return "";
         }
@@ -143,8 +144,7 @@ public class SaTokenExceptionHandler {
         if (token.chars().anyMatch(Character::isWhitespace)) {
             return message;
         }
-        String masked = token.length() <= 8 ? "***" : token.substring(0, 8) + "***";
-        return message.substring(0, idx + 1) + masked;
+        return message.substring(0, idx + 1) + LogSanitizer.maskToken(token);
     }
 
     private String resolveNotLoginMessage(NotLoginException e) {

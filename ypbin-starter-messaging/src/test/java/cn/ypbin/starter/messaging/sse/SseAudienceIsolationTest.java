@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
@@ -63,8 +62,6 @@ class SseAudienceIsolationTest {
 
     /** 真实 manager + 计数替身（{@code newEmitter} 包级可见，故本类必须在同包）。 */
     static final class ProbeManager extends SseEmitterManager {
-
-        final Map<String, CountingEmitter> byAudience = new ConcurrentHashMap<>();
 
         /** 本 manager 创建的连接（按创建顺序；用于断言「一个订阅只建了一条连接」）。 */
         final List<CountingEmitter> created = new CopyOnWriteArrayList<>();

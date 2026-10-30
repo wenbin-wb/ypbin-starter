@@ -66,4 +66,13 @@ class LogSanitizerTest {
         // 恰好等于上限时不截断
         assertThat(LogSanitizer.sanitize("b".repeat(500))).hasSize(500);
     }
+
+    @Test
+    @DisplayName("令牌只保留前 8 位，短令牌与 null 一律 ***")
+    void shouldMaskToken() {
+        assertThat(LogSanitizer.maskToken("abcdefgh12345678")).isEqualTo("abcdefgh***");
+        assertThat(LogSanitizer.maskToken("short")).isEqualTo("***");
+        assertThat(LogSanitizer.maskToken("12345678")).isEqualTo("***");
+        assertThat(LogSanitizer.maskToken(null)).isEqualTo("***");
+    }
 }

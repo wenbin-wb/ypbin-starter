@@ -18,6 +18,8 @@ package cn.ypbin.starter.security.core;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.ypbin.starter.security.identity.IdentityContext;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +41,14 @@ import org.slf4j.LoggerFactory;
 public final class UserContext {
 
     private static final Logger log = LoggerFactory.getLogger(UserContext.class);
+
+    /**
+     * 已告警过的「会话属性类型不匹配」组合（{@code key|实际类型}）。
+     *
+     * <p>类型退化是部署/序列化配置问题，会持续到修复为止；若按请求打印 WARN，等于每次请求刷一条，
+     * 反而淹没真实告警。每组合只告警一次，类型集合本身有限，不会无限增长。</p>
+     */
+    private static final Set<String> WARNED_TYPE_MISMATCH = ConcurrentHashMap.newKeySet();
 
     /** 会话中存登录用户信息的键 */
     public static final String KEY_LOGIN_USER = "ypbin:loginUser";
@@ -185,9 +195,12 @@ public final class UserContext {
                 // 会话反序列化退化（如序列化器缺少 @class 类型信息时 LoginUser 变成 Map）：
                 // 此处必须显式判型。泛型强转在方法内被擦除、不会抛错，ClassCastException 会延迟到
                 // 调用方（如 LoginUser::getUsername）抛出，绕过本方法的 try/catch 变成 500。
-                log.warn("[ypbin-starter] 会话属性类型不可识别（key={}，期望 {}，实际 {}）：按不存在处理；"
-                    + "请确认该类型已登记在 META-INF/satoken/sa-json-type.list",
-                    key, type.getName(), value.getClass().getName());
+                String signature = key + '|' + value.getClass().getName();
+                if (WARNED_TYPE_MISMATCH.add(signature)) {
+                    log.warn("[ypbin-starter] 会话属性类型不可识别（key={}，期望 {}，实际 {}）：按不存在处理；"
+                        + "请确认该类型已登记在 META-INF/satoken/sa-json-type.list（同组合仅告警一次）",
+                        key, type.getName(), value.getClass().getName());
+                }
                 return Optional.empty();
             }
             return Optional.of(type.cast(value));

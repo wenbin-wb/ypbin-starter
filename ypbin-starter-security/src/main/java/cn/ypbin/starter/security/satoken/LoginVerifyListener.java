@@ -18,6 +18,7 @@ package cn.ypbin.starter.security.satoken;
 import cn.dev33.satoken.listener.SaTokenListenerForSimple;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.stp.parameter.SaLoginParameter;
+import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.security.core.LoginVerifyProvider;
 import java.util.List;
 import org.slf4j.Logger;
@@ -65,15 +66,8 @@ public class LoginVerifyListener extends SaTokenListenerForSimple {
         try {
             StpUtil.logoutByTokenValue(tokenValue);
         } catch (Exception e) {
-            log.error("[ypbin-starter] 登录回验失败后回收会话失败，token 可能残留：{}", maskToken(tokenValue), e);
+            log.error("[ypbin-starter] 登录回验失败后回收会话失败，token 可能残留：{}",
+                LogSanitizer.maskToken(tokenValue), e);
         }
-    }
-
-    /** 日志脱敏：仅显示 token 前缀，避免完整会话令牌落入日志 */
-    private static String maskToken(String tokenValue) {
-        if (tokenValue == null || tokenValue.length() <= 8) {
-            return "***";
-        }
-        return tokenValue.substring(0, 8) + "***";
     }
 }
