@@ -148,12 +148,16 @@ public class LeaseLockGuard {
             log.info("[ypbin] 任务 {} 的分布式锁已被其它实例持有，本次**跳过**（获取失败=跳过，不报错）", lockName);
             return LeaseLockOutcome.skipped();
         }
-        LeaseRenewalScheduler.Cancellable renewal = renewalScheduler.schedule(
-            () -> renewOrLog(lockName, lease), properties.getRenewInterval());
+        // 续期任务必须在 try 内安排：容器关闭期 schedule 会抛 RejectedExecutionException，
+        // 若发生在 try 之外，已抢到的租约就永远不会释放，锁要占满整个 TTL 才被其它副本拿到。
+        LeaseRenewalScheduler.Cancellable renewal = null;
         try {
+            renewal = renewalScheduler.schedule(() -> renewOrLog(lockName, lease), properties.getRenewInterval());
             return new LeaseLockOutcome<>(true, false, task.get());
         } finally {
-            renewal.cancel();
+            if (renewal != null) {
+                renewal.cancel();
+            }
             lease.release();
         }
     }

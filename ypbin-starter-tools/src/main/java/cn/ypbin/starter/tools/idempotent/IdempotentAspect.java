@@ -18,6 +18,7 @@ package cn.ypbin.starter.tools.idempotent;
 import cn.ypbin.starter.tools.support.SpelKeyResolver;
 import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.UUID;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -57,7 +58,10 @@ public class IdempotentAspect {
     @Around("@annotation(idempotent)")
     public Object around(ProceedingJoinPoint point, Idempotent idempotent) throws Throwable {
         String key = buildKey(point, idempotent);
-        if (!store.tryAcquire(key, Duration.ofSeconds(idempotent.interval()))) {
+        // 属主标识：释放时必须核对，避免业务耗时超过窗口、占位已被下一个请求重新占用时
+        // 误删他人的占位（那会让第三个请求与第二个并发执行，正是幂等要防的事）
+        String owner = UUID.randomUUID().toString();
+        if (!store.tryAcquire(key, Duration.ofSeconds(idempotent.interval()), owner)) {
             throw new IdempotentException(idempotent.message());
         }
         try {
@@ -66,7 +70,7 @@ public class IdempotentAspect {
             // 业务执行失败：释放占位键，允许客户端立即重试（成功路径保留窗口防重复提交）；
             // 释放失败只告警（占位会在窗口到期后自动过期），不掩盖业务异常
             try {
-                store.release(key);
+                store.release(key, owner);
             } catch (RuntimeException releaseException) {
                 log.warn("[ypbin-starter] 幂等占位释放失败，等待窗口到期自动释放：{}", key, releaseException);
             }

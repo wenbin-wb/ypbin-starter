@@ -62,6 +62,21 @@ class SaTokenExceptionHandlerTest {
     }
 
     @Test
+    void notLoginShouldMaskTokenFromMessage() {
+        // TOKEN_FREEZE 场景 token 仍然有效：Sa-Token 会把它拼在消息末尾
+        NotLoginException failure = NotLoginException.newInstance("login",
+            NotLoginException.TOKEN_FREEZE, "token 已被冻结", "abcdefgh12345678");
+
+        List<ILoggingEvent> events = captureLogs(() -> handler.handleNotLogin(failure));
+
+        ILoggingEvent event = singleWarn(events);
+        assertThat(event.getFormattedMessage())
+            .contains("token 已被冻结")
+            .as("完整会话令牌绝不能落日志")
+            .doesNotContain("abcdefgh12345678");
+    }
+
+    @Test
     void saTokenFallbackShouldMapForbiddenAndLogWithoutThrowable() {
         SaTokenException failure = new SaTokenException("未能查询到对应终端信息，无法续期");
 

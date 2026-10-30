@@ -11,7 +11,7 @@
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 21 · Spring Boot 4.1.1 · Spring Cloud 2025.1.3 · spring-cloud-alibaba 2025.1.0.0
-- **发布状态**：v1.0.0 起的全部版本已发布至 Maven Central，最新 **v4.0.0**（2026-10-17，含经授权的主版本破坏性变更）；下一开发版 **4.1.0-SNAPSHOT**
+- **发布状态**：v1.0.0 起的全部版本已发布至 Maven Central，最新 **v4.2.1**（2026-10-20，修 BaseEnum 零命中诊断的启动期 OOM）；下一开发版 **4.3.0-SNAPSHOT**
 - **CI**：`-Pit` 集成测试（GitHub Actions + Testcontainers）已接入为独立作业
 - **后续可选**：示例工程
 
@@ -62,15 +62,22 @@ ypbin-starter/                        聚合 POM
 │
 ├── L1 基础层
 │   ├── ypbin-starter-core            常量/异常/统一响应R/BaseEnum/工具/SpringUtils/上下文透传/树形工具
-│   ├── ypbin-starter-json            Jackson 统一配置（时间/Long 转字符串/脱敏）
+│   ├── ypbin-starter-json            Jackson 统一配置（时间/Long 转字符串/脱敏/字典与引用翻译）
 │   ├── ypbin-starter-web             MVC/CORS/全局异常/优雅响应/XSS/可重复读请求
 │   ├── ypbin-starter-data            MyBatis-Plus 增强（审计/分页/拦截器编排/字段加密/雪花 ID）
 │   ├── ypbin-starter-cache           Redis 缓存（CacheService/CacheUtils/RedisUtils）
-│   ├── ypbin-starter-security        Sa-Token 封装（LoginHelper/权限数据源/密码编码器）
+│   ├── ypbin-starter-security        Sa-Token 封装（LoginHelper/权限数据源/密码策略/在线用户/身份头）
 │   ├── ypbin-starter-log             操作日志 AOP + 全量访问日志
+│   ├── ypbin-starter-tracking        埋点事件契约 + 采集内核（Sink 扩展落库）
+│   ├── ypbin-starter-async           统一线程池 + @Async 接管 + 上下文透传
+│   ├── ypbin-starter-job             内存调度运行时（执行体路由/防重/回调）
+│   ├── ypbin-starter-license         商业授权（机器指纹/有效期/SM2 签发验签/@LicenseCheck）
 │   ├── ypbin-starter-api-doc         SpringDoc/OpenAPI 增强
 │   ├── ypbin-starter-storage         文件存储（策略模式：本地/S3兼容OSS）
-│   └── ypbin-starter-tools           限流/幂等/签名辅助/AES/SM2/SM4/请求工具
+│   ├── ypbin-starter-iot             IoT 域通用原语（请求 ID / 点位标识口径）
+│   ├── ypbin-starter-xxljob          XXL-JOB 执行器接入壳
+│   ├── ypbin-starter-test            测试基座（容器支持 + 外部实例回退，test 作用域）
+│   └── ypbin-starter-tools           限流/幂等/签名辅助/分布式锁/AES/SM2/SM4/请求工具
 │
 ├── 常用能力模块（按需引入）
 │   ├── ypbin-starter-excel           FastExcel 导入导出
@@ -481,4 +488,4 @@ MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度�
 - ✅ 范围已扩展到 M10 全部完成 + M5.1~M5.13 Cloud 全面补强 + M6 工程化收尾（spotless 前移根治）
 - ✅ 微服务层 L3：Cloud 企业级治理（Gateway 横切 + 启动增强 + 灰度负载均衡 + Feign 容错 + API 文档增强/聚合 + Nacos 动态路由 + 可观测性 + Sentinel 流量防护）已完成；其中 Gateway/Nacos/Feign/Sentinel 已真机验证
 - ✅ 构建验证：IntelliJ 内置 JBR + Maven3；全量 29 模块 `clean test` 绿；`-Pit` 集成测试连公网服务器/Testcontainers 真机验证
-- ⏳ 后续可选：CI 接入 `-Pit`（GitHub Actions + Testcontainers）；v1.0.0 正式发布；示例工程
+- ⏳ 后续可选：示例工程（`-Pit` 集成测试作业已接入 CI，见 §0；版本已发布至 v4.2.1）

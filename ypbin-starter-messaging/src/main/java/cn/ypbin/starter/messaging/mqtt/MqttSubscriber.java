@@ -120,8 +120,12 @@ public class MqttSubscriber {
         try {
             handler.accept(actualTopic, new String(payload, StandardCharsets.UTF_8));
         } catch (RuntimeException e) {
-            log.warn("[ypbin-starter] MQTT 消费回调执行失败：subscribedTopic={}, actualTopic={}", subscribedTopic, actualTopic, e);
-            throw e;
+            // 绝不能把回调异常抛回 Paho：其 CommsCallback 会把 listener 抛出的任何异常当作连接故障
+            // 直接 shutdownConnection —— 一条畸形报文就会让整个连接断开、所有主题停止消费，
+            // 且 cleanSession=false / QoS>=1 时同一条消息会被重投、再抛，形成重连风暴。
+            // 单条消息处理失败只影响该消息：记 WARN 留痕后继续消费。
+            log.warn("[ypbin-starter] MQTT 消费回调执行失败（仅丢弃本条消息，连接保持）：subscribedTopic={}, actualTopic={}",
+                subscribedTopic, actualTopic, e);
         }
     }
 

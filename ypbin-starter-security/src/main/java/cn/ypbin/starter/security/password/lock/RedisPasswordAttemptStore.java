@@ -91,8 +91,8 @@ public class RedisPasswordAttemptStore implements PasswordAttemptStore {
 
     @Override
     public void resetByPrefix(String keyPrefix) {
-        // 用 SCAN 而非 KEYS，避免阻塞 Redis
-        ScanOptions options = ScanOptions.scanOptions().match(keyPrefix + "*").count(200).build();
+        // 用 SCAN 而非 KEYS，避免阻塞 Redis；前缀按字面量转义，防止账号名里的 * / ? / [ 扩大匹配面
+        ScanOptions options = ScanOptions.scanOptions().match(escapeGlob(keyPrefix) + "*").count(200).build();
         List<String> keys = new ArrayList<>();
         try (Cursor<String> cursor = redisTemplate.scan(options)) {
             while (cursor.hasNext()) {
@@ -102,5 +102,23 @@ public class RedisPasswordAttemptStore implements PasswordAttemptStore {
         if (!keys.isEmpty()) {
             redisTemplate.delete(keys);
         }
+    }
+
+    /**
+     * 把前缀里的 Redis glob 元字符转义为字面量（SCAN 的 MATCH 语法）。
+     *
+     * @param value 原始前缀
+     * @return 转义后的前缀
+     */
+    private static String escapeGlob(String value) {
+        StringBuilder escaped = new StringBuilder(value.length() + 8);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '*' || c == '?' || c == '[' || c == ']' || c == '\\') {
+                escaped.append('\\');
+            }
+            escaped.append(c);
+        }
+        return escaped.toString();
     }
 }

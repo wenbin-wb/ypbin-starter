@@ -27,6 +27,51 @@
     不能被全局异常处理器转成 401/403 而重回「看不出原因」的形态。
   - 文档：`docs/MODULES.md` 补 identity 适用边界判据（只给「不自己签发会话」的下游服务）。
 
+### 修复
+
+- **`ypbin-starter-messaging`：SSE 多维度订阅会泄漏，且一半维度的事件收不到**。`connectAll` 原为每个
+  audience 各建一条 `SseEmitter`，只有第一条交给 Spring MVC；其余 emitter 的 `handler` 恒为 `null`，
+  发送只堆进无上限的 early-send 缓冲、完成/超时/异常回调永不触发，注册表条目无法摘除（`isOnline` 永真）。
+  现改为「一条连接注册到所有维度」，断连从全部键摘除，广播按连接身份去重。
+- **`ypbin-starter-messaging`：MQTT 消费回调抛异常会拖垮整个连接**。Paho 把 listener 抛出的任何异常当作
+  连接故障并 `shutdownConnection`，一条畸形报文即可让所有主题停止消费，且 QoS≥1 时同一条消息重投后再次抛出、
+  形成重连风暴。现记录 WARN 后继续消费，单条消息失败只影响该条。
+- **`ypbin-starter-messaging`：宿主自定义 `SseFanoutBridge` 时跨实例推送静默失效**。桥的回填原先只写在带
+  `@ConditionalOnMissingBean(SseFanoutBridge.class)` 的工厂方法里，宿主自建桥后该方法不执行、管理器永远拿不到桥
+  （订阅侧正常，故障形态极隐蔽）。现由独立的回填 Bean 经 `ObjectProvider` 取值，谁定义桥都会接线。
+- **`ypbin-starter-cache`：`CacheService.get()` 把防穿透哨兵当成业务值返回**。`getOrLoad` 查无数据时写入
+  `"__YPBIN_NULL__"`，`exists()` 已翻译而 `get()` 漏了：调用方会在自己的强转处抛 `ClassCastException`，
+  多级缓存还会把该字符串当真实值写进 L1。现 `get()` 与 `getOrLoad`/`exists` 同口径返回 `null`。
+- **`ypbin-starter-json`：引用翻译回源失败被当作「查无此项」缓存**（默认 300s）——一次 DB/Feign 抖动会让整批
+  引用列在故障恢复后仍显示原始 ID。现失败时跳过缓存回填。另修复 `containsRefText` 在**双向引用**下把经回边
+  得到的 `false` 永久缓存，导致该类型从此被 preload 剪枝、退回 N+1。
+- **`ypbin-starter-tools`：幂等占位释放无属主校验**。业务耗时超过 `interval` 后占位会被下一个请求重新占用，
+  失败路径的无条件 `DEL` 可能删掉他人的占位，让第三个请求并发执行。`IdempotentStore` 新增带属主的
+  `tryAcquire/release` 默认方法（对历史实现二进制兼容），内置内存/Redis 实现改为 compare-and-delete。
+- **`ypbin-starter-tools`：租约锁续期任务安排失败时已获取的锁不释放**（容器关闭期 `schedule` 抛
+  `RejectedExecutionException`，锁要占满 TTL）。现把 `schedule` 纳入 `try/finally`。
+- **`ypbin-starter-security`：管理员解锁会误清同前缀账号**（解锁 `bob` 连带清掉 `bobby` 的失败计数，暴力破解者的
+  锁定被静默解除）。现按「账号键 + 冒号」精确匹配 scoped 键，并对 SCAN 前缀做 glob 转义；空标识直接拒绝。
+- **`ypbin-starter-security`：未认证日志打印完整会话 token**。Sa-Token 的 `NotLoginException` 会把请求 token
+  拼在 message 末尾（`TOKEN_FREEZE` 场景 token 仍有效），现按 `LoginVerifyListener` 的口径脱敏后记录。
+- **`ypbin-starter-security`：`UserContext.getAttribute` 未校验类型**。会话反序列化退化成 `Map` 时，
+  泛型擦除让 `ClassCastException` 延迟到调用方抛出（绕过本方法的兜底），现显式判型并留 WARN。
+
+### 优化
+
+- **在线用户计数不再逐条解析会话**：`count()` 原为 `list(null).size()`，每个 token 触发 4~6 次 Redis 往返；
+  现只统计 token 键数量（计数包含已冻结但未过期的 token，精确明细仍用 `list()`）。
+- **SSE 心跳与发送解耦**：心跳实际发送改到发送执行器（虚拟线程），并对每条连接限制「最多一个在途心跳」，
+  避免一个不读数据的客户端占住单线程调度器、让全实例心跳停摆。
+
+### 构建与文档
+
+- **配置元数据门禁在 Windows 上恒失败**：`tools/export-config-metadata.mjs` 用 `path.join` 产出 `\` 分隔路径，
+  与 CI（Linux）生成的 `/` 基线永远不等，本地 `preflight.sh` 第 5 步形同虚设。现统一输出 POSIX 分隔符。
+- README 快速开始的 BOM 版本从 `4.0.0` 更新到当前 Release `4.2.1`；模块总览补齐 `license`/`iot`/`xxljob`/`test`，
+  架构测试项数更正为 43；ROADMAP 的发布状态与 CI 状态行据实更正，模块蓝图补齐新增模块；
+  `docs/MODULES.md` 补 `xxljob` 与 `test` 两节。
+
 ## [4.2.1] - 2026-10-20
 
 > 补丁版（`4.2.0` → `4.2.1`）：**修一个启动期 OOM**，无新增能力、无破坏性变更

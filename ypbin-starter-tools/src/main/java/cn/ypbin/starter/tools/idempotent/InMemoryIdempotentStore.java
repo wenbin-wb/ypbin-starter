@@ -33,24 +33,32 @@ public class InMemoryIdempotentStore implements IdempotentStore {
 
     private static final long CLEANUP_INTERVAL_MILLIS = 60_000L;
 
-    private final ConcurrentHashMap<String, Long> keys = new ConcurrentHashMap<>();
+    /** 未指定属主的占位（历史两参 API）统一登记为该值。 */
+    private static final String ANONYMOUS_OWNER = "1";
+
+    private final ConcurrentHashMap<String, Entry> keys = new ConcurrentHashMap<>();
 
     private final AtomicLong lastCleanup = new AtomicLong(System.currentTimeMillis());
 
     @Override
     public boolean tryAcquire(String key, Duration expire) {
+        return tryAcquire(key, expire, ANONYMOUS_OWNER);
+    }
+
+    @Override
+    public boolean tryAcquire(String key, Duration expire, String owner) {
         long now = System.currentTimeMillis();
-        long expireAt = now + expire.toMillis();
+        Entry candidate = new Entry(now + expire.toMillis(), owner);
         cleanupIfNeeded(now);
 
         // 原子占位：仅当键不存在，或已存在但已过期时才算首次
-        Long existing = keys.putIfAbsent(key, expireAt);
+        Entry existing = keys.putIfAbsent(key, candidate);
         if (existing == null) {
             return true;
         }
-        if (now >= existing) {
+        if (now >= existing.expireAt()) {
             // 已过期：用 replace 抢占续期，成功者视为首次
-            return keys.replace(key, existing, expireAt);
+            return keys.replace(key, existing, candidate);
         }
         return false;
     }
@@ -63,11 +71,26 @@ public class InMemoryIdempotentStore implements IdempotentStore {
         if (!lastCleanup.compareAndSet(last, now)) {
             return;
         }
-        keys.entrySet().removeIf(entry -> now >= entry.getValue());
+        keys.entrySet().removeIf(entry -> now >= entry.getValue().expireAt());
     }
 
     @Override
     public void release(String key) {
         keys.remove(key);
+    }
+
+    @Override
+    public void release(String key, String owner) {
+        // 只删除仍属于本次调用的占位：窗口过期后占位可能已被下一个请求重新占用
+        keys.computeIfPresent(key, (k, entry) -> entry.owner().equals(owner) ? null : entry);
+    }
+
+    /**
+     * 占位记录。
+     *
+     * @param expireAt 过期时刻（毫秒）
+     * @param owner    占位属主
+     */
+    private record Entry(long expireAt, String owner) {
     }
 }

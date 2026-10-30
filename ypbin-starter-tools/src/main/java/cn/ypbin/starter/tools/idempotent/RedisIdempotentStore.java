@@ -33,8 +33,16 @@ import org.springframework.scripting.support.ResourceScriptSource;
  */
 public class RedisIdempotentStore implements IdempotentStore {
 
+    /** 未指定属主的占位（历史两参 API）统一登记为该值。 */
+    private static final String ANONYMOUS_OWNER = "1";
+
+    /** 仅当值仍等于调用方属主时才删除（compare-and-delete），避免误删他人的占位。 */
+    private static final String RELEASE_SCRIPT =
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> script;
+    private final DefaultRedisScript<Long> releaseScript;
 
     public RedisIdempotentStore(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -42,12 +50,19 @@ public class RedisIdempotentStore implements IdempotentStore {
         this.script.setResultType(Long.class);
         this.script.setScriptSource(new ResourceScriptSource(
             new ClassPathResource("META-INF/ypbin/idempotent.lua")));
+        this.releaseScript = new DefaultRedisScript<>(RELEASE_SCRIPT, Long.class);
     }
 
     @Override
     public boolean tryAcquire(String key, Duration expire) {
+        return tryAcquire(key, expire, ANONYMOUS_OWNER);
+    }
+
+    @Override
+    public boolean tryAcquire(String key, Duration expire, String owner) {
         Long result = redisTemplate.execute(script,
             List.of(key),
+            owner,
             String.valueOf(expire.toSeconds()));
         return result != null && result == 1L;
     }
@@ -55,5 +70,11 @@ public class RedisIdempotentStore implements IdempotentStore {
     @Override
     public void release(String key) {
         redisTemplate.delete(key);
+    }
+
+    @Override
+    public void release(String key, String owner) {
+        // 窗口过期后占位可能已被下一个请求重新占用：按值比对后删除，绝不无条件 DEL
+        redisTemplate.execute(releaseScript, List.of(key), owner);
     }
 }

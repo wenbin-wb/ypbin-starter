@@ -1516,6 +1516,36 @@ ypbin:
     thread-name-prefix: ypbin-job-
 ```
 
+### xxljob — XXL-JOB 执行器
+
+把本服务接成 XXL-JOB **执行器**：自动装配 `XxlJobSpringExecutor` 并绑定配置，标注 `@XxlJob("名字")` 的方法即任务。
+调度编排（cron、失败重试、告警、日志页面）全部在 XXL-JOB admin，本模块不重复实现——需要「任务表 + 页面都由本服务管理」时用上文的 `job` 模块。
+
+```yaml
+ypbin:
+  xxl-job:
+    enabled: true
+    admin-addresses: http://127.0.0.1:8080/xxl-job-admin
+    appname: demo-executor          # 必填，admin 端按此注册与路由
+    access-token: change-me         # 必填（3.5.0 起执行器维度且不可为空）
+    port: 9999
+    log-path: /data/applogs/xxl-job/jobhandler
+    log-retention-days: 30
+```
+
+```java
+@Component
+public class DemoJob {
+
+    @XxlJob("demoHandler")
+    public void demo() {
+        XxlJobHelper.log("hello");
+    }
+}
+```
+
+> ⚠️ 自 XXL-JOB **3.5.0** 起 AccessToken 改为执行器（AppName）维度、通讯协议也变了：admin 与执行器必须**同版本成对升级/回退**，详见 README 的「版本与兼容性」章节。
+
 ### excel — 导入导出
 
 基于 FastExcel，注解驱动。实体字段用 `@ExcelProperty` 标注列名：
@@ -2449,3 +2479,41 @@ aiChatService.clearMemory(conversationId);                                     /
 - **向量库装配顺序**：`AiRagAutoConfiguration` 的 `@AutoConfigureAfter(name = {...})` 覆盖了 Spring AI 2.0.1 **全部 20 个**提供 `VectorStore` Bean 的官方向量库自动配置——azure、bedrock-knowledgebase、cassandra、chroma、couchbase、elasticsearch、gemfire、mariadb、milvus、mongodb-atlas、neo4j、opensearch、oracle、pgvector、pinecone、qdrant、redis、s3、typesense、weaviate（完整 FQCN 见 `AiRagAutoConfiguration`，架构门禁 `AutoConfigurationOrderingTest` 登记同一份清单）。原因：`@ConditionalOnBean(VectorStore.class)` 只看得见「先处理完」的 Bean 定义，而 Spring AI 这些自动配置没有一个对本类声明顺序，且 `cn.ypbin.starter.ai.*` 在 Boot 排序中先于 `org.springframework.ai.*` ⇒ 不做顺序声明时条件恒假、`AiRagService` **整块静默不装配**（宿主开了 `ypbin.ai.rag.enabled=true` 却没有任何报错）。用 `name` 而非 `Class` 形式是为避免 optional 依赖缺席时触发类加载。
 - **文档解析的可选依赖**：`DocumentLoader` 解析 docx/xlsx 需 `org.apache.poi:poi-ooxml`、解析 html 需 `org.jsoup:jsoup`，二者在 ai 模块均为 `optional`（版本由 `ypbin-starter-dependencies` 统一管理：POI 5.5.1、jsoup 1.23.2），**宿主按需显式引入**。依赖缺席时解析这些格式抛带依赖坐标的 `IllegalStateException`（不静默降级——二进制格式按 UTF-8 解码只会得到乱码）；PDF 仍为 WARN + 纯文本降级。
 
+
+### test — 测试基座
+
+`ypbin-starter-test` 只在 **test 作用域** 引入，用于给宿主编排集成测试：外部实例优先，没配外部实例时回退 Testcontainers，Docker 也不可用时可被条件跳过（不会假绿）。
+
+```xml
+<dependency>
+    <groupId>cn.ypbin</groupId>
+    <artifactId>ypbin-starter-test</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+外部实例用环境变量指定（缺省才起容器）：
+
+| 依赖 | 环境变量 |
+|------|----------|
+| Redis | `YPBIN_TEST_REDIS_HOST` / `YPBIN_TEST_REDIS_PORT` / `YPBIN_TEST_REDIS_PASSWORD` |
+| MySQL | `YPBIN_TEST_MYSQL_URL` / `YPBIN_TEST_MYSQL_USERNAME` / `YPBIN_TEST_MYSQL_PASSWORD` |
+| Nacos | `YPBIN_TEST_NACOS_ADDR`（或系统属性 `ypbin.it.nacos-addr`） |
+
+```java
+@EnabledIfRedisAvailable
+class CacheIntegrationTest {
+
+    @Test
+    void shouldReadWrite() {
+        // 连接信息统一从这里取（外部实例 / 容器两种模式都适用）
+        RedisConnectionFactory factory = RedisIntegrationTestSupport.connectionFactory();
+        String key = RedisIntegrationTestSupport.keyPrefix("demo");
+        // ...
+    }
+}
+```
+
+- `@EnabledIfRedisAvailable` / `@EnabledIfMySqlAvailable` / `@EnabledIfNacosAvailable`：依赖不可用时**跳过**而不是失败（`ContainerSupport.dockerAvailable()` 可自行判断）。
+- `MySqlIntegrationTestSupport.springProperties()` 直接产出 `spring.datasource.*` 配置，`execute(String...)` 执行建表语句。
+- 测试结束调用 `ContainerSupport.stopContainers()` 可回收容器（JVM 退出时也会自动回收）。
