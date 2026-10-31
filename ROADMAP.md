@@ -489,3 +489,6 @@ MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度�
 - ✅ 微服务层 L3：Cloud 企业级治理（Gateway 横切 + 启动增强 + 灰度负载均衡 + Feign 容错 + API 文档增强/聚合 + Nacos 动态路由 + 可观测性 + Sentinel 流量防护）已完成；其中 Gateway/Nacos/Feign/Sentinel 已真机验证
 - ✅ 构建验证：IntelliJ 内置 JBR + Maven3；全量 29 模块 `clean test` 绿；`-Pit` 集成测试连公网服务器/Testcontainers 真机验证
 - ⏳ 后续可选：示例工程（`-Pit` 集成测试作业已接入 CI，见 §0；版本已发布至 v4.2.1）
+- ⏭️ 下个大版本（5.0）候选：`CacheService#getOrLoad(key, Class<T>, loader, ttl)` 的 `Class` 参数只用于强转、
+  不参与反序列化（真正还原靠 Value 序列化器），现由无 Class 重载 + `castType()` 兜底。5.0 计划以无 Class
+  版本为主 API、去掉该参数与私有辅助。**4.x 内保持不变**（改签名破坏二进制兼容，已确认留到大版本）。
