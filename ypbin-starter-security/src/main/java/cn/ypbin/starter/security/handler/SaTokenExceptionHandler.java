@@ -23,8 +23,6 @@ import cn.dev33.satoken.exception.NotSafeException;
 import cn.dev33.satoken.exception.SaTokenException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
-import cn.ypbin.starter.core.util.LogSanitizer;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -64,10 +62,11 @@ public class SaTokenExceptionHandler {
      */
     @ExceptionHandler(NotLoginException.class)
     public R<Void> handleNotLogin(NotLoginException e) {
-        // Sa-Token 的 NotLoginException.newInstance 会把请求 token 以 "：" + token 拼进 message
+        // 只记录异常类型与固定的用户文案：Sa-Token 的 message 末尾会拼接请求 token
         // （INVALID/TOKEN_TIMEOUT/BE_REPLACED/KICK_OUT/TOKEN_FREEZE 均如此，其中 TOKEN_FREEZE 的
-        // token 仍然有效），原样打日志等于把会话令牌写进日志中心，故先脱敏。
-        log.warn("[未认证] type={}, msg={}", e.getType(), maskTokenInMessage(e.getMessage()));
+        // token 仍然有效）。任何形式的原文或截断片段都不入日志——静态扫描（CodeQL）同样会把
+        // 「从 message 派生」的值判为敏感信息，脱敏不是可被识别的清洗器。
+        log.warn("[未认证] type={}, msg={}", e.getType(), resolveNotLoginMessage(e));
         return R.fail(GlobalErrorCode.UNAUTHORIZED.getCode(), resolveNotLoginMessage(e));
     }
 
@@ -121,30 +120,6 @@ public class SaTokenExceptionHandler {
     public R<Void> handleSaTokenException(SaTokenException e) {
         log.warn("[鉴权异常] {}: {}", e.getClass().getSimpleName(), e.getMessage());
         return R.fail(GlobalErrorCode.FORBIDDEN.getCode(), "当前鉴权模式下该操作不可用");
-    }
-
-    /**
-     * 脱敏 Sa-Token 消息末尾拼接的 token。
-     *
-     * <p>Sa-Token 的格式固定为 {@code 原始文案 + "：" + token}；冒号后若含空白则视为普通说明文字，
-     * 原样保留（避免误伤自定义异常文案）。token 的脱敏口径统一走 {@link LogSanitizer#maskToken}。</p>
-     *
-     * @param message 异常消息
-     * @return 脱敏后的消息
-     */
-    private static String maskTokenInMessage(@Nullable String message) {
-        if (message == null) {
-            return "";
-        }
-        int idx = message.lastIndexOf('：');
-        if (idx < 0 || idx == message.length() - 1) {
-            return message;
-        }
-        String token = message.substring(idx + 1);
-        if (token.chars().anyMatch(Character::isWhitespace)) {
-            return message;
-        }
-        return message.substring(0, idx + 1) + LogSanitizer.maskToken(token);
     }
 
     private String resolveNotLoginMessage(NotLoginException e) {

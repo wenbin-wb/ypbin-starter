@@ -17,7 +17,7 @@ package cn.ypbin.starter.log.aspect;
 
 import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.log.autoconfigure.AccessLogProperties;
-import cn.ypbin.starter.log.support.LogCollector;
+import cn.ypbin.starter.log.support.LogPayloadSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -154,7 +154,7 @@ public class AccessLogAspect {
     String buildParams(ProceedingJoinPoint point) {
         MethodSignature signature = (MethodSignature) point.getSignature();
         String[] names = signature.getParameterNames();
-        List<Object> loggable = Arrays.stream(point.getArgs()).filter(LogCollector::isLoggable).toList();
+        List<Object> loggable = Arrays.stream(point.getArgs()).filter(LogPayloadSupport::isLoggable).toList();
         if (loggable.isEmpty()) {
             return "{}";
         }
@@ -167,7 +167,7 @@ public class AccessLogAspect {
         Map<String, Object> params = new LinkedHashMap<>();
         Object[] args = point.getArgs();
         for (int i = 0; i < args.length; i++) {
-            if (LogCollector.isLoggable(args[i])) {
+            if (LogPayloadSupport.isLoggable(args[i])) {
                 params.put(i < names.length ? names[i] : "arg" + i, args[i]);
             }
         }
@@ -214,13 +214,13 @@ public class AccessLogAspect {
     /**
      * 解析客户端 IP：优先代理头（取首个），否则取 {@code remoteAddr}。
      *
-     * <p>实现统一在 {@link LogCollector#resolveIp}，避免操作日志与访问日志对同一请求给出不同 IP。</p>
+     * <p>实现统一在 {@link LogPayloadSupport#resolveIp}，避免操作日志与访问日志对同一请求给出不同 IP。</p>
      *
      * @param request 当前请求
      * @return IP 地址
      */
     static String resolveIp(HttpServletRequest request) {
-        return LogCollector.resolveIp(request);
+        return LogPayloadSupport.resolveIp(request);
     }
 
     /**

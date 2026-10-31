@@ -24,10 +24,6 @@ import cn.ypbin.starter.log.core.LogUserProvider;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.model.LogRecord;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -38,12 +34,8 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.Resource;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MultipartRequest;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -109,7 +101,7 @@ public class LogCollector {
             record.setRequestMethod(request.getMethod());
             record.setRequestUri(request.getRequestURI());
             if (includes.contains(Include.IP)) {
-                String ip = resolveIp(request);
+                String ip = LogPayloadSupport.resolveIp(request);
                 record.setIp(ip);
                 // 归属地：接入 IpLocationResolver 时填充，未接入返回 null（字段留空）
                 try {
@@ -160,27 +152,6 @@ public class LogCollector {
             : null;
     }
 
-    /**
-     * 解析客户端 IP：依次尝试常见代理头，取不到时回退 {@code remoteAddr}。
-     *
-     * <p><strong>操作日志与访问日志共用这一份实现</strong>：两处各写一份时，头部列表与
-     * 「非可记录参数」判定会悄悄分叉，同一个请求在两种日志里出现不同 IP。</p>
-     *
-     * @param request 当前请求
-     * @return 客户端 IP
-     */
-    public static String resolveIp(HttpServletRequest request) {
-        String[] headers = {"X-Forwarded-For", "X-Real-IP", "Proxy-Client-IP", "WL-Proxy-Client-IP"};
-        for (String header : headers) {
-            String value = request.getHeader(header);
-            if (value != null && !value.isBlank() && !"unknown".equalsIgnoreCase(value)) {
-                int comma = value.indexOf(',');
-                return (comma > 0) ? value.substring(0, comma).trim() : value.trim();
-            }
-        }
-        return request.getRemoteAddr();
-    }
-
 
     @Nullable
     private String resolveParams(HttpServletRequest request) {
@@ -222,39 +193,13 @@ public class LogCollector {
             return null;
         }
         List<Object> loggable = Arrays.stream(args)
-            .filter(LogCollector::isLoggable)
+            .filter(LogPayloadSupport::isLoggable)
             .toList();
         if (loggable.isEmpty()) {
             return null;
         }
         // 单参数直接序列化该对象，多参数序列化为数组
         return serialize(loggable.size() == 1 ? loggable.getFirst() : loggable);
-    }
-
-    /**
-     * 判断单个入参是否可安全写入日志（排除请求/响应/文件/流等不可序列化或不可重复读的类型）。
-     *
-     * <p>操作日志与访问日志共用：两份实现若各自维护排除列表，会出现「同一类型在一个日志里记录、
-     * 另一个里丢弃」。新增排除类型时只改这里。</p>
-     *
-     * @param arg 方法入参（可为 {@code null}）
-     * @return 可记录返回 {@code true}
-     */
-    public static boolean isLoggable(@Nullable Object arg) {
-        if (arg == null) {
-            return false;
-        }
-        return !(arg instanceof HttpServletRequest)
-            && !(arg instanceof HttpServletResponse)
-            && !(arg instanceof MultipartFile)
-            && !(arg instanceof MultipartFile[])
-            && !(arg instanceof HttpSession)
-            && !(arg instanceof MultipartRequest)
-            && !(arg instanceof InputStream)
-            && !(arg instanceof OutputStream)
-            && !(arg instanceof Resource)
-            && !(arg instanceof byte[])
-            && !(arg instanceof StreamingResponseBody);
     }
 
     @Nullable

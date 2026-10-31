@@ -52,8 +52,10 @@
   `RejectedExecutionException`，锁要占满 TTL）。现把 `schedule` 纳入 `try/finally`。
 - **`ypbin-starter-security`：管理员解锁会误清同前缀账号**（解锁 `bob` 连带清掉 `bobby` 的失败计数，暴力破解者的
   锁定被静默解除）。现按「账号键 + 冒号」精确匹配 scoped 键，并对 SCAN 前缀做 glob 转义；空标识直接拒绝。
-- **`ypbin-starter-security`：未认证日志打印完整会话 token**。Sa-Token 的 `NotLoginException` 会把请求 token
-  拼在 message 末尾（`TOKEN_FREEZE` 场景 token 仍有效），现按 `LoginVerifyListener` 的口径脱敏后记录。
+- **`ypbin-starter-security`：未认证日志会打印会话 token**。Sa-Token 的 `NotLoginException` 会把请求 token
+  拼在 message 末尾（`TOKEN_FREEZE` 场景 token 仍有效）。现未认证异常只记录 `type` 与固定的用户文案，
+  登录回验回收会话失败的日志也不再带 token——**连截断片段都不记**（静态扫描会把由 token 派生的值
+  判为敏感信息，且落库后难以回收）。
 - **`ypbin-starter-security`：`UserContext.getAttribute` 未校验类型**。会话反序列化退化成 `Map` 时，
   泛型擦除让 `ClassCastException` 延迟到调用方抛出（绕过本方法的兜底），现显式判型并留 WARN。
 
@@ -65,7 +67,7 @@
   避免一个不读数据的客户端占住单线程调度器、让全实例心跳停摆。
 - **操作日志与访问日志收敛到同一份实现**：IP 解析（原访问日志只认 2 个代理头、操作日志认 4 个）与
   「可记录参数」判定（原 8 类 vs 11 类）此前各写一份且已分叉，同一请求在两种日志里可能得到不同 IP、
-  同一参数类型在一边记录在另一边丢弃。现统一由 `LogCollector` 提供。
+  同一参数类型在一边记录在另一边丢弃。现统一由新增的 `LogPayloadSupport` 提供（不改动既有 `LogCollector` 的成员修饰符，避免破坏二进制兼容）。
 
 ### 废弃
 

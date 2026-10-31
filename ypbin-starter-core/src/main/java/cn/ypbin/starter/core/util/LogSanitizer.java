@@ -31,8 +31,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>用法：{@code log.warn("[x] key={}", LogSanitizer.sanitize(accessKey));}</p>
  *
- * <p>注意：{@link #sanitize} 只解决「日志注入」，不解决「敏感信息落日志」——后者请勿记录原始凭据
- * （可只记 ID 或长度）；会话令牌等长凭据用 {@link #maskToken} 只保留前缀。</p>
+ * <p>注意：本工具只解决「日志注入」，不解决「敏感信息落日志」——凭据/令牌一律不要写进日志，
+ * 连截断片段也不要（静态扫描会把由凭据派生的值判为敏感信息，且落库后难以回收）。</p>
  *
  * @author wenbin
  * @since 2026-09-14
@@ -47,9 +47,6 @@ public final class LogSanitizer {
 
     /** 换行、制表与 C0/C1 控制字符：这些是日志注入的载体，统一替换 */
     private static final Pattern CONTROL_CHARS = Pattern.compile("[\\r\\n\\t\\u0000-\\u001f\\u007f]");
-
-    /** 令牌脱敏后保留的可见前缀长度：够定位是哪条会话，又不足以复用 */
-    private static final int TOKEN_VISIBLE_PREFIX = 8;
 
     private LogSanitizer() {
     }
@@ -66,21 +63,5 @@ public final class LogSanitizer {
         }
         String text = CONTROL_CHARS.matcher(String.valueOf(value)).replaceAll("_");
         return text.length() <= MAX_LENGTH ? text : text.substring(0, MAX_LENGTH) + TRUNCATED_SUFFIX;
-    }
-
-    /**
-     * 会话令牌脱敏：只保留前 {@value #TOKEN_VISIBLE_PREFIX} 位，其余以 {@code ***} 代替。
-     *
-     * <p>用于「必须记录是哪次会话、但绝不能落下可复用凭据」的日志（如登录回验失败后回收会话、
-     * Sa-Token 未认证异常）。默认日志里的 token 一律走本方法，不要在调用点各写一份截断逻辑。</p>
-     *
-     * @param token 原始令牌（可为 {@code null}）
-     * @return 脱敏文本；{@code null} 或长度不足以截断时返回 {@code "***"}
-     */
-    public static String maskToken(@Nullable String token) {
-        if (token == null || token.length() <= TOKEN_VISIBLE_PREFIX) {
-            return "***";
-        }
-        return token.substring(0, TOKEN_VISIBLE_PREFIX) + "***";
     }
 }

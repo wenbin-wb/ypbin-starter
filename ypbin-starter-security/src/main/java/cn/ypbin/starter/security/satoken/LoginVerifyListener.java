@@ -18,7 +18,6 @@ package cn.ypbin.starter.security.satoken;
 import cn.dev33.satoken.listener.SaTokenListenerForSimple;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.stp.parameter.SaLoginParameter;
-import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.security.core.LoginVerifyProvider;
 import java.util.List;
 import org.slf4j.Logger;
@@ -66,8 +65,9 @@ public class LoginVerifyListener extends SaTokenListenerForSimple {
         try {
             StpUtil.logoutByTokenValue(tokenValue);
         } catch (Exception e) {
-            log.error("[ypbin-starter] 登录回验失败后回收会话失败，token 可能残留：{}",
-                LogSanitizer.maskToken(tokenValue), e);
+            // 不记录 token 本身（哪怕是前缀片段）：静态扫描会把任何由 token 派生的值判为敏感信息，
+            // 且日志中心一旦落库难以回收；这里只说明「有残留、会自然过期」，排查靠 Session id/时间。
+            log.error("[ypbin-starter] 登录回验失败后回收会话失败，残留会话将在有效期后自然过期", e);
         }
     }
 }
