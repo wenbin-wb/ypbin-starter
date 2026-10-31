@@ -172,8 +172,8 @@ class SseFanoutTest {
         }
 
         @Bean
-        SseFanoutBridge sseFanoutBridge(InMemoryChannel channel, SseEmitterManager manager) {
-            return newInMemoryBridge(channel, manager);
+        SseFanoutBridge sseFanoutBridge(InMemoryChannel channel) {
+            return newInMemoryBridge(channel);
         }
     }
 
@@ -190,16 +190,21 @@ class SseFanoutTest {
         }
 
         @Bean
-        SseFanoutBridge sseFanoutBridge(InMemoryChannel channel, SseEmitterManager manager) {
-            return newInMemoryBridge(channel, manager);
+        SseFanoutBridge sseFanoutBridge(InMemoryChannel channel) {
+            return newInMemoryBridge(channel);
         }
     }
 
-    /** 宿主自备扇出桥：与自动配置的 Redis 桥同接口、同一回填点（{@code setFanoutBridge}）。 */
-    private static SseFanoutBridge newInMemoryBridge(InMemoryChannel channel, SseEmitterManager manager) {
-        InMemoryBridge bridge = new InMemoryBridge(channel, UUID.randomUUID().toString());
-        manager.setFanoutBridge(bridge);
-        return bridge;
+    /**
+     * 宿主自备扇出桥（与自动配置的 Redis 桥同接口）。
+     *
+     * <p><strong>这里刻意不手工调用 {@code manager.setFanoutBridge(...)}</strong>：回填必须由自动配置
+     * 完成——宿主定义自己的桥时，框架的 {@code sseFanoutBridge(...)} 工厂（带
+     * {@code @ConditionalOnMissingBean}）不会执行，若回填只写在该工厂里，管理器就永远拿不到桥，
+     * 跨实例推送会静默失效。本用例让所有跨实例断言都压在框架的回填上。</p>
+     */
+    private static SseFanoutBridge newInMemoryBridge(InMemoryChannel channel) {
+        return new InMemoryBridge(channel, UUID.randomUUID().toString());
     }
 
     /**

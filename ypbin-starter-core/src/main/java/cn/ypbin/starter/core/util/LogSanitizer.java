@@ -31,8 +31,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>用法：{@code log.warn("[x] key={}", LogSanitizer.sanitize(accessKey));}</p>
  *
- * <p>注意：本工具只解决「日志注入」，不解决「敏感信息落日志」——后者请勿记录原始凭据
- * （可只记 ID 或长度），必要时先用既有的脱敏函数（如会话令牌只记前缀）。</p>
+ * <p>注意：本工具只解决「日志注入」，不解决「敏感信息落日志」——凭据/令牌一律不要写进日志，
+ * 连截断片段也不要（静态扫描会把由凭据派生的值判为敏感信息，且落库后难以回收）。</p>
  *
  * @author wenbin
  * @since 2026-09-14

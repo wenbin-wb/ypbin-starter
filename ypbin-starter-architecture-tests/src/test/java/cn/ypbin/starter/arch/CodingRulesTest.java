@@ -139,6 +139,8 @@ class CodingRulesTest {
         "cn.ypbin.starter.storage.autoconfigure.StorageAutoConfiguration#localStorageRegistrar",
         "cn.ypbin.starter.storage.autoconfigure.StorageAutoConfiguration$OssStorageConfiguration#ossStorageRegistrar",
         "cn.ypbin.starter.messaging.autoconfigure.MqttAutoConfiguration#mqttClientShutdown",
+        // 内部接线 Bean：把容器里的 SseFanoutBridge 回填给管理器（宿主自定义桥时也必须执行，不能被覆盖掉）
+        "cn.ypbin.starter.messaging.autoconfigure.SseAutoConfiguration#sseFanoutWiring",
         // 集合贡献者：带 @ConditionalOnMissingBean 会被宿主任意同类 Bean 挤掉
         "cn.ypbin.starter.security.autoconfigure.SecuritySseAutoConfiguration#sseSubscribeExcludePathProvider",
         "cn.ypbin.starter.web.autoconfigure.ApiVersionAutoConfiguration#ypbinApiVersionWebMvcConfigurer",

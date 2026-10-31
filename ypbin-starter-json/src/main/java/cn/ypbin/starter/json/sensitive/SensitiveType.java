@@ -88,9 +88,7 @@ public enum SensitiveType {
      * 通用脱敏：保留前 prefixKeep、后 suffixKeep 位，中间用 * 填充。
      */
     private static String mask(String value, int prefixKeep, int suffixKeep) {
-        if (value == null || value.isEmpty()) {
-            return value;
-        }
+        // 入参已由 apply 统一判空，这里不再重复（@NullMarked 下 value 非空）
         int len = value.length();
         if (prefixKeep + suffixKeep >= len) {
             // 保留位数超过总长，全部打码，避免泄露
@@ -103,9 +101,7 @@ public enum SensitiveType {
     }
 
     private static String maskEmail(String value) {
-        if (value == null || value.isEmpty()) {
-            return value;
-        }
+        // 同上：调用方已判空
         int at = value.indexOf('@');
         if (at <= 0) {
             return mask(value, 1, 0);

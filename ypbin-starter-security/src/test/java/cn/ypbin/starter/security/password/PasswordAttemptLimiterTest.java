@@ -113,6 +113,27 @@ class PasswordAttemptLimiterTest {
     }
 
     @Test
+    void unlockShouldNotClearOtherAccountSharingTheSamePrefix() {
+        PasswordAttemptLimiter limiter = limiter(policy(2, 15));
+
+        assertThatThrownBy(() -> {
+            limiter.recordFailure("bob", "1.1.1.1");
+            limiter.recordFailure("bob", "1.1.1.1");
+        }).isInstanceOf(AccountLockedException.class);
+        // bobby 只失败一次（未锁定）
+        limiter.recordFailure("bobby", "1.1.1.1");
+
+        limiter.unlock("bob");
+
+        assertThat(limiter.remainingAttempts("bobby", "1.1.1.1"))
+            .as("解锁 bob 不得把 bobby 的失败计数一并清零（否则暴力破解者的锁定被静默解除）")
+            .isEqualTo(1);
+        // 空标识会让前缀退化成「所有账号」，必须显式拒绝
+        assertThatThrownBy(() -> limiter.unlock(" "))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void getLockStatusShouldReflectState() {
         PasswordAttemptLimiter limiter = limiter(policy(3, 15));
 

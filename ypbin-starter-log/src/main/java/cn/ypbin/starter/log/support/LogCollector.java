@@ -24,10 +24,6 @@ import cn.ypbin.starter.log.core.LogUserProvider;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.model.LogRecord;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -40,8 +36,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MultipartRequest;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -107,7 +101,7 @@ public class LogCollector {
             record.setRequestMethod(request.getMethod());
             record.setRequestUri(request.getRequestURI());
             if (includes.contains(Include.IP)) {
-                String ip = resolveIp(request);
+                String ip = LogPayloadSupport.resolveIp(request);
                 record.setIp(ip);
                 // 归属地：接入 IpLocationResolver 时填充，未接入返回 null（字段留空）
                 try {
@@ -151,28 +145,11 @@ public class LogCollector {
 
     @Nullable
     private HttpServletRequest currentRequest() {
-        try {
-            if (RequestContextHolder
-                .getRequestAttributes() instanceof ServletRequestAttributes attrs) {
-                return attrs.getRequest();
-            }
-        } catch (Exception e) {
-            // 无 Web 上下文时记录调试日志，便于排查日志采集链路异常
-            log.debug("[ypbin-starter] 当前线程不存在请求上下文，跳过请求信息采集: {}", e.getMessage(), e);
-        }
-        return null;
-    }
-
-    private String resolveIp(HttpServletRequest request) {
-        String[] headers = {"X-Forwarded-For", "X-Real-IP", "Proxy-Client-IP", "WL-Proxy-Client-IP"};
-        for (String header : headers) {
-            String value = request.getHeader(header);
-            if (value != null && !value.isBlank() && !"unknown".equalsIgnoreCase(value)) {
-                int comma = value.indexOf(',');
-                return (comma > 0) ? value.substring(0, comma).trim() : value.trim();
-            }
-        }
-        return request.getRemoteAddr();
+        // getRequestAttributes() 在没有请求上下文时返回 null 而不是抛异常（异步线程、定时任务均如此），
+        // 原先的 try/catch 永远不会命中，那条「不存在请求上下文」的日志也因此从未出现过。
+        return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+            ? attrs.getRequest()
+            : null;
     }
 
 
@@ -216,27 +193,13 @@ public class LogCollector {
             return null;
         }
         List<Object> loggable = Arrays.stream(args)
-            .filter(this::isLoggable)
+            .filter(LogPayloadSupport::isLoggable)
             .toList();
         if (loggable.isEmpty()) {
             return null;
         }
         // 单参数直接序列化该对象，多参数序列化为数组
         return serialize(loggable.size() == 1 ? loggable.getFirst() : loggable);
-    }
-
-    private boolean isLoggable(Object arg) {
-        if (arg == null) {
-            return false;
-        }
-        return !(arg instanceof HttpServletRequest)
-            && !(arg instanceof HttpServletResponse)
-            && !(arg instanceof MultipartFile)
-            && !(arg instanceof MultipartFile[])
-            && !(arg instanceof HttpSession)
-            && !(arg instanceof MultipartRequest)
-            && !(arg instanceof InputStream)
-            && !(arg instanceof OutputStream);
     }
 
     @Nullable

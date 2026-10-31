@@ -51,15 +51,10 @@ public final class RequestUtils {
      */
     @Nullable
     public static HttpServletRequest getRequest() {
-        try {
-            if (RequestContextHolder
-                .getRequestAttributes() instanceof ServletRequestAttributes attrs) {
-                return attrs.getRequest();
-            }
-        } catch (Exception ignored) {
-            // 无 Web 上下文
-        }
-        return null;
+        // 无 Web 上下文时 getRequestAttributes() 返回 null（不抛异常），判型即可
+        return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+            ? attrs.getRequest()
+            : null;
     }
 
     /**
@@ -104,14 +99,10 @@ public final class RequestUtils {
      */
     @Nullable
     public static HttpServletResponse getResponse() {
-        try {
-            if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
-                return attrs.getResponse();
-            }
-        } catch (Exception ignored) {
-            // 无 Web 上下文
-        }
-        return null;
+        // 同上：无上下文返回 null，不需要 try/catch
+        return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+            ? attrs.getResponse()
+            : null;
     }
 
     /**

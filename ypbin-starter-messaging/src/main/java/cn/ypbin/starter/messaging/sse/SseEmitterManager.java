@@ -17,14 +17,19 @@ package cn.ypbin.starter.messaging.sse;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -160,65 +165,64 @@ public class SseEmitterManager implements DisposableBean {
      * 为指定扇出维度建立一个 SSE 连接并注册（新增 API；{@link #connect(String)} 的特例是
      * {@code audience = userId}）。
      *
-     * <p>语义与 {@link #connect(String)} 完全一致，只是注册键换成任意 audience。业务若要把一条连接
-     * 同时挂到多个维度（如「该用户」+「该用户所属租户」），自行多次调用即可。</p>
+     * <p>语义与 {@link #connect(String)} 完全一致，只是注册键换成任意 audience。需要一条连接
+     * 同时挂多个维度（如「该用户」+「该用户所属租户」）时<strong>不要</strong>多次调用本方法——
+     * 用 {@link #connectAll(Set)}：HTTP 响应只能带回一个 emitter，多建出来的连接永远挂不到响应上。</p>
      *
      * @param audience 扇出目标键（非空；建议带类型前缀避免不同维度撞键，如 {@code "tenant:7"}）
      * @return 新建的 SseEmitter，交给 Controller 返回给客户端
      */
     public SseEmitter connectAudience(String audience) {
-        SseEmitter emitter = newEmitter();
-        emitters.computeIfAbsent(audience, k -> ConcurrentHashMap.newKeySet()).add(emitter);
-
-        ScheduledFuture<?> heartbeat = startHeartbeat(audience, emitter);
-        emitter.onCompletion(() -> {
-            cancelHeartbeat(heartbeat);
-            remove(audience, emitter);
-        });
-        emitter.onTimeout(() -> {
-            cancelHeartbeat(heartbeat);
-            remove(audience, emitter);
-        });
-        emitter.onError(e -> {
-            cancelHeartbeat(heartbeat);
-            remove(audience, emitter);
-        });
-        // 建连即发一条注释帧，触发浏览器 EventSource onopen，并尽早暴露断连
-        try {
-            emitter.send(SseEmitter.event().comment("connected"));
-        } catch (IOException e) {
-            remove(audience, emitter);
-        }
-        return emitter;
+        return connectAll(Set.of(audience));
     }
 
     /**
      * 启动心跳任务：每隔 {@code heartbeatIntervalMillis} 发送一条 {@code : ping} 注释帧。
      *
-     * <p>发送成功说明连接存活（同时保活中间代理）；失败说明连接已死，取消自身并回收连接。
-     * 心跳无法重置容器异步总超时（配了有限 {@code timeout} 时到点仍会回收，但回收已静默化）。</p>
+     * <p>发送成功说明连接存活（同时保活中间代理）；失败说明连接已死，取消自身并从<strong>所有</strong>
+     * 已注册维度摘除该连接。心跳无法重置容器异步总超时（配了有限 {@code timeout} 时到点仍会回收，
+     * 但回收已静默化）。</p>
      *
-     * @param audience 扇出目标键
-     * @param emitter  连接
+     * <p><strong>心跳发送不在调度线程里做</strong>：{@code SseEmitter.send} 会阻塞在响应的写锁上，
+     * 一个不读数据的客户端就能把单线程调度器占住、让全实例的心跳一起停摆。这里把实际发送丢给
+     * {@link #sendExecutor}（虚拟线程），并用 {@code inFlight} 保证同一连接最多一个在途心跳，
+     * 慢客户端不会堆积任务、也不影响其它连接。</p>
+     *
+     * @param audiences 该连接注册的全部扇出目标键
+     * @param emitter   连接
      * @return 心跳任务（未启用时返回 {@code null}）
      */
     @Nullable
-    private ScheduledFuture<?> startHeartbeat(String audience, SseEmitter emitter) {
+    private ScheduledFuture<?> startHeartbeat(Collection<String> audiences, SseEmitter emitter) {
         if (heartbeatIntervalMillis <= 0) {
             return null;
         }
         ScheduledFuture<?>[] self = new ScheduledFuture<?>[1];
+        AtomicBoolean inFlight = new AtomicBoolean(false);
         ScheduledFuture<?> future = scheduler().scheduleAtFixedRate(() -> {
+            if (!inFlight.compareAndSet(false, true)) {
+                // 上一次心跳仍阻塞在这个慢客户端的写锁上：跳过本轮，绝不让调度线程陪着阻塞
+                return;
+            }
             try {
-                emitter.send(SseEmitter.event().comment("ping"));
-            } catch (Exception e) {
-                // 保留 debug 且不带堆栈：心跳失败绝大多数是客户端已断开（每次断开必现，属高频预期降级），
-                // 升 WARN 会按连接数刷屏；连接回收本身是正确处置，不影响功能正确性
-                log.debug("[ypbin-starter] SSE 心跳失败，回收连接：audience={}", audience, e);
-                if (self[0] != null) {
-                    self[0].cancel(false);
-                }
-                remove(audience, emitter);
+                sendExecutor.execute(() -> {
+                    try {
+                        emitter.send(SseEmitter.event().comment("ping"));
+                    } catch (Exception e) {
+                        // 保留 debug 且不带堆栈：心跳失败绝大多数是客户端已断开（每次断开必现，属高频预期降级），
+                        // 升 WARN 会按连接数刷屏；连接回收本身是正确处置，不影响功能正确性
+                        log.debug("[ypbin-starter] SSE 心跳失败，回收连接：audiences={}", audiences, e);
+                        if (self[0] != null) {
+                            self[0].cancel(false);
+                        }
+                        audiences.forEach(audience -> remove(audience, emitter));
+                    } finally {
+                        inFlight.set(false);
+                    }
+                });
+            } catch (RejectedExecutionException e) {
+                // 容器关闭中：执行器已不再接收任务，心跳随之结束
+                inFlight.set(false);
             }
         }, heartbeatIntervalMillis, heartbeatIntervalMillis, TimeUnit.MILLISECONDS);
         self[0] = future;
@@ -269,28 +273,50 @@ public class SseEmitterManager implements DisposableBean {
     }
 
     /**
-     * 为多个扇出目标批量建连（同一订阅挂多个维度时用），返回第一条连接供 Controller 响应。
+     * 为多个扇出目标建立一个连接并注册到每个目标（同一订阅挂多个维度时用）。
      *
-     * <p><strong>为什么允许多条</strong>：一次订阅若同时属于「用户本人」与「所属租户」，客户端需要两类
-     * 事件都能收到；注册表是「一键 → 多条连接」，故按目标各建一条。若按"一条连接挂多键"实现，
-     * 断连回调与心跳归属会变模糊。</p>
+     * <p><strong>必须是「一条连接、多个注册键」</strong>：Spring MVC 只能把一个 {@link SseEmitter}
+     * 交给响应处理器，其余 emitter 的 {@code handler} 恒为 {@code null}——它们发不出任何帧
+     * （事件只是堆进无上限的 early-send 缓冲），完成/超时/异常回调也永远不会触发，注册表条目
+     * 无法摘除。因此这里建<strong>一条</strong>连接，把它加入集合里的每个 audience；
+     * 断连时从所有键摘除，心跳只归这条连接所有。</p>
      *
-     * @param audiences 扇出目标键集合（非空；调用方须保证）
-     * @return 第一条连接（HTTP 响应只能带一个 emitter；其余连接在服务端存活，按各自键路由事件）
+     * <p>广播按连接身份去重，避免同一条连接注册在多个维度时收到重复事件。</p>
+     *
+     * @param audiences 扇出目标键集合（非空）
+     * @return 新建的 SseEmitter，交给 Controller 返回给客户端
      */
     public SseEmitter connectAll(Set<String> audiences) {
-        SseEmitter first = null;
-        for (String audience : audiences) {
-            SseEmitter emitter = connectAudience(audience);
-            if (first == null) {
-                first = emitter;
-            }
-        }
-        if (first == null) {
+        if (audiences == null || audiences.isEmpty()) {
             // 调用方契约要求非空集合；真出现空集合时抛异常而不是静默建一条 userId 连接（避免掩盖调用错误）
             throw new IllegalArgumentException("audiences 不能为空");
         }
-        return first;
+        List<String> keys = List.copyOf(audiences);
+        SseEmitter emitter = newEmitter();
+        keys.forEach(audience ->
+            emitters.computeIfAbsent(audience, k -> ConcurrentHashMap.newKeySet()).add(emitter));
+
+        Runnable unregister = () -> keys.forEach(audience -> remove(audience, emitter));
+        ScheduledFuture<?> heartbeat = startHeartbeat(keys, emitter);
+        emitter.onCompletion(() -> {
+            cancelHeartbeat(heartbeat);
+            unregister.run();
+        });
+        emitter.onTimeout(() -> {
+            cancelHeartbeat(heartbeat);
+            unregister.run();
+        });
+        emitter.onError(e -> {
+            cancelHeartbeat(heartbeat);
+            unregister.run();
+        });
+        // 建连即发一条注释帧，触发浏览器 EventSource onopen，并尽早暴露断连
+        try {
+            emitter.send(SseEmitter.event().comment("connected"));
+        } catch (IOException e) {
+            unregister.run();
+        }
+        return emitter;
     }
 
     /**
@@ -331,10 +357,23 @@ public class SseEmitterManager implements DisposableBean {
      * @param data      载荷
      */
     public void broadcast(String eventName, Object data) {
-        emitters.forEach((audience, set) ->
-            set.forEach(emitter ->
-                sendExecutor.execute(() -> doSend(audience, emitter, eventName, data))));
+        dispatchBroadcastLocal(eventName, data);
         publishFanout(eventName, null, data);
+    }
+
+    /**
+     * 广播给本实例的全部连接。
+     *
+     * <p>按<strong>连接身份</strong>去重：{@link #connectAll(Set)} 让一条连接注册在多个 audience 下，
+     * 若按注册键逐个发送，同一客户端会收到重复事件。</p>
+     */
+    private void dispatchBroadcastLocal(String eventName, @Nullable Object data) {
+        Set<SseEmitter> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        emitters.forEach((audience, set) -> set.forEach(emitter -> {
+            if (seen.add(emitter)) {
+                sendExecutor.execute(() -> doSend(audience, emitter, eventName, data));
+            }
+        }));
     }
 
     /**
@@ -347,9 +386,7 @@ public class SseEmitterManager implements DisposableBean {
      */
     public void deliverLocal(SseFanoutMessage message, @Nullable Object data) {
         if (message.broadcast()) {
-            emitters.forEach((audience, set) ->
-                set.forEach(emitter ->
-                    sendExecutor.execute(() -> doSend(audience, emitter, message.event(), data))));
+            dispatchBroadcastLocal(message.event(), data);
             return;
         }
         String audience = message.audience();
@@ -436,9 +473,13 @@ public class SseEmitterManager implements DisposableBean {
     }
 
     /**
-     * 在线用户数（去重）。
+     * 在线扇出目标键数。
      *
-     * @return 在线用户数
+     * <p>默认只按 userId 建连时即在线用户数（同一用户多设备/多标签页仍算一个键）。
+     * 启用多维度订阅（{@link #connectAll(Set)}）后，同一条连接会按维度各计一次，此时该值表示
+     * 「在线扇出目标键数」而非人数。</p>
+     *
+     * @return 在线扇出目标键数
      */
     public int onlineCount() {
         return emitters.size();
@@ -506,12 +547,13 @@ public class SseEmitterManager implements DisposableBean {
     /**
      * 当前所有在线扇出目标键（只读快照）。
      *
-     * <p>方法名保留历史签名；返回的含义是「当前有连接的注册键」。默认只按 userId 建连时即在线用户集合。</p>
-     *
      * @return 扇出目标键集合
+     * @deprecated 与 {@link #onlineAudiences()} 完全等价；「users」在按 audience 建连的语义下会误导，
+     *     保留仅为二进制兼容，新代码请用 {@link #onlineAudiences()}
      */
+    @Deprecated(since = "4.3.0")
     public Collection<String> onlineUsers() {
-        return Set.copyOf(emitters.keySet());
+        return onlineAudiences();
     }
 
     /**
