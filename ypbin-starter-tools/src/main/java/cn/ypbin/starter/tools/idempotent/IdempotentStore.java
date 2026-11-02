@@ -39,6 +39,25 @@ public interface IdempotentStore {
     boolean tryAcquire(String key, Duration expire);
 
     /**
+     * 带属主的尝试占位。
+     *
+     * <p>属主用于「失败释放」时确认占位仍属于本次调用：业务执行时间超过 {@code expire} 后，
+     * 占位会自然过期并被另一个请求重新占用，此时若按 key 无条件删除，会误删他人的占位、
+     * 让幂等形同虚设。</p>
+     *
+     * <p>默认实现忽略属主、退化为 {@link #tryAcquire(String, Duration)}，保持对历史宿主存储的
+     * 二进制与行为兼容（这类存储的释放仍是无条件删除）。</p>
+     *
+     * @param key    幂等键
+     * @param expire 占位有效期
+     * @param owner  本次调用的唯一属主标识
+     * @return {@code true} 表示占位成功（首次调用）
+     */
+    default boolean tryAcquire(String key, Duration expire, String owner) {
+        return tryAcquire(key, expire);
+    }
+
+    /**
      * 释放占位键。
      *
      * <p>业务方法执行异常后由幂等切面调用，删除占位使客户端可立即重试，而不必等到
@@ -49,5 +68,18 @@ public interface IdempotentStore {
      */
     default void release(String key) {
         // 默认不释放，兼容仅实现 tryAcquire 的历史宿主存储
+    }
+
+    /**
+     * 仅当占位仍属于 {@code owner} 时释放（compare-and-delete）。
+     *
+     * <p>默认实现退化为 {@link #release(String)}（无条件删除），同样用于兼容未覆盖本方法的
+     * 历史宿主存储；内置的内存/Redis 实现均已改为按属主校验。</p>
+     *
+     * @param key   幂等键
+     * @param owner 占位时登记的属主标识
+     */
+    default void release(String key, String owner) {
+        release(key);
     }
 }

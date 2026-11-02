@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-20T12:40:32.400Z",
+  "generatedAt": "2026-10-30T14:48:23.336Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -3458,7 +3458,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2202
+              "line": 2232
             }
           ],
           "default": null,
@@ -3468,7 +3468,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2202
+              "line": 2232
             }
           ]
         }
@@ -4550,7 +4550,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2109
+              "line": 2139
             }
           ],
           "default": null,
@@ -4560,7 +4560,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2109
+              "line": 2139
             }
           ]
         },
@@ -4580,7 +4580,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2109
+              "line": 2139
             }
           ],
           "default": null,
@@ -4590,7 +4590,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2109
+              "line": 2139
             }
           ]
         },
@@ -4892,7 +4892,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2298
+              "line": 2328
             }
           ],
           "default": null,
@@ -4902,7 +4902,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2298
+              "line": 2328
             }
           ]
         },
@@ -4924,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2298
+              "line": 2328
             }
           ],
           "default": null,
@@ -4936,7 +4936,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2298
+              "line": 2328
             }
           ]
         },
@@ -4956,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2298
+              "line": 2328
             }
           ],
           "default": null,
@@ -4966,7 +4966,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2298
+              "line": 2328
             }
           ]
         }
@@ -5056,7 +5056,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2352
+              "line": 2382
             }
           ],
           "default": null,
@@ -5066,7 +5066,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2352
+              "line": 2382
             }
           ]
         },
@@ -5086,7 +5086,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2352
+              "line": 2382
             }
           ],
           "default": null,
@@ -5096,7 +5096,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2352
+              "line": 2382
             }
           ]
         }
@@ -5896,7 +5896,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1904
+              "line": 1934
             }
           ],
           "default": "messages",
@@ -5906,7 +5906,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1904
+              "line": 1934
             }
           ]
         }
@@ -8292,7 +8292,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1602
+              "line": 1632
             }
           ],
           "default": null,
@@ -8302,7 +8302,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1602
+              "line": 1632
             }
           ]
         }

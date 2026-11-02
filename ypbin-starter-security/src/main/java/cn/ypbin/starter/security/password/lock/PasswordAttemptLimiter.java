@@ -190,10 +190,23 @@ public class PasswordAttemptLimiter {
     /**
      * 解锁账号的全部维度失败计数（管理员后台解锁：不需知道用户从哪个 IP 被锁）。
      *
-     * @param identifier 账号标识
+     * <p><strong>必须按「账号键 + 冒号」精确匹配 scoped 键</strong>：账号名互为前缀时
+     * （{@code bob} / {@code bobby}），若直接以 {@code KEY_PREFIX + 账号} 做前缀匹配，
+     * 解锁 {@code bob} 会把正在被暴力破解的 {@code bobby} 计数一并清零——攻击者的锁定被静默解除。</p>
+     *
+     * @param identifier 账号标识（非空）
+     * @throws IllegalArgumentException 账号标识为空时抛出（空前缀会匹配到全部账号）
      */
     public void unlock(String identifier) {
-        store.resetByPrefix(KEY_PREFIX + normalize(identifier));
+        String normalized = normalize(identifier);
+        if (normalized.isBlank()) {
+            // 空标识会让 accountKey 退化为 KEY_PREFIX、scoped 前缀退化为"所有账号"
+            throw new IllegalArgumentException("解锁账号标识不能为空");
+        }
+        String accountKey = KEY_PREFIX + normalized;
+        store.reset(accountKey);
+        // 只清理该账号的 scoped 维度（accountKey + ":"），不会误伤同前缀的其它账号
+        store.resetByPrefix(accountKey + ":");
     }
 
     private void throwLocked(String key) {

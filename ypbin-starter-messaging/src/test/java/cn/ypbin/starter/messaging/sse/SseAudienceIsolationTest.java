@@ -17,8 +17,10 @@ package cn.ypbin.starter.messaging.sse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +63,8 @@ class SseAudienceIsolationTest {
     /** 真实 manager + 计数替身（{@code newEmitter} 包级可见，故本类必须在同包）。 */
     static final class ProbeManager extends SseEmitterManager {
 
-        final Map<String, CountingEmitter> byAudience = new ConcurrentHashMap<>();
+        /** 本 manager 创建的连接（按创建顺序；用于断言「一个订阅只建了一条连接」）。 */
+        final List<CountingEmitter> created = new CopyOnWriteArrayList<>();
 
         ProbeManager() {
             super(0L, 0);
@@ -70,6 +73,7 @@ class SseAudienceIsolationTest {
         @Override
         SseEmitter newEmitter() {
             CountingEmitter emitter = new CountingEmitter();
+            created.add(emitter);
             return emitter;
         }
     }
@@ -178,6 +182,51 @@ class SseAudienceIsolationTest {
         manager.connect("u1");
         assertThat(manager.isOnline("u1")).isTrue();
         assertThat(manager.onlineAudiences()).containsExactly("u1");
+    }
+
+    @Test
+    @DisplayName("★ connectAll 只建一条连接，并注册到每个维度（多建的 emitter 永远挂不到响应上）")
+    void connectAllUsesSingleConnectionForEveryAudience() {
+        CountingEmitter returned = (CountingEmitter) manager.connectAll(Set.of("u1", "tenant:7"));
+
+        assertThat(manager.created)
+            .as("HTTP 响应只能带回一个 emitter；为每个维度各建一条会产生永远发不出帧、也永不回收的连接")
+            .hasSize(1)
+            .containsExactly(returned);
+        assertThat(manager.isOnline("u1")).isTrue();
+        assertThat(manager.isOnline("tenant:7")).isTrue();
+        assertThat(manager.onlineAudiences()).containsExactlyInAnyOrder("u1", "tenant:7");
+    }
+
+    @Test
+    @DisplayName("★ 多维度订阅：响应里的那条连接能收到每个维度的事件（修前只有第一条维度能收到）")
+    void singleConnectionReceivesEveryAudienceEvent() throws Exception {
+        CountingEmitter emitter = (CountingEmitter) manager.connectAll(Set.of("u1", "tenant:7"));
+        int base = emitter.sends.get();
+
+        manager.sendToAudience("u1", "latest", Map.of("k", 1));
+        awaitIncrement(emitter, base, 3000);
+        manager.sendToAudience("tenant:7", "latest", Map.of("k", 2));
+        awaitIncrement(emitter, base + 1, 3000);
+
+        assertThat(emitter.sends.get() - base)
+            .as("两个维度的事件都必须落到同一条（真正交给响应的）连接上")
+            .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("★ 广播按连接身份去重：一条连接挂多个维度只收一次")
+    void broadcastDeduplicatesMultiAudienceConnection() throws Exception {
+        CountingEmitter emitter = (CountingEmitter) manager.connectAll(Set.of("u1", "tenant:7"));
+        int base = emitter.sends.get();
+
+        manager.broadcast("latest", Map.of("k", 1));
+        awaitIncrement(emitter, base, 3000);
+        Thread.sleep(200);
+
+        assertThat(emitter.sends.get() - base)
+            .as("同一条连接注册在两个维度下，广播若按注册键逐个发会让客户端收到重复事件")
+            .isEqualTo(1);
     }
 
     /** 等增量出现（投递在虚拟线程里异步执行），超时即失败。 */

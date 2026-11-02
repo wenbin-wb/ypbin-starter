@@ -18,11 +18,14 @@ package cn.ypbin.starter.tools.limiter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import cn.ypbin.starter.tools.idempotent.RedisIdempotentStore;
 import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -58,19 +61,34 @@ class RedisStoresTest {
 
     @Test
     void idempotentShouldAcquireWhenFirst() {
-        when(redisTemplate.execute(any(RedisScript.class), anyList(), any()))
+        // 占位脚本收两个参数：属主 + 过期秒数（属主用于失败释放时核对）
+        when(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any()))
             .thenReturn(1L);
         RedisIdempotentStore store = new RedisIdempotentStore(redisTemplate);
 
         assertThat(store.tryAcquire("id:key", Duration.ofSeconds(30))).isTrue();
+        assertThat(store.tryAcquire("id:key", Duration.ofSeconds(30), "owner-1")).isTrue();
     }
 
     @Test
     void idempotentShouldRejectOnSecond() {
-        when(redisTemplate.execute(any(RedisScript.class), anyList(), any()))
+        when(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any()))
             .thenReturn(0L);
         RedisIdempotentStore store = new RedisIdempotentStore(redisTemplate);
 
         assertThat(store.tryAcquire("id:key", Duration.ofSeconds(30))).isFalse();
+        assertThat(store.tryAcquire("id:key", Duration.ofSeconds(30), "owner-1")).isFalse();
+    }
+
+    @Test
+    void idempotentReleaseShouldCompareOwnerAtomically() {
+        when(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any()))
+            .thenReturn(1L);
+        RedisIdempotentStore store = new RedisIdempotentStore(redisTemplate);
+
+        // 按属主释放走 compare-and-delete 脚本（不是无条件 DEL）
+        store.release("id:key", "owner-1");
+
+        verify(redisTemplate).execute(any(RedisScript.class), eq(List.of("id:key")), eq("owner-1"));
     }
 }

@@ -39,13 +39,13 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
- * {@code lock_release.lua} / {@code lock_renew.lua} 的**真实 Redis** 集成测试。
+ * {@code compare_and_delete.lua} / {@code lock_renew.lua} 的**真实 Redis** 集成测试。
  *
  * <p><b>为什么必须有这一层</b>：Lua 的归属校验与 {@code PEXPIRE} 只有在真实 Redis 上执行才能验证——
  * mock 掉 {@code StringRedisTemplate} 只能证明「脚本被传了正确的参数」，证明不了「脚本真的按 owner
  * 比对、真的把 TTL 延长、且绝不重建已删除的锁」。本类覆盖：</p>
  * <ul>
- *   <li>{@code lock_release.lua}：只有 owner 匹配才 {@code DEL}（不误删他人的锁）、锁不存在返回 false；</li>
+ *   <li>{@code compare_and_delete.lua}：只有 owner 匹配才 {@code DEL}（不误删他人的锁）、锁不存在返回 false；</li>
  *   <li>{@code lock_renew.lua}：仍是自己的锁才 {@code PEXPIRE}（真实读回的 TTL 变长）、他人续期无效、
  *       锁不存在/已被删除时绝不重建；</li>
  *   <li>并发抢锁下 {@code SET NX} 只有一个成功。</li>
@@ -97,10 +97,10 @@ class LockLuaRedisIT {
         }
     }
 
-    // ------------------------------------------------------------------ lock_release.lua
+    // ------------------------------------------------------------------ compare_and_delete.lua
 
     @Test
-    @DisplayName("lock_release.lua：只有 owner 匹配才删除，不误删他人的锁")
+    @DisplayName("compare_and_delete.lua：只有 owner 匹配才删除，不误删他人的锁")
     void releaseOnlyDeletesOwnLock() {
         String key = KEY_PREFIX + "release";
         assertThat(lockService.tryLock(key, "owner-a", Duration.ofSeconds(30))).isTrue();
@@ -113,7 +113,7 @@ class LockLuaRedisIT {
     }
 
     @Test
-    @DisplayName("lock_release.lua：锁不存在时返回 false（区分于成功释放）")
+    @DisplayName("compare_and_delete.lua：锁不存在时返回 false（区分于成功释放）")
     void releaseAbsentKeyReturnsFalse() {
         assertThat(lockService.unlock(KEY_PREFIX + "missing", "owner-a")).isFalse();
     }

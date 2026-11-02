@@ -75,7 +75,7 @@
 
 | 门禁 | 拦住什么 | 本地命令 |
 |---|---|---|
-| **架构约束测试**（ArchUnit，35 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失 | `mvn -pl ypbin-starter-architecture-tests test` |
+| **架构约束测试**（ArchUnit，43 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失 | `mvn -pl ypbin-starter-architecture-tests test` |
 | **空值语义静态检查**（NullAway + Error Prone，逐模块声明 `nullaway.packages`，当前覆盖 37 个模块的主源码） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
 | **依赖版本收敛**（enforcer `dependencyConvergence`） | 同一依赖出现多个版本（Maven 会静默按声明顺序择一，不报错） | `mvn -Pdep-convergence validate` |
 | **公开 API 向后兼容**（japicmp 对比 Central 上一发布版） | 删除/收窄 public/protected 类型或方法（semver 破坏性变更未在 CHANGELOG 登记） | GitHub Actions `api-compat.yml`；显式例外：PR 打 `api-breaking-approved` 标签 |
@@ -137,7 +137,7 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-bom</artifactId>
-            <version>4.0.0</version>
+            <version>4.2.1</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -204,6 +204,10 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
 | `ai` | Spring AI 对话（流式/非流式）、多轮记忆、RAG | `ypbin.ai` |
 | `storage` | 本地 + S3 兼容对象存储 | `ypbin.storage` |
 | `api-doc` | SpringDoc OpenAPI 元信息 | `ypbin.api-doc` |
+| `license` | 商业授权：机器指纹 + 有效期 + SM2 签发验签 + `@LicenseCheck` | `ypbin.license` |
+| `iot` | IoT 域通用原语：请求 ID / 点位标识口径（纯函数、零 IO） | — |
+| `xxljob` | XXL-JOB 执行器接入壳（`@XxlJob` 方法即任务） | `ypbin.xxl-job` |
+| `test` | 测试基座：Redis/MySQL/Nacos 容器支持与外部实例回退（`test` 作用域引入） | — |
 
 ### 扩展能力层
 
@@ -302,7 +306,7 @@ mvn com.diffplug.spotless:spotless-maven-plugin:apply
 # 只验证改动模块的空值语义（快，建议提交前跑）
 mvn -Pnullaway -pl <改动模块> clean compile
 
-# 架构约束（35 项铁律）
+# 架构约束（43 项铁律）
 mvn -pl ypbin-starter-architecture-tests test
 
 # 发布前：一次跑全六道硬门禁

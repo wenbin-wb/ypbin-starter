@@ -85,4 +85,20 @@ class InMemoryIdempotentStoreTest {
         store.release(key);
         assertThat(store.tryAcquire(key, Duration.ofSeconds(30))).isTrue();
     }
+
+    @Test
+    void releaseWithOwner_mustNotDeleteOtherOwnersPlaceholder() {
+        String key = "order:owner";
+        assertThat(store.tryAcquire(key, Duration.ofSeconds(30), "A")).isTrue();
+
+        // 非属主释放：不得删除（否则 A 失败时可能删掉已重新占位的 C，让幂等失效）
+        store.release(key, "B");
+        assertThat(store.tryAcquire(key, Duration.ofSeconds(30), "C"))
+            .as("占位仍属于 A，C 不能重复占位")
+            .isFalse();
+
+        // 属主释放：才能真正删除
+        store.release(key, "A");
+        assertThat(store.tryAcquire(key, Duration.ofSeconds(30), "C")).isTrue();
+    }
 }

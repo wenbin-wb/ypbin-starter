@@ -62,7 +62,11 @@ public class SaTokenExceptionHandler {
      */
     @ExceptionHandler(NotLoginException.class)
     public R<Void> handleNotLogin(NotLoginException e) {
-        log.warn("[未认证] type={}, msg={}", e.getType(), e.getMessage());
+        // 只记录异常类型与固定的用户文案：Sa-Token 的 message 末尾会拼接请求 token
+        // （INVALID/TOKEN_TIMEOUT/BE_REPLACED/KICK_OUT/TOKEN_FREEZE 均如此，其中 TOKEN_FREEZE 的
+        // token 仍然有效）。任何形式的原文或截断片段都不入日志——静态扫描（CodeQL）同样会把
+        // 「从 message 派生」的值判为敏感信息，脱敏不是可被识别的清洗器。
+        log.warn("[未认证] type={}, msg={}", e.getType(), resolveNotLoginMessage(e));
         return R.fail(GlobalErrorCode.UNAUTHORIZED.getCode(), resolveNotLoginMessage(e));
     }
 

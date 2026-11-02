@@ -64,7 +64,7 @@ class SseEmitterManagerTest {
         manager.connect("u1");
         manager.connect("u1");
         assertThat(manager.onlineCount()).isEqualTo(1);
-        assertThat(manager.onlineUsers()).containsExactly("u1");
+        assertThat(manager.onlineAudiences()).containsExactly("u1");
     }
 
     @Test

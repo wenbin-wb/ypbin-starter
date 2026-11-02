@@ -66,4 +66,5 @@ class LogSanitizerTest {
         // 恰好等于上限时不截断
         assertThat(LogSanitizer.sanitize("b".repeat(500))).hasSize(500);
     }
+
 }

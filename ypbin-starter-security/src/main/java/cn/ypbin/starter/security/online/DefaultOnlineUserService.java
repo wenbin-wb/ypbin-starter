@@ -92,9 +92,17 @@ public class DefaultOnlineUserService implements OnlineUserService {
         return result;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>只统计 token 键数量，<strong>不逐条解析会话</strong>：{@code list(null).size()} 会对每个 token 做
+     * 4~6 次 Redis 往返（登录 ID、活跃超时、会话、终端信息…），十万级在线量下等于把整个实例的
+     * Redis 连接与请求线程占满，而结果只是取个 size。代价是计数包含「已冻结但未过期」的 token；
+     * 需要精确的用户明细请用 {@link #list(String)}。</p>
+     */
     @Override
     public long count() {
-        return list(null).size();
+        return StpUtil.searchTokenValue("", 0, -1, false).size();
     }
 
     @Override

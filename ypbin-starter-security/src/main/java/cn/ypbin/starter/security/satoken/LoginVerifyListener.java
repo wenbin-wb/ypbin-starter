@@ -65,15 +65,9 @@ public class LoginVerifyListener extends SaTokenListenerForSimple {
         try {
             StpUtil.logoutByTokenValue(tokenValue);
         } catch (Exception e) {
-            log.error("[ypbin-starter] 登录回验失败后回收会话失败，token 可能残留：{}", maskToken(tokenValue), e);
+            // 不记录 token 本身（哪怕是前缀片段）：静态扫描会把任何由 token 派生的值判为敏感信息，
+            // 且日志中心一旦落库难以回收；这里只说明「有残留、会自然过期」，排查靠 Session id/时间。
+            log.error("[ypbin-starter] 登录回验失败后回收会话失败，残留会话将在有效期后自然过期", e);
         }
-    }
-
-    /** 日志脱敏：仅显示 token 前缀，避免完整会话令牌落入日志 */
-    private static String maskToken(String tokenValue) {
-        if (tokenValue == null || tokenValue.length() <= 8) {
-            return "***";
-        }
-        return tokenValue.substring(0, 8) + "***";
     }
 }

@@ -73,6 +73,19 @@ class RedisCacheServiceTest {
     }
 
     @Test
+    void getShouldReturnNullForNullSentinel() {
+        RedisTemplate<String, Object> redisTemplate = redisTemplate();
+        ValueOperations<String, Object> valueOperations = valueOperations();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        // getOrLoad 查无数据时写入的防穿透哨兵：get 必须与 getOrLoad/exists 同口径返回 null，
+        // 否则调用方会把字符串当业务对象强转（ClassCastException）
+        when(valueOperations.get("k")).thenReturn("__YPBIN_NULL__");
+        RedisCacheService service = new RedisCacheService(redisTemplate);
+
+        assertThat(service.get("k", String.class)).isNull();
+    }
+
+    @Test
     void deleteShouldReturnBoolean() {
         RedisTemplate<String, Object> redisTemplate = redisTemplate();
         when(redisTemplate.delete("k")).thenReturn(true);

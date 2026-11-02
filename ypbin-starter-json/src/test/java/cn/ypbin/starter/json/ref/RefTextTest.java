@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -221,5 +222,84 @@ class RefTextTest {
         String json = mapper.writeValueAsString(order);
         assertThat(provider.queryCount.get()).isEqualTo(1);
         assertThat(json).contains("\"handlerName\":\"张三\"");
+    }
+
+    /** 双向引用：{@code Author → Book → Author}，作者上才挂 @RefText。 */
+    static class Author {
+        public Book book;
+
+        @RefText("user")
+        public Long editorId;
+    }
+
+    static class Book {
+        public Author author;
+    }
+
+    @Test
+    void containsRefTextNotPoisonedByBackEdge() {
+        RefTextResolver resolver = new RefTextResolver(manager);
+        // 先从 Author 进入 ⇒ Book 只能经回边到达，其遍历必然被剪枝
+        assertThat(resolver.containsRefText(Author.class)).isTrue();
+        assertThat(resolver.containsRefText(Book.class))
+            .as("经回边得到的 false 不得永久缓存，否则该类型会被 preload 永久剪枝、退回 N+1")
+            .isTrue();
+    }
+
+    @Test
+    void providerFailureIsNotCachedAsMissing() {
+        AtomicBoolean down = new AtomicBoolean(true);
+        RefTextProvider flaky = new RefTextProvider() {
+
+            @Override
+            public String type() {
+                return "user";
+            }
+
+            @Override
+            public Map<Object, String> getNames(Collection<Object> ids) {
+                if (down.get()) {
+                    throw new IllegalStateException("db down");
+                }
+                return Map.of(1L, "张三");
+            }
+        };
+        RefTextManager flakyManager = new RefTextManager(List.of(flaky), new RefTextCache(60_000L, 1000));
+
+        assertThat(flakyManager.translate("user", 1L)).isNull();
+        down.set(false);
+        assertThat(flakyManager.translate("user", 1L))
+            .as("回源失败不得被当作「查无此项」写进缓存，否则数据源恢复后整个 TTL 内仍显示原始 ID")
+            .isEqualTo("张三");
+    }
+
+    @Test
+    void preloadFailureIsNotCachedAsMissing() {
+        AtomicBoolean down = new AtomicBoolean(true);
+        RefTextProvider flaky = new RefTextProvider() {
+
+            @Override
+            public String type() {
+                return "user";
+            }
+
+            @Override
+            public Map<Object, String> getNames(Collection<Object> ids) {
+                if (down.get()) {
+                    throw new IllegalStateException("db down");
+                }
+                Map<Object, String> result = new HashMap<>();
+                ids.forEach(id -> result.put(id, "u" + id));
+                return result;
+            }
+        };
+        RefTextManager flakyManager = new RefTextManager(List.of(flaky), new RefTextCache(60_000L, 1000));
+
+        flakyManager.preload("user", List.of(1L, 2L));
+        down.set(false);
+        flakyManager.preload("user", List.of(1L, 2L));
+        assertThat(flakyManager.translate("user", 1L))
+            .as("失败的那一轮不得把整批 ID 缓存成空值哨兵")
+            .isEqualTo("u1");
     }
 }

@@ -17,9 +17,8 @@ package cn.ypbin.starter.log.aspect;
 
 import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.log.autoconfigure.AccessLogProperties;
+import cn.ypbin.starter.log.support.LogPayloadSupport;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
@@ -39,8 +38,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MultipartRequest;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import tools.jackson.databind.ObjectMapper;
 
@@ -157,7 +154,7 @@ public class AccessLogAspect {
     String buildParams(ProceedingJoinPoint point) {
         MethodSignature signature = (MethodSignature) point.getSignature();
         String[] names = signature.getParameterNames();
-        List<Object> loggable = Arrays.stream(point.getArgs()).filter(AccessLogAspect::isLoggable).toList();
+        List<Object> loggable = Arrays.stream(point.getArgs()).filter(LogPayloadSupport::isLoggable).toList();
         if (loggable.isEmpty()) {
             return "{}";
         }
@@ -170,7 +167,7 @@ public class AccessLogAspect {
         Map<String, Object> params = new LinkedHashMap<>();
         Object[] args = point.getArgs();
         for (int i = 0; i < args.length; i++) {
-            if (isLoggable(args[i])) {
+            if (LogPayloadSupport.isLoggable(args[i])) {
                 params.put(i < names.length ? names[i] : "arg" + i, args[i]);
             }
         }
@@ -215,44 +212,15 @@ public class AccessLogAspect {
     }
 
     /**
-     * 解析客户端 IP：优先 {@code X-Forwarded-For} / {@code X-Real-IP}（取首个），否则取 {@code remoteAddr}。
+     * 解析客户端 IP：优先代理头（取首个），否则取 {@code remoteAddr}。
+     *
+     * <p>实现统一在 {@link LogPayloadSupport#resolveIp}，避免操作日志与访问日志对同一请求给出不同 IP。</p>
      *
      * @param request 当前请求
      * @return IP 地址
      */
     static String resolveIp(HttpServletRequest request) {
-        String[] headers = {"X-Forwarded-For", "X-Real-IP"};
-        for (String header : headers) {
-            String value = request.getHeader(header);
-            if (value != null && !value.isBlank() && !"unknown".equalsIgnoreCase(value)) {
-                int comma = value.indexOf(',');
-                return (comma > 0) ? value.substring(0, comma).trim() : value.trim();
-            }
-        }
-        return request.getRemoteAddr();
-    }
-
-    /**
-     * 剔除无法/不宜序列化的特殊参数（Servlet 请求响应、文件上传等），保留业务 DTO。
-     *
-     * @param arg 参数
-     * @return 可序列化返回 true
-     */
-    private static boolean isLoggable(Object arg) {
-        if (arg == null) {
-            return false;
-        }
-        return !(arg instanceof HttpServletRequest)
-            && !(arg instanceof HttpServletResponse)
-            && !(arg instanceof MultipartFile)
-            && !(arg instanceof MultipartFile[])
-            && !(arg instanceof HttpSession)
-            && !(arg instanceof MultipartRequest)
-            && !(arg instanceof InputStream)
-            && !(arg instanceof OutputStream)
-            && !(arg instanceof Resource)
-            && !(arg instanceof byte[])
-            && !(arg instanceof StreamingResponseBody);
+        return LogPayloadSupport.resolveIp(request);
     }
 
     /**

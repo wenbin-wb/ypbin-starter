@@ -24,7 +24,7 @@
 import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { resolve, join, basename } from 'node:path'
+import { resolve, join, basename, sep } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const toolsDir = resolve(import.meta.dirname)
@@ -35,6 +35,17 @@ const checkMode = process.argv.includes('--check')
 const allowShrink = process.argv.includes('--allow-shrink')
 
 const DEFAULT_ENABLEMENT = '绑定后由对应模块读取；模块还需满足类路径和自动装配条件。'
+
+/**
+ * 把平台相关的相对路径统一成 POSIX 分隔符（`/`）。
+ *
+ * <p>元数据里的 `path` 是跨平台产物：Windows 的 `path.join` 产出 `a\b`，Linux/CI 产出 `a/b`。
+ * 若不归一，同一份源码在 Windows 上生成的文件与已提交基线（CI 生成）永远不相等，
+ * `--check` 在 Windows 本机恒失败、而 CI 恒绿——门禁形同虚设。</p>
+ */
+function toPosixPath(relativePath) {
+  return relativePath.split(sep).join('/')
+}
 
 /** 模块目录名（ypbin-starter-* 且含 pom.xml） */
 async function listModules() {
@@ -65,7 +76,7 @@ async function classToSourcePath(sourceType) {
   const rel = sourceType.replaceAll('.', '/')
   for (const module of await listModules()) {
     const candidate = join(module, 'src', 'main', 'java', `${rel}.java`)
-    if (existsSync(join(root, candidate))) return candidate
+    if (existsSync(join(root, candidate))) return toPosixPath(candidate)
   }
   return null
 }
@@ -217,7 +228,7 @@ async function resolveSourcePath(fqcn, modules) {
   const rel = outer.replaceAll('.', '/')
   for (const module of modules) {
     const candidate = join(module, 'src', 'main', 'java', `${rel}.java`)
-    if (existsSync(join(root, candidate))) return candidate
+    if (existsSync(join(root, candidate))) return toPosixPath(candidate)
   }
   return null
 }
@@ -442,7 +453,7 @@ async function scanConditionalSwitches(module, modules, extras, knownKeys, const
   for (const file of files) {
     const content = await readFile(file, 'utf8')
     if (!content.includes('@ConditionalOnProperty')) continue
-    const relPath = file.slice(root.length + 1)
+    const relPath = toPosixPath(file.slice(root.length + 1))
     const lines = content.split('\n')
     const annotationRegex = /@ConditionalOnProperty\(([\s\S]*?)\)/g
     let match

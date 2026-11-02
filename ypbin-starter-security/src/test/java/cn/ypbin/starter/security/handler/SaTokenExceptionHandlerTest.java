@@ -55,10 +55,26 @@ class SaTokenExceptionHandlerTest {
         ILoggingEvent event = singleWarn(events);
         assertThat(event.getFormattedMessage())
             .contains(NotLoginException.INVALID_TOKEN)
-            .contains("token 无效");
+            .contains("登录状态无效");
         assertThat(event.getThrowableProxy())
             .as("预期内的鉴权结果，刻意不打堆栈以降噪；如需堆栈请先论证拒绝量可控")
             .isNull();
+    }
+
+    @Test
+    void notLoginShouldNotLogTokenAtAll() {
+        // TOKEN_FREEZE 场景 token 仍然有效：Sa-Token 会把它拼在消息末尾
+        NotLoginException failure = NotLoginException.newInstance("login",
+            NotLoginException.TOKEN_FREEZE, "token 已被冻结", "abcdefgh12345678");
+
+        List<ILoggingEvent> events = captureLogs(() -> handler.handleNotLogin(failure));
+
+        ILoggingEvent event = singleWarn(events);
+        assertThat(event.getFormattedMessage())
+            .contains(NotLoginException.TOKEN_FREEZE)
+            .as("token 本身（含截断片段）绝不能落日志：静态扫描同样会把派生值判为敏感信息")
+            .doesNotContain("abcdefgh12345678")
+            .doesNotContain("abcdefgh");
     }
 
     @Test

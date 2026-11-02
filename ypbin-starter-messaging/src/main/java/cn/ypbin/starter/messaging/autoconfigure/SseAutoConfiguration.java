@@ -228,6 +228,42 @@ public class SseAutoConfiguration {
     }
 
     /**
+     * 把容器里的 {@link SseFanoutBridge} 回填给管理器——<strong>不论它是本模块装配的还是宿主自定义的</strong>。
+     *
+     * <p>为什么需要独立一个 Bean：原先唯一的回填点在 {@code sseFanoutBridge(...)} 工厂方法体内，而该方法带
+     * {@code @ConditionalOnMissingBean(SseFanoutBridge.class)}。宿主一旦定义自己的桥（该条件<em>明确允许</em>），
+     * 工厂方法不再执行 ⇒ 管理器永远拿不到桥 ⇒ 本实例的 {@code sendToAudience/broadcast} 只投本地、
+     * 跨实例推送<strong>静默消失</strong>（订阅侧仍正常，故障形态极隐蔽）。</p>
+     *
+     * <p>用 {@link ObjectProvider} 在 Bean <em>实例化</em>阶段取值，而不是 {@code @ConditionalOnBean}：
+     * 后者只看得到先于本类处理完的 Bean 定义，桥由宿主定义时条件可能恒假（同本仓反复出现的顺序陷阱）。</p>
+     *
+     * @param sseEmitterManager 连接管理器
+     * @param sseFanoutBridges  容器中的扇出桥（可能不存在 = 纯单实例部署）
+     * @return 回填结果占位 Bean（仅为让本方法被容器执行并参与生命周期）
+     */
+    @Bean
+    SseFanoutWiring sseFanoutWiring(SseEmitterManager sseEmitterManager,
+                                    ObjectProvider<SseFanoutBridge> sseFanoutBridges) {
+        return new SseFanoutWiring(sseEmitterManager, sseFanoutBridges.getIfAvailable());
+    }
+
+    /**
+     * 扇出桥回填的执行体（仅承载「管理器 ↔ 桥」的接线，不注册任何公开能力）。
+     *
+     * @author wenbin
+     * @since 2026-10-30
+     */
+    static final class SseFanoutWiring {
+
+        SseFanoutWiring(SseEmitterManager sseEmitterManager, @Nullable SseFanoutBridge fanoutBridge) {
+            if (fanoutBridge != null) {
+                sseEmitterManager.setFanoutBridge(fanoutBridge);
+            }
+        }
+    }
+
+    /**
      * 一次性订阅票据存储：内存兜底，仅当容器中不存在任何 {@link SseTicketStore} 时装配
      * （Redis 实现存在时即退让，见 {@link RedisTicketStoreConfiguration}）。
      */

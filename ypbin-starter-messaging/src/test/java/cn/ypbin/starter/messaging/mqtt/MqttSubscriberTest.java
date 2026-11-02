@@ -16,6 +16,7 @@
 package cn.ypbin.starter.messaging.mqtt;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -63,6 +64,27 @@ class MqttSubscriberTest {
         verify(client).subscribe(eq("device/+/up"), eq(1), captor.capture());
         captor.getValue().messageArrived("device/1/up", new MqttMessage("online".getBytes(StandardCharsets.UTF_8)));
         assertThat(consumed.get()).isEqualTo("device/1/up=online");
+    }
+
+    @Test
+    void handlerFailure_mustNotPropagateToPaho() throws Exception {
+        IMqttClient client = Mockito.mock(IMqttClient.class);
+        MqttSubscriber subscriber = new MqttSubscriber(client, 1);
+        subscriber.subscribe("device/+/up", (topic, payload) -> {
+            throw new IllegalArgumentException("bad payload");
+        });
+
+        ArgumentCaptor<IMqttMessageListener> captor = ArgumentCaptor.forClass(IMqttMessageListener.class);
+        verify(client).subscribe(eq("device/+/up"), eq(1), captor.capture());
+
+        // Paho 的 CommsCallback 会把 listener 抛出的任何异常当成连接故障并 shutdownConnection：
+        // 一条畸形报文不能让整个连接断开（所有主题停止消费 + 重投重连风暴）
+        assertThatCode(() -> captor.getValue().messageArrived(
+                "device/1/up", new MqttMessage("x".getBytes(StandardCharsets.UTF_8))))
+            .doesNotThrowAnyException();
+        assertThat(subscriber.subscriptionCount())
+            .as("单条消息处理失败不得影响已登记的订阅")
+            .isEqualTo(1);
     }
 
     @Test

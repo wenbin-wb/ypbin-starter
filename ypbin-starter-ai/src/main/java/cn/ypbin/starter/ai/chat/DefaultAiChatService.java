@@ -509,8 +509,17 @@ public class DefaultAiChatService implements AiChatService {
     }
 
     /**
-     * 从 VectorStore 按知识库 ID 检索文档（供 DefaultAiRagService 调用）。
+     * 从 VectorStore 按知识库 ID 检索文档。
+     *
+     * @param query           检索语句
+     * @param topK            返回条数
+     * @param knowledgeBaseId 知识库 ID
+     * @return 命中的文档
+     * @deprecated 无调用方（{@code DefaultAiRagService} 自带等价检索），且返回值暴露 Spring AI 的
+     *     {@code Document} 类型，与 {@link AiChatService}「业务代码不触碰 {@code org.springframework.ai.*}」
+     *     的契约相悖；保留仅为二进制兼容，将在下个主版本移除
      */
+    @Deprecated(since = "4.3.0", forRemoval = true)
     public List<Document> retrieveDocuments(String query, int topK, String knowledgeBaseId) {
         if (vectorStore == null) {
             return List.of();

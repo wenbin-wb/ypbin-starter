@@ -82,63 +82,96 @@ public class RefTextResolver {
         if (type == null || isLeafType(type)) {
             return false;
         }
-        return containsRefText(type, Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+        return containsRefText(type, Collections.newSetFromMap(new IdentityHashMap<>()), new boolean[1], 0);
     }
 
-    private boolean containsRefText(Class<?> type, Set<Class<?>> seen, int depth) {
-        if (type == null || isLeafType(type) || depth > MAX_DEPTH || !seen.add(type)) {
+    /**
+     * 递归判定；{@code cycleHit[0]} 记录本轮遍历是否因<strong>环路剪枝/深度截断</strong>而提前放弃过某个分支。
+     *
+     * <p>这一点直接决定缓存是否可信：沿回边（{@code A → B → A}）或超深图返回的 {@code false}
+     * 只代表「这条路径没走到」，不代表该类型没有 {@code @RefText}。若把它写进
+     * {@link #CONTAINS_CACHE}，该类型会<strong>永久</strong>被 preload 剪枝、退回逐条回源（N+1）；
+     * 因此只有「确认为 true」或「本轮未触碰任何剪枝」的 false 才允许缓存。</p>
+     *
+     * @param type     待判定类型
+     * @param seen     当前递归路径上的类型（进入时加入、退出时移除，保证菱形结构不被误判为环）
+     * @param cycleHit 至少一个元素的标志位：本轮是否发生过环路剪枝/深度截断
+     * @param depth    当前深度
+     * @return 是否（含嵌套地）存在 {@code @RefText} 字段
+     */
+    private boolean containsRefText(Class<?> type, Set<Class<?>> seen, boolean[] cycleHit, int depth) {
+        if (type == null || isLeafType(type)) {
+            return false;
+        }
+        if (depth > MAX_DEPTH) {
+            cycleHit[0] = true;
             return false;
         }
         Boolean cached = CONTAINS_CACHE.get(type);
         if (cached != null) {
             return cached;
         }
-        boolean found = false;
-        for (Field field : allFields(type)) {
-            if (field.getAnnotation(RefText.class) != null) {
-                found = true;
-                break;
-            }
-            // 沿泛型类型深入：List<OrderItem> / Map<K,OrderItem> / OrderItem[] 等，
-            // 需检查其元素类型而非 List/Map 本身，否则含嵌套集合的 DTO 会被误剪枝。
-            if (genericContainsRefText(field.getGenericType(), seen, depth)) {
-                found = true;
-                break;
-            }
+        if (!seen.add(type)) {
+            // 回边：本分支的「没有」只是剪枝结果，必须标记不可缓存
+            cycleHit[0] = true;
+            return false;
         }
-        CONTAINS_CACHE.put(type, found);
-        return found;
+        try {
+            boolean found = false;
+            for (Field field : allFields(type)) {
+                if (field.getAnnotation(RefText.class) != null) {
+                    found = true;
+                    break;
+                }
+                // 沿泛型类型深入：List<OrderItem> / Map<K,OrderItem> / OrderItem[] 等，
+                // 需检查其元素类型而非 List/Map 本身，否则含嵌套集合的 DTO 会被误剪枝。
+                if (genericContainsRefText(field.getGenericType(), seen, cycleHit, depth)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found || !cycleHit[0]) {
+                CONTAINS_CACHE.put(type, found);
+            }
+            return found;
+        } finally {
+            seen.remove(type);
+        }
     }
 
     /**
      * 沿泛型类型递归判断是否含 @RefText：拆解集合/Map/数组的元素类型（含通配符上界），
      * 对每个具体 Class 深入 {@link #containsRefText}。
      */
-    private boolean genericContainsRefText(Type genericType, Set<Class<?>> seen, int depth) {
-        if (genericType == null || depth > MAX_DEPTH) {
+    private boolean genericContainsRefText(Type genericType, Set<Class<?>> seen, boolean[] cycleHit, int depth) {
+        if (genericType == null) {
+            return false;
+        }
+        if (depth > MAX_DEPTH) {
+            cycleHit[0] = true;
             return false;
         }
         if (genericType instanceof Class<?> clazz) {
             if (clazz.isArray()) {
-                return genericContainsRefText(clazz.getComponentType(), seen, depth + 1);
+                return genericContainsRefText(clazz.getComponentType(), seen, cycleHit, depth + 1);
             }
-            return !isLeafType(clazz) && containsRefText(clazz, seen, depth + 1);
+            return !isLeafType(clazz) && containsRefText(clazz, seen, cycleHit, depth + 1);
         }
         if (genericType instanceof ParameterizedType pt) {
             // 容器本身（List/Map 等）不深入，但其类型实参（元素类型）要逐个检查
             for (Type arg : pt.getActualTypeArguments()) {
-                if (genericContainsRefText(arg, seen, depth + 1)) {
+                if (genericContainsRefText(arg, seen, cycleHit, depth + 1)) {
                     return true;
                 }
             }
             return false;
         }
         if (genericType instanceof GenericArrayType gat) {
-            return genericContainsRefText(gat.getGenericComponentType(), seen, depth + 1);
+            return genericContainsRefText(gat.getGenericComponentType(), seen, cycleHit, depth + 1);
         }
         if (genericType instanceof WildcardType wt) {
             for (Type upper : wt.getUpperBounds()) {
-                if (genericContainsRefText(upper, seen, depth + 1)) {
+                if (genericContainsRefText(upper, seen, cycleHit, depth + 1)) {
                     return true;
                 }
             }

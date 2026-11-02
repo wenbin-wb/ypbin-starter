@@ -83,7 +83,12 @@ public class RedisCacheService implements CacheService {
     @SuppressWarnings("unchecked")
     public <T> @Nullable T get(String key, Class<T> type) {
         Object value = redisTemplate.opsForValue().get(key);
-        return value == null ? null : (T) value;
+        if (value == null) {
+            return null;
+        }
+        // 防穿透哨兵必须与 getOrLoad 的语义一致地翻译成 null：否则调用方会拿到字符串
+        // "__YPBIN_NULL__" 并在自己的强转处抛 ClassCastException（exists() 早已按同一口径处理）。
+        return NULL_SENTINEL.equals(value) ? null : (T) value;
     }
 
     @Override
