@@ -41,6 +41,12 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * 网关黑名单过滤器用例。
+ *
+ * @author wenbin
+ * @since 2026-11-04
+ */
 class AccessBlocklistGlobalFilterTest {
 
     private final BlocklistProperties properties = new BlocklistProperties();
@@ -63,6 +69,10 @@ class AccessBlocklistGlobalFilterTest {
         filter.filter(exchange, chain).block();
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(exchange.getResponse().getBodyAsString().block())
+            .contains("\"code\":403")
+            .contains("\"success\":false")
+            .contains("访问已被限制");
         verify(chain, never()).filter(any());
     }
 

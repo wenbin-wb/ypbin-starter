@@ -34,6 +34,12 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Servlet 黑名单过滤器用例。
+ *
+ * @author wenbin
+ * @since 2026-11-04
+ */
 class AccessBlocklistFilterTest {
 
     private final InMemoryBlocklistStore store = new InMemoryBlocklistStore();
@@ -55,7 +61,10 @@ class AccessBlocklistFilterTest {
         filter.doFilter(request, response, chain);
 
         assertThat(response.getStatus()).isEqualTo(403);
-        assertThat(response.getContentAsString()).contains("访问已被限制");
+        assertThat(response.getContentAsString())
+            .contains("\"code\":403")
+            .contains("\"success\":false")
+            .contains("访问已被限制");
         assertThat(chain.getRequest()).isNull();
     }
 

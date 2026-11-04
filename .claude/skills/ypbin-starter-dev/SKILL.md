@@ -75,7 +75,8 @@ description: ypbin-starter 框架库开发与合规审计标准。开发任何 s
       */
      ```
 
-9. **对外契约统一 `R<T>` + HTTP 200**（memory `ypbin-code-conventions` / `CONTRACT.md`）。starter 里凡产出 HTTP 响应的组件（web 层、异常处理器、拦截器）一律走 `R<T>`（`{code, message, data, success, timestamp}`），HTTP 状态码恒 200，靠 `R.code` 区分（GlobalErrorCode：200/400/401/403/404/409/429/500）。**禁止 `ResponseEntity.status(4xx/5xx)`** 或自定义 REST 语义状态码。改契约结构前先看 `CONTRACT.md`。
+9. **对外契约统一 `R<T>` + HTTP 200**（memory `ypbin-code-conventions` / `CONTRACT.md`）。starter 里凡产出 HTTP 响应的组件（web 层、异常处理器、拦截器）一律走 `R<T>`（`{code, message, data, success, timestamp}`），业务响应 HTTP 状态码恒 200，靠 `R.code` 区分（GlobalErrorCode：200/400/401/403/404/409/429/500）。**禁止 `ResponseEntity.status(4xx/5xx)`** 或自定义 REST 语义状态码。
+   - **唯一例外**：`CONTRACT.md` §2.1 登记的「入口拒绝」可在业务分发前返回真实 4xx（黑名单 403、限流 429、内部路径 404、EMQX 专用 raw 401），响应体仍须为 `R`（raw 401 除外，见契约表）。新增入口级拒绝必须同步登记契约表，否则按违规处理。
 
 10. **代码与文档禁止出现参考项目品牌关键字**。`blade`/`continew` 等参考项目名不得出现在 starter 的类名、包名、注释、README、commit message 里（全部重构自研，见 memory `ypbin-starter`）。对外文档/注释描述能力即可，不引用来源项目。
 
