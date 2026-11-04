@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-04T07:31:40.844Z",
+  "generatedAt": "2026-11-04T15:15:23.798Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -3458,7 +3458,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2270
+              "line": 2271
             }
           ],
           "default": null,
@@ -3468,7 +3468,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2270
+              "line": 2271
             }
           ]
         }
@@ -4550,7 +4550,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2177
+              "line": 2178
             }
           ],
           "default": null,
@@ -4560,7 +4560,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2177
+              "line": 2178
             }
           ]
         },
@@ -4580,7 +4580,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2177
+              "line": 2178
             }
           ],
           "default": null,
@@ -4590,7 +4590,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2177
+              "line": 2178
             }
           ]
         },
@@ -4892,7 +4892,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2366
+              "line": 2367
             }
           ],
           "default": null,
@@ -4902,7 +4902,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2366
+              "line": 2367
             }
           ]
         },
@@ -4924,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2366
+              "line": 2367
             }
           ],
           "default": null,
@@ -4936,7 +4936,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2366
+              "line": 2367
             }
           ]
         },
@@ -4956,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2366
+              "line": 2367
             }
           ],
           "default": null,
@@ -4966,7 +4966,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2366
+              "line": 2367
             }
           ]
         }
@@ -5056,7 +5056,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2420
+              "line": 2421
             }
           ],
           "default": null,
@@ -5066,7 +5066,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2420
+              "line": 2421
             }
           ]
         },
@@ -5086,7 +5086,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2420
+              "line": 2421
             }
           ],
           "default": null,
@@ -5096,7 +5096,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2420
+              "line": 2421
             }
           ]
         }
@@ -5620,7 +5620,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 47
+              "line": 51
             }
           ],
           "default": "true",
@@ -5630,7 +5630,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 47
+              "line": 51
             }
           ],
           "group": "ypbin.security",
@@ -5652,7 +5652,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 44
+              "line": 48
             }
           ],
           "default": null,
@@ -5662,7 +5662,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 44
+              "line": 48
             }
           ],
           "group": "ypbin.security",
@@ -5684,7 +5684,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 34
+              "line": 38
             }
           ],
           "default": null,
@@ -5694,7 +5694,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 34
+              "line": 38
             }
           ],
           "group": "ypbin.security",
@@ -5716,7 +5716,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 51
+              "line": 55
             }
           ],
           "default": null,
@@ -5726,7 +5726,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 51
+              "line": 55
             }
           ],
           "group": "ypbin.security",
@@ -5748,7 +5748,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 37
+              "line": 41
             }
           ],
           "default": "BlocklistMatchType.IP",
@@ -5758,7 +5758,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 37
+              "line": 41
             }
           ],
           "group": "ypbin.security",
@@ -5780,7 +5780,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 40
+              "line": 44
             }
           ],
           "default": "\"\"",
@@ -5790,7 +5790,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 40
+              "line": 44
             }
           ],
           "group": "ypbin.security",
@@ -6484,7 +6484,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1972
+              "line": 1973
             }
           ],
           "default": "messages",
@@ -6494,7 +6494,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1972
+              "line": 1973
             }
           ]
         }
@@ -8880,7 +8880,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1670
+              "line": 1671
             }
           ],
           "default": null,
@@ -8890,7 +8890,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1670
+              "line": 1671
             }
           ]
         }
@@ -12093,7 +12093,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 844
+              "line": 845
             }
           ],
           "default": null,
@@ -12103,7 +12103,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 844
+              "line": 845
             }
           ]
         },
@@ -12123,7 +12123,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 844
+              "line": 845
             }
           ],
           "default": null,
@@ -12133,7 +12133,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 844
+              "line": 845
             }
           ]
         }

@@ -50,6 +50,15 @@
 
 ### 修复
 
+- **访问黑名单 Redis 故障日志降频**：`isBanned`/`rules`/`recordViolation` 失败时同一原因 5 秒内只打一条
+  WARN，其余降为 DEBUG，避免 Redis 抖动时每请求一条带栈日志打爆磁盘；fail-open 语义不变。
+- **网关黑名单拒绝响应兜底**：序列化失败不再手拼可配置文案（可能产出非法 JSON），改为固定合法 `R` 信封
+  并记录 ERROR；`response-message` 含引号/反斜杠时由序列化器正确转义。
+- **可信代理配置错误告警**：`trusted-proxies` 非空但直连地址未命中时，一次性 WARN 并给出直连地址，
+  避免「配了但没覆盖」导致转发链被静默忽略。
+- **IPv4-mapped IPv6 折叠**：`::ffff:a.b.c.d` 折叠为 4 字节，与 IPv4 精确/CIDR 匹配及 `normalize`
+  语义一致；IPv4-compatible（`::a.b.c.d`）不折叠，行为有测试锁定。
+
 - **`ypbin-starter-messaging`：SSE 多维度订阅会泄漏，且一半维度的事件收不到**。`connectAll` 原为每个
   audience 各建一条 `SseEmitter`，只有第一条交给 Spring MVC；其余 emitter 的 `handler` 恒为 `null`，
   发送只堆进无上限的 early-send 缓冲、完成/超时/异常回调永不触发，注册表条目无法摘除（`isOnline` 永真）。
