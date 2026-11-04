@@ -58,6 +58,11 @@ public class AccessBlocklistGlobalFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(AccessBlocklistGlobalFilter.class);
 
+    /** 序列化失败时的固定合法信封（与 R 字段一致），绝不拼接可配置文案。 */
+    private static final byte[] FALLBACK_REJECT_BODY = ("{\"code\":403,\"message\":\"访问已被限制\","
+        + "\"data\":null,\"success\":false,\"timestamp\":\"1970-01-01T00:00:00\"}")
+        .getBytes(StandardCharsets.UTF_8);
+
     private final BlocklistProperties properties;
 
     private final BlocklistMatcher matcher;
@@ -144,8 +149,8 @@ public class AccessBlocklistGlobalFilter implements GlobalFilter, Ordered {
             body = objectMapper.writeValueAsBytes(
                 R.fail(HttpStatus.FORBIDDEN.value(), properties.getResponseMessage()));
         } catch (Exception ex) {
-            body = ("{\"code\":403,\"message\":\"" + properties.getResponseMessage()
-                + "\",\"success\":false}").getBytes(StandardCharsets.UTF_8);
+            log.error("[ypbin-starter] 网关黑名单拒绝响应序列化失败，使用固定合法信封", ex);
+            body = FALLBACK_REJECT_BODY;
         }
         exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
