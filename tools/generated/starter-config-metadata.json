@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-04T15:15:23.798Z",
+  "generatedAt": "2026-11-04T23:47:04.534Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -5620,7 +5620,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 51
+              "line": 47
             }
           ],
           "default": "true",
@@ -5630,7 +5630,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 51
+              "line": 47
             }
           ],
           "group": "ypbin.security",
@@ -5652,7 +5652,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 48
+              "line": 44
             }
           ],
           "default": null,
@@ -5662,7 +5662,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 48
+              "line": 44
             }
           ],
           "group": "ypbin.security",
@@ -5684,7 +5684,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 38
+              "line": 34
             }
           ],
           "default": null,
@@ -5694,7 +5694,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 38
+              "line": 34
             }
           ],
           "group": "ypbin.security",
@@ -5716,7 +5716,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 55
+              "line": 51
             }
           ],
           "default": null,
@@ -5726,7 +5726,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 55
+              "line": 51
             }
           ],
           "group": "ypbin.security",
@@ -5748,7 +5748,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 41
+              "line": 37
             }
           ],
           "default": "BlocklistMatchType.IP",
@@ -5758,7 +5758,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 41
+              "line": 37
             }
           ],
           "group": "ypbin.security",
@@ -5780,7 +5780,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 44
+              "line": 40
             }
           ],
           "default": "\"\"",
@@ -5790,7 +5790,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
-              "line": 44
+              "line": 40
             }
           ],
           "group": "ypbin.security",
