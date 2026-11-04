@@ -14,13 +14,25 @@
 ### 新增
 
 - **访问黑名单（`ypbin.security.blocklist`）**：按 IP/CIDR、User-Agent 关键字、路径前缀拦截恶意扫描、爬虫与
-  暴力破解，并在窗口内累计 401/403/429（登录失败由业务失败点直接计数）达到阈值后自动封禁 IP。
+  暴力破解，并在窗口内累计违规达到阈值后自动封禁 IP。
   - 核心模型与匹配器在 `ypbin-starter-core`，Servlet 过滤器在 `ypbin-starter-web`，网关过滤器在
     `ypbin-starter-cloud-gateway`；Servlet 侧优先使用 Redis 共享规则与封禁状态，无 Redis 时退回进程内存储。
+  - **登录失败由业务失败点计数**：本仓业务响应恒 HTTP 200，`PasswordAttemptLimiter` 已调用
+    `BlocklistAutoBanRecorder#recordLoginFailure`；过滤器默认只认真 429，401/403 需宿主显式配置且只按
+    `auto-ban.path-prefixes` 限定路径，避免把过期 token 误当攻击。
   - 默认关闭，宿主显式 `ypbin.security.blocklist.enabled=true` 才装配；规则 Hash、封禁键与违规计数键在
     Servlet 与网关两侧共用同一契约，管理端只需维护数据库并调用 `BlocklistStore#replaceRules` 下发。
-  - Redis 读取失败沿用最近一次规则快照、封禁查询失败按未封禁处理，避免黑名单故障放大为全站不可用；
-    健康检查与本机回环默认放行，防止一条过宽规则锁死运维入口。
+  - **Servlet 侧也启用 `rules-cache-seconds` 本地缓存**（此前只有网关生效）；匹配层路径归一化最多连续解码
+    3 次、消解 `.`/`..` 段，`/**` 任意层级、`/*` 仅一层、`*` 全部，规则 pattern 有界缓存；内存存储的
+    违规计数有容量上限并清理过期项。
+  - **Redis Cluster 兼容**：规则/临时键/封禁索引共用 `{rules}` hash tag，单 IP 的计数键与封禁键共用
+    `{ip:<ip>}` hash tag，`RENAME` 与 Lua 脚本不会 CROSSSLOT；自动封禁索引为单个 Hash，列表读取不再
+    逐节点 `SCAN`/N+1。Lua 用 `SET NX` 保留更长的人工封禁，自动封禁不会把人工封禁改短或反复续期。
+  - **IP 解析只接受字面量**：IPv4 手工解析、IPv6 严格校验组数与 `::`，域名/主机名一律非法且不触发 DNS；
+    `X-Forwarded-For` 从右往左跳过可信代理取第一个不可信地址，并支持 `X-Real-IP`。
+  - 默认 **不放行回环地址**，`trusted-proxies` 为空但检测到转发头时打印一次 WARN；健康检查等路径仍由
+    `exclude-paths` 放行。Redis 读取失败沿用最近一次规则快照、封禁查询失败按未封禁处理，避免黑名单故障
+    放大为全站不可用。
 
 - **`ypbin-starter-security`：identity 模式的两道「本地登录冲突」兜底**（issue #112，2026-10-20 事故收口）。
   背景：某宿主（auth）漏写 `ypbin.security.identity.enabled=false` 而继承了 `true`，identity 模式下
