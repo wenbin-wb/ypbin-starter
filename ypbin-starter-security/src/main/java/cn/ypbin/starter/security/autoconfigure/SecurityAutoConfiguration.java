@@ -46,6 +46,7 @@ import cn.ypbin.starter.security.satoken.SaTokenWebConfigurer;
 import cn.ypbin.starter.security.satoken.SecurityExcludePathProvider;
 import cn.ypbin.starter.security.satoken.StpPermissionAdapter;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -87,12 +88,19 @@ public class SecurityAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityAutoConfiguration.class);
 
+    /** 登录失败自动封禁入口（可选）；用 setter 注入避免字段注入门禁。 */
+    @Nullable
+    private BlocklistAutoBanRecorder autoBanRecorder;
+
     /**
-     * 登录失败自动封禁入口（可选）：保持原 {@code passwordAttemptLimiter} Bean 方法签名不变，
-     * 避免公开 API 兼容门禁把新增能力误判为破坏性变更。
+     * 可选注入自动封禁入口。
+     *
+     * @param autoBanRecorder 黑名单自动封禁入口；未启用黑名单时为空
      */
-    @Autowired
-    private ObjectProvider<BlocklistAutoBanRecorder> autoBanRecorderProvider;
+    @Autowired(required = false)
+    public void setAutoBanRecorder(@Nullable BlocklistAutoBanRecorder autoBanRecorder) {
+        this.autoBanRecorder = autoBanRecorder;
+    }
 
     /**
      * 默认权限数据源：返回空权限/角色。业务方提供自定义实现即可覆盖。
@@ -176,7 +184,7 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean
     public PasswordAttemptLimiter passwordAttemptLimiter(PasswordAttemptStore store,
         PasswordPolicyProvider policyProvider) {
-        return new PasswordAttemptLimiter(store, policyProvider, autoBanRecorderProvider.getIfAvailable());
+        return new PasswordAttemptLimiter(store, policyProvider, autoBanRecorder);
     }
 
     /**
