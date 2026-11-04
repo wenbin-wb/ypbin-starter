@@ -18,7 +18,11 @@ package cn.ypbin.starter.core.blocklist;
 /**
  * 黑名单在 Redis 中的 key 契约。
  *
- * <p>Servlet 侧与网关侧必须读写同一组 key，集中在此避免两处字面量漂移。</p>
+ * <p><b>Redis Cluster 约束</b>：规则 Hash、规则临时键与自动封禁索引都带 {@code {rules}} hash tag；
+ * 单个 IP 的违规计数键与封禁键都带 {@code {ip:<ip>}} hash tag。这样 {@code RENAME} 与 Lua 多 key
+ * 脚本里的 key 落在同一 slot，不会触发 {@code CROSSSLOT}。</p>
+ *
+ * <p>IP 会先规范化为字面量；非法值统一落到 {@code unknown}，避免把任意文本拼进 hash tag。</p>
  *
  * @author wenbin
  * @since 2026-11-04
@@ -26,13 +30,18 @@ package cn.ypbin.starter.core.blocklist;
 public final class BlocklistKeys {
 
     /** 规则 Hash 键（field = 规则 ID，value = 编码后的规则）。 */
-    public static final String RULES = "ypbin:security:blocklist:rules";
+    public static final String RULES = "ypbin:security:blocklist:{rules}";
 
-    /** 自动封禁键前缀（完整 key 后缀为客户端 IP）。 */
-    public static final String BAN_PREFIX = "ypbin:security:blocklist:ban:";
+    /** 自动封禁索引 Hash 键（field = IP，value = 到期时间|原因）；与规则同 slot。 */
+    public static final String BAN_INDEX = "ypbin:security:blocklist:{rules}:ban-index";
 
-    /** 违规计数键前缀（完整 key 后缀为客户端 IP）。 */
-    public static final String VIOLATION_PREFIX = "ypbin:security:blocklist:violation:";
+    private static final String IP_KEY_PREFIX = "ypbin:security:blocklist:{ip:";
+
+    private static final String BAN_SUFFIX = "}:ban";
+
+    private static final String VIOLATION_SUFFIX = "}:violation";
+
+    private static final String UNKNOWN_IP = "unknown";
 
     private BlocklistKeys() {
     }
@@ -44,7 +53,7 @@ public final class BlocklistKeys {
      * @return Redis key
      */
     public static String ban(String clientIp) {
-        return BAN_PREFIX + clientIp;
+        return IP_KEY_PREFIX + canonicalIp(clientIp) + BAN_SUFFIX;
     }
 
     /**
@@ -54,6 +63,17 @@ public final class BlocklistKeys {
      * @return Redis key
      */
     public static String violation(String clientIp) {
-        return VIOLATION_PREFIX + clientIp;
+        return IP_KEY_PREFIX + canonicalIp(clientIp) + VIOLATION_SUFFIX;
+    }
+
+    /**
+     * 规范化用于 key 的 IP；非法值统一为 {@code unknown}，防止 hash tag 注入。
+     *
+     * @param clientIp 客户端 IP
+     * @return 规范化 IP 或 {@code unknown}
+     */
+    public static String canonicalIp(String clientIp) {
+        String normalized = IpAddress.normalize(clientIp);
+        return normalized == null || normalized.isEmpty() ? UNKNOWN_IP : normalized;
     }
 }

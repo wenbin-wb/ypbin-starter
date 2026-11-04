@@ -51,8 +51,8 @@ public class BlocklistStoreAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(BlocklistStore.class)
-    public BlocklistStore inMemoryBlocklistStore() {
-        return new InMemoryBlocklistStore();
+    public BlocklistStore inMemoryBlocklistStore(BlocklistProperties properties) {
+        return new InMemoryBlocklistStore(properties.getAutoBan().getMaxViolationEntries());
     }
 
     /**
@@ -77,8 +77,9 @@ public class BlocklistStoreAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(BlocklistStore.class)
         public BlocklistStore redisBlocklistStore(StringRedisTemplate redisTemplate,
-                                                  BlocklistRuleCodec codec) {
-            return new RedisBlocklistStore(redisTemplate, codec);
+                                                  BlocklistRuleCodec codec,
+                                                  BlocklistProperties properties) {
+            return new RedisBlocklistStore(redisTemplate, codec, properties);
         }
     }
 }

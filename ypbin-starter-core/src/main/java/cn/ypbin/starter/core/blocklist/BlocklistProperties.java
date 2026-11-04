@@ -63,7 +63,7 @@ public class BlocklistProperties {
     /** 静态规则（也可由管理端下发；二者合并生效）。 */
     private List<BlocklistRule> rules = new ArrayList<>();
 
-    /** 网关侧规则缓存秒数；管理端下发后最迟在该时间内生效。 */
+    /** Servlet 与网关两侧共用的规则本地缓存秒数；管理端下发后最迟在该时间内生效。 */
     private int rulesCacheSeconds = 5;
 
     /** 命中黑名单时的响应文案。 */
@@ -167,6 +167,9 @@ public class BlocklistProperties {
         /** 封禁时长秒数。 */
         private int banSeconds = 600;
 
+        /** 内存存储的违规计数条目上限；超过后先清理过期项，仍满则本次不计数。 */
+        private int maxViolationEntries = 10_000;
+
         /** 参与计数的响应状态码；默认仅真 429。 */
         private List<Integer> statusCodes = new ArrayList<>(List.of(429));
 
@@ -204,6 +207,14 @@ public class BlocklistProperties {
 
         public void setBanSeconds(int banSeconds) {
             this.banSeconds = banSeconds;
+        }
+
+        public int getMaxViolationEntries() {
+            return maxViolationEntries;
+        }
+
+        public void setMaxViolationEntries(int maxViolationEntries) {
+            this.maxViolationEntries = maxViolationEntries;
         }
 
         public List<Integer> getStatusCodes() {
