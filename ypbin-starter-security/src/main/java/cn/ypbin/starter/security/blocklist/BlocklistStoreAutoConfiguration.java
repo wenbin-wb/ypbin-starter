@@ -45,7 +45,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @AutoConfiguration
 @AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @AutoConfigureBefore(name = "cn.ypbin.starter.web.autoconfigure.WebAutoConfiguration")
-@ConditionalOnProperty(prefix = BlocklistProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(BlocklistProperties.class)
 @Import(BlocklistStoreAutoConfiguration.RedisStoreConfiguration.class)
 public class BlocklistStoreAutoConfiguration {
@@ -62,6 +61,7 @@ public class BlocklistStoreAutoConfiguration {
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(StringRedisTemplate.class)
     @ConditionalOnBean(StringRedisTemplate.class)
+    @ConditionalOnProperty(prefix = BlocklistProperties.PREFIX, name = "enabled", havingValue = "true")
     static class RedisStoreConfiguration {
 
         @Bean
