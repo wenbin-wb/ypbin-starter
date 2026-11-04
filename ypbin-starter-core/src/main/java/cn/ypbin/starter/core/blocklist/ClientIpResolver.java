@@ -51,6 +51,8 @@ public class ClientIpResolver {
 
     private final AtomicBoolean untrustedForwardingWarned = new AtomicBoolean();
 
+    private final AtomicBoolean trustedProxyMismatchWarned = new AtomicBoolean();
+
     public ClientIpResolver(List<String> trustedProxies) {
         this.trustedProxies = List.copyOf(trustedProxies);
     }
@@ -82,10 +84,15 @@ public class ClientIpResolver {
         }
         boolean hasForwarded = forwardedFor != null && !forwardedFor.isBlank();
         boolean hasRealIp = realIp != null && !realIp.isBlank();
-        if (trustedProxies.isEmpty() && (hasForwarded || hasRealIp)) {
-            warnUntrustedForwarding();
+        boolean trustedPeer = isTrustedProxy(remote);
+        if ((hasForwarded || hasRealIp) && !trustedPeer) {
+            if (trustedProxies.isEmpty()) {
+                warnUntrustedForwarding();
+            } else {
+                warnTrustedProxyMismatch(remote);
+            }
         }
-        if (!isTrustedProxy(remote) || (!hasForwarded && !hasRealIp)) {
+        if (!trustedPeer || (!hasForwarded && !hasRealIp)) {
             return remote;
         }
         List<String> hops = new ArrayList<>();
@@ -126,6 +133,14 @@ public class ClientIpResolver {
             log.warn("[ypbin-starter] 检测到 {} / {} 转发头，但 ypbin.security.blocklist.trusted-proxies 为空，"
                     + "黑名单将按直连地址判断；反向代理/LB/K8s Ingress 部署请配置可信代理网段",
                 HEADER_FORWARDED_FOR, HEADER_REAL_IP);
+        }
+    }
+
+    private void warnTrustedProxyMismatch(String remote) {
+        if (trustedProxyMismatchWarned.compareAndSet(false, true)) {
+            log.warn("[ypbin-starter] 转发头存在但直连地址 {} 未命中 "
+                    + "ypbin.security.blocklist.trusted-proxies，将按直连地址判断客户端 IP；"
+                    + "请核对可信代理网段是否覆盖实际入口", remote);
         }
     }
 

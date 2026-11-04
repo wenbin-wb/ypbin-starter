@@ -17,9 +17,14 @@ package cn.ypbin.starter.core.blocklist;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /**
  * 客户端 IP 解析用例。
@@ -77,6 +82,28 @@ class ClientIpResolverTest {
         ClientIpResolver resolver = new ClientIpResolver(List.of());
 
         assertThat(resolver.resolve("127.0.0.1", "203.0.113.9")).isEqualTo("127.0.0.1");
+    }
+
+    @Test
+    @DisplayName("配置了可信代理但直连地址不命中时告警一次")
+    void warnsWhenTrustedProxyMismatch() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of("10.0.0.0/8"));
+        Logger logger = (Logger) LoggerFactory.getLogger(ClientIpResolver.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            assertThat(resolver.resolve("203.0.113.7", "1.1.1.1")).isEqualTo("203.0.113.7");
+            assertThat(resolver.resolve("203.0.113.7", "1.1.1.1")).isEqualTo("203.0.113.7");
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        long warnCount = appender.list.stream()
+            .filter(event -> event.getLevel() == Level.WARN)
+            .filter(event -> event.getFormattedMessage().contains("trusted-proxies"))
+            .count();
+        assertThat(warnCount).isEqualTo(1L);
     }
 
     @Test
