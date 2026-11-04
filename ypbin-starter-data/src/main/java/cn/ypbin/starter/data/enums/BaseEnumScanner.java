@@ -72,8 +72,14 @@ public final class BaseEnumScanner {
     /** 全 classpath 扫描的根包（空前缀 = 从 classpath 根开始）。 */
     private static final String CLASSPATH_ROOT = "";
 
-    /** 全量诊断扫描的默认资源上界（够覆盖普通应用，又不至于把低内存宿主的堆吃光）。 */
-    public static final long DEFAULT_MAX_RESOURCES = 20_000L;
+    /**
+     * 全量诊断扫描的默认资源上界（够覆盖普通应用，又不至于把低内存宿主的堆吃光）。
+     *
+     * <p>2026-11 从 20_000 上调到 50_000：mybatis-plus 3.5.18 起依赖树使 classpath 资源数超过
+     * 2 万，原上界会在命中目标枚举前中止扫描，把「有实现」误判成「宿主零实现」（实测
+     * {@code BaseEnumScannerBoundTest}/{@code BaseEnumScanWarningTest} 双红）。</p>
+     */
+    public static final long DEFAULT_MAX_RESOURCES = 50_000L;
 
     /**
      * 不可能定义本框架 {@code BaseEnum} 的类名前缀（全量诊断扫描时跳过）。
