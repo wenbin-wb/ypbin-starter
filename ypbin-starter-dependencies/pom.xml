@@ -36,7 +36,7 @@
           共同使用。fesod-sheet 传递引入的即 poi/poi-ooxml 5.5.1，故全仓统一钉到 5.5.1（与 fesod 期望版本一致，
           避免 ai/excel 同场时 poi 与 poi-ooxml 版本分裂）。
         -->
-        <poi.version>5.5.1</poi.version>
+        <poi.version>6.0.0</poi.version>
         <!-- jsoup：ai 模块 html 正文抽取（DocumentLoader）使用 -->
         <jsoup.version>1.23.2</jsoup.version>
         <tianai-captcha.version>1.5.5</tianai-captcha.version>
