@@ -72,6 +72,14 @@ class ClientIpResolverTest {
     }
 
     @Test
+    @DisplayName("未配置可信代理时，同机反代按直连回环地址处理（不会静默全放行）")
+    void loopbackPeerWithoutTrustedProxiesKeepsLoopback() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of());
+
+        assertThat(resolver.resolve("127.0.0.1", "203.0.113.9")).isEqualTo("127.0.0.1");
+    }
+
+    @Test
     @DisplayName("直连地址为空返回 unknown")
     void unknownWhenRemoteMissing() {
         ClientIpResolver resolver = new ClientIpResolver(List.of());
