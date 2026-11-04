@@ -22,6 +22,12 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 黑名单匹配器用例。
+ *
+ * @author wenbin
+ * @since 2026-11-04
+ */
 class BlocklistMatcherTest {
 
     private final BlocklistMatcher matcher = new BlocklistMatcher();
@@ -56,13 +62,28 @@ class BlocklistMatcherTest {
     }
 
     @Test
-    @DisplayName("路径匹配归一化编码分隔符、大小写与重复斜杠")
+    @DisplayName("路径匹配归一化编码分隔符、大小写、重复斜杠与点段")
     void normalizesPath() {
         List<BlocklistRule> rules = List.of(rule(BlocklistMatchType.PATH, "/system/Internal"));
 
         assertThat(match(rules, "203.0.113.1", "", "/SYSTEM/INTERNAL/keys")).isPresent();
         assertThat(match(rules, "203.0.113.1", "", "//system//internal%2Fkeys")).isPresent();
+        assertThat(match(rules, "203.0.113.1", "", "/system/%252finternal/keys")).isPresent();
+        assertThat(match(rules, "203.0.113.1", "", "/system/%2e%2e/system/internal/keys")).isPresent();
+        assertThat(match(rules, "203.0.113.1", "", "/system/../system/internal/keys")).isPresent();
         assertThat(match(rules, "203.0.113.1", "", "/system/internalized")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("/* 只匹配一层，/** 匹配任意层级，* 匹配全部")
+    void wildcardDepth() {
+        List<BlocklistRule> single = List.of(rule(BlocklistMatchType.PATH, "/system/*"));
+        List<BlocklistRule> deep = List.of(rule(BlocklistMatchType.PATH, "/system/**"));
+
+        assertThat(match(single, "203.0.113.1", "", "/system/a")).isPresent();
+        assertThat(match(single, "203.0.113.1", "", "/system/a/b")).isEmpty();
+        assertThat(match(deep, "203.0.113.1", "", "/system/a/b")).isPresent();
+        assertThat(matcher.isExcludedPath("/anything/deep", List.of("*"))).isTrue();
     }
 
     @Test

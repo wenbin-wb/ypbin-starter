@@ -45,6 +45,9 @@ public class BlocklistRuleCodec {
      * @return 可写入 Redis Hash 的字符串
      */
     public String encode(BlocklistRule rule) {
+        if (rule.getType() == null) {
+            throw new IllegalArgumentException("规则匹配类型不能为空");
+        }
         String id = encodeText(rule.getId());
         String value = encodeText(rule.getValue());
         String reason = encodeText(rule.getReason());

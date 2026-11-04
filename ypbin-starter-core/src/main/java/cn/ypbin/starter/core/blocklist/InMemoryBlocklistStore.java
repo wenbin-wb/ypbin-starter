@@ -24,18 +24,30 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 进程内黑名单存储（单机兜底）。
  *
  * <p>无 Redis 时使用；多节点部署下各节点状态不共享，仅适合单实例或开发环境。</p>
  *
+ * <p>违规计数带容量上限：窗口过期条目在计数或读取时清理；达到上限后拒绝为新的 IP 计数并
+ * 打 debug 日志，避免全网扫描用唯一 IP 把单实例内存撑爆。</p>
+ *
  * @author wenbin
  * @since 2026-11-04
  */
 public class InMemoryBlocklistStore implements BlocklistStore {
 
+    private static final Logger log = LoggerFactory.getLogger(InMemoryBlocklistStore.class);
+
+    /** 默认违规计数条目上限。 */
+    public static final int DEFAULT_MAX_VIOLATION_ENTRIES = 10_000;
+
     private final Clock clock;
+
+    private final int maxViolationEntries;
 
     private volatile List<BlocklistRule> rules = List.of();
 
@@ -44,11 +56,20 @@ public class InMemoryBlocklistStore implements BlocklistStore {
     private final ConcurrentMap<String, Ban> bans = new ConcurrentHashMap<>();
 
     public InMemoryBlocklistStore() {
-        this(Clock.systemUTC());
+        this(Clock.systemUTC(), DEFAULT_MAX_VIOLATION_ENTRIES);
+    }
+
+    public InMemoryBlocklistStore(int maxViolationEntries) {
+        this(Clock.systemUTC(), maxViolationEntries);
     }
 
     InMemoryBlocklistStore(Clock clock) {
+        this(clock, DEFAULT_MAX_VIOLATION_ENTRIES);
+    }
+
+    InMemoryBlocklistStore(Clock clock, int maxViolationEntries) {
         this.clock = clock;
+        this.maxViolationEntries = Math.max(1, maxViolationEntries);
     }
 
     @Override
@@ -85,6 +106,7 @@ public class InMemoryBlocklistStore implements BlocklistStore {
     @Override
     public void unban(String clientIp) {
         bans.remove(clientIp);
+        violations.remove(clientIp);
     }
 
     @Override
@@ -93,11 +115,19 @@ public class InMemoryBlocklistStore implements BlocklistStore {
             return 0L;
         }
         Instant now = clock.instant();
-        Violation counter = violations.compute(clientIp, (key, old) -> {
-            if (old == null || !now.isBefore(old.windowStart().plus(window))) {
-                return new Violation(now, 1L);
+        if (!violations.containsKey(clientIp) && violations.size() >= maxViolationEntries) {
+            violations.entrySet().removeIf(entry -> !now.isBefore(entry.getValue().expireAt()));
+            if (violations.size() >= maxViolationEntries) {
+                log.debug("[ypbin-starter] 访问黑名单违规计数已达上限（{}），本次不计数：ip={}",
+                    maxViolationEntries, clientIp);
+                return 0L;
             }
-            return new Violation(old.windowStart(), old.count() + 1L);
+        }
+        Violation counter = violations.compute(clientIp, (key, old) -> {
+            if (old == null || !now.isBefore(old.expireAt())) {
+                return new Violation(now.plus(window), 1L);
+            }
+            return new Violation(old.expireAt(), old.count() + 1L);
         });
         if (counter.count() >= threshold) {
             violations.remove(clientIp);
@@ -121,7 +151,7 @@ public class InMemoryBlocklistStore implements BlocklistStore {
         return result;
     }
 
-    private record Violation(Instant windowStart, long count) {
+    private record Violation(Instant expireAt, long count) {
     }
 
     private record Ban(String reason, Instant expireAt) {

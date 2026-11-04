@@ -25,6 +25,12 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 进程内黑名单存储用例。
+ *
+ * @author wenbin
+ * @since 2026-11-04
+ */
 class InMemoryBlocklistStoreTest {
 
     private static final Instant START = Instant.parse("2026-11-04T00:00:00Z");
@@ -74,6 +80,22 @@ class InMemoryBlocklistStoreTest {
         assertThat(store.recordViolation("1.2.3.4", Duration.ofSeconds(60), 2,
             Duration.ofSeconds(300), "x")).isEqualTo(1);
         assertThat(store.isBanned("1.2.3.4")).isFalse();
+    }
+
+    @Test
+    @DisplayName("违规计数有容量上限，过期项会先被清理")
+    void violationEntriesAreBounded() {
+        MutableClock clock = new MutableClock(START);
+        InMemoryBlocklistStore store = new InMemoryBlocklistStore(clock, 2);
+
+        store.recordViolation("1.1.1.1", Duration.ofSeconds(60), 10, Duration.ofSeconds(60), "x");
+        store.recordViolation("2.2.2.2", Duration.ofSeconds(60), 10, Duration.ofSeconds(60), "x");
+        assertThat(store.recordViolation("3.3.3.3", Duration.ofSeconds(60), 10,
+            Duration.ofSeconds(60), "x")).isZero();
+
+        clock.advance(Duration.ofSeconds(61));
+        assertThat(store.recordViolation("3.3.3.3", Duration.ofSeconds(60), 10,
+            Duration.ofSeconds(60), "x")).isEqualTo(1);
     }
 
     @Test
