@@ -17,6 +17,7 @@ package cn.ypbin.starter.core.blocklist;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -58,7 +59,7 @@ public final class IpAddress {
             IpAddress actual = parse(candidate);
             return expected != null && actual != null
                 && expected.bitLength == actual.bitLength
-                && java.util.Arrays.equals(expected.bytes, actual.bytes);
+                && Arrays.equals(expected.bytes, actual.bytes);
         }
         return matchesCidr(value, candidate);
     }

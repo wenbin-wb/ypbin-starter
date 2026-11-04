@@ -43,10 +43,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * @since 2026-11-04
  */
 @AutoConfiguration
-@AutoConfigureAfter(name = {
-    "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
-    "cn.ypbin.starter.core.blocklist.BlocklistAutoConfiguration"
-})
+@AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @AutoConfigureBefore(name = "cn.ypbin.starter.web.autoconfigure.WebAutoConfiguration")
 @ConditionalOnProperty(prefix = BlocklistProperties.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(BlocklistProperties.class)
