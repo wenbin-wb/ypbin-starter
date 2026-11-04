@@ -15,7 +15,14 @@
  */
 package cn.ypbin.starter.gateway.autoconfigure;
 
+import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
+import cn.ypbin.starter.core.blocklist.BlocklistProperties;
+import cn.ypbin.starter.core.blocklist.BlocklistRuleCodec;
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.gateway.auth.GatewayAuthProvider;
+import cn.ypbin.starter.gateway.blocklist.AccessBlocklistGlobalFilter;
+import cn.ypbin.starter.gateway.blocklist.ReactiveBlocklistStore;
+import cn.ypbin.starter.gateway.blocklist.ReactiveRedisBlocklistStore;
 import cn.ypbin.starter.gateway.filter.GatewayAuthGlobalFilter;
 import cn.ypbin.starter.gateway.filter.HeaderSanitizeGlobalFilter;
 import cn.ypbin.starter.gateway.filter.InternalPathBlockGlobalFilter;
@@ -59,7 +66,7 @@ import tools.jackson.databind.ObjectMapper;
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 @ConditionalOnProperty(prefix = GatewayProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties({GatewayProperties.class, RateLimitProperties.class,
-    InternalPathBlockProperties.class})
+    InternalPathBlockProperties.class, BlocklistProperties.class})
 public class GatewayAutoConfiguration {
 
     @Bean
@@ -171,6 +178,42 @@ public class GatewayAutoConfiguration {
             RateLimitProperties properties,
             ObjectProvider<ObjectMapper> objectMapperProvider) {
             return new AttributeRateLimitGlobalFilter(redis, properties,
+                objectMapperProvider.getIfAvailable(ObjectMapper::new));
+        }
+    }
+
+    /**
+     * 访问黑名单过滤器：仅在显式开启且存在 reactive Redis 时装配。
+     *
+     * <p>规则与自动封禁状态都存放在 Redis，Servlet 侧与管理端共享同一组 key；无 Redis 时
+     * 网关不做内存兜底——多实例网关各自的内存规则会造成「同一 IP 时而拦时而放」，
+     * 与其给出不一致的安全语义，不如整体不装配并保持日志可见。</p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(ReactiveStringRedisTemplate.class)
+    static class BlocklistFilterConfiguration {
+
+        @Bean
+        @ConditionalOnBean(ReactiveStringRedisTemplate.class)
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = BlocklistProperties.PREFIX, name = "enabled", havingValue = "true")
+        public ReactiveBlocklistStore reactiveBlocklistStore(ReactiveStringRedisTemplate redis,
+                                                             BlocklistRuleCodec codec,
+                                                             BlocklistProperties properties) {
+            return new ReactiveRedisBlocklistStore(redis, codec, properties);
+        }
+
+        @Bean
+        @ConditionalOnBean(ReactiveBlocklistStore.class)
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = BlocklistProperties.PREFIX, name = "enabled", havingValue = "true")
+        public AccessBlocklistGlobalFilter accessBlocklistGlobalFilter(
+            BlocklistProperties properties,
+            BlocklistMatcher matcher,
+            ReactiveBlocklistStore store,
+            ClientIpResolver clientIpResolver,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+            return new AccessBlocklistGlobalFilter(properties, matcher, store, clientIpResolver,
                 objectMapperProvider.getIfAvailable(ObjectMapper::new));
         }
     }

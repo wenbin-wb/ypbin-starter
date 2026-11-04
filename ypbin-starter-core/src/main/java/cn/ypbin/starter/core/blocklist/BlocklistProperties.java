@@ -1,0 +1,213 @@
+/*
+ * Copyright (c) 2024-present ypbin-starter authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package cn.ypbin.starter.core.blocklist;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.Ordered;
+
+/**
+ * 访问黑名单配置。
+ *
+ * <p><b>默认关闭</b>：黑名单会改变既有请求的可达性，必须由宿主显式
+ * {@code ypbin.security.blocklist.enabled=true} 开启，避免升级 starter 后静默拦截线上流量。</p>
+ *
+ * @author wenbin
+ * @since 2026-11-04
+ */
+@ConfigurationProperties(BlocklistProperties.PREFIX)
+public class BlocklistProperties {
+
+    /** 配置前缀。 */
+    public static final String PREFIX = "ypbin.security.blocklist";
+
+    /** 是否启用访问黑名单。 */
+    private boolean enabled;
+
+    /** 过滤器顺序：早于 XSS（HIGHEST_PRECEDENCE + 100），晚于可重复读包装。 */
+    private int order = Ordered.HIGHEST_PRECEDENCE + 50;
+
+    /** 放行路径（永不拦截），避免健康检查/错误页被误伤。 */
+    private List<String> excludePaths = new ArrayList<>(List.of(
+        "/actuator/health", "/actuator/health/**", "/error"));
+
+    /** 放行 IP（精确 IP 或 CIDR），默认本机回环。 */
+    private List<String> excludeIps = new ArrayList<>(List.of("127.0.0.1", "::1"));
+
+    /** 可信代理（精确 IP 或 CIDR）；只有直连地址命中时才采信 X-Forwarded-For。 */
+    private List<String> trustedProxies = new ArrayList<>();
+
+    /** 静态规则（也可由管理端下发；二者合并生效）。 */
+    private List<BlocklistRule> rules = new ArrayList<>();
+
+    /** 网关侧规则缓存秒数；管理端下发后最迟在该时间内生效。 */
+    private int rulesCacheSeconds = 5;
+
+    /** 命中黑名单时的响应文案。 */
+    private String responseMessage = "访问已被限制";
+
+    /** 自动封禁配置。 */
+    private AutoBan autoBan = new AutoBan();
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public int getOrder() {
+        return order;
+    }
+
+    public void setOrder(int order) {
+        this.order = order;
+    }
+
+    public List<String> getExcludePaths() {
+        return excludePaths;
+    }
+
+    public void setExcludePaths(List<String> excludePaths) {
+        this.excludePaths = excludePaths;
+    }
+
+    public List<String> getExcludeIps() {
+        return excludeIps;
+    }
+
+    public void setExcludeIps(List<String> excludeIps) {
+        this.excludeIps = excludeIps;
+    }
+
+    public List<String> getTrustedProxies() {
+        return trustedProxies;
+    }
+
+    public void setTrustedProxies(List<String> trustedProxies) {
+        this.trustedProxies = trustedProxies;
+    }
+
+    public List<BlocklistRule> getRules() {
+        return rules;
+    }
+
+    public void setRules(List<BlocklistRule> rules) {
+        this.rules = rules;
+    }
+
+    public int getRulesCacheSeconds() {
+        return rulesCacheSeconds;
+    }
+
+    public void setRulesCacheSeconds(int rulesCacheSeconds) {
+        this.rulesCacheSeconds = rulesCacheSeconds;
+    }
+
+    public String getResponseMessage() {
+        return responseMessage;
+    }
+
+    public void setResponseMessage(String responseMessage) {
+        this.responseMessage = responseMessage;
+    }
+
+    public AutoBan getAutoBan() {
+        return autoBan;
+    }
+
+    public void setAutoBan(AutoBan autoBan) {
+        this.autoBan = autoBan;
+    }
+
+    /**
+     * 自动封禁配置：在窗口内累计到阈值后，把客户端 IP 临时封禁。
+     *
+     * <p>默认只统计登录/短信登录路径上的 401/403，以及所有路径的 429；这样既覆盖暴力破解，
+     * 又不会因为普通用户 token 过期（401）而误封。</p>
+     */
+    public static class AutoBan {
+
+        /** 是否启用自动封禁。 */
+        private boolean enabled = true;
+
+        /** 窗口内达到该次数即封禁。 */
+        private int threshold = 20;
+
+        /** 计数窗口秒数。 */
+        private int windowSeconds = 60;
+
+        /** 封禁时长秒数。 */
+        private int banSeconds = 600;
+
+        /** 参与计数的响应状态码。 */
+        private List<Integer> statusCodes = new ArrayList<>(List.of(401, 403, 429));
+
+        /** 401/403 只在这些路径前缀上计数；429 不受此限制。 */
+        private List<String> pathPrefixes = new ArrayList<>(List.of(
+            "/auth/login", "/auth/sms/login", "/auth/social/callback"));
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getThreshold() {
+            return threshold;
+        }
+
+        public void setThreshold(int threshold) {
+            this.threshold = threshold;
+        }
+
+        public int getWindowSeconds() {
+            return windowSeconds;
+        }
+
+        public void setWindowSeconds(int windowSeconds) {
+            this.windowSeconds = windowSeconds;
+        }
+
+        public int getBanSeconds() {
+            return banSeconds;
+        }
+
+        public void setBanSeconds(int banSeconds) {
+            this.banSeconds = banSeconds;
+        }
+
+        public List<Integer> getStatusCodes() {
+            return statusCodes;
+        }
+
+        public void setStatusCodes(List<Integer> statusCodes) {
+            this.statusCodes = statusCodes;
+        }
+
+        public List<String> getPathPrefixes() {
+            return pathPrefixes;
+        }
+
+        public void setPathPrefixes(List<String> pathPrefixes) {
+            this.pathPrefixes = pathPrefixes;
+        }
+    }
+}

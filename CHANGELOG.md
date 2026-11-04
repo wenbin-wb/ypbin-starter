@@ -13,6 +13,15 @@
 
 ### 新增
 
+- **访问黑名单（`ypbin.security.blocklist`）**：按 IP/CIDR、User-Agent 关键字、路径前缀拦截恶意扫描、爬虫与
+  暴力破解，并在窗口内累计 401/403/429（登录失败由业务失败点直接计数）达到阈值后自动封禁 IP。
+  - 核心模型与匹配器在 `ypbin-starter-core`，Servlet 过滤器在 `ypbin-starter-web`，网关过滤器在
+    `ypbin-starter-cloud-gateway`；Servlet 侧优先使用 Redis 共享规则与封禁状态，无 Redis 时退回进程内存储。
+  - 默认关闭，宿主显式 `ypbin.security.blocklist.enabled=true` 才装配；规则 Hash、封禁键与违规计数键在
+    Servlet 与网关两侧共用同一契约，管理端只需维护数据库并调用 `BlocklistStore#replaceRules` 下发。
+  - Redis 读取失败沿用最近一次规则快照、封禁查询失败按未封禁处理，避免黑名单故障放大为全站不可用；
+    健康检查与本机回环默认放行，防止一条过宽规则锁死运维入口。
+
 - **`ypbin-starter-security`：identity 模式的两道「本地登录冲突」兜底**（issue #112，2026-10-20 事故收口）。
   背景：某宿主（auth）漏写 `ypbin.security.identity.enabled=false` 而继承了 `true`，identity 模式下
   `StpUtil` 的 token 取自**网关身份头**，`/auth/login` 请求没有身份头 ⇒ 建会话失败 ⇒
