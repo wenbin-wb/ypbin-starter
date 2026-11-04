@@ -49,6 +49,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -85,6 +86,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class SecurityAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityAutoConfiguration.class);
+
+    /**
+     * 登录失败自动封禁入口（可选）：保持原 {@code passwordAttemptLimiter} Bean 方法签名不变，
+     * 避免公开 API 兼容门禁把新增能力误判为破坏性变更。
+     */
+    @Autowired
+    private ObjectProvider<BlocklistAutoBanRecorder> autoBanRecorderProvider;
 
     /**
      * 默认权限数据源：返回空权限/角色。业务方提供自定义实现即可覆盖。
@@ -167,9 +175,8 @@ public class SecurityAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public PasswordAttemptLimiter passwordAttemptLimiter(PasswordAttemptStore store,
-        PasswordPolicyProvider policyProvider,
-        ObjectProvider<BlocklistAutoBanRecorder> autoBanRecorder) {
-        return new PasswordAttemptLimiter(store, policyProvider, autoBanRecorder.getIfAvailable());
+        PasswordPolicyProvider policyProvider) {
+        return new PasswordAttemptLimiter(store, policyProvider, autoBanRecorderProvider.getIfAvailable());
     }
 
     /**
