@@ -15,10 +15,13 @@
  */
 package cn.ypbin.starter.security.password.lock;
 
+import cn.ypbin.starter.security.blocklist.BlocklistAutoBanRecorder;
 import cn.ypbin.starter.security.password.policy.PasswordPolicy;
 import cn.ypbin.starter.security.password.policy.PasswordPolicyProvider;
 import java.time.Duration;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 密码错误锁定限制器。
@@ -55,10 +58,26 @@ public class PasswordAttemptLimiter {
 
     private final PasswordAttemptStore store;
     private final PasswordPolicyProvider policyProvider;
+    @Nullable
+    private final BlocklistAutoBanRecorder autoBanRecorder;
 
     public PasswordAttemptLimiter(PasswordAttemptStore store, PasswordPolicyProvider policyProvider) {
+        this(store, policyProvider, null);
+    }
+
+    /**
+     * 构造器（含登录失败自动封禁旁路）。
+     *
+     * @param store           密码错误计数存储
+     * @param policyProvider  密码策略
+     * @param autoBanRecorder 黑名单计数入口；为空时只做账号锁定
+     */
+    @Autowired
+    public PasswordAttemptLimiter(PasswordAttemptStore store, PasswordPolicyProvider policyProvider,
+                                  @Nullable BlocklistAutoBanRecorder autoBanRecorder) {
         this.store = store;
         this.policyProvider = policyProvider;
+        this.autoBanRecorder = autoBanRecorder;
     }
 
     /**
@@ -95,6 +114,10 @@ public class PasswordAttemptLimiter {
      * @return 当前 {@code scope} 维度累计失败次数（无 scope 时即账号维度次数）
      */
     public long recordFailure(String identifier, String scope) {
+        // 登录失败按业务失败点计入 IP 自动封禁：本仓业务响应恒 HTTP 200，过滤器看不到 401
+        if (autoBanRecorder != null) {
+            autoBanRecorder.recordLoginFailure(scope);
+        }
         PasswordPolicy policy = policyProvider.getPolicy();
         if (!policy.isLockEnabled()) {
             return 0L;

@@ -18,6 +18,9 @@ package cn.ypbin.starter.security.password;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import cn.ypbin.starter.core.blocklist.BlocklistProperties;
+import cn.ypbin.starter.core.blocklist.InMemoryBlocklistStore;
+import cn.ypbin.starter.security.blocklist.BlocklistAutoBanRecorder;
 import cn.ypbin.starter.security.password.lock.AccountLockedException;
 import cn.ypbin.starter.security.password.lock.InMemoryPasswordAttemptStore;
 import cn.ypbin.starter.security.password.lock.LockStatus;
@@ -68,6 +71,22 @@ class PasswordAttemptLimiterTest {
         // 后续登录前 checkLocked 也应被拦
         assertThatThrownBy(() -> limiter.checkLocked("tom", "1.1.1.1"))
             .isInstanceOf(AccountLockedException.class);
+    }
+
+    @Test
+    void loginFailureShouldFeedBlocklistAutoBan() {
+        BlocklistProperties properties = new BlocklistProperties();
+        properties.setEnabled(true);
+        properties.getAutoBan().setThreshold(2);
+        InMemoryBlocklistStore blocklistStore = new InMemoryBlocklistStore();
+        PasswordAttemptLimiter limiter = new PasswordAttemptLimiter(new InMemoryPasswordAttemptStore(),
+            () -> policy(10, 15), new BlocklistAutoBanRecorder(properties, blocklistStore));
+
+        limiter.recordFailure("tom", "1.2.3.4");
+        assertThat(blocklistStore.isBanned("1.2.3.4")).isFalse();
+        limiter.recordFailure("tom", "1.2.3.4");
+
+        assertThat(blocklistStore.isBanned("1.2.3.4")).isTrue();
     }
 
     @Test

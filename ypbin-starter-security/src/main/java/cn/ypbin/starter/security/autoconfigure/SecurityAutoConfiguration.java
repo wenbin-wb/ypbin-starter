@@ -20,6 +20,7 @@ import cn.dev33.satoken.listener.SaTokenEventCenter;
 import cn.dev33.satoken.stp.StpInterface;
 import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.ypbin.starter.security.blocklist.BlocklistAutoBanRecorder;
 import cn.ypbin.starter.security.client.DefaultLoginClientProvider;
 import cn.ypbin.starter.security.client.DefaultLoginClientService;
 import cn.ypbin.starter.security.client.LoginClientHolder;
@@ -166,8 +167,9 @@ public class SecurityAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public PasswordAttemptLimiter passwordAttemptLimiter(PasswordAttemptStore store,
-        PasswordPolicyProvider policyProvider) {
-        return new PasswordAttemptLimiter(store, policyProvider);
+        PasswordPolicyProvider policyProvider,
+        ObjectProvider<BlocklistAutoBanRecorder> autoBanRecorder) {
+        return new PasswordAttemptLimiter(store, policyProvider, autoBanRecorder.getIfAvailable());
     }
 
     /**

@@ -118,7 +118,8 @@ public class AccessBlocklistFilter extends OncePerRequestFilter {
         if (!autoBan.isEnabled() || !autoBan.getStatusCodes().contains(status)) {
             return;
         }
-        // 429 表示已经在限流，任何路径都计数；401/403 只统计登录类路径，避免过期 token 误封正常用户
+        // 429 是限流真状态码，任何路径都计数；401/403 默认不在 status-codes 内，
+        // 仅当宿主显式配置真 401/403 时才按 path-prefixes 限定路径，避免过期 token 误封。
         if (status != 429 && !matcher.isExcludedPath(path, autoBan.getPathPrefixes())) {
             return;
         }

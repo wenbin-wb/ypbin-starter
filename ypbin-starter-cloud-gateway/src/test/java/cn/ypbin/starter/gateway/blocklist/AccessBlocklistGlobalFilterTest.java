@@ -90,13 +90,14 @@ class AccessBlocklistGlobalFilterTest {
     }
 
     @Test
-    @DisplayName("登录路径 401 记录一次违规")
-    void recordsLoginFailure() {
+    @DisplayName("宿主显式配置真 401 时，登录路径记录一次违规")
+    void recordsConfiguredRealUnauthorized() {
         when(store.isBanned(anyString())).thenReturn(Mono.just(false));
         when(store.rules()).thenReturn(Mono.just(List.of()));
         when(store.recordViolation(anyString(), any(Duration.class), anyInt(), any(Duration.class), anyString()))
             .thenReturn(Mono.just(1L));
         properties.getAutoBan().setThreshold(1);
+        properties.getAutoBan().setStatusCodes(List.of(401));
         MockServerWebExchange exchange = exchange("/auth/login", "1.2.3.4");
         GatewayFilterChain chain = currentExchange -> {
             currentExchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);

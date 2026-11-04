@@ -84,11 +84,12 @@ class AccessBlocklistFilterTest {
     }
 
     @Test
-    @DisplayName("登录路径连续 401 达阈值后自动封禁")
-    void autoBansAfterLoginFailures() throws Exception {
+    @DisplayName("宿主显式配置真 401 时，登录路径连续失败达阈值后自动封禁")
+    void autoBansAfterConfiguredRealUnauthorized() throws Exception {
         properties.getAutoBan().setThreshold(2);
         properties.getAutoBan().setWindowSeconds(60);
         properties.getAutoBan().setBanSeconds(60);
+        properties.getAutoBan().setStatusCodes(List.of(401));
         FilterChain unauthorized = (request, response) -> ((HttpServletResponse) response).setStatus(401);
 
         filter.doFilter(request("/auth/login", "1.2.3.4"), new MockHttpServletResponse(), unauthorized);
@@ -102,11 +103,25 @@ class AccessBlocklistFilterTest {
     @DisplayName("普通业务路径的 401 不参与自动封禁")
     void ignoresUnauthorizedOutsideLoginPath() throws Exception {
         properties.getAutoBan().setThreshold(1);
+        properties.getAutoBan().setStatusCodes(List.of(401));
         FilterChain unauthorized = (request, response) -> ((HttpServletResponse) response).setStatus(401);
 
         filter.doFilter(request("/system/user", "1.2.3.4"), new MockHttpServletResponse(), unauthorized);
 
         assertThat(store.isBanned("1.2.3.4")).isFalse();
+    }
+
+    @Test
+    @DisplayName("真 429 默认计数并在达阈值后自动封禁")
+    void autoBansAfterRateLimit() throws Exception {
+        properties.getAutoBan().setThreshold(1);
+        properties.getAutoBan().setWindowSeconds(60);
+        properties.getAutoBan().setBanSeconds(60);
+        FilterChain tooManyRequests = (request, response) -> ((HttpServletResponse) response).setStatus(429);
+
+        filter.doFilter(request("/system/user", "1.2.3.4"), new MockHttpServletResponse(), tooManyRequests);
+
+        assertThat(store.isBanned("1.2.3.4")).isTrue();
     }
 
     @Test

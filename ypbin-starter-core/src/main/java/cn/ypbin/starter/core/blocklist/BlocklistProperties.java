@@ -138,8 +138,11 @@ public class BlocklistProperties {
     /**
      * 自动封禁配置：在窗口内累计到阈值后，把客户端 IP 临时封禁。
      *
-     * <p>默认只统计登录/短信登录路径上的 401/403，以及所有路径的 429；这样既覆盖暴力破解，
-     * 又不会因为普通用户 token 过期（401）而误封。</p>
+     * <p><b>默认只统计真 429</b>（限流）。本仓业务响应恒 HTTP 200，登录失败是
+     * {@code 200 + R.code=401}，过滤器读状态码看不到，须由业务失败点调用
+     * {@code BlocklistAutoBanRecorder#recordLoginFailure}（{@code PasswordAttemptLimiter} 已自动接入）。
+     * 宿主若确实在入口返回真 401/403，可通过 {@code status-codes} 显式加入，并用
+     * {@code path-prefixes} 限定路径，避免过期 token 误封。</p>
      */
     public static class AutoBan {
 
@@ -155,10 +158,10 @@ public class BlocklistProperties {
         /** 封禁时长秒数。 */
         private int banSeconds = 600;
 
-        /** 参与计数的响应状态码。 */
-        private List<Integer> statusCodes = new ArrayList<>(List.of(401, 403, 429));
+        /** 参与计数的响应状态码；默认仅真 429。 */
+        private List<Integer> statusCodes = new ArrayList<>(List.of(429));
 
-        /** 401/403 只在这些路径前缀上计数；429 不受此限制。 */
+        /** 非 429 状态码只在这些路径前缀上计数（默认登录类路径）。 */
         private List<String> pathPrefixes = new ArrayList<>(List.of(
             "/auth/login", "/auth/sms/login", "/auth/social/callback"));
 

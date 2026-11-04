@@ -56,6 +56,16 @@ public class BlocklistStoreAutoConfiguration {
     }
 
     /**
+     * 登录失败计数入口：供密码锁定与宿主自定义登录流程调用。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public BlocklistAutoBanRecorder blocklistAutoBanRecorder(BlocklistProperties properties,
+                                                              BlocklistStore store) {
+        return new BlocklistAutoBanRecorder(properties, store);
+    }
+
+    /**
      * Redis 存储配置：类级条件避免无 spring-data-redis 时内省 Bean 方法参数导致启动失败。
      */
     @Configuration(proxyBeanMethods = false)
