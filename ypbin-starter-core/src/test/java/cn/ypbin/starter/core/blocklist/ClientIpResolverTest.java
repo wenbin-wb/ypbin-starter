@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2024-present ypbin-starter authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package cn.ypbin.starter.core.blocklist;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * 客户端 IP 解析用例。
+ *
+ * @author wenbin
+ * @since 2026-11-04
+ */
+class ClientIpResolverTest {
+
+    @Test
+    @DisplayName("无转发头时使用直连地址")
+    void usesRemoteAddressWithoutForwarding() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of("10.0.0.1"));
+
+        assertThat(resolver.resolve("203.0.113.9", null)).isEqualTo("203.0.113.9");
+        assertThat(resolver.resolve("203.0.113.9", " ")).isEqualTo("203.0.113.9");
+    }
+
+    @Test
+    @DisplayName("非可信直连地址忽略伪造的 XFF")
+    void ignoresForwardingFromUntrustedPeer() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of("10.0.0.1"));
+
+        assertThat(resolver.resolve("203.0.113.9", "1.2.3.4")).isEqualTo("203.0.113.9");
+    }
+
+    @Test
+    @DisplayName("可信代理多跳时从右往左取第一个不可信地址")
+    void picksFirstUntrustedHopFromRight() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of("10.0.0.0/8"));
+
+        assertThat(resolver.resolve("10.0.0.1", "198.51.100.7, 203.0.113.9, 10.0.0.2"))
+            .isEqualTo("203.0.113.9");
+    }
+
+    @Test
+    @DisplayName("XFF 中的域名被忽略，不触发解析")
+    void ignoresDomainInForwardedChain() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of("10.0.0.1"));
+
+        assertThat(resolver.resolve("10.0.0.1", "face.de, 1.1.1.1")).isEqualTo("1.1.1.1");
+    }
+
+    @Test
+    @DisplayName("XFF 缺失时使用 X-Real-IP")
+    void fallsBackToRealIp() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of("10.0.0.1"));
+
+        assertThat(resolver.resolve("10.0.0.1", null, "198.51.100.7")).isEqualTo("198.51.100.7");
+    }
+
+    @Test
+    @DisplayName("直连地址为空返回 unknown")
+    void unknownWhenRemoteMissing() {
+        ClientIpResolver resolver = new ClientIpResolver(List.of());
+
+        assertThat(resolver.resolve(null, "1.2.3.4")).isEqualTo("unknown");
+    }
+}

@@ -45,10 +45,19 @@ public class BlocklistProperties {
     private List<String> excludePaths = new ArrayList<>(List.of(
         "/actuator/health", "/actuator/health/**", "/error"));
 
-    /** 放行 IP（精确 IP 或 CIDR），默认本机回环。 */
-    private List<String> excludeIps = new ArrayList<>(List.of("127.0.0.1", "::1"));
+    /**
+     * 放行 IP（精确 IP 或 CIDR）。
+     *
+     * <p>默认空：回环地址不再无条件放行——同机反代时 {@code getRemoteAddr()} 恒为
+     * {@code 127.0.0.1}，若默认放行会让黑名单静默全放行。需要放行健康检查等来源时由宿主显式配置，
+     * 并同时配置 {@link #trustedProxies} 以采信转发头。</p>
+     */
+    private List<String> excludeIps = new ArrayList<>();
 
-    /** 可信代理（精确 IP 或 CIDR）；只有直连地址命中时才采信 X-Forwarded-For。 */
+    /**
+     * 可信代理（精确 IP 或 CIDR）；只有直连地址命中时才采信 {@code X-Forwarded-For} /
+     * {@code X-Real-IP}，取值口径为「从右往左跳过可信代理，取第一个不可信地址」。
+     */
     private List<String> trustedProxies = new ArrayList<>();
 
     /** 静态规则（也可由管理端下发；二者合并生效）。 */

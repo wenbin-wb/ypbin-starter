@@ -17,29 +17,39 @@ package cn.ypbin.starter.core.blocklist;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
  * IP 字面量与 CIDR 网段匹配工具。
  *
- * <p>只接受 IP 字面量，不做 DNS 解析：{@code InetAddress.getByName} 对主机名会发起解析，
- * 放在请求链路上既慢又可被用来探测内网。这里先按字面量格式校验，再交给 JDK 解析。</p>
+ * <p>只接受 IP 字面量，<b>任何情况下都不做 DNS 解析</b>。IPv4 手工解析四段十进制；
+ * IPv6 先校验「至多一个 {@code ::}、组数不超过 8、每组 1–4 位十六进制」，再转字节；
+ * 非字面量（如 {@code face.de}、{@code deadbeef}、{@code 999.999.999.999}）一律判非法。
+ * 这样放在请求链路上既不会被域名解析拖慢，也不会被用来探测内网或伪造客户端 IP。</p>
  *
  * @author wenbin
  * @since 2026-11-04
  */
 public final class IpAddress {
 
-    private static final Pattern IPV4_LITERAL = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
-
-    private static final Pattern IPV6_LITERAL = Pattern.compile("^[0-9a-fA-F:.]+$");
-
     private static final int IPV4_BITS = 32;
 
     private static final int IPV6_BITS = 128;
+
+    private static final int IPV4_BYTES = 4;
+
+    private static final int IPV6_BYTES = 16;
+
+    private static final int IPV6_GROUPS = 8;
+
+    private static final int MAX_GROUP_HEX_LENGTH = 4;
+
+    private static final int MAX_OCTET = 255;
 
     /**
      * 判断 IP 是否命中「精确 IP 或 CIDR」规则。
@@ -115,7 +125,7 @@ public final class IpAddress {
     }
 
     /**
-     * 规范化 IP 字面量（去掉 IPv6 方括号/zone、统一 IPv4-mapped 形式）。
+     * 规范化 IP 字面量（去掉 IPv6 方括号/zone、统一 IPv6 形式）。
      *
      * @param raw 原始文本
      * @return 规范化结果；非法时返回 {@code null}
@@ -141,21 +151,143 @@ public final class IpAddress {
         if (value.isEmpty()) {
             return null;
         }
-        if (value.startsWith("[") && value.endsWith("]")) {
-            value = value.substring(1, value.length() - 1);
+        if (value.startsWith("[")) {
+            int end = value.indexOf(']');
+            if (end > 1) {
+                value = value.substring(1, end);
+            }
         }
         int zone = value.indexOf('%');
         if (zone >= 0) {
             value = value.substring(0, zone);
         }
-        if (!IPV4_LITERAL.matcher(value).matches() && !IPV6_LITERAL.matcher(value).matches()) {
+        if (value.indexOf(':') >= 0) {
+            return parseIpv6(value);
+        }
+        return parseIpv4(value);
+    }
+
+    /**
+     * 手工解析 IPv4，不经过 {@link InetAddress#getByName}，避免域名解析。
+     */
+    @Nullable
+    private static IpAddress parseIpv4(String value) {
+        String[] parts = value.split("\\.", -1);
+        if (parts.length != IPV4_BYTES) {
             return null;
         }
-        try {
-            return new IpAddress(InetAddress.getByName(value).getAddress());
-        } catch (UnknownHostException ex) {
+        byte[] bytes = new byte[IPV4_BYTES];
+        for (int i = 0; i < parts.length; i++) {
+            Integer octet = parseDecimal(parts[i]);
+            if (octet == null || octet > MAX_OCTET) {
+                return null;
+            }
+            bytes[i] = octet.byteValue();
+        }
+        return new IpAddress(bytes);
+    }
+
+    /**
+     * 手工解析 IPv6：支持 {@code ::} 省略、IPv4 嵌入形式与 zone 后缀（zone 已在入口剥离）。
+     */
+    @Nullable
+    private static IpAddress parseIpv6(String value) {
+        String normalized = replaceEmbeddedIpv4(value);
+        if (normalized == null) {
             return null;
         }
+        int doubleColon = normalized.indexOf("::");
+        if (doubleColon >= 0 && doubleColon != normalized.lastIndexOf("::")) {
+            return null;
+        }
+        String leftPart = doubleColon >= 0 ? normalized.substring(0, doubleColon) : normalized;
+        String rightPart = doubleColon >= 0 ? normalized.substring(doubleColon + 2) : "";
+        Optional<List<Integer>> left = parseGroups(leftPart);
+        Optional<List<Integer>> right = parseGroups(rightPart);
+        if (left.isEmpty() || right.isEmpty()) {
+            return null;
+        }
+        int total = left.get().size() + right.get().size();
+        if (doubleColon < 0 ? total != IPV6_GROUPS : total >= IPV6_GROUPS) {
+            return null;
+        }
+        List<Integer> groups = new ArrayList<>(IPV6_GROUPS);
+        groups.addAll(left.get());
+        for (int i = total; i < IPV6_GROUPS; i++) {
+            groups.add(0);
+        }
+        groups.addAll(right.get());
+        byte[] bytes = new byte[IPV6_BYTES];
+        for (int i = 0; i < groups.size(); i++) {
+            int group = groups.get(i);
+            bytes[i * 2] = (byte) (group >> 8);
+            bytes[i * 2 + 1] = (byte) group;
+        }
+        return new IpAddress(bytes);
+    }
+
+    /**
+     * 把 IPv6 尾部的 IPv4 嵌入形式替换成两个十六进制组；返回 {@code null} 表示嵌入地址非法。
+     */
+    @Nullable
+    private static String replaceEmbeddedIpv4(String value) {
+        int lastColon = value.lastIndexOf(':');
+        if (lastColon < 0) {
+            return null;
+        }
+        String tail = value.substring(lastColon + 1);
+        if (tail.indexOf('.') < 0) {
+            return value;
+        }
+        IpAddress ipv4 = parseIpv4(tail);
+        if (ipv4 == null) {
+            return null;
+        }
+        int high = ((ipv4.bytes[0] & 0xFF) << 8) | (ipv4.bytes[1] & 0xFF);
+        int low = ((ipv4.bytes[2] & 0xFF) << 8) | (ipv4.bytes[3] & 0xFF);
+        return value.substring(0, lastColon + 1) + Integer.toHexString(high) + ":"
+            + Integer.toHexString(low);
+    }
+
+    /**
+     * 解析冒号分隔的十六进制组；空段（由 {@code ::} 产生）按非法处理。
+     */
+    private static Optional<List<Integer>> parseGroups(String part) {
+        if (part.isEmpty()) {
+            return Optional.of(List.of());
+        }
+        String[] rawGroups = part.split(":", -1);
+        List<Integer> groups = new ArrayList<>(rawGroups.length);
+        for (String rawGroup : rawGroups) {
+            if (rawGroup.isEmpty() || rawGroup.length() > MAX_GROUP_HEX_LENGTH) {
+                return Optional.empty();
+            }
+            try {
+                groups.add(Integer.parseInt(rawGroup, 16));
+            } catch (NumberFormatException ex) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(groups);
+    }
+
+    /**
+     * 解析十进制八位组，拒绝符号、空白与非数字。
+     */
+    @Nullable
+    private static Integer parseDecimal(String value) {
+        if (value.isEmpty() || value.length() > 3) {
+            return null;
+        }
+        int number = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return null;
+            }
+            number = number * 10 + (c - '0');
+        }
+        return number;
     }
 
     private final byte[] bytes;
@@ -167,11 +299,14 @@ public final class IpAddress {
         this.bitLength = bytes.length * 8;
     }
 
+    /**
+     * 使用 {@link InetAddress#getByAddress(byte[])} 做纯字节格式化，不触发名称解析。
+     */
     private String hostAddress() {
         try {
             return InetAddress.getByAddress(bytes).getHostAddress().toLowerCase(Locale.ROOT);
         } catch (UnknownHostException ex) {
-            // 构造时已保证长度合法，这里的异常在正常路径不可达；返回空串让调用方按非法处理
+            // 构造时已保证长度为 4/16，正常路径不可达；返回空串让调用方按非法处理
             return "";
         }
     }

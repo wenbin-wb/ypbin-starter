@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-04T03:10:20.914Z",
+  "generatedAt": "2026-11-04T06:10:00.491Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -5288,7 +5288,7 @@
           "defaultValue": null,
           "required": false,
           "requiredWhen": null,
-          "description": "401/403 只在这些路径前缀上计数；429 不受此限制。",
+          "description": "非 429 状态码只在这些路径前缀上计数（默认登录类路径）。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
           "safetyNotes": [],
@@ -5308,7 +5308,7 @@
           "defaultValue": null,
           "required": false,
           "requiredWhen": null,
-          "description": "参与计数的响应状态码。",
+          "description": "参与计数的响应状态码；默认仅真 429。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
           "safetyNotes": [],
@@ -5400,7 +5400,7 @@
           "defaultValue": null,
           "required": false,
           "requiredWhen": null,
-          "description": "放行 IP（精确 IP 或 CIDR），默认本机回环。",
+          "description": "放行 IP（精确 IP 或 CIDR）。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
           "safetyNotes": [],
@@ -5408,7 +5408,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 49
+              "line": 55
             }
           ],
           "default": null,
@@ -5418,7 +5418,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 49
+              "line": 55
             }
           ],
           "group": "ypbin.security",
@@ -5504,7 +5504,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 61
+              "line": 70
             }
           ],
           "default": "访问已被限制",
@@ -5514,7 +5514,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 61
+              "line": 70
             }
           ],
           "group": "ypbin.security",
@@ -5536,7 +5536,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 55
+              "line": 64
             }
           ],
           "default": null,
@@ -5546,7 +5546,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 55
+              "line": 64
             }
           ],
           "group": "ypbin.security",
@@ -5568,7 +5568,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 58
+              "line": 67
             }
           ],
           "default": 5,
@@ -5578,7 +5578,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 58
+              "line": 67
             }
           ],
           "group": "ypbin.security",
@@ -5784,7 +5784,7 @@
           "defaultValue": null,
           "required": false,
           "requiredWhen": null,
-          "description": "可信代理（精确 IP 或 CIDR）；只有直连地址命中时才采信 X-Forwarded-For。",
+          "description": "可信代理（精确 IP 或 CIDR）；只有直连地址命中时才采信 X-Forwarded-For / X-Real-IP，取值口径为「从右往左跳过可信代理，取第一个不可信地址」。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
           "safetyNotes": [],
@@ -5792,7 +5792,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 52
+              "line": 61
             }
           ],
           "default": null,
@@ -5802,7 +5802,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
-              "line": 52
+              "line": 61
             }
           ],
           "group": "ypbin.security",

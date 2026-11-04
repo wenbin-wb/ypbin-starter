@@ -158,7 +158,9 @@ public class AccessBlocklistGlobalFilter implements GlobalFilter, Ordered {
         InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
         String remote = remoteAddress == null || remoteAddress.getAddress() == null
             ? null : remoteAddress.getAddress().getHostAddress();
-        return clientIpResolver.resolve(remote, exchange.getRequest().getHeaders().getFirst("X-Forwarded-For"));
+        return clientIpResolver.resolve(remote,
+            exchange.getRequest().getHeaders().getFirst(ClientIpResolver.HEADER_FORWARDED_FOR),
+            exchange.getRequest().getHeaders().getFirst(ClientIpResolver.HEADER_REAL_IP));
     }
 
     @Override

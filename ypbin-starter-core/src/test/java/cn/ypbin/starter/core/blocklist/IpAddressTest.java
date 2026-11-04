@@ -20,6 +20,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/**
+ * IP 字面量与 CIDR 匹配用例。
+ *
+ * @author wenbin
+ * @since 2026-11-04
+ */
 class IpAddressTest {
 
     @Test
@@ -55,5 +61,28 @@ class IpAddressTest {
         assertThat(IpAddress.matchesCidr("10.0.0.0/abc", "10.0.0.1")).isFalse();
         assertThat(IpAddress.matchesCidr("10.0.0.0", "10.0.0.1")).isFalse();
         assertThat(IpAddress.normalize("not-an-ip")).isNull();
+    }
+
+    @Test
+    @DisplayName("非字面量一律非法，绝不触发域名解析")
+    void rejectsNonLiterals() {
+        assertThat(IpAddress.isValidIp("999.999.999.999")).isFalse();
+        assertThat(IpAddress.isValidIp("1.2.3.4.5")).isFalse();
+        assertThat(IpAddress.isValidIp("deadbeef")).isFalse();
+        assertThat(IpAddress.isValidIp("face.de")).isFalse();
+        assertThat(IpAddress.isValidIp("beef.be")).isFalse();
+        assertThat(IpAddress.isValidIp("1.2.3")).isFalse();
+        assertThat(IpAddress.isValidIp("1.2.3.256")).isFalse();
+    }
+
+    @Test
+    @DisplayName("IPv6 省略、嵌入 IPv4、方括号带端口均按字面量解析")
+    void ipv6Literals() {
+        assertThat(IpAddress.isValidIp("[2001:db8::1]:443")).isTrue();
+        assertThat(IpAddress.isValidIp("::ffff:1.2.3.4")).isTrue();
+        assertThat(IpAddress.isValidIp("1:2:3:4:5:6:7:8")).isTrue();
+        assertThat(IpAddress.isValidIp("1:2:3:4:5:6:7")).isFalse();
+        assertThat(IpAddress.isValidIp("1::2::3")).isFalse();
+        assertThat(IpAddress.isValidIp("12345::1")).isFalse();
     }
 }

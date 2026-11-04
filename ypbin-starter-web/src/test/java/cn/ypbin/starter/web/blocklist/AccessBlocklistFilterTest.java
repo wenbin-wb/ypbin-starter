@@ -69,10 +69,11 @@ class AccessBlocklistFilterTest {
     }
 
     @Test
-    @DisplayName("放行路径与回环地址不受规则影响")
-    void excludesPathAndLoopback() throws Exception {
+    @DisplayName("放行路径与显式配置的回环地址不受规则影响")
+    void excludesPathAndConfiguredLoopback() throws Exception {
         properties.setRules(List.of(new BlocklistRule("1", BlocklistMatchType.IP, "1.2.3.4",
             null, true, "bad")));
+        properties.setExcludeIps(List.of("127.0.0.1", "::1"));
 
         MockFilterChain chain = new MockFilterChain();
         filter.doFilter(request("/actuator/health", "1.2.3.4"), new MockHttpServletResponse(), chain);
@@ -81,6 +82,18 @@ class AccessBlocklistFilterTest {
         MockFilterChain loopbackChain = new MockFilterChain();
         filter.doFilter(request("/system/user", "127.0.0.1"), new MockHttpServletResponse(), loopbackChain);
         assertThat(loopbackChain.getRequest()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("默认不放行回环地址")
+    void loopbackIsNotExcludedByDefault() throws Exception {
+        properties.setRules(List.of(new BlocklistRule("1", BlocklistMatchType.IP, "127.0.0.1",
+            null, true, "bad")));
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request("/system/user", "127.0.0.1"), response, new MockFilterChain());
+
+        assertThat(response.getStatus()).isEqualTo(403);
     }
 
     @Test

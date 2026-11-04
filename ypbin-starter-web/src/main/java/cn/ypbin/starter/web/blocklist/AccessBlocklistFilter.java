@@ -83,7 +83,9 @@ public class AccessBlocklistFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        String clientIp = clientIpResolver.resolve(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"));
+        String clientIp = clientIpResolver.resolve(request.getRemoteAddr(),
+            request.getHeader(ClientIpResolver.HEADER_FORWARDED_FOR),
+            request.getHeader(ClientIpResolver.HEADER_REAL_IP));
         if (matcher.isExcludedIp(clientIp, properties.getExcludeIps())) {
             filterChain.doFilter(request, response);
             return;
