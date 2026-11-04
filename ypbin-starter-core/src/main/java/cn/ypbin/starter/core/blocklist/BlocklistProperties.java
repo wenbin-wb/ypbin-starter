@@ -29,7 +29,7 @@ import org.springframework.core.Ordered;
  * @author wenbin
  * @since 2026-11-04
  */
-@ConfigurationProperties(BlocklistProperties.PREFIX)
+@ConfigurationProperties(prefix = BlocklistProperties.PREFIX)
 public class BlocklistProperties {
 
     /** 配置前缀。 */

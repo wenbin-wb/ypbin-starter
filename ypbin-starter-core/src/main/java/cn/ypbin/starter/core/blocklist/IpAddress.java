@@ -162,7 +162,8 @@ public final class IpAddress {
             value = value.substring(0, zone);
         }
         if (value.indexOf(':') >= 0) {
-            return parseIpv6(value);
+            IpAddress parsed = parseIpv6(value);
+            return parsed == null ? null : parsed.foldV4Mapped();
         }
         return parseIpv4(value);
     }
@@ -297,6 +298,25 @@ public final class IpAddress {
     private IpAddress(byte[] bytes) {
         this.bytes = bytes.clone();
         this.bitLength = bytes.length * 8;
+    }
+
+    /**
+     * 把 IPv4-mapped IPv6（{@code ::ffff:a.b.c.d}）折叠为 4 字节，使精确匹配/CIDR 与 IPv4 一致；
+     * IPv4-compatible（{@code ::a.b.c.d}，前 10 字节全 0 且第 11/12 字节非 0xFF）不折叠。
+     */
+    private IpAddress foldV4Mapped() {
+        if (bytes.length != IPV6_BYTES) {
+            return this;
+        }
+        for (int i = 0; i < 10; i++) {
+            if (bytes[i] != 0) {
+                return this;
+            }
+        }
+        if (bytes[10] != (byte) 0xFF || bytes[11] != (byte) 0xFF) {
+            return this;
+        }
+        return new IpAddress(new byte[] {bytes[12], bytes[13], bytes[14], bytes[15]});
     }
 
     /**

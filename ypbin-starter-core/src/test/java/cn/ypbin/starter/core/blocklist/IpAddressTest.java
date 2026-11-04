@@ -47,11 +47,17 @@ class IpAddressTest {
     }
 
     @Test
-    @DisplayName("IPv6 与 IPv4-mapped 形式可用")
+    @DisplayName("IPv6 与 IPv4-mapped 折叠行为")
     void ipv6Match() {
         assertThat(IpAddress.matches("::1", "[::1]")).isTrue();
         assertThat(IpAddress.matchesCidr("2001:db8::/32", "2001:db8::1")).isTrue();
         assertThat(IpAddress.matchesCidr("2001:db8::/32", "2001:db9::1")).isFalse();
+        assertThat(IpAddress.matches("1.2.3.4", "::ffff:1.2.3.4")).isTrue();
+        assertThat(IpAddress.matchesCidr("1.2.3.0/24", "::ffff:1.2.3.4")).isTrue();
+        assertThat(IpAddress.normalize("::ffff:1.2.3.4")).isEqualTo("1.2.3.4");
+        // IPv4-compatible（非 mapped）不折叠，仍按 IPv6 精确匹配
+        assertThat(IpAddress.matches("1.2.3.4", "::1.2.3.4")).isFalse();
+        assertThat(IpAddress.matches("::1.2.3.4", "::1.2.3.4")).isTrue();
     }
 
     @Test

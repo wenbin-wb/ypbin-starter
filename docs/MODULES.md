@@ -718,6 +718,7 @@ OnlineUserHelper.record(ip, browser, os);   // 可选：记录终端信息供在
 已在 `recordFailure` 时调用 `BlocklistAutoBanRecorder#recordLoginFailure(ip)`；宿主自定义登录流程时直接注入
 `BlocklistAutoBanRecorder` 调用即可，不要改过滤器去解析响应体。只有真 429（或宿主显式配置的真 401/403）才由
 `AccessBlocklistFilter` / `AccessBlocklistGlobalFilter` 自动计数。
+注意：`recordFailure` 的 `scope` 需传客户端 IP；不传时只做账号锁定，不进入 IP 自动封禁。
 
 **部署判据**：同机 nginx、LB、K8s Ingress 必须配置 `trusted-proxies`，否则 `getRemoteAddr()` 是代理地址；
 `exclude-ips` 默认不再放行 `127.0.0.1`，避免「反代地址命中放行 ⇒ 黑名单静默全放行」。检测到转发头但未配置

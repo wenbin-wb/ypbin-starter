@@ -16,6 +16,8 @@
 package cn.ypbin.starter.core.blocklist;
 
 import java.time.Instant;
+import lombok.Getter;
+import lombok.Setter;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -27,6 +29,8 @@ import org.jspecify.annotations.Nullable;
  * @author wenbin
  * @since 2026-11-04
  */
+@Getter
+@Setter
 public class BlocklistRule {
 
     /** 规则标识；静态配置可为空，管理端下发时使用数据库主键。 */
@@ -71,56 +75,5 @@ public class BlocklistRule {
      */
     public boolean isEffective(Instant now) {
         return enabled && (expireAt == null || expireAt.isAfter(now));
-    }
-
-    @Nullable
-    public String getId() {
-        return id;
-    }
-
-    public void setId(@Nullable String id) {
-        this.id = id;
-    }
-
-    public BlocklistMatchType getType() {
-        return type;
-    }
-
-    public void setType(BlocklistMatchType type) {
-        this.type = type;
-    }
-
-    public String getValue() {
-        return value;
-    }
-
-    public void setValue(String value) {
-        this.value = value;
-    }
-
-    @Nullable
-    public Instant getExpireAt() {
-        return expireAt;
-    }
-
-    public void setExpireAt(@Nullable Instant expireAt) {
-        this.expireAt = expireAt;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    @Nullable
-    public String getReason() {
-        return reason;
-    }
-
-    public void setReason(@Nullable String reason) {
-        this.reason = reason;
     }
 }

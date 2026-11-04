@@ -16,6 +16,7 @@
 package cn.ypbin.starter.core.blocklist;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
@@ -60,6 +61,18 @@ class BlocklistRuleCodecTest {
         assertThat(decoded.getExpireAt()).isNull();
         assertThat(decoded.isEnabled()).isFalse();
         assertThat(decoded.getReason()).isNull();
+    }
+
+    @Test
+    @DisplayName("type 为空时编码给出可读异常")
+    void nullTypeIsRejected() {
+        BlocklistRule rule = new BlocklistRule("1", BlocklistMatchType.IP, "1.2.3.4",
+            null, true, "x");
+        rule.setType(null);
+
+        assertThatThrownBy(() -> codec.encode(rule))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("匹配类型");
     }
 
     @Test
