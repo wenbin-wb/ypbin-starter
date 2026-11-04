@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-30T14:48:23.336Z",
+  "generatedAt": "2026-11-04T03:10:20.914Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 383,
+    "customPropertyCount": 403,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 423,
+    "totalEntryCount": 443,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -5238,6 +5238,574 @@
             }
           ],
           "group": "ypbin.resilience",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.auto-ban.ban-seconds",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 600,
+          "required": false,
+          "requiredWhen": null,
+          "description": "封禁时长秒数。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": 600,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.auto-ban.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用自动封禁。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.auto-ban.path-prefixes",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "401/403 只在这些路径前缀上计数；429 不受此限制。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.auto-ban.status-codes",
+          "type": "java.util.List<java.lang.Integer>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "参与计数的响应状态码。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.auto-ban.threshold",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 20,
+          "required": false,
+          "requiredWhen": null,
+          "description": "窗口内达到该次数即封禁。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": 20,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.auto-ban.window-seconds",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 60,
+          "required": false,
+          "requiredWhen": null,
+          "description": "计数窗口秒数。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [],
+          "default": 60,
+          "values": [],
+          "notes": [],
+          "source": [],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": false,
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用访问黑名单。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 39
+            }
+          ],
+          "default": false,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 39
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.exclude-ips",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "放行 IP（精确 IP 或 CIDR），默认本机回环。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 49
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 49
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.exclude-paths",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "放行路径（永不拦截），避免健康检查/错误页被误伤。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 45
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 45
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.order",
+          "type": "java.lang.Integer",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "过滤器顺序：早于 XSS（HIGHEST_PRECEDENCE + 100），晚于可重复读包装。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 42
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 42
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.response-message",
+          "type": "java.lang.String",
+          "defaultDefined": true,
+          "defaultValue": "访问已被限制",
+          "required": false,
+          "requiredWhen": null,
+          "description": "命中黑名单时的响应文案。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 61
+            }
+          ],
+          "default": "访问已被限制",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 61
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules",
+          "type": "java.util.List<cn.ypbin.starter.core.blocklist.BlocklistRule>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "静态规则（也可由管理端下发；二者合并生效）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 55
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 55
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules-cache-seconds",
+          "type": "java.lang.Integer",
+          "defaultDefined": true,
+          "defaultValue": 5,
+          "required": false,
+          "requiredWhen": null,
+          "description": "网关侧规则缓存秒数；管理端下发后最迟在该时间内生效。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 58
+            }
+          ],
+          "default": 5,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 58
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules[].enabled",
+          "type": "boolean",
+          "defaultDefined": true,
+          "defaultValue": "true",
+          "required": false,
+          "requiredWhen": null,
+          "description": "是否启用；默认启用。",
+          "allowedValues": [],
+          "enablement": "作为ypbin.security.blocklist.rules 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 47
+            }
+          ],
+          "default": "true",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 47
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules[].expire-at",
+          "type": "Instant",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "到期时间；为空表示长期有效。",
+          "allowedValues": [],
+          "enablement": "作为ypbin.security.blocklist.rules 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 44
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 44
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules[].id",
+          "type": "String",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "规则标识；静态配置可为空，管理端下发时使用数据库主键。",
+          "allowedValues": [],
+          "enablement": "作为ypbin.security.blocklist.rules 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 34
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 34
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules[].reason",
+          "type": "String",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "命中原因，用于日志与后台展示。",
+          "allowedValues": [],
+          "enablement": "作为ypbin.security.blocklist.rules 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 51
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 51
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules[].type",
+          "type": "BlocklistMatchType",
+          "defaultDefined": true,
+          "defaultValue": "BlocklistMatchType.IP",
+          "required": false,
+          "requiredWhen": null,
+          "description": "匹配维度。",
+          "allowedValues": [],
+          "enablement": "作为ypbin.security.blocklist.rules 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 37
+            }
+          ],
+          "default": "BlocklistMatchType.IP",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 37
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.rules[].value",
+          "type": "String",
+          "defaultDefined": true,
+          "defaultValue": "\"\"",
+          "required": false,
+          "requiredWhen": null,
+          "description": "匹配值；语义由 {@link #type} 决定。",
+          "allowedValues": [],
+          "enablement": "作为ypbin.security.blocklist.rules 列表元素的字段配置。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 40
+            }
+          ],
+          "default": "\"\"",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistRule.java",
+              "line": 40
+            }
+          ],
+          "group": "ypbin.security",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-core",
+          "key": "ypbin.security.blocklist.trusted-proxies",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "可信代理（精确 IP 或 CIDR）；只有直连地址命中时才采信 X-Forwarded-For。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 52
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-core/src/main/java/cn/ypbin/starter/core/blocklist/BlocklistProperties.java",
+              "line": 52
+            }
+          ],
+          "group": "ypbin.security",
           "deprecation": null
         }
       ],
@@ -12577,7 +13145,7 @@
             {
               "kind": "conditional-on-property",
               "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebAutoConfiguration.java",
-              "line": 89
+              "line": 95
             }
           ],
           "default": "true",
@@ -12589,7 +13157,7 @@
             {
               "kind": "conditional-on-property",
               "path": "ypbin-starter-web/src/main/java/cn/ypbin/starter/web/autoconfigure/WebAutoConfiguration.java",
-              "line": 89
+              "line": 95
             }
           ],
           "group": "ypbin.web",
