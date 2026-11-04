@@ -22,6 +22,7 @@ import cn.ypbin.starter.core.blocklist.BlocklistRuleCodec;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
@@ -43,6 +44,11 @@ import reactor.core.publisher.Mono;
 public class ReactiveRedisBlocklistStore implements ReactiveBlocklistStore {
 
     private static final Logger log = LoggerFactory.getLogger(ReactiveRedisBlocklistStore.class);
+
+    /** 同一失败原因的 WARN 降频窗口。 */
+    private static final long FAILURE_WARN_INTERVAL_MILLIS = 5_000L;
+
+    private final AtomicLong lastFailureWarnAt = new AtomicLong();
 
     private final ReactiveStringRedisTemplate redis;
 
@@ -82,7 +88,7 @@ public class ReactiveRedisBlocklistStore implements ReactiveBlocklistStore {
                 loadedAtMillis = System.currentTimeMillis();
             })
             .onErrorResume(ex -> {
-                log.warn("[ypbin-starter] 网关读取黑名单规则失败，沿用最近一次快照（{} 条）",
+                warnFailure("[ypbin-starter] 网关读取黑名单规则失败，沿用最近一次快照（{} 条）",
                     cachedRules.size(), ex);
                 return Mono.just(cachedRules);
             });
@@ -93,7 +99,7 @@ public class ReactiveRedisBlocklistStore implements ReactiveBlocklistStore {
         return redis.hasKey(BlocklistKeys.ban(clientIp))
             .defaultIfEmpty(false)
             .onErrorResume(ex -> {
-                log.warn("[ypbin-starter] 网关查询自动封禁状态失败，按未封禁处理：ip={}", clientIp, ex);
+                warnFailure("[ypbin-starter] 网关查询自动封禁状态失败，按未封禁处理：ip={}", clientIp, ex);
                 return Mono.just(false);
             });
     }
@@ -110,9 +116,18 @@ public class ReactiveRedisBlocklistStore implements ReactiveBlocklistStore {
             .next()
             .defaultIfEmpty(0L)
             .onErrorResume(ex -> {
-                log.warn("[ypbin-starter] 网关记录访问违规失败：ip={}", clientIp, ex);
+                warnFailure("[ypbin-starter] 网关记录访问违规失败：ip={}", clientIp, ex);
                 return Mono.just(0L);
             });
     }
 
+    private void warnFailure(String message, Object... args) {
+        long now = System.currentTimeMillis();
+        long last = lastFailureWarnAt.get();
+        if (now - last >= FAILURE_WARN_INTERVAL_MILLIS && lastFailureWarnAt.compareAndSet(last, now)) {
+            log.warn(message, args);
+        } else if (log.isDebugEnabled()) {
+            log.debug(message, args);
+        }
+    }
 }

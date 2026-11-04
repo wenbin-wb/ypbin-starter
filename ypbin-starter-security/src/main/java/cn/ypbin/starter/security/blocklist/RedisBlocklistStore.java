@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,9 @@ public class RedisBlocklistStore implements BlocklistStore {
 
     private static final int MAX_AUTO_BANS = 500;
 
+    /** 同一失败原因的 WARN 降频窗口：Redis 故障时避免每请求一条带栈日志打爆磁盘。 */
+    private static final long FAILURE_WARN_INTERVAL_MILLIS = 5_000L;
+
     private static final String BAN_VALUE_SEPARATOR = "\\|";
 
     private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
@@ -80,6 +84,9 @@ public class RedisBlocklistStore implements BlocklistStore {
 
     /** 最近一次成功读取规则的毫秒时间戳；0 表示尚未成功读取。 */
     private volatile long rulesLoadedAtMillis;
+
+    /** 最近一次 Redis 失败 WARN 的毫秒时间戳。 */
+    private final AtomicLong lastFailureWarnAt = new AtomicLong();
 
     public RedisBlocklistStore(StringRedisTemplate redisTemplate, BlocklistRuleCodec codec) {
         this(redisTemplate, codec, new BlocklistProperties());
@@ -115,7 +122,7 @@ public class RedisBlocklistStore implements BlocklistStore {
             rulesLoadedAtMillis = System.currentTimeMillis();
             return cachedRules;
         } catch (RuntimeException ex) {
-            log.warn("[ypbin-starter] 读取访问黑名单规则失败，沿用最近一次快照（{} 条）",
+            warnFailure("[ypbin-starter] 读取访问黑名单规则失败，沿用最近一次快照（{} 条）",
                 cachedRules.size(), ex);
             return cachedRules;
         }
@@ -152,7 +159,7 @@ public class RedisBlocklistStore implements BlocklistStore {
         try {
             return Boolean.TRUE.equals(redisTemplate.hasKey(BlocklistKeys.ban(clientIp)));
         } catch (RuntimeException ex) {
-            log.warn("[ypbin-starter] 查询自动封禁状态失败，按未封禁处理：ip={}", clientIp, ex);
+            warnFailure("[ypbin-starter] 查询自动封禁状态失败，按未封禁处理：ip={}", clientIp, ex);
             return false;
         }
     }
@@ -189,7 +196,7 @@ public class RedisBlocklistStore implements BlocklistStore {
             }
             return count == null ? 0L : count;
         } catch (RuntimeException ex) {
-            log.warn("[ypbin-starter] 记录访问违规失败：ip={}", clientIp, ex);
+            warnFailure("[ypbin-starter] 记录访问违规失败：ip={}", clientIp, ex);
             return 0L;
         }
     }
@@ -232,6 +239,16 @@ public class RedisBlocklistStore implements BlocklistStore {
         }
         result.sort((left, right) -> right.expireAt().compareTo(left.expireAt()));
         return result;
+    }
+
+    private void warnFailure(String message, Object... args) {
+        long now = System.currentTimeMillis();
+        long last = lastFailureWarnAt.get();
+        if (now - last >= FAILURE_WARN_INTERVAL_MILLIS && lastFailureWarnAt.compareAndSet(last, now)) {
+            log.warn(message, args);
+        } else if (log.isDebugEnabled()) {
+            log.debug(message, args);
+        }
     }
 
     private static String encodeBan(String reason, Instant expireAt) {
