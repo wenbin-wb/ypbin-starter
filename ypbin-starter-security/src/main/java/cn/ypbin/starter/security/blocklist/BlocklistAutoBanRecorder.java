@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.security.blocklist;
 
+import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
 import cn.ypbin.starter.core.blocklist.BlocklistProperties;
 import cn.ypbin.starter.core.blocklist.BlocklistStore;
 import cn.ypbin.starter.core.blocklist.IpAddress;
@@ -45,19 +46,26 @@ public class BlocklistAutoBanRecorder {
 
     private final BlocklistStore store;
 
+    private final BlocklistMatcher matcher = new BlocklistMatcher();
+
     public BlocklistAutoBanRecorder(BlocklistProperties properties, BlocklistStore store) {
         this.properties = properties;
         this.store = store;
     }
 
     /**
-     * 记录一次登录失败；仅当黑名单与自动封禁均开启、且客户端 IP 合法时计数。
+     * 记录一次登录失败；仅当黑名单与自动封禁均开启、客户端 IP 合法且不在
+     * {@code exclude-ips} 中时计数。
+     *
+     * <p>排除判断与 {@code AccessBlocklistFilter} 同口径：被宿主显式排除的网关/内网地址
+     * 不会因登录失败旁路被写入封禁表，避免「过滤器放行、计数端仍封禁」的分叉。</p>
      *
      * @param clientIp 客户端 IP（可为空）
      */
     public void recordLoginFailure(@Nullable String clientIp) {
         if (!properties.isEnabled() || !properties.getAutoBan().isEnabled()
-            || clientIp == null || clientIp.isBlank() || !IpAddress.isValidIp(clientIp)) {
+            || clientIp == null || clientIp.isBlank() || !IpAddress.isValidIp(clientIp)
+            || matcher.isExcludedIp(clientIp, properties.getExcludeIps())) {
             return;
         }
         BlocklistProperties.AutoBan autoBan = properties.getAutoBan();

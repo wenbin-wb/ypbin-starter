@@ -1,3 +1,4 @@
 cn.ypbin.starter.core.autoconfigure.CoreAutoConfiguration
 cn.ypbin.starter.core.autoconfigure.ResilienceAutoConfiguration
 cn.ypbin.starter.core.blocklist.BlocklistAutoConfiguration
+cn.ypbin.starter.core.blocklist.ClientIpResolverAutoConfiguration

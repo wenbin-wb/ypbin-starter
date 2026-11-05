@@ -31,15 +31,16 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 class BlocklistAutoConfigurationTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(BlocklistAutoConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(BlocklistAutoConfiguration.class,
+            ClientIpResolverAutoConfiguration.class));
 
     @Test
-    @DisplayName("默认关闭时不装配匹配器/编码器/IP 解析器")
+    @DisplayName("默认关闭时不装配匹配器/编码器，但 IP 解析器仍可用")
     void disabledByDefault() {
         runner.run(context -> {
             assertThat(context).doesNotHaveBean(BlocklistMatcher.class);
             assertThat(context).doesNotHaveBean(BlocklistRuleCodec.class);
-            assertThat(context).doesNotHaveBean(ClientIpResolver.class);
+            assertThat(context).hasSingleBean(ClientIpResolver.class);
         });
     }
 
