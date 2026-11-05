@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-04T23:47:04.534Z",
+  "generatedAt": "2026-11-05T01:59:43.521Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 404,
+    "customPropertyCount": 405,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 444,
+    "totalEntryCount": 445,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -3458,7 +3458,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2271
+              "line": 2273
             }
           ],
           "default": null,
@@ -3468,7 +3468,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2271
+              "line": 2273
             }
           ]
         }
@@ -4550,7 +4550,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2178
+              "line": 2180
             }
           ],
           "default": null,
@@ -4560,7 +4560,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2178
+              "line": 2180
             }
           ]
         },
@@ -4580,7 +4580,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2178
+              "line": 2180
             }
           ],
           "default": null,
@@ -4590,7 +4590,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2178
+              "line": 2180
             }
           ]
         },
@@ -4892,7 +4892,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2367
+              "line": 2369
             }
           ],
           "default": null,
@@ -4902,7 +4902,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2367
+              "line": 2369
             }
           ]
         },
@@ -4924,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2367
+              "line": 2369
             }
           ],
           "default": null,
@@ -4936,7 +4936,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2367
+              "line": 2369
             }
           ]
         },
@@ -4956,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2367
+              "line": 2369
             }
           ],
           "default": null,
@@ -4966,7 +4966,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2367
+              "line": 2369
             }
           ]
         }
@@ -5056,7 +5056,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2421
+              "line": 2423
             }
           ],
           "default": null,
@@ -5066,7 +5066,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2421
+              "line": 2423
             }
           ]
         },
@@ -5086,7 +5086,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2421
+              "line": 2423
             }
           ],
           "default": null,
@@ -5096,7 +5096,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2421
+              "line": 2423
             }
           ]
         }
@@ -6484,7 +6484,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1973
+              "line": 1975
             }
           ],
           "default": "messages",
@@ -6494,7 +6494,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1973
+              "line": 1975
             }
           ]
         }
@@ -8880,7 +8880,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1671
+              "line": 1673
             }
           ],
           "default": null,
@@ -8890,7 +8890,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1671
+              "line": 1673
             }
           ]
         }
@@ -11485,6 +11485,38 @@
       "configurationProperties": [
         {
           "module": "ypbin-starter-storage",
+          "key": "ypbin.storage.auto-local-enabled",
+          "type": "java.lang.Boolean",
+          "defaultDefined": true,
+          "defaultValue": true,
+          "required": false,
+          "requiredWhen": null,
+          "description": "未配置任何本地/OSS 源时是否自动启用一个本地源；默认开启",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
+              "line": 47
+            }
+          ],
+          "default": true,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
+              "line": 47
+            }
+          ],
+          "group": "ypbin.storage",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-storage",
           "key": "ypbin.storage.default-platform",
           "type": "java.lang.String",
           "defaultDefined": false,
@@ -11499,7 +11531,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 43
+              "line": 44
             }
           ],
           "default": null,
@@ -11509,7 +11541,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 43
+              "line": 44
             }
           ],
           "group": "ypbin.storage",
@@ -11531,7 +11563,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 40
+              "line": 41
             }
           ],
           "default": true,
@@ -11541,7 +11573,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 40
+              "line": 41
             }
           ],
           "group": "ypbin.storage",
@@ -11563,7 +11595,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 49
+              "line": 53
             }
           ],
           "default": null,
@@ -11573,7 +11605,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 49
+              "line": 53
             }
           ],
           "group": "ypbin.storage",
@@ -11595,7 +11627,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 46
+              "line": 50
             }
           ],
           "default": null,
@@ -11605,7 +11637,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 46
+              "line": 50
             }
           ],
           "group": "ypbin.storage",
@@ -11627,7 +11659,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 52
+              "line": 56
             }
           ],
           "default": null,
@@ -11637,7 +11669,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 52
+              "line": 56
             }
           ],
           "group": "ypbin.storage",
@@ -11659,7 +11691,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 104
+              "line": 116
             }
           ],
           "default": null,
@@ -11669,7 +11701,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 104
+              "line": 116
             }
           ],
           "group": "ypbin.storage",
@@ -11691,7 +11723,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 107
+              "line": 119
             }
           ],
           "default": "true",
@@ -11701,7 +11733,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 107
+              "line": 119
             }
           ],
           "group": "ypbin.storage",
@@ -11725,7 +11757,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 110
+              "line": 122
             }
           ],
           "default": null,
@@ -11737,7 +11769,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 110
+              "line": 122
             }
           ],
           "group": "ypbin.storage",
@@ -11759,7 +11791,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 113
+              "line": 125
             }
           ],
           "default": "\"\"",
@@ -11769,7 +11801,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 113
+              "line": 125
             }
           ],
           "group": "ypbin.storage",
@@ -11791,7 +11823,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 160
+              "line": 172
             }
           ],
           "default": null,
@@ -11801,7 +11833,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 160
+              "line": 172
             }
           ],
           "group": "ypbin.storage",
@@ -11823,7 +11855,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 163
+              "line": 175
             }
           ],
           "default": "true",
@@ -11833,7 +11865,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 163
+              "line": 175
             }
           ],
           "group": "ypbin.storage",
@@ -11855,7 +11887,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 166
+              "line": 178
             }
           ],
           "default": null,
@@ -11865,7 +11897,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 166
+              "line": 178
             }
           ],
           "group": "ypbin.storage",
@@ -11887,7 +11919,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 169
+              "line": 181
             }
           ],
           "default": "\"us-east-1\"",
@@ -11897,7 +11929,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 169
+              "line": 181
             }
           ],
           "group": "ypbin.storage",
@@ -11922,7 +11954,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 172
+              "line": 184
             }
           ],
           "default": null,
@@ -11935,7 +11967,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 172
+              "line": 184
             }
           ],
           "group": "ypbin.storage",
@@ -11960,7 +11992,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 175
+              "line": 187
             }
           ],
           "default": null,
@@ -11973,7 +12005,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 175
+              "line": 187
             }
           ],
           "group": "ypbin.storage",
@@ -11995,7 +12027,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 178
+              "line": 190
             }
           ],
           "default": null,
@@ -12005,7 +12037,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 178
+              "line": 190
             }
           ],
           "group": "ypbin.storage",
@@ -12027,7 +12059,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 181
+              "line": 193
             }
           ],
           "default": "true",
@@ -12037,7 +12069,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 181
+              "line": 193
             }
           ],
           "group": "ypbin.storage",
@@ -12059,7 +12091,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 184
+              "line": 196
             }
           ],
           "default": "\"\"",
@@ -12069,7 +12101,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-storage/src/main/java/cn/ypbin/starter/storage/autoconfigure/StorageProperties.java",
-              "line": 184
+              "line": 196
             }
           ],
           "group": "ypbin.storage",

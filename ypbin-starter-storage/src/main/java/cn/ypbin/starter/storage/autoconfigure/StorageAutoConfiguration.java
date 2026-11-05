@@ -30,6 +30,7 @@ import cn.ypbin.starter.storage.service.FileRecorder;
 import cn.ypbin.starter.storage.strategy.LocalStorageStrategy;
 import cn.ypbin.starter.storage.strategy.OssStorageStrategy;
 import cn.ypbin.starter.storage.strategy.StorageStrategy;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -71,9 +72,13 @@ public class StorageAutoConfiguration {
 
     /**
      * 本地存储策略贡献者：从 {@link StorageConfigProvider} 取配置，支持后台动态源。
+     *
+     * <p>零配置（本地与 OSS 均为空、且未指定默认平台）时自动启用一个临时目录下的本地源，
+     * 避免「引入模块即报未指定存储平台」；可用 {@code ypbin.storage.auto-local-enabled=false} 关闭。</p>
      */
     @Bean
-    public StorageStrategyRegistrar localStorageRegistrar(StorageConfigProvider configProvider) {
+    public StorageStrategyRegistrar localStorageRegistrar(StorageConfigProvider configProvider,
+                                                          StorageProperties properties) {
         return () -> {
             List<StorageStrategy> list = new ArrayList<>();
             for (LocalConfig config : configProvider.getLocalConfigs()) {
@@ -82,8 +87,21 @@ public class StorageAutoConfiguration {
                     log.debug("[ypbin-starter] local storage registered, platform={}.", config.getPlatform());
                 }
             }
+            if (list.isEmpty() && configProvider.getOssConfigs().isEmpty()
+                && properties.isAutoLocalEnabled() && isBlank(properties.getDefaultPlatform())) {
+                LocalConfig fallback = new LocalConfig();
+                fallback.setPlatform("default");
+                fallback.setBasePath(Paths.get(System.getProperty("java.io.tmpdir"), "ypbin-storage").toString());
+                list.add(new LocalStorageStrategy(fallback));
+                log.info("[ypbin-starter] 未配置任何存储源，自动启用本地源：platform=default, base-path={}；"
+                    + "如需关闭请设置 ypbin.storage.auto-local-enabled=false。", fallback.getBasePath());
+            }
             return list;
         };
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     /**

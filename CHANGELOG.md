@@ -50,6 +50,10 @@
 
 ### 修复
 
+- **`ypbin-starter-storage`：零配置时未兑现「自动启用一个本地源」的 javadoc 承诺**，首次引入模块不做任何配置，
+  第一次上传就抛「未指定存储平台且未配置默认平台」。现零配置时自动注册 platform 为 `default` 的本地源，
+  根目录取 `${java.io.tmpdir}/ypbin-storage`（不写工作目录），并打印 INFO；新增
+  `ypbin.storage.auto-local-enabled`（默认 true）可关闭，关闭后回到显式失败语义。`docs/MODULES.md` 已同步。
 - **访问黑名单 Redis 故障日志降频**：`isBanned`/`rules`/`recordViolation` 失败时同一原因 5 秒内只打一条
   WARN，其余降为 DEBUG，避免 Redis 抖动时每请求一条带栈日志打爆磁盘；fail-open 语义不变。
 - **网关黑名单拒绝响应兜底**：序列化失败不再手拼可配置文案（可能产出非法 JSON），改为固定合法 `R` 信封
@@ -108,6 +112,8 @@
 
 ### 清理
 
+- `ScheduledLockRenewalScheduler` 的内部实现类改名 `ScheduledRegistration`，消除 CodeQL
+  `java/class-name-matches-super-class` 提示；公开方法返回值仍是 `LockRenewalScheduler.Registration`。
 - 移除 `RequestContextHolder` 外不可达的 `try/catch`（无请求上下文时它返回 `null`，不抛异常），
   以及 `SensitiveType` 私有方法中重复的空值判断。
 - 分布式锁释放与幂等占位释放共用同一份 `compare_and_delete.lua`（原为两份等价实现）。

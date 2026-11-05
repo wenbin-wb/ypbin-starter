@@ -874,6 +874,8 @@ FileInfo info = fileStorageService.upload(inputStream, "a.png")
 
 扩展点：`StorageStrategy`（新增存储后端）、`FileProcessor`（上传前校验/改名/生成路径责任链）、`FileRecorder`（记录文件元数据）。S3 上传对未知大小的流会落临时文件规避 OOM，直链自动 URL 编码。
 
+**零配置行为**：未配置任何 `local`/`oss` 源且未指定 `default-platform` 时，模块自动注册一个 platform 为 `default` 的本地源，根目录为 `${java.io.tmpdir}/ypbin-storage`，并打印 INFO 说明。该兜底可用 `ypbin.storage.auto-local-enabled=false` 关闭（关闭后零配置调用 `StorageRouter.route(null)` 会按原语义抛「未指定存储平台」）。生产环境建议显式配置持久化目录，临时目录在容器重启后可能丢失。
+
 **后台动态配置**：存储源默认读 `ypbin.storage.*`，也可由业务方实现 `StorageConfigProvider` 从数据库读取，后台改完调 `StorageStrategyRebuilder.rebuild()` 即时生效（`StorageRouter` 原子刷新，新增/修改/删除的源立即路由，无需重启）：
 
 ```java
