@@ -15,14 +15,18 @@
  */
 package cn.ypbin.starter.web.util;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.core.model.R;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -30,6 +34,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -83,6 +89,20 @@ class WebRequestUtilsTest {
             .andExpect(jsonPath("$.data.param").value("abc"))
             .andExpect(jsonPath("$.data.paramWithDefault").value("dft"))
             .andExpect(jsonPath("$.data.ip").value("10.0.0.1"));
+    }
+
+    @Test
+    void shouldResolveClientIpWithTrustedProxyRules() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("10.0.0.2");
+        request.addHeader("X-Forwarded-For", "1.2.3.4, 10.0.0.2");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        try {
+            ClientIpResolver resolver = new ClientIpResolver(List.of("10.0.0.0/8"));
+            assertThat(WebRequestUtils.clientIp(resolver)).isEqualTo("1.2.3.4");
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
     }
 
     @Test
