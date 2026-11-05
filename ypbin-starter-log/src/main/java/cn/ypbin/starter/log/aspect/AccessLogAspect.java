@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.log.aspect;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.log.autoconfigure.AccessLogProperties;
 import cn.ypbin.starter.log.support.LogPayloadSupport;
@@ -62,12 +63,22 @@ public class AccessLogAspect {
     /** 响应体日志最大字符数，超出截断（避免大响应体撑爆日志文件） */
     private static final int MAX_RESULT_LENGTH = 2000;
 
+    /** 兼容旧构造：不信任任何转发头，仅记录直连地址。 */
+    private static final ClientIpResolver DEFAULT_CLIENT_IP_RESOLVER = new ClientIpResolver(List.of());
+
     private final ObjectMapper objectMapper;
     private final AccessLogProperties properties;
+    private final ClientIpResolver clientIpResolver;
 
     public AccessLogAspect(ObjectMapper objectMapper, AccessLogProperties properties) {
+        this(objectMapper, properties, DEFAULT_CLIENT_IP_RESOLVER);
+    }
+
+    public AccessLogAspect(ObjectMapper objectMapper, AccessLogProperties properties,
+        ClientIpResolver clientIpResolver) {
         this.objectMapper = objectMapper;
         this.properties = properties;
+        this.clientIpResolver = clientIpResolver;
     }
 
     /**
@@ -212,15 +223,13 @@ public class AccessLogAspect {
     }
 
     /**
-     * 解析客户端 IP：优先代理头（取首个），否则取 {@code remoteAddr}。
-     *
-     * <p>实现统一在 {@link LogPayloadSupport#resolveIp}，避免操作日志与访问日志对同一请求给出不同 IP。</p>
+     * 解析客户端 IP，与黑名单过滤器共用 {@link ClientIpResolver} 的可信代理规则。
      *
      * @param request 当前请求
      * @return IP 地址
      */
-    static String resolveIp(HttpServletRequest request) {
-        return LogPayloadSupport.resolveIp(request);
+    String resolveIp(HttpServletRequest request) {
+        return LogPayloadSupport.resolveIp(request, clientIpResolver);
     }
 
     /**
