@@ -33,7 +33,6 @@
             <groupId>org.jspecify</groupId>
             <artifactId>jspecify</artifactId>
         </dependency>
-
         <!-- 日志门面（版本由 Spring Boot BOM 管理），作为基础库向下游传递 -->
         <dependency>
             <groupId>org.slf4j</groupId>

@@ -23,7 +23,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * 存储模块配置项。
  *
  * <p>支持多存储源共存：{@link #local} 与 {@link #oss} 均为列表，每项以 platform 为唯一键，
- * 运行时按 key 路由；{@link #defaultPlatform} 指定默认源。默认零配置时自动启用一个本地源。</p>
+ * 运行时按 key 路由；{@link #defaultPlatform} 指定默认源。默认零配置时自动启用一个本地源，
+ * 根目录为 {@code ${java.io.tmpdir}/ypbin-storage}，可用 {@link #autoLocalEnabled} 关闭。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -41,6 +42,9 @@ public class StorageProperties {
 
     /** 默认存储平台标识 */
     private String defaultPlatform;
+
+    /** 未配置任何本地/OSS 源时是否自动启用一个本地源；默认开启 */
+    private boolean autoLocalEnabled = true;
 
     /** 单次上传默认最大字节数，默认 100MB；-1 表示不限制 */
     private long maxFileSize = 100L * 1024 * 1024;
@@ -65,6 +69,14 @@ public class StorageProperties {
 
     public void setDefaultPlatform(String defaultPlatform) {
         this.defaultPlatform = defaultPlatform;
+    }
+
+    public boolean isAutoLocalEnabled() {
+        return autoLocalEnabled;
+    }
+
+    public void setAutoLocalEnabled(boolean autoLocalEnabled) {
+        this.autoLocalEnabled = autoLocalEnabled;
     }
 
     public long getMaxFileSize() {

@@ -37,9 +37,22 @@
 
 ## 2. HTTP 状态码约定
 
-- 业务响应一律返回 **HTTP 200**，由 `code` 区分结果，前端不需要同时处理 HTTP 状态码和业务码两套逻辑。
+- **业务响应**（进入 MVC/业务分发之后）一律返回 **HTTP 200**，由 `code` 区分结果，前端不需要同时处理 HTTP 状态码和业务码两套逻辑。
 - 网关异常、下游异常也会被转成 HTTP 200 + `R` 结构（微服务侧由 `cloud-gateway` 统一处理）。
 - 真正的传输层错误（网络中断、502/504 等）才由 HTTP 层暴露，前端按网络异常处理。
+
+### 2.1 入口拒绝例外表
+
+以下拒绝发生在**业务分发之前**（过滤器/网关全局过滤器），属于入口级拒绝；保留真实 4xx 状态码供反向代理、监控与只认状态码的对端使用，响应体仍使用统一 `R` 结构（`success=false`，`code` 与状态码同义）：
+
+| 组件 | HTTP | 响应体 | 说明 |
+|---|---|---|---|
+| 访问黑名单 `AccessBlocklistFilter` / `AccessBlocklistGlobalFilter` | 403 | `R.code=403` | 命中静态/动态规则或自动封禁 |
+| 网关限流 `AttributeRateLimitGlobalFilter` | 429 | `R.code=429` | QPS/日配额超限 |
+| 网关内部路径阻断 `InternalPathBlockGlobalFilter` | 404 | `R.code=404` | 默认 404，避免暴露内部端点存在性 |
+| 内部令牌守卫 `InternalTokenGuard` 的 `raw401-path-patterns` | 401 | `{"code":"UNAUTHORIZED",...}` | 仅面向只认状态码的对端（如 EMQX）；非 `R` 结构，属显式例外 |
+
+前端接入约定：业务请求仍优先判 `R.success` / `R.code`；上述入口拒绝需额外接受非 2xx 响应，并读取响应体 `code`/`message`。新增入口级组件必须在此表登记，不得只改代码不改契约。
 
 ## 3. 错误码规范（HTTP 语义分段）
 

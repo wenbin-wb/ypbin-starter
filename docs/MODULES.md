@@ -692,6 +692,45 @@ UserContext.setLoginUser(loginUser);
 OnlineUserHelper.record(ip, browser, os);   // 可选：记录终端信息供在线列表展示
 ```
 
+#### 访问黑名单（`ypbin.security.blocklist`）
+
+按 IP/CIDR、User-Agent 关键字、路径前缀拦截恶意扫描、爬虫与暴力破解；**默认关闭**，宿主显式
+`ypbin.security.blocklist.enabled=true` 才装配。命中返回 HTTP 403 + `R.code=403`（入口拒绝例外，
+见 `CONTRACT.md` §2.1），并可在窗口内累计违规自动封禁 IP。
+
+| 配置键 | 默认值 | 说明 |
+|---|---|---|
+| `enabled` | `false` | 总开关；关闭时仍提供内存 `BlocklistStore` 供业务注入，但不注册过滤器 |
+| `order` | `Integer.MIN_VALUE+50` | Servlet 过滤器顺序（早于 XSS） |
+| `exclude-paths` | `/actuator/health`、`/actuator/health/**`、`/error` | 永不拦截的路径 |
+| `exclude-ips` | 空 | 放行 IP/CIDR；**回环不再默认放行**，同机反代请显式配置并同时配可信代理 |
+| `trusted-proxies` | 空 | 可信代理 IP/CIDR；只有直连地址命中时才采信 `X-Forwarded-For` / `X-Real-IP`，从右往左取第一个不可信地址 |
+| `rules` | 空 | 静态规则（管理端也可下发，二者合并） |
+| `rules-cache-seconds` | `5` | Servlet 与网关共用的规则本地缓存 |
+| `response-message` | `访问已被限制` | 命中文案 |
+| `auto-ban.enabled` | `true` | 自动封禁开关（总开关开启时生效） |
+| `auto-ban.threshold` / `window-seconds` / `ban-seconds` | `20` / `60` / `600` | 窗口内次数阈值、封禁时长 |
+| `auto-ban.max-violation-entries` | `10000` | 内存存储违规计数上限，超过先清理过期项 |
+| `auto-ban.status-codes` | `[429]` | 过滤器按传输层状态码计数的集合；**默认只认真 429** |
+| `auto-ban.path-prefixes` | 登录类路径 | 非 429 状态码只在匹配路径上计数 |
+
+**登录失败计数**：本仓业务响应恒 HTTP 200，登录失败是 `200 + R.code=401`，过滤器看不到。`PasswordAttemptLimiter`
+已在 `recordFailure` 时调用 `BlocklistAutoBanRecorder#recordLoginFailure(ip)`；宿主自定义登录流程时直接注入
+`BlocklistAutoBanRecorder` 调用即可，不要改过滤器去解析响应体。只有真 429（或宿主显式配置的真 401/403）才由
+`AccessBlocklistFilter` / `AccessBlocklistGlobalFilter` 自动计数。
+注意：`recordFailure` 的 `scope` 需传客户端 IP；不传时只做账号锁定，不进入 IP 自动封禁。
+
+**部署判据**：同机 nginx、LB、K8s Ingress 必须配置 `trusted-proxies`，否则 `getRemoteAddr()` 是代理地址；
+`exclude-ips` 默认不再放行 `127.0.0.1`，避免「反代地址命中放行 ⇒ 黑名单静默全放行」。检测到转发头但未配置
+可信代理时会打印一次 WARN。
+
+**Redis / Cluster**：规则 Hash、规则临时键、自动封禁索引都带 `{rules}` hash tag；单个 IP 的违规计数键与封禁键
+都带 `{ip:<ip>}` hash tag，`RENAME` 与 Lua 多 key 脚本不会 CROSSSLOT。自动封禁索引用单个 Hash 保存
+「IP → 到期时间|原因」，列表读取不逐节点 `SCAN`。Redis 读取失败沿用最近快照，封禁查询失败按未封禁处理。
+
+**管理端接入**：数据库是规则事实源，保存后调用 `BlocklistStore#replaceRules` 全量下发；人工封禁/解封用
+`ban(ip, duration, reason)` / `unban(ip)`；自动封禁列表用 `autoBans()`。管理表、页面与权限归 admin。
+
 ### license — 商业授权
 
 面向「按授权交付」的商业软件：供应方离线签发授权，运行端离线验签放行。基于国密 SM2（签名验签）+ SM4（授权文件对称加密）+ SM3（机器指纹摘要），私钥只在供应方签发端持有，运行端仅需公钥，无需联网即可校验。
@@ -834,6 +873,8 @@ FileInfo info = fileStorageService.upload(inputStream, "a.png")
 ```
 
 扩展点：`StorageStrategy`（新增存储后端）、`FileProcessor`（上传前校验/改名/生成路径责任链）、`FileRecorder`（记录文件元数据）。S3 上传对未知大小的流会落临时文件规避 OOM，直链自动 URL 编码。
+
+**零配置行为**：未配置任何 `local`/`oss` 源且未指定 `default-platform` 时，模块自动注册一个 platform 为 `default` 的本地源，根目录为 `${java.io.tmpdir}/ypbin-storage`，并打印 INFO 说明。该兜底可用 `ypbin.storage.auto-local-enabled=false` 关闭（关闭后零配置调用 `StorageRouter.route(null)` 会按原语义抛「未指定存储平台」）。生产环境建议显式配置持久化目录，临时目录在容器重启后可能丢失。
 
 **后台动态配置**：存储源默认读 `ypbin.storage.*`，也可由业务方实现 `StorageConfigProvider` 从数据库读取，后台改完调 `StorageStrategyRebuilder.rebuild()` 即时生效（`StorageRouter` 原子刷新，新增/修改/删除的源立即路由，无需重启）：
 

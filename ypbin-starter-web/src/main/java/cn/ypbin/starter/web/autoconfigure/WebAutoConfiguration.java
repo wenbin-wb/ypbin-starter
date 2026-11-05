@@ -15,6 +15,11 @@
  */
 package cn.ypbin.starter.web.autoconfigure;
 
+import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
+import cn.ypbin.starter.core.blocklist.BlocklistProperties;
+import cn.ypbin.starter.core.blocklist.BlocklistStore;
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
+import cn.ypbin.starter.web.blocklist.AccessBlocklistFilter;
 import cn.ypbin.starter.web.enums.BaseEnumConverterFactory;
 import cn.ypbin.starter.web.handler.GlobalExceptionHandler;
 import cn.ypbin.starter.web.request.RepeatableReadRequestFilter;
@@ -54,7 +59,8 @@ import tools.jackson.databind.ObjectMapper;
 @EnableConfigurationProperties({
     CorsProperties.class,
     RepeatableReadProperties.class,
-    XssProperties.class
+    XssProperties.class,
+    BlocklistProperties.class
 })
 public class WebAutoConfiguration {
 
@@ -198,6 +204,33 @@ public class WebAutoConfiguration {
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 100);
         registration.setName("ypbinXssFilter");
         log.debug("[ypbin-starter] XSS filter enabled.");
+        return registration;
+    }
+
+    /**
+     * 访问黑名单过滤器，仅在 {@code ypbin.security.blocklist.enabled=true} 且存在存储实现时装配。
+     *
+     * <p>依赖的 {@link BlocklistStore} 由 starter-security 提供（Redis 或内存）；本模块不直接依赖
+     * security，因此用 {@link ConditionalOnBean} 绑定，未引入 security 的宿主不会装配本过滤器。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "accessBlocklistFilterRegistration")
+    @ConditionalOnBean(BlocklistStore.class)
+    @ConditionalOnProperty(prefix = BlocklistProperties.PREFIX, name = "enabled", havingValue = "true")
+    public FilterRegistrationBean<AccessBlocklistFilter> accessBlocklistFilterRegistration(
+        BlocklistProperties properties,
+        BlocklistMatcher matcher,
+        BlocklistStore store,
+        ClientIpResolver clientIpResolver,
+        ObjectProvider<ObjectMapper> objectMapperProvider) {
+        FilterRegistrationBean<AccessBlocklistFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new AccessBlocklistFilter(properties, matcher, store, clientIpResolver,
+            objectMapperProvider.getIfAvailable(ObjectMapper::new)));
+        registration.addUrlPatterns("/*");
+        registration.setDispatcherTypes(DispatcherType.REQUEST);
+        registration.setOrder(properties.getOrder());
+        registration.setName("ypbinAccessBlocklistFilter");
+        log.debug("[ypbin-starter] access blocklist filter enabled.");
         return registration;
     }
 }
