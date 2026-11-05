@@ -904,6 +904,7 @@ public R<Void> create(@RequestBody OrderReq req) { ... }
 - 请求体从 AOP 入参序列化（能拿到 `@RequestBody` 的 JSON），过滤文件流等不可序列化参数。
 - 浏览器/操作系统由 User-Agent 解析分别提取（如 `Chrome 120` / `Windows 10`），非原始 UA 整串。
 - 持久化：实现 `LogDao` 落库（默认仅打印到日志）；操作人来源实现 `LogUserProvider`。
+- **IP 采集口径**：操作日志与访问日志统一使用 `ClientIpResolver`，与访问黑名单同规则——只有直连地址命中 `ypbin.security.blocklist.trusted-proxies` 时才采信 `X-Forwarded-For` / `X-Real-IP`，并从右往左取第一个不可信地址；未配置可信代理时只记录直连地址，客户端自行追加的转发头不会进入日志。服务位于反向代理之后时，务必把代理出口地址配进 `trusted-proxies`，否则日志记录的是代理地址。
 - **微服务跨服务上报（推荐）**：下游服务没有数据源时，不必自己实现 `LogDao`、也不必写任何自动配置顺序——只需把自家的远程客户端适配成窄端口 `RemoteLogIngestClient`，starter 会自动用远端实现替换默认的「只打印」实现并保证先于默认实现求值：
 
   ```java

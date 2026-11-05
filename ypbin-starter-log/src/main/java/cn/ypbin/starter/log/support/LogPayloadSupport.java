@@ -15,11 +15,13 @@
  */
 package cn.ypbin.starter.log.support;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,29 +42,39 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
  */
 public final class LogPayloadSupport {
 
-    /** 常见反向代理会把真实客户端 IP 放在这些头里，按顺序取第一个有效值 */
-    private static final String[] CLIENT_IP_HEADERS = {
-        "X-Forwarded-For", "X-Real-IP", "Proxy-Client-IP", "WL-Proxy-Client-IP"
-    };
+    /** 兼容旧调用：不信任任何转发头，仅使用直连地址。 */
+    private static final ClientIpResolver DEFAULT_CLIENT_IP_RESOLVER = new ClientIpResolver(List.of());
 
     private LogPayloadSupport() {
     }
 
     /**
-     * 解析客户端 IP：依次尝试常见代理头（多级代理取第一个），取不到时回退 {@code remoteAddr}。
+     * 解析客户端 IP（兼容旧调用）。
+     *
+     * <p>默认不信任任何转发头，避免把客户端可伪造的 {@code X-Forwarded-For} 写入日志。需要采信可信代理
+     * 追加的地址时，使用 {@link #resolveIp(HttpServletRequest, ClientIpResolver)}，并配置
+     * {@code ypbin.security.blocklist.trusted-proxies}。</p>
      *
      * @param request 当前请求
      * @return 客户端 IP
+     * @deprecated 使用 {@link #resolveIp(HttpServletRequest, ClientIpResolver)} 以按可信代理规则解析
      */
+    @Deprecated(since = "4.4.0", forRemoval = false)
     public static String resolveIp(HttpServletRequest request) {
-        for (String header : CLIENT_IP_HEADERS) {
-            String value = request.getHeader(header);
-            if (value != null && !value.isBlank() && !"unknown".equalsIgnoreCase(value)) {
-                int comma = value.indexOf(',');
-                return (comma > 0) ? value.substring(0, comma).trim() : value.trim();
-            }
-        }
-        return request.getRemoteAddr();
+        return resolveIp(request, DEFAULT_CLIENT_IP_RESOLVER);
+    }
+
+    /**
+     * 解析客户端 IP，与黑名单过滤器共用同一套可信代理规则：只有直连地址命中可信代理时，才按
+     * {@code X-Forwarded-For} / {@code X-Real-IP} 从右往左取第一个不可信地址；否则取直连地址。
+     *
+     * @param request  当前请求
+     * @param resolver 客户端 IP 解析器
+     * @return 客户端 IP
+     */
+    public static String resolveIp(HttpServletRequest request, ClientIpResolver resolver) {
+        return resolver.resolve(request.getRemoteAddr(), request.getHeader(ClientIpResolver.HEADER_FORWARDED_FOR),
+            request.getHeader(ClientIpResolver.HEADER_REAL_IP));
     }
 
     /**

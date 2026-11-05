@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.log.autoconfigure;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.log.aspect.LogAspect;
 import cn.ypbin.starter.log.core.IpLocationResolver;
 import cn.ypbin.starter.log.core.LogClientProvider;
@@ -24,6 +25,7 @@ import cn.ypbin.starter.log.dao.LogDao;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.event.LogEventListener;
 import cn.ypbin.starter.log.support.LogCollector;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -95,13 +97,44 @@ public class LogAutoConfiguration {
         return ip -> null;
     }
 
-    @Bean
+    @Bean(name = "logCollector")
     @ConditionalOnMissingBean
+    public LogCollector logCollectorWithClientIpResolver(LogUserProvider userProvider,
+        LogClientProvider clientProvider, IpLocationResolver ipLocationResolver,
+        ObjectProvider<ObjectMapper> objectMapperProvider,
+        ObjectProvider<ClientIpResolver> clientIpResolverProvider) {
+        // 与黑名单过滤器共用可信代理规则；解析器缺失时退化为只认直连地址
+        ClientIpResolver clientIpResolver = clientIpResolverProvider.getIfAvailable(
+            () -> new ClientIpResolver(List.of()));
+        return createLogCollector(userProvider, clientProvider, ipLocationResolver, objectMapperProvider,
+            clientIpResolver);
+    }
+
+    /**
+     * 保留旧方法签名以维持二进制兼容；实际 Bean 由
+     * {@link #logCollectorWithClientIpResolver(LogUserProvider, LogClientProvider, IpLocationResolver,
+     * ObjectProvider, ObjectProvider)} 注册。
+     *
+     * @param userProvider         操作人提供者
+     * @param clientProvider       登录客户端提供者
+     * @param ipLocationResolver   IP 归属地解析器
+     * @param objectMapperProvider ObjectMapper 提供者
+     * @return 日志采集器
+     * @deprecated 由容器装配 {@link LogCollector}，不要直接调用本方法
+     */
+    @Deprecated(since = "4.4.0", forRemoval = false)
     public LogCollector logCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
         IpLocationResolver ipLocationResolver, ObjectProvider<ObjectMapper> objectMapperProvider) {
+        return createLogCollector(userProvider, clientProvider, ipLocationResolver, objectMapperProvider,
+            new ClientIpResolver(List.of()));
+    }
+
+    private LogCollector createLogCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
+        IpLocationResolver ipLocationResolver, ObjectProvider<ObjectMapper> objectMapperProvider,
+        ClientIpResolver clientIpResolver) {
         // 复用容器中的 ObjectMapper（继承 json 模块配置），无则退化为默认实例
         ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
-        return new LogCollector(userProvider, clientProvider, ipLocationResolver, objectMapper);
+        return new LogCollector(userProvider, clientProvider, ipLocationResolver, objectMapper, clientIpResolver);
     }
 
     @Bean

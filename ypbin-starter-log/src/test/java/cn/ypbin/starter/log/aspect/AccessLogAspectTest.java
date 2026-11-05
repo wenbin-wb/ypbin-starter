@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.log.autoconfigure.AccessLogProperties;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -204,12 +205,25 @@ class AccessLogAspectTest {
     }
 
     @Test
-    void resolveIp_shouldPreferForwardedHeader() {
+    void resolveIp_shouldUseForwardedHeaderFromTrustedProxy() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("10.0.0.1");
         request.addHeader("X-Forwarded-For", "203.0.113.5, 10.0.0.2");
+        AccessLogAspect aspect = new AccessLogAspect(new ObjectMapper(), new AccessLogProperties(),
+            new ClientIpResolver(List.of("10.0.0.0/8")));
 
-        assertThat(AccessLogAspect.resolveIp(request)).isEqualTo("203.0.113.5");
+        assertThat(aspect.resolveIp(request)).isEqualTo("203.0.113.5");
+    }
+
+    @Test
+    void resolveIp_shouldIgnoreSpoofedForwardedHeaderFromUntrustedPeer() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("203.0.113.10");
+        request.addHeader("X-Forwarded-For", "1.2.3.4");
+        AccessLogAspect aspect = new AccessLogAspect(new ObjectMapper(), new AccessLogProperties(),
+            new ClientIpResolver(List.of("10.0.0.0/8")));
+
+        assertThat(aspect.resolveIp(request)).isEqualTo("203.0.113.10");
     }
 
     @Test
@@ -217,7 +231,7 @@ class AccessLogAspectTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("10.0.0.1");
 
-        assertThat(AccessLogAspect.resolveIp(request)).isEqualTo("10.0.0.1");
+        assertThat(aspect().resolveIp(request)).isEqualTo("10.0.0.1");
     }
 
     @Test

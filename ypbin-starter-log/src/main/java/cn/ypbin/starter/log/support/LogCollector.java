@@ -17,6 +17,7 @@ package cn.ypbin.starter.log.support;
 
 import cn.hutool.http.useragent.UserAgent;
 import cn.hutool.http.useragent.UserAgentUtil;
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.core.util.UserAgentFormatter;
 import cn.ypbin.starter.log.core.IpLocationResolver;
 import cn.ypbin.starter.log.core.LogClientProvider;
@@ -51,25 +52,34 @@ public class LogCollector {
 
     private static final Logger log = LoggerFactory.getLogger(LogCollector.class);
 
+    private static final ClientIpResolver DEFAULT_CLIENT_IP_RESOLVER = new ClientIpResolver(List.of());
+
     private final LogUserProvider userProvider;
     private final LogClientProvider clientProvider;
     private final IpLocationResolver ipLocationResolver;
     private final ObjectMapper objectMapper;
+    private final ClientIpResolver clientIpResolver;
 
     public LogCollector(LogUserProvider userProvider, ObjectMapper objectMapper) {
-        this(userProvider, Optional::empty, ip -> null, objectMapper);
+        this(userProvider, Optional::empty, ip -> null, objectMapper, DEFAULT_CLIENT_IP_RESOLVER);
     }
 
     public LogCollector(LogUserProvider userProvider, LogClientProvider clientProvider, ObjectMapper objectMapper) {
-        this(userProvider, clientProvider, ip -> null, objectMapper);
+        this(userProvider, clientProvider, ip -> null, objectMapper, DEFAULT_CLIENT_IP_RESOLVER);
     }
 
     public LogCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
         IpLocationResolver ipLocationResolver, ObjectMapper objectMapper) {
+        this(userProvider, clientProvider, ipLocationResolver, objectMapper, DEFAULT_CLIENT_IP_RESOLVER);
+    }
+
+    public LogCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
+        IpLocationResolver ipLocationResolver, ObjectMapper objectMapper, ClientIpResolver clientIpResolver) {
         this.userProvider = userProvider;
         this.clientProvider = clientProvider;
         this.ipLocationResolver = ipLocationResolver;
         this.objectMapper = objectMapper;
+        this.clientIpResolver = clientIpResolver;
     }
 
     /**
@@ -101,7 +111,7 @@ public class LogCollector {
             record.setRequestMethod(request.getMethod());
             record.setRequestUri(request.getRequestURI());
             if (includes.contains(Include.IP)) {
-                String ip = LogPayloadSupport.resolveIp(request);
+                String ip = LogPayloadSupport.resolveIp(request, clientIpResolver);
                 record.setIp(ip);
                 // 归属地：接入 IpLocationResolver 时填充，未接入返回 null（字段留空）
                 try {
