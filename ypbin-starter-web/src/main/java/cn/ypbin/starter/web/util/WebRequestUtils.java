@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.web.util;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -140,8 +141,14 @@ public final class WebRequestUtils {
     /**
      * 获取客户端 IP，优先读取常见代理头。
      *
+     * <p><b>安全警告</b>：本方法无条件信任 {@code X-Forwarded-For} 首段，直连或入口追加转发头时
+     * 客户端可伪造来源。登录失败计数、限流 key、黑名单等安全场景请改用
+     * {@link #clientIp(ClientIpResolver)}，与 {@code AccessBlocklistFilter} 使用同一套可信代理解析。</p>
+     *
      * @return 客户端 IP
+     * @deprecated 使用 {@link #clientIp(ClientIpResolver)}，本方法仅保留给非安全场景
      */
+    @Deprecated(since = "4.4.0", forRemoval = false)
     public static String ip() {
         HttpServletRequest req = request();
         String ip = firstNonBlank(
@@ -155,6 +162,23 @@ public final class WebRequestUtils {
         }
         int comma = ip.indexOf(',');
         return comma < 0 ? ip.trim() : ip.substring(0, comma).trim();
+    }
+
+    /**
+     * 按 {@link ClientIpResolver} 的可信代理规则解析客户端 IP。
+     *
+     * <p>与 {@code AccessBlocklistFilter} 使用同一套规则：只有直连地址命中
+     * {@code ypbin.security.blocklist.trusted-proxies} 时才采信转发头，并从右往左取第一个
+     * 不可信地址。安全相关场景应优先使用本方法。</p>
+     *
+     * @param resolver 客户端 IP 解析器
+     * @return 客户端 IP
+     */
+    public static String clientIp(ClientIpResolver resolver) {
+        HttpServletRequest req = request();
+        return resolver.resolve(req.getRemoteAddr(),
+            req.getHeader(ClientIpResolver.HEADER_FORWARDED_FOR),
+            req.getHeader(ClientIpResolver.HEADER_REAL_IP));
     }
 
     /**

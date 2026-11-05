@@ -11,6 +11,13 @@
 
 > 下一开发版 `4.4.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
 
+### 新增
+
+- `WebRequestUtils.clientIp(ClientIpResolver)`：按可信代理规则解析客户端 IP，与
+  `AccessBlocklistFilter` 同口径。`WebRequestUtils.ip()` 无条件信任 `X-Forwarded-For` 首段，
+  已标记 `@Deprecated`，仅保留给非安全场景——安全计数/限流/黑名单应使用新方法，避免入口
+  追加转发头时客户端伪造来源导致计数嫁祸（issue #140）。
+
 ## [4.3.0] - 2026-11-05
 
 > 次版本升级（`4.2.1` → `4.3.0`），向后兼容：新增访问黑名单与自动封禁，补齐存储零配置本地源，
