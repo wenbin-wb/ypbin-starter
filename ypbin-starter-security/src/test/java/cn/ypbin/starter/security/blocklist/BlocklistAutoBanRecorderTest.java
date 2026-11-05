@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.core.blocklist.BlocklistProperties;
 import cn.ypbin.starter.core.blocklist.InMemoryBlocklistStore;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,20 @@ class BlocklistAutoBanRecorderTest {
         recorder.recordLoginFailure("1.2.3.4");
 
         assertThat(store.isBanned("1.2.3.4")).isTrue();
+    }
+
+    @Test
+    @DisplayName("exclude-ips 命中的地址不计数")
+    void ignoresExcludedIp() {
+        BlocklistProperties properties = new BlocklistProperties();
+        properties.setEnabled(true);
+        properties.setExcludeIps(List.of("10.0.0.0/8"));
+        properties.getAutoBan().setThreshold(1);
+        InMemoryBlocklistStore store = new InMemoryBlocklistStore();
+
+        new BlocklistAutoBanRecorder(properties, store).recordLoginFailure("10.0.0.5");
+
+        assertThat(store.isBanned("10.0.0.5")).isFalse();
     }
 
     @Test

@@ -53,8 +53,15 @@ public class BlocklistAutoConfiguration {
         return new BlocklistRuleCodec();
     }
 
-    @Bean
-    @ConditionalOnMissingBean
+    /**
+     * 保留旧方法签名以维持二进制兼容；实际 Bean 由 {@link ClientIpResolverAutoConfiguration}
+     * 在未启用黑名单时也注册，这里不再声明 {@code @Bean}。
+     *
+     * @param properties 黑名单配置
+     * @return 客户端 IP 解析器
+     * @deprecated 注入容器中的 {@link ClientIpResolver}，不要直接调用本方法
+     */
+    @Deprecated(since = "4.4.0", forRemoval = false)
     public ClientIpResolver clientIpResolver(BlocklistProperties properties) {
         return new ClientIpResolver(properties.getTrustedProxies());
     }

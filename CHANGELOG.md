@@ -13,10 +13,17 @@
 
 ### 新增
 
+- `ClientIpResolver` 自动配置与黑名单总开关解耦：未启用 `ypbin.security.blocklist` 的服务
+  也能注入该 Bean（用于登录失败计数、审计、限流 key 等安全场景），不再因开关关闭而启动失败。
 - `WebRequestUtils.clientIp(ClientIpResolver)`：按可信代理规则解析客户端 IP，与
   `AccessBlocklistFilter` 同口径。`WebRequestUtils.ip()` 无条件信任 `X-Forwarded-For` 首段，
   已标记 `@Deprecated`，仅保留给非安全场景——安全计数/限流/黑名单应使用新方法，避免入口
   追加转发头时客户端伪造来源导致计数嫁祸（issue #140）。
+
+### 修复
+
+- `BlocklistAutoBanRecorder` 计数前检查 `exclude-ips`：与 `AccessBlocklistFilter` 同口径，
+  被宿主排除的网关/内网地址不会因登录失败旁路写入封禁表（issue #142）。
 
 ## [4.3.0] - 2026-11-05
 

@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.ypbin.starter.core.blocklist.BlocklistAutoConfiguration;
 import cn.ypbin.starter.core.blocklist.BlocklistStore;
+import cn.ypbin.starter.core.blocklist.ClientIpResolverAutoConfiguration;
 import cn.ypbin.starter.core.blocklist.InMemoryBlocklistStore;
 import cn.ypbin.starter.web.autoconfigure.WebAutoConfiguration;
 import org.junit.jupiter.api.DisplayName;
@@ -37,7 +38,7 @@ class WebAutoConfigurationBlocklistTest {
 
     private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(BlocklistAutoConfiguration.class,
-            WebAutoConfiguration.class));
+            ClientIpResolverAutoConfiguration.class, WebAutoConfiguration.class));
 
     @Test
     @DisplayName("enabled=true 且存在 Store 时注册过滤器")
