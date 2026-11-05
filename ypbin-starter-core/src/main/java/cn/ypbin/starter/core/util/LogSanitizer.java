@@ -45,8 +45,14 @@ public final class LogSanitizer {
     /** 截断后缀 */
     private static final String TRUNCATED_SUFFIX = "...(truncated)";
 
-    /** 换行、制表与 C0/C1 控制字符：这些是日志注入的载体，统一替换 */
-    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\r\\n\\t\\u0000-\\u001f\\u007f]");
+    /**
+     * 换行、制表与 C0/C1 控制字符：这些是日志注入的载体，统一替换。
+     *
+     * <p>区间必须同时覆盖 C0（{@code \u0000-\u001f}）、DEL（{@code \u007f}）与 C1
+     * （{@code \u0080-\u009f}，含 NEL {@code \u0085}——它同样能在部分终端/日志系统里换行）。
+     * 只盖 C0 会让注释里"覆盖 C1"的说法变成假话，也留下注入面。</p>
+     */
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\r\\n\\t\\u0000-\\u001f\\u007f-\\u009f]");
 
     private LogSanitizer() {
     }

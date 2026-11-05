@@ -2023,6 +2023,12 @@ ypbin:
     algorithm: HMAC_SHA256    # 或 MD5（兼容旧系统）
     timeout: 60               # 签名有效期(秒)
     replay-protect: true      # nonce 防重放（有 Redis 用 Redis，否则内存）
+    # 来源 IP 白名单的取值口径（apps[].ip-whitelist）：
+    #   false（默认）            → 只用 TCP 对端地址 getRemoteAddr()，转发头一律忽略
+    #   true                     → 只信任一跳：取 X-Forwarded-For 的**最右**值（由最近的代理追加，客户端无法伪造）
+    #   true + trusted-proxies   → 按 ClientIpResolver「右起跳过可信代理、取第一个不可信跳」解析，支持多级代理
+    trust-forwarded-header: false
+    trusted-proxies: []       # 可信代理网段（IP/CIDR），与 ypbin.security.blocklist.trusted-proxies 同口径
     apps:
       - access-key: ak-001
         secret-key: your-secret-key

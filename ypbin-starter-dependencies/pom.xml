@@ -33,8 +33,10 @@
         <fesod.version>2.1.0-incubating</fesod.version>
         <!--
           Apache POI：ai 模块的 docx/xlsx 解析（DocumentLoader）与 excel 模块的 fesod-sheet 2.1.0-incubating
-          共同使用。fesod-sheet 传递引入的即 poi/poi-ooxml 5.5.1，故全仓统一钉到 5.5.1（与 fesod 期望版本一致，
-          避免 ai/excel 同场时 poi 与 poi-ooxml 版本分裂）。
+          共同使用，必须统一版本（poi-ooxml 对 poi 有同版本硬约束），避免 ai/excel 同场时分裂。
+          当前钉 6.0.0（dependabot 从 5.5.1 升上来的大版本）：fesod-sheet 2.1.0-incubating 自身是按 5.5.1
+          构建的，故「与 fesod 期望版本一致」的旧结论已不成立，兼容性只由 excel 模块的写入/读回往返用例
+          （ExcelUtilsTest）覆盖基础 xlsx 路径。fesod 升级或出现 xlsx 相关运行期异常时，先复核本项。
         -->
         <poi.version>6.0.0</poi.version>
         <!-- jsoup：ai 模块 html 正文抽取（DocumentLoader）使用 -->
@@ -139,7 +141,7 @@
               Apache POI 版本统一：poi 与 poi-ooxml 必须同版本（poi-ooxml 对 poi 有同版本硬约束）。
               ai 模块的 docx/xlsx 解析与 excel 模块的 fesod-sheet 都会引入 POI，此前 ai 侧硬编码 5.4.1、
               fesod 侧传递 5.5.1，宿主同时引入两模块时会出现 poi 5.5.1 + poi-ooxml 5.4.1 的隐性分裂。
-              这里统一到 5.5.1（fesod-sheet 2.1.0-incubating 的期望版本），互不降级。
+              这里统一到 ${poi.version}（当前 6.0.0，见 properties 处的说明），互不降级。
             -->
             <dependency>
                 <groupId>org.apache.poi</groupId>
@@ -161,7 +163,7 @@
 
             <!--
               commons-io 版本收敛：fesod-sheet 的传递依赖对它是分裂的
-              （commons-csv 1.14.1 / commons-compress 1.28.0 → 2.20.0，而 poi 5.5.1 / poi-ooxml 5.5.1 → 2.21.0），
+              （commons-csv 1.14.1 / commons-compress → 2.20.0，而 poi / poi-ooxml → 2.21.0），
               不收敛时最终取谁取决于声明顺序——对宿主就是一个隐式的版本赌博，且 POI 是按 2.21.0 构建的。
               统一钉到 2.21.0（较新者），并由 enforcer 的 dependencyConvergence 规则长期守住。
             -->

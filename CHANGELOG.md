@@ -19,11 +19,28 @@
   `AccessBlocklistFilter` 同口径。`WebRequestUtils.ip()` 无条件信任 `X-Forwarded-For` 首段，
   已标记 `@Deprecated`，仅保留给非安全场景——安全计数/限流/黑名单应使用新方法，避免入口
   追加转发头时客户端伪造来源导致计数嫁祸（issue #140）。
+- `ypbin.sign.trusted-proxies`：可信代理网段，配合 `trust-forwarded-header` 支持多级代理链的
+  来源 IP 解析（与 `ClientIpResolver` 同口径）。
 
 ### 修复
 
 - `BlocklistAutoBanRecorder` 计数前检查 `exclude-ips`：与 `AccessBlocklistFilter` 同口径，
   被宿主排除的网关/内网地址不会因登录失败旁路写入封禁表（issue #142）。
+- **多级缓存开启即启动失败**：`CacheAutoConfiguration#cacheService` 与
+  `MultiLevelCacheAutoConfiguration#cacheService` 同名冲突（`BeanDefinitionOverrideException`）。
+  单级实现改为「多级启用时让位」，容器中始终只有一个 `CacheService`（issue #145）。
+- **签名校验静默失效**：`signWebMvcConfigurer` 的裸 `@ConditionalOnMissingBean` 会被宿主任意
+  `WebMvcConfigurer` Bean 挤掉，导致签名拦截器从不生效；改为按 Bean 名让位（issue #148）。
+- **签名 IP 白名单可被伪造 XFF 绕过**：`trust-forwarded-header=true` 时改为「只信任一跳取最右值」，
+  配置 `trusted-proxies` 后走 `ClientIpResolver` 右起解析；不再取客户端可控的最左段（issue #148）。
+- **管理端点守卫装配崩溃**：`ypbin.security.enabled=false` + `management.guard-enabled=true` 时
+  `PermissionProvider` 缺失导致启动失败；改为弱依赖 + 空权限数据源（fail-closed）并 WARN（issue #150）。
+- **`@Sensitive` 用在非 String 字段打挂整个响应**：序列化器回退不再写死 `String.class`，
+  非字符串字段按 `String.valueOf` 掩码输出（issue #158）。
+- **`TreeUtils.buildAndFilter` 丢失祖先链**：改为先建树再自底向上裁剪，命中节点保留其祖先链
+  （issue #162）。
+- `LogSanitizer` 控制字符覆盖补齐 C1 区间（`\u0080-\u009f`，含 NEL），与注释声称一致。
+- `ypbin-starter-test` 的 `ContainerSupport`：修正 Nacos 端口常量上方的悬空 Javadoc。
 
 ## [4.3.0] - 2026-11-05
 

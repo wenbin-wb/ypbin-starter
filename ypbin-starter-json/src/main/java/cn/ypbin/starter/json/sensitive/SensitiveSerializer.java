@@ -24,7 +24,14 @@ import tools.jackson.databind.ValueSerializer;
  * 脱敏序列化器（Jackson 3）。
  *
  * <p>通过 {@link #createContextual} 读取字段上的 {@link Sensitive} 注解，按不同字段的脱敏类型
- * 分别处理；无注解时退化为原样输出。</p>
+ * 分别处理；无注解时退化为**该字段原始类型**的默认序列化器。</p>
+ *
+ * <p><strong>为什么泛型是 {@code Object} 而不是 {@code String}</strong>：{@code @Sensitive} 常被用在
+ * {@code Long phone} / {@code Integer idCard} 这类非字符串字段上。原实现把回退写死成
+ * {@code findValueSerializer(String.class)}，非目标字段拿到 String 序列化器后序列化 Long 会直接抛
+ * {@code DatabindException: Long cannot be cast to String}，**一条字段打挂整个响应**。
+ * 现在按 {@code property.getType()} 回退；命中注解时按 {@code String.valueOf(value)} 掩码输出
+ * （掩码结果本身必然是字符串，例如 {@code 138****8000}）。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -32,7 +39,7 @@ import tools.jackson.databind.ValueSerializer;
 // 由 Jackson 通过反射实例化并直接赋值属性字段（createContextual 中 new + 赋值），
 // 构造器结束时字段尚为空属框架装配语义，故按类抑制 NullAway.Init
 @SuppressWarnings("NullAway.Init")
-public class SensitiveSerializer extends ValueSerializer<String> {
+public class SensitiveSerializer extends ValueSerializer<Object> {
 
     private SensitiveType type;
     private int prefixKeep;
@@ -47,23 +54,24 @@ public class SensitiveSerializer extends ValueSerializer<String> {
         if (annotation == null) {
             annotation = property.getContextAnnotation(Sensitive.class);
         }
-        if (annotation != null && String.class.equals(property.getType().getRawClass())) {
+        if (annotation != null) {
             SensitiveSerializer serializer = new SensitiveSerializer();
             serializer.type = annotation.value();
             serializer.prefixKeep = annotation.prefixKeep();
             serializer.suffixKeep = annotation.suffixKeep();
             return serializer;
         }
-        // 非目标字段：回退到默认 String 序列化
-        return ctxt.findValueSerializer(String.class);
+        // 非目标字段：按字段**原始类型**回退（切勿写死 String.class，否则非 String 字段强转崩溃）
+        return ctxt.findValueSerializer(property.getType());
     }
 
     @Override
-    public void serialize(String value, JsonGenerator gen, SerializationContext ctxt) {
-        if (type == null) {
-            gen.writeString(value);
+    public void serialize(Object value, JsonGenerator gen, SerializationContext ctxt) {
+        if (value == null) {
+            gen.writeNull();
             return;
         }
-        gen.writeString(type.apply(value, prefixKeep, suffixKeep));
+        String text = String.valueOf(value);
+        gen.writeString(type == null ? text : type.apply(text, prefixKeep, suffixKeep));
     }
 }

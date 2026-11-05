@@ -72,8 +72,24 @@ public class SignProperties {
      * 是否信任 {@code X-Forwarded-For} 头作为来源地址（IP 白名单用）。
      *
      * <p><b>默认 false</b>：该头可被客户端伪造，仅在请求确实经过可信代理时才可开启。</p>
+     *
+     * <p><b>开启后的取值口径</b>：未配置 {@link #trustedProxies} 时视为「只经过一层代理」，取
+     * {@code X-Forwarded-For} 的<b>最右</b>一跳（由最近的代理追加，客户端无法伪造）；
+     * 配置了 {@code trusted-proxies} 后改由 {@code ClientIpResolver} 按「右起跳过可信代理、取第一个
+     * 不可信跳」解析，支持多级代理链路。切勿依赖最左一跳——追加式代理
+     * （nginx 默认 {@code proxy_add_x_forwarded_for}）下最左值完全由客户端控制，
+     * 会让 IP 白名单形同虚设。</p>
      */
     private boolean trustForwardedHeader = false;
+
+    /**
+     * 可信代理网段（IP 或 CIDR），与 {@code ypbin.security.blocklist.trusted-proxies} 同一口径。
+     *
+     * <p>仅在 {@link #trustForwardedHeader} 为 {@code true} 时生效：配置后按
+     * {@code ClientIpResolver} 的「右起跳过可信代理」算法解析客户端地址，支持
+     * 「客户端 → nginx → 网关 → 应用」这类多级代理；留空则只信任一跳（取 XFF 最右值）。</p>
+     */
+    private List<String> trustedProxies = new ArrayList<>();
 
     /** 应用列表 */
     private List<AppInfo> apps = new ArrayList<>();
@@ -138,6 +154,14 @@ public class SignProperties {
 
     public void setTrustForwardedHeader(boolean trustForwardedHeader) {
         this.trustForwardedHeader = trustForwardedHeader;
+    }
+
+    public List<String> getTrustedProxies() {
+        return trustedProxies;
+    }
+
+    public void setTrustedProxies(List<String> trustedProxies) {
+        this.trustedProxies = trustedProxies;
     }
 
     public List<AppInfo> getApps() {

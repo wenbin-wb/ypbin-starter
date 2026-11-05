@@ -17,6 +17,7 @@ package cn.ypbin.starter.cache.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.ypbin.starter.cache.core.CacheService;
 import cn.ypbin.starter.cache.multilevel.CacheMetricsRecorder;
 import cn.ypbin.starter.cache.multilevel.MicrometerCacheMetrics;
 import cn.ypbin.starter.cache.multilevel.MultiLevelCacheProperties;
@@ -171,6 +172,32 @@ class MultiLevelCacheAutoConfigurationTest {
                 .as("★ 指标配置缺席时，cacheService 必须靠自身的 NOOP 兜底装配成功")
                 .isNotNull();
         });
+    }
+
+    @Test
+    @DisplayName("★ 两个自动配置共存：多级启用时 CacheAutoConfiguration 的 cacheService 必须让位，不得同名冲突")
+    void bothAutoConfigurationsEnabled_startsWithSingleCacheService() {
+        // 真实形态：宿主同时拿到 CacheAutoConfiguration 与 MultiLevelCacheAutoConfiguration（前者在本仓
+        // imports 里无条件登记）。两者若都注册名为 cacheService 的 Bean，Boot 默认禁止定义覆盖，
+        // 启动即抛 BeanDefinitionOverrideException——这正是 4.4.0 之前多级缓存"一开就崩"的根因。
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                CacheAutoConfiguration.class, MultiLevelCacheAutoConfiguration.class))
+            .withPropertyValues(
+                "ypbin.cache.multi-level.enabled=true",
+                "ypbin.cache.multi-level.invalidation-broadcast=false")
+            .withBean("redisTemplate", RedisTemplate.class, () -> Mockito.mock(RedisTemplate.class))
+            .withBean(StringRedisTemplate.class, () -> Mockito.mock(StringRedisTemplate.class))
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context).hasSingleBean(CacheService.class);
+                assertThat(context.getBean(CacheService.class))
+                    .as("★ 多级启用时生效实现必须是 MultiLevelCacheService，而不是单级 Redis 实现")
+                    .isInstanceOf(MultiLevelCacheService.class);
+                assertThat(context.getBean("cacheService"))
+                    .as("★ Bean 名保持 cacheService，宿主按名注入不破")
+                    .isInstanceOf(MultiLevelCacheService.class);
+            });
     }
 
     /**

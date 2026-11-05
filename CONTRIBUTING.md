@@ -16,7 +16,7 @@
 
 ## 3. 开发规范
 
-开发前必读仓库根目录 `AGENTS.md` 与 `docs/MODULES.md`，核心红线：
+开发前必读 [`.claude/skills/ypbin-starter-dev/SKILL.md`](.claude/skills/ypbin-starter-dev/SKILL.md)（铁律与踩坑）与 [`docs/MODULES.md`](docs/MODULES.md)，核心红线：
 
 - 类级 Javadoc 带 `@author wenbin` + `@since`，禁 `@date`；顶部 Apache License 头
 - 业务实体与 DTO 一律 `@Getter @Setter`，禁 `@Data`（配置绑定类除外）
@@ -29,13 +29,16 @@
 ## 4. 提交规范
 
 - 提交信息遵循 Conventional Commits：`type(scope): 描述`，如 `feat(ai): 新增多模型切换`、`fix(cache): 修复 TTL 失效`
-- 提交前运行 `mvn spotless:apply` 保证格式通过
+- 提交前格式化（**根目录无法解析 `spotless` 前缀，必须在模块目录执行或带全坐标**）：
+  `cd <改动模块> && mvn spotless:apply`，或在根目录
+  `mvn -pl <改动模块> com.diffplug.spotless:spotless-maven-plugin:apply`
+  （最终以 `mvn test` 里绑定的 `spotless:check` 为准）
 - 不要添加 `Co-Authored-By` 尾注
 
 ## 5. 发起 Pull Request
 
 1. 从 `master` 拉取最新代码，新建功能分支（如 `feat/xxx`、`fix/xxx`）
-2. 按 [PR 模板](.github/pull_request_template.md) 填写描述
+2. 按 [PR 模板](.github/PULL_REQUEST_TEMPLATE.md) 填写描述
 3. 确保 CI 通过（构建 + 测试 + 覆盖率门禁 + CodeQL）
 4. 新功能必须有对应单元测试；改动公开 API 需同步更新 CHANGELOG 与文档
 

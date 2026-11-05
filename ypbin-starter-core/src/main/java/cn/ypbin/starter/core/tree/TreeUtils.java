@@ -141,20 +141,40 @@ public final class TreeUtils {
     }
 
     /**
-     * 过滤树（保留匹配节点及其祖先链）。先构建再按条件裁剪。
+     * 过滤树：**保留命中节点及其祖先链**。先构建全量树，再自底向上裁剪。
+     *
+     * <p>必须先建树再裁剪：若先按条件过滤扁平列表再建树，父节点被过滤掉的命中节点会**变成根节点**，
+     * 祖先链丢失（例如按"名称含 X"过滤时，命中节点会脱离原来的层级挂在顶层）。
+     * 裁剪规则：节点自身命中，或其子树中有命中节点，则保留；两者都不满足的节点被剪掉。</p>
      *
      * @param nodes     扁平节点列表
      * @param predicate 保留条件
      * @param <T>       节点类型
      * @param <ID>      标识类型
-     * @return 过滤后的根节点列表
+     * @return 过滤后的根节点列表（每个保留节点的 children 已按同一规则裁剪）
      */
     public static <T extends TreeNode<T, ID>, ID> List<T> buildAndFilter(@Nullable List<T> nodes, Predicate<T> predicate) {
+        Objects.requireNonNull(predicate, "predicate");
         if (nodes == null || nodes.isEmpty()) {
             return new ArrayList<>();
         }
-        List<T> matched = nodes.stream().filter(predicate).collect(Collectors.toList());
-        return build(matched);
+        return prune(build(nodes), predicate);
+    }
+
+    /**
+     * 自底向上裁剪：命中节点自身或其子孙命中即保留（祖先链随之保留）。
+     */
+    private static <T extends TreeNode<T, ID>, ID> List<T> prune(List<T> candidates, Predicate<T> predicate) {
+        List<T> kept = new ArrayList<>();
+        for (T node : candidates) {
+            List<T> children = node.getChildren();
+            List<T> keptChildren = (children == null || children.isEmpty()) ? List.of() : prune(children, predicate);
+            if (predicate.test(node) || !keptChildren.isEmpty()) {
+                node.setChildren(new ArrayList<>(keptChildren));
+                kept.add(node);
+            }
+        }
+        return kept;
     }
 
     /**
