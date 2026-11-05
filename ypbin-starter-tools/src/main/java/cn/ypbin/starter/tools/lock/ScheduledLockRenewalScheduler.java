@@ -56,14 +56,14 @@ public class ScheduledLockRenewalScheduler implements LockRenewalScheduler, Disp
     });
 
     /** 未注销的续期登记（注销时移除，避免句柄随调用次数无限堆积）。 */
-    private final Set<ScheduledRegistration> registrations = ConcurrentHashMap.newKeySet();
+    private final Set<Registration> registrations = ConcurrentHashMap.newKeySet();
 
     @Override
-    public LockRenewalScheduler.Registration schedule(Runnable renewalTask, Duration interval) {
+    public Registration schedule(Runnable renewalTask, Duration interval) {
         if (interval == null || interval.isZero() || interval.isNegative()) {
             throw new IllegalArgumentException("自动续期间隔必须为正数：interval=" + interval);
         }
-        ScheduledRegistration registration = new ScheduledRegistration();
+        Registration registration = new Registration();
         ScheduledFuture<?> future = executor.scheduleAtFixedRate(
             renewalTask, interval.toMillis(), interval.toMillis(), TimeUnit.MILLISECONDS);
         registration.future = future;
@@ -76,7 +76,7 @@ public class ScheduledLockRenewalScheduler implements LockRenewalScheduler, Disp
         // 先注销全部登记再关停线程：关闭窗口内不再发起新的续期。已入队的任务随 shutdownNow 取消；
         // 已进入执行体的一次续期不会被强行打断（cancel(false) 语义，且打断线程也无从回滚已发出的 PEXPIRE），
         // 它最多做一次 owner 校验后的无害延长——这是可接受的最坏结果，不宣称「关闭后绝不 PEXPIRE」。
-        registrations.forEach(ScheduledRegistration::cancel);
+        registrations.forEach(Registration::cancel);
         registrations.clear();
         executor.shutdownNow();
     }
@@ -91,7 +91,7 @@ public class ScheduledLockRenewalScheduler implements LockRenewalScheduler, Disp
     }
 
     /** 一次续期登记：持有 future，注销时把自己从登记集合中移除。 */
-    private final class ScheduledRegistration implements LockRenewalScheduler.Registration {
+    private final class Registration implements LockRenewalScheduler.Registration {
 
         private final AtomicBoolean cancelled = new AtomicBoolean();
 

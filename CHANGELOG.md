@@ -112,8 +112,6 @@
 
 ### 清理
 
-- `ScheduledLockRenewalScheduler` 的内部实现类改名 `ScheduledRegistration`，消除 CodeQL
-  `java/class-name-matches-super-class` 提示；公开方法返回值仍是 `LockRenewalScheduler.Registration`。
 - 移除 `RequestContextHolder` 外不可达的 `try/catch`（无请求上下文时它返回 `null`，不抛异常），
   以及 `SensitiveType` 私有方法中重复的空值判断。
 - 分布式锁释放与幂等占位释放共用同一份 `compare_and_delete.lua`（原为两份等价实现）。

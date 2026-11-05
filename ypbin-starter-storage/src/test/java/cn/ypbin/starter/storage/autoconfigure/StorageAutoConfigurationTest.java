@@ -38,6 +38,10 @@ class StorageAutoConfigurationTest {
 
     private final DefaultStorageConfigProvider configProvider = new DefaultStorageConfigProvider(properties);
 
+    StorageAutoConfigurationTest() {
+        configuration.setStorageProperties(properties);
+    }
+
     @Test
     @DisplayName("零配置时自动启用 default 本地源")
     void autoLocalWhenZeroConfig() {
@@ -64,7 +68,7 @@ class StorageAutoConfigurationTest {
     }
 
     private List<String> platforms() {
-        return configuration.localStorageRegistrar(configProvider, properties).strategies().stream()
+        return configuration.localStorageRegistrar(configProvider).strategies().stream()
             .map(StorageStrategy::platform)
             .toList();
     }
