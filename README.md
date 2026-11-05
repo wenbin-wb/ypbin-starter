@@ -137,7 +137,7 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-bom</artifactId>
-            <version>4.2.1</version>
+            <version>4.3.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>

@@ -11,7 +11,7 @@
 - **里程碑**：M0~M10 全部完成；M5.1~M5.13 Cloud 补强完成；M6 工程化收尾完成
 - **微服务真机验证**：网关全链路、Nacos 注册发现/配置、Feign 跨服务、Sentinel 限流均已通过真运行时/公网服务器验证（4 个 IT/E2E 沉淀仓库，`-Pit` 可复现）
 - **技术基线**：JDK 21 · Spring Boot 4.1.1 · Spring Cloud 2025.1.3 · spring-cloud-alibaba 2025.1.0.0
-- **发布状态**：v1.0.0 起的全部版本已发布至 Maven Central，最新 **v4.2.1**（2026-10-20，修 BaseEnum 零命中诊断的启动期 OOM）；下一开发版 **4.3.0-SNAPSHOT**
+- **发布状态**：v1.0.0 起的全部版本已发布至 Maven Central，最新 **v4.3.0**（2026-11-05，访问黑名单与自动封禁、存储零配置本地源）；下一开发版 **4.4.0-SNAPSHOT**
 - **CI**：`-Pit` 集成测试（GitHub Actions + Testcontainers）已接入为独立作业
 - **后续可选**：示例工程
 
@@ -488,7 +488,7 @@ MQTT 用 Paho 直连而非 spring-integration（更轻）；负载均衡/灰度�
 - ✅ 范围已扩展到 M10 全部完成 + M5.1~M5.13 Cloud 全面补强 + M6 工程化收尾（spotless 前移根治）
 - ✅ 微服务层 L3：Cloud 企业级治理（Gateway 横切 + 启动增强 + 灰度负载均衡 + Feign 容错 + API 文档增强/聚合 + Nacos 动态路由 + 可观测性 + Sentinel 流量防护）已完成；其中 Gateway/Nacos/Feign/Sentinel 已真机验证
 - ✅ 构建验证：IntelliJ 内置 JBR + Maven3；全量 29 模块 `clean test` 绿；`-Pit` 集成测试连公网服务器/Testcontainers 真机验证
-- ⏳ 后续可选：示例工程（`-Pit` 集成测试作业已接入 CI，见 §0；版本已发布至 v4.2.1）
+- ⏳ 后续可选：示例工程（`-Pit` 集成测试作业已接入 CI，见 §0；版本已发布至 v4.3.0）
 - ⏭️ 下个大版本（5.0）候选：`CacheService#getOrLoad(key, Class<T>, loader, ttl)` 的 `Class` 参数只用于强转、
   不参与反序列化（真正还原靠 Value 序列化器），现由无 Class 重载 + `castType()` 兜底。5.0 计划以无 Class
   版本为主 API、去掉该参数与私有辅助。**4.x 内保持不变**（改签名破坏二进制兼容，已确认留到大版本）。
