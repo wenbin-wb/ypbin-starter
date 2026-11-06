@@ -54,6 +54,39 @@
   （issue #162）。
 - `LogSanitizer` 控制字符覆盖补齐 C1 区间（`\u0080-\u009f`，含 NEL），与注释声称一致。
 - `ypbin-starter-test` 的 `ContainerSupport`：修正 Nacos 端口常量上方的悬空 Javadoc。
+- **操作日志默认不脱敏**：`LogMaskModule` 除 `@LogMask` 外，按字段名/请求参数名/请求头名识别
+  口令、令牌、密钥类字段并掩码，业务漏标注解也不会把密码写进日志（issue #152）。
+- **自动封禁会封掉反向代理与内网地址**：新增 `ypbin.security.blocklist.auto-ban.allow-non-public-ip`
+  （默认 `false`），非公网地址不计数；Redis 自动封禁索引按到期时间排序并定期清理，
+  内存与 Redis 实现的 `window/ban<=0` 统一按 1 秒处理（issue #151）。
+- **网关限流计数非原子且 429 响应不是 `R` 信封**：`INCR` 与 `EXPIRE` 合并为单个 Lua 脚本并带 TTL
+  自愈；429 响应体改为标准 `R`；`window-seconds` 修正为按 epoch 对齐的固定窗口；Redis 故障与
+  超限拒绝的 WARN 按 5 秒降频（issue #157）。
+- **定时任务集群防重锁键取执行时刻导致多节点各跑一次**：cron 任务按 `CronExpression` 顺序推算
+  计划时刻、固定频率按 epoch/周期分桶，锁键时间片改为 epoch 秒；执行线程池由无界
+  `SimpleAsyncTaskExecutor` 改为有界线程池（虚拟线程工厂，可配 `ypbin.job.executor.*`），
+  拒绝时定时触发回调 `onSkip`、手动触发抛异常，且异常不再逃逸到调度线程（issue #153）。
+- **OAuth 回调不校验 state（login CSRF）**：`authorizeUrl` 登记 state、`login` 一次性消费校验；
+  新增可覆盖的 `SocialStateStore`（默认进程内、5 分钟、容量有界）（issue #154）。
+- **WebSocket 默认放开任意来源**：`ypbin.websocket.allowed-origin-patterns` 默认改为空（仅同源），
+  避免任意站点携带 Cookie 建立连接（CSWSH）（issue #154）。
+- **短信群发把变量 Map 的 toString 当正文发送**：默认模板群发改为逐号按模板渲染，新增
+  `sendBatch(templateId, phones, variables)` 走厂商批量接口（issue #154）。
+- **宿主机覆盖 `DictCache`/`RefTextManager` 后 `@DictText`/`@RefText` 静默失效**：绑定动作移到独立
+  初始化 Bean，取容器内实际生效的实例（issue #158）。
+- **静态键含 `#` 被误判为 SpEL**：`@RateLimit`/`@Idempotent`/`@DistributedLock` 只认 `#` 或 `T(`
+  前缀为 SpEL；`@Idempotent.interval<=0` 首次调用即抛异常（issue #158）。
+- **CORS 默认 `*` + 携带凭证**：默认改为仅同源、不带凭证；两者与 `*` 同时配置时启动即失败
+  （issue #159）。
+- **`/actuator/ypbin` 版本恒为硬编码 `1.4.0`**：改为读取打包填充的 `META-INF/ypbin-starter.properties`，
+  读不到返回 `unknown`（issue #159）。
+- **AES 接口加解密密钥不校验长度**：构造期校验 UTF-8 字节长度为 16/24/32，配错启动即失败
+  （issue #159）。
+- **XSS 清洗误伤合法值且 context-path 下排除规则失效**：事件属性正则加词边界（`config=true`、
+  `connection=keep-alive` 不再被改写）；排除规则统一按剥离 context-path 的路径匹配（issue #159）。
+- **S3 客户端无超时且策略替换后不释放**：`OssStorageStrategy` 配置 `apiCallTimeout` /
+  `apiCallAttemptTimeout`（默认 30s / 10s，可配），`StorageRouter` 关闭被替换的旧策略
+  （issue #155）。
 
 ## [4.3.0] - 2026-11-05
 

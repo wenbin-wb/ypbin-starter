@@ -128,7 +128,9 @@ String name = MetricNames.of("lock", "skipped");   // "ypbin.lock.skipped"
   （Spring Framework 对无处理器路径默认抛 `NoResourceFoundException`；本模块另注入
   `spring.web.resources.add-mappings=false` 作为防御性配置，**不依赖**
   `spring.mvc.throw-exception-if-no-handler-found`——该属性并未被本模块设置，切勿依赖它改变 404 行为。）
-- CORS：默认关闭，按需开启：
+- CORS：默认关闭；开启时默认**仅同源、不携带凭证**（`allowed-origin-patterns` 为空、`allow-credentials=false`），
+  跨域须显式列出来源。`allowed-origin-patterns: ["*"]` 与 `allow-credentials: true` 的组合被规范禁止，
+  同时配置会在启动期直接失败。按需开启：
 
 ```yaml
 ypbin:
