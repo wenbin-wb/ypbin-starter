@@ -77,11 +77,37 @@ public interface SmsService {
     boolean sendByConfig(String configId, String phone, String templateId, Map<String, String> variables);
 
     /**
-     * 群发短信。
+     * 群发短信（使用厂商默认模板，逐号渲染模板变量）。
+     *
+     * <p>注意：短信模板是「模板 ID + 变量」，群发同样必须按模板渲染。实现方须把 {@code variables}
+     * 交给厂商按模板渲染，<b>不得</b>把映射的 {@code toString()}（如 {@code {code=1234}}）当作正文
+     * 直接发出——那会把内部变量结构原样发给用户，且正文与模板不匹配通常直接被厂商拒绝。</p>
      *
      * @param phones    手机号列表
      * @param variables 模板变量键值对
-     * @return 是否发送成功
+     * @return 是否全部发送成功（列表为空视为失败，不会谎报成功）
      */
     boolean sendBatch(List<String> phones, Map<String, String> variables);
+
+    /**
+     * 按指定模板群发短信。
+     *
+     * <p>默认实现逐号调用 {@link #sendByTemplate}，保证模板变量被正确渲染；厂商提供批量接口的实现
+     * （如默认实现委托 sms4j 的 {@code massTexting}）可覆盖以获得单次批量调用。</p>
+     *
+     * @param templateId 模板 ID
+     * @param phones     手机号列表
+     * @param variables  模板变量键值对
+     * @return 是否全部发送成功（列表为空视为失败）
+     */
+    default boolean sendBatch(String templateId, List<String> phones, Map<String, String> variables) {
+        if (phones == null || phones.isEmpty()) {
+            return false;
+        }
+        boolean allOk = true;
+        for (String phone : phones) {
+            allOk &= sendByTemplate(phone, templateId, variables);
+        }
+        return allOk;
+    }
 }

@@ -71,13 +71,57 @@ class SocialServiceTest {
         AuthResponse<AuthUser> success = AuthResponse.<AuthUser>builder().code(2000).data(user).build();
         AuthResponse<AuthUser> failure = AuthResponse.<AuthUser>builder().code(5000).msg("拒绝授权").build();
         registry.register("github", request);
-        SocialService service = new SocialService(registry);
+        InMemorySocialStateStore stateStore = new InMemorySocialStateStore();
+        SocialService service = new SocialService(registry, stateStore);
         when(request.login(callback)).thenReturn(success, failure);
 
+        stateStore.save("state-1");
+        callback.setState("state-1");
         assertThat(service.login("github", callback)).isSameAs(user);
+
+        stateStore.save("state-2");
+        callback.setState("state-2");
         assertThatExceptionOfType(SocialException.class)
             .isThrownBy(() -> service.login("github", callback))
             .withMessage("第三方登录失败：拒绝授权");
+    }
+
+    @Test
+    void shouldRejectCallbackWithoutValidState() {
+        SocialRequestRegistry registry = new DefaultSocialRequestRegistry();
+        AuthRequest request = Mockito.mock(AuthRequest.class);
+        registry.register("github", request);
+        SocialService service = new SocialService(registry);
+
+        AuthCallback callback = new AuthCallback();
+        callback.setCode("code-1");
+
+        // 未发起授权（state 未登记）不得换取用户信息，否则允许 login CSRF 重放
+        assertThatExceptionOfType(SocialException.class)
+            .isThrownBy(() -> service.login("github", callback))
+            .withMessageContaining("state 无效");
+        Mockito.verify(request, Mockito.never()).login(callback);
+    }
+
+    @Test
+    void shouldConsumeStateOnce() {
+        SocialRequestRegistry registry = new DefaultSocialRequestRegistry();
+        AuthRequest request = Mockito.mock(AuthRequest.class);
+        AuthCallback callback = new AuthCallback();
+        AuthUser user = new AuthUser();
+        registry.register("github", request);
+        InMemorySocialStateStore stateStore = new InMemorySocialStateStore();
+        SocialService service = new SocialService(registry, stateStore);
+        when(request.login(callback)).thenReturn(AuthResponse.<AuthUser>builder().code(2000).data(user).build());
+
+        stateStore.save("state-1");
+        callback.setState("state-1");
+        assertThat(service.login("github", callback)).isSameAs(user);
+
+        // 同一个 state 不能重放
+        assertThatExceptionOfType(SocialException.class)
+            .isThrownBy(() -> service.login("github", callback))
+            .withMessageContaining("state 无效");
     }
 
     private static AuthRequestProvider provider(String source, AuthRequest request) {

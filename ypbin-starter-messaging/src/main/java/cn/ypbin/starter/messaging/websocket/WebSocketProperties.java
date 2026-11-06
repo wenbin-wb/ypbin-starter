@@ -40,8 +40,14 @@ public class WebSocketProperties {
     /** 广播消息目的地前缀 */
     private String brokerPrefix = "/topic";
 
-    /** 允许跨域的来源模式 */
-    private String allowedOriginPatterns = "*";
+    /**
+     * 允许跨域的来源模式（逗号分隔，支持 {@code https://*.example.com} 这类通配）。
+     *
+     * <p><b>默认为空 = 仅同源</b>：WebSocket 握手不受浏览器同源策略保护，若默认放开 {@code *}，
+     * 任意站点都能带着用户的 Cookie 建立连接并订阅广播目的地（CSWSH，跨站 WebSocket 劫持）。
+     * 前后端分域部署时按实际前端域名显式配置，不要图省事配 {@code *}。</p>
+     */
+    private String allowedOriginPatterns = "";
 
     /** 服务端心跳发送间隔（毫秒），0 表示不发送。用于保活与探测半开连接 */
     private long heartbeatServer = 10_000L;

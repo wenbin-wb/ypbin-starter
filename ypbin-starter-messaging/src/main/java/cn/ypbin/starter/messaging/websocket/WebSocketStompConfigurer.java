@@ -15,9 +15,11 @@
  */
 package cn.ypbin.starter.messaging.websocket;
 
+import java.util.Arrays;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.StompWebSocketEndpointRegistration;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
@@ -45,9 +47,32 @@ public class WebSocketStompConfigurer implements WebSocketMessageBrokerConfigure
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint(properties.getEndpoint())
-            .setAllowedOriginPatterns(properties.getAllowedOriginPatterns())
-            .withSockJS();
+        StompWebSocketEndpointRegistration registration = registry.addEndpoint(properties.getEndpoint());
+        String[] patterns = originPatterns();
+        if (patterns.length == 0) {
+            // 显式传空：仅同源（浏览器同源策略不保护 WebSocket 握手，默认不能放开任意来源）
+            registration.setAllowedOriginPatterns();
+        } else {
+            registration.setAllowedOriginPatterns(patterns);
+        }
+        // withSockJS() 返回 SockJsServiceRegistration，必须最后调用
+        registration.withSockJS();
+    }
+
+    /**
+     * 解析逗号分隔的来源模式，去空白、丢空项。
+     *
+     * @return 来源模式数组（空数组 = 仅同源）
+     */
+    String[] originPatterns() {
+        String configured = properties.getAllowedOriginPatterns();
+        if (configured == null || configured.isBlank()) {
+            return new String[0];
+        }
+        return Arrays.stream(configured.split(","))
+            .map(String::trim)
+            .filter(pattern -> !pattern.isEmpty())
+            .toArray(String[]::new);
     }
 
     @Override
