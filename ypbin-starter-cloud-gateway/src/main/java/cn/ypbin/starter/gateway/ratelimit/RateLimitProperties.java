@@ -24,8 +24,8 @@ import org.springframework.core.Ordered;
  * 属性驱动限流配置（看板反哺：ypbin-iot 开放 API 限流/配额的通用部分）。
  *
  * <p>工作模式：上游鉴权过滤器把"维度键 + 配额"放进 exchange attributes（见各 key 默认名），
- * 本过滤器只做固定窗口计数与 429 判定，不查库、不调业务。Redis 异常 fail-open（仅记日志），
- * 命中情况建议由调用方另配计数类指标观测（如 `*_rate_limited`）。</p>
+ * 本过滤器只做固定窗口计数与 429 判定，不查库、不调业务。Redis 异常 fail-open（仅记日志，
+ * 日志按 5 秒降频），命中情况建议由调用方另配计数类指标观测（如 `*_rate_limited`）。</p>
  *
  * <p>本模块不用 Lombok（与 {@code GatewayProperties} 同口径）：显式 accessor。</p>
  *
@@ -41,7 +41,7 @@ public class RateLimitProperties {
     /** 是否启用（默认关闭：新过滤器不得在业务方不知情时激活）。 */
     private boolean enabled;
 
-    /** 生效路径前缀（任一命中即限流；为空 = 全路径，危险，须显式配置）。 */
+    /** 生效路径前缀（任一命中即限流；为空 = 过滤器不生效，不碰 Redis）。 */
     private List<String> pathPrefixes = new ArrayList<>();
 
     /** 维度键的 attribute 名（如 API Key 场景放 accessKeyId）。 */
@@ -59,10 +59,15 @@ public class RateLimitProperties {
     /** 日配额计数 Redis key 前缀。 */
     private String quotaKeyPrefix = "ypbin:ratelimit:quota:";
 
-    /** 限流窗口秒数。 */
+    /**
+     * 限流窗口长度（秒），窗口按 epoch 整除对齐，最小 1。
+     *
+     * <p>语义是「每 {@code windowSeconds} 秒最多 {@link #defaultQps} 次」，默认 1 即 QPS。
+     * 窗口切换即更换 Redis 计数键，旧窗口的计数不会带入新窗口。</p>
+     */
     private int windowSeconds = 1;
 
-    /** 默认 QPS 配额。 */
+    /** 每个窗口内的请求上限（0 = 不限）。 */
     private int defaultQps = 10;
 
     /** 默认日配额（0 = 不限）。 */
