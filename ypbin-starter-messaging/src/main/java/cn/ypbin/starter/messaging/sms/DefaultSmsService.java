@@ -79,7 +79,28 @@ public class DefaultSmsService implements SmsService {
 
     @Override
     public boolean sendBatch(List<String> phones, Map<String, String> variables) {
-        SmsResponse response = requireBlend().massTexting(phones, toLinked(variables).toString());
+        if (phones == null || phones.isEmpty()) {
+            log.warn("[ypbin-starter] 短信群发手机号为空，未发送任何短信");
+            return false;
+        }
+        // 默认模板群发：逐号走 sendMessage(phone, variables)，由厂商按默认模板渲染变量。
+        // 不可用 massTexting(phones, variables.toString())——那会把 {code=1234} 当正文发给用户
+        SmsBlend blend = requireBlend();
+        boolean allOk = true;
+        for (String phone : phones) {
+            allOk &= isOk(blend.sendMessage(phone, toLinked(variables)));
+        }
+        return allOk;
+    }
+
+    @Override
+    public boolean sendBatch(String templateId, List<String> phones, Map<String, String> variables) {
+        if (phones == null || phones.isEmpty()) {
+            log.warn("[ypbin-starter] 短信群发手机号为空，未发送任何短信：templateId={}", templateId);
+            return false;
+        }
+        // 厂商批量接口：一次调用按模板渲染，避免逐号请求
+        SmsResponse response = requireBlend().massTexting(phones, templateId, toLinked(variables));
         return isOk(response);
     }
 

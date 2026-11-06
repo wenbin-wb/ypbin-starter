@@ -64,6 +64,25 @@ class BlocklistAutoBanRecorderTest {
     }
 
     @Test
+    @DisplayName("非公网地址默认不自动封禁，显式允许后才计数")
+    void ignoresNonPublicIpByDefault() {
+        BlocklistProperties properties = new BlocklistProperties();
+        properties.setEnabled(true);
+        properties.getAutoBan().setThreshold(1);
+        properties.getAutoBan().setWindowSeconds(60);
+        properties.getAutoBan().setBanSeconds(60);
+        InMemoryBlocklistStore store = new InMemoryBlocklistStore();
+        BlocklistAutoBanRecorder recorder = new BlocklistAutoBanRecorder(properties, store);
+
+        recorder.recordLoginFailure("10.0.0.5");
+        assertThat(store.isBanned("10.0.0.5")).isFalse();
+
+        properties.getAutoBan().setAllowNonPublicIp(true);
+        recorder.recordLoginFailure("10.0.0.5");
+        assertThat(store.isBanned("10.0.0.5")).isTrue();
+    }
+
+    @Test
     @DisplayName("未开启或 IP 非法时不计数")
     void ignoresDisabledAndInvalidIp() {
         BlocklistProperties properties = new BlocklistProperties();

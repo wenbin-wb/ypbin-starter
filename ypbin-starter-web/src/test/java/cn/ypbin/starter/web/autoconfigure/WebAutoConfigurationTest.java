@@ -59,6 +59,27 @@ class WebAutoConfigurationTest {
     }
 
     @Test
+    void corsDefaultsToSameOriginWithoutCredentials() {
+        // 默认不放开来源、不带凭证：仅启用开关时不会把任意站点变成可信来源
+        runner.withPropertyValues("ypbin.web.cors.enabled=true")
+            .run(context -> {
+                CorsProperties properties = context.getBean(CorsProperties.class);
+                assertThat(properties.getAllowedOriginPatterns()).isEmpty();
+                assertThat(properties.isAllowCredentials()).isFalse();
+            });
+    }
+
+    @Test
+    void corsWildcardWithCredentialsFailsFast() {
+        // 「任意来源 + 携带凭证」被 CORS 规范禁止，必须启动即失败而不是静默放行
+        runner.withPropertyValues(
+                "ypbin.web.cors.enabled=true",
+                "ypbin.web.cors.allowed-origin-patterns=*",
+                "ypbin.web.cors.allow-credentials=true")
+            .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
     void shouldBackOffWhenCustomExceptionHandlerProvided() {
         runner.withUserConfiguration(CustomHandlerConfig.class)
             .run(context -> {

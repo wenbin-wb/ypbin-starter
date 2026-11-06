@@ -20,6 +20,7 @@ import cn.ypbin.starter.core.blocklist.BlocklistProperties;
 import cn.ypbin.starter.core.blocklist.BlocklistStore;
 import cn.ypbin.starter.core.blocklist.IpAddress;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,8 @@ public class BlocklistAutoBanRecorder {
 
     private final BlocklistMatcher matcher = new BlocklistMatcher();
 
+    private final AtomicBoolean nonPublicWarned = new AtomicBoolean();
+
     public BlocklistAutoBanRecorder(BlocklistProperties properties, BlocklistStore store) {
         this.properties = properties;
         this.store = store;
@@ -69,6 +72,15 @@ public class BlocklistAutoBanRecorder {
             return;
         }
         BlocklistProperties.AutoBan autoBan = properties.getAutoBan();
+        if (!autoBan.isAllowNonPublicIp() && !IpAddress.isPublic(clientIp)) {
+            if (nonPublicWarned.compareAndSet(false, true)) {
+                log.warn("[ypbin-starter] 客户端地址 {} 不是公网单点地址，已跳过自动封禁；"
+                    + "若服务位于反向代理之后，请配置 ypbin.security.blocklist.trusted-proxies，"
+                    + "否则登录失败会计在代理地址上。纯内网部署可设置 "
+                    + "auto-ban.allow-non-public-ip=true 按内网地址封禁。", clientIp);
+            }
+            return;
+        }
         try {
             store.recordViolation(clientIp, Duration.ofSeconds(autoBan.getWindowSeconds()),
                 autoBan.getThreshold(), Duration.ofSeconds(autoBan.getBanSeconds()), LOGIN_FAILURE_REASON);

@@ -17,10 +17,14 @@ package cn.ypbin.starter.storage.engine;
 
 import cn.ypbin.starter.storage.exception.StorageException;
 import cn.ypbin.starter.storage.strategy.StorageStrategy;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 存储策略路由器。
@@ -33,6 +37,8 @@ import java.util.stream.Collectors;
  * @since 2026-07-30
  */
 public class StorageRouter {
+
+    private static final Logger log = LoggerFactory.getLogger(StorageRouter.class);
 
     private final Map<String, StorageStrategy> strategies = new ConcurrentHashMap<>();
 
@@ -51,7 +57,7 @@ public class StorageRouter {
      * @param strategy 存储策略
      */
     public void register(StorageStrategy strategy) {
-        strategies.put(strategy.platform(), strategy);
+        closeQuietly(strategies.put(strategy.platform(), strategy));
     }
 
     /**
@@ -65,8 +71,16 @@ public class StorageRouter {
         for (StorageStrategy strategy : newStrategies) {
             next.put(strategy.platform(), strategy);
         }
+        // 收集被替换/移除的旧策略：它们可能持有连接池与线程池（如 S3 客户端），必须释放
+        List<StorageStrategy> obsolete = new ArrayList<>();
+        for (Map.Entry<String, StorageStrategy> entry : strategies.entrySet()) {
+            if (next.get(entry.getKey()) != entry.getValue()) {
+                obsolete.add(entry.getValue());
+            }
+        }
         strategies.keySet().retainAll(next.keySet());
         strategies.putAll(next);
+        obsolete.forEach(StorageRouter::closeQuietly);
         if (defaultPlatform != null && !defaultPlatform.isBlank()) {
             this.defaultPlatform = defaultPlatform;
         } else if ((this.defaultPlatform == null || !strategies.containsKey(this.defaultPlatform))
@@ -81,7 +95,23 @@ public class StorageRouter {
      * @param platform 平台标识
      */
     public void unregister(String platform) {
-        strategies.remove(platform);
+        closeQuietly(strategies.remove(platform));
+    }
+
+    /**
+     * 释放策略资源：关闭失败只记日志，不影响配置刷新流程（旧实例本就应被丢弃）。
+     *
+     * @param strategy 被移除的策略，可空
+     */
+    private static void closeQuietly(@Nullable StorageStrategy strategy) {
+        if (strategy == null) {
+            return;
+        }
+        try {
+            strategy.close();
+        } catch (RuntimeException e) {
+            log.warn("[ypbin-starter] 存储策略释放失败：{}", strategy.platform(), e);
+        }
     }
 
     /**

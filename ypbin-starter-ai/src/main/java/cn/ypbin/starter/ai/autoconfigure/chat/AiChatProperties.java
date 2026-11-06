@@ -43,8 +43,16 @@ public class AiChatProperties {
     /** 流式响应超时（毫秒），0 表示不超时 */
     private long streamTimeoutMs = 0L;
 
-    /** 动态构建 OpenAI 兼容客户端时的传输层超时（连接 + 读写），默认 60s */
+    /**
+     * 动态构建 OpenAI 兼容客户端时的读写超时：约束「两次数据包之间」的最长等待，默认 60s。
+     *
+     * <p>不再是整次调用的硬截止——流式回答可能持续数分钟，整次时长由
+     * {@link #streamTimeoutMs} 约束。</p>
+     */
     private Duration clientTimeout = Duration.ofSeconds(60);
+
+    /** 动态构建 OpenAI 兼容客户端时的连接超时，默认 10s（建连卡住时快速失败） */
+    private Duration connectTimeout = Duration.ofSeconds(10);
 
     public boolean isEnabled() {
         return enabled;
@@ -84,5 +92,13 @@ public class AiChatProperties {
 
     public void setClientTimeout(Duration clientTimeout) {
         this.clientTimeout = clientTimeout;
+    }
+
+    public Duration getConnectTimeout() {
+        return connectTimeout;
+    }
+
+    public void setConnectTimeout(Duration connectTimeout) {
+        this.connectTimeout = connectTimeout;
     }
 }

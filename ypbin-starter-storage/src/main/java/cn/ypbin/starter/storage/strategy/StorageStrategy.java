@@ -104,4 +104,15 @@ public interface StorageStrategy {
     default MultipartUpload multipart() {
         return null;
     }
+
+    /**
+     * 释放底层资源（如 SDK 客户端的连接池与线程池）。
+     *
+     * <p>由 {@code StorageRouter} 在重建/注销存储源时调用：配置变更后旧策略会被替换，若不释放，
+     * 每个旧实例的线程与连接都会随重建次数累积（压测表现为 FD / 线程数持续上涨）。内存实现
+     * 无资源可释放时保持默认空实现。</p>
+     */
+    default void close() {
+        // 默认无资源
+    }
 }

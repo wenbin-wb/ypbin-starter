@@ -69,6 +69,19 @@ class InMemoryBlocklistStoreTest {
     }
 
     @Test
+    @DisplayName("窗口/封禁时长为 0 时按最小 1 秒处理，与 Redis 实现同口径")
+    void zeroDurationsUseMinimumOneSecond() {
+        MutableClock clock = new MutableClock(START);
+        InMemoryBlocklistStore store = new InMemoryBlocklistStore(clock);
+
+        assertThat(store.recordViolation("1.2.3.4", Duration.ZERO, 1, Duration.ZERO, "x")).isEqualTo(1);
+        assertThat(store.isBanned("1.2.3.4")).isTrue();
+
+        clock.advance(Duration.ofSeconds(2));
+        assertThat(store.isBanned("1.2.3.4")).isFalse();
+    }
+
+    @Test
     @DisplayName("窗口过期后计数从头开始")
     void windowResets() {
         MutableClock clock = new MutableClock(START);

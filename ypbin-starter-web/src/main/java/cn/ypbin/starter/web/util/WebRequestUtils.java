@@ -67,6 +67,25 @@ public final class WebRequestUtils {
     }
 
     /**
+     * 剥离 context-path 后的请求路径。
+     *
+     * <p>设置 {@code server.servlet.context-path} 后，{@link HttpServletRequest#getRequestURI()}
+     * 带前缀（如 {@code /api/order}），而排除规则/Ant 匹配通常按应用内路径（{@code /order}）书写，
+     * 不剥离会导致规则全部失配（XSS 排除、黑名单排除等静默失效）。</p>
+     *
+     * @param request 请求
+     * @return 应用内路径
+     */
+    public static String pathWithoutContext(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) {
+            return path.substring(contextPath.length());
+        }
+        return path;
+    }
+
+    /**
      * 当前请求方法。
      *
      * @return HTTP 方法

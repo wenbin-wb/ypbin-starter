@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import cn.ypbin.starter.datapermission.annotation.DataPermission;
 import cn.ypbin.starter.datapermission.aspect.DataPermissionAspect;
 import cn.ypbin.starter.datapermission.core.DataPermissionContext;
+import java.lang.reflect.Method;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.Test;
@@ -79,6 +80,29 @@ class DataPermissionAspectTest {
 
         assertThat(result).isEqualTo("ignored-result");
         verify(point).proceed();
+    }
+
+    /** 注解只挂在接口类上：JDK 代理下必须仍能解析（此前切面完全不织入）。 */
+    @DataPermission
+    interface GuardedApi {
+        String call();
+    }
+
+    static class GuardedImpl implements GuardedApi {
+        @Override
+        public String call() {
+            return "ok";
+        }
+    }
+
+    @Test
+    void resolvesAnnotationFromInterfaceClassUnderJdkProxy() throws Exception {
+        Method method = GuardedApi.class.getMethod("call");
+
+        DataPermission annotation = DataPermissionAspect.resolveAnnotation(method, GuardedImpl.class);
+
+        assertThat(annotation).isNotNull();
+        assertThat(annotation.ignore()).isFalse();
     }
 
     @Test

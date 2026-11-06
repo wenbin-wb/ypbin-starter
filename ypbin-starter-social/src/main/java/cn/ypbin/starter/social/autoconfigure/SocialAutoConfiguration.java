@@ -17,8 +17,10 @@ package cn.ypbin.starter.social.autoconfigure;
 
 import cn.ypbin.starter.social.core.AuthRequestProvider;
 import cn.ypbin.starter.social.core.DefaultSocialRequestRegistry;
+import cn.ypbin.starter.social.core.InMemorySocialStateStore;
 import cn.ypbin.starter.social.core.SocialRequestRegistry;
 import cn.ypbin.starter.social.core.SocialService;
+import cn.ypbin.starter.social.core.SocialStateStore;
 import java.util.List;
 import me.zhyd.oauth.request.AuthRequest;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -54,9 +56,37 @@ public class SocialAutoConfiguration {
         return new DefaultSocialRequestRegistry(providers);
     }
 
+    /**
+     * OAuth state 存储：默认进程内实现，多实例无会话粘滞时由宿主提供共享实现（如 Redis）覆盖。
+     */
     @Bean
     @ConditionalOnMissingBean
+    public SocialStateStore socialStateStore() {
+        return new InMemorySocialStateStore();
+    }
+
+    /**
+     * 旧签名：保留二进制兼容，实际装配由 {@link #socialService(SocialRequestRegistry, SocialStateStore)} 完成。
+     *
+     * @param registry 授权请求注册表
+     * @return 第三方登录服务（使用新建的进程内 state 存储，非容器 Bean）
+     * @deprecated 请使用带 {@link SocialStateStore} 的重载（本方法不再注册 Bean）
+     */
+    @Deprecated
     public SocialService socialService(SocialRequestRegistry registry) {
         return new SocialService(registry);
+    }
+
+    /**
+     * 第三方登录服务。
+     *
+     * @param registry   授权请求注册表
+     * @param stateStore state 存储（发起授权时登记，回调时一次性校验）
+     * @return 第三方登录服务
+     */
+    @Bean(name = "socialService")
+    @ConditionalOnMissingBean
+    public SocialService socialService(SocialRequestRegistry registry, SocialStateStore stateStore) {
+        return new SocialService(registry, stateStore);
     }
 }

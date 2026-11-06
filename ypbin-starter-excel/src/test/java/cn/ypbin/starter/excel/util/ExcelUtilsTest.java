@@ -16,7 +16,10 @@
 package cn.ypbin.starter.excel.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import cn.ypbin.starter.core.exception.BusinessException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
@@ -87,6 +90,39 @@ class ExcelUtilsTest {
         assertThat(out.size()).isPositive();
         List<Row> read = ExcelUtils.read(new ByteArrayInputStream(out.toByteArray()), Row.class);
         assertThat(read).isEmpty();
+    }
+
+    @Test
+    void read_exceedingMaxRows_throwsBusinessExceptionInsteadOfOom() {
+        List<Row> data = List.of(new Row("a", 1), new Row("b", 2), new Row("c", 3));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ExcelUtils.write(out, "超限", Row.class, data);
+
+        assertThatThrownBy(() -> ExcelUtils.readLimited(
+                new ByteArrayInputStream(out.toByteArray()), Row.class, 2))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("行数超过上限 2 行");
+    }
+
+    @Test
+    void readLimited_withinLimit_returnsAllRows() {
+        List<Row> data = List.of(new Row("a", 1), new Row("b", 2));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ExcelUtils.write(out, "限额", Row.class, data);
+
+        List<Row> read = ExcelUtils.readLimited(new ByteArrayInputStream(out.toByteArray()), Row.class, 2);
+
+        assertThat(read).hasSize(2);
+        assertThat(read.getFirst().getUsername()).isEqualTo("a");
+    }
+
+    @Test
+    void readLimited_rejectsNonPositiveLimit() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ExcelUtils.write(out, "非法限额", Row.class, List.of());
+
+        assertThatIllegalArgumentException().isThrownBy(() -> ExcelUtils.readLimited(
+            new ByteArrayInputStream(out.toByteArray()), Row.class, 0));
     }
 
     @Test

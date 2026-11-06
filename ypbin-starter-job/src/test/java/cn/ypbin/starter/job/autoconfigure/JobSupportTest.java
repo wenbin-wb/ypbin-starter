@@ -21,6 +21,7 @@ import cn.ypbin.starter.job.core.JobManager;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.support.StaticApplicationContext;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
  * 定时任务锁工厂与配置测试。
@@ -52,9 +53,31 @@ class JobSupportTest {
     @Test
     void autoConfigurationShouldBuildBeans() {
         JobAutoConfiguration config = new JobAutoConfiguration();
-        assertThat(config.jobExecutor()).isNotNull();
-        assertThat(config.jobTaskScheduler(new JobProperties())).isNotNull();
+        JobProperties properties = new JobProperties();
+        ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) config.jobExecutor(properties);
+        try {
+            assertThat(executor).isNotNull();
+        } finally {
+            executor.shutdown();
+        }
+        assertThat(config.jobTaskScheduler(properties)).isNotNull();
         assertThat(config.jobExecutionListener()).isNotNull();
+    }
+
+    @Test
+    void jobExecutorIsBounded() {
+        JobProperties properties = new JobProperties();
+        properties.getExecutor().setMaxConcurrency(3);
+        properties.getExecutor().setQueueCapacity(7);
+        ThreadPoolTaskExecutor executor =
+            (ThreadPoolTaskExecutor) new JobAutoConfiguration().jobExecutor(properties);
+        try {
+            assertThat(executor.getCorePoolSize()).isEqualTo(3);
+            assertThat(executor.getMaxPoolSize()).isEqualTo(3);
+            assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(7);
+        } finally {
+            executor.shutdown();
+        }
     }
 
     @Test
@@ -63,5 +86,7 @@ class JobSupportTest {
         assertThat(props.isEnabled()).isTrue();
         assertThat(props.getPoolSize()).isEqualTo(4);
         assertThat(props.getThreadNamePrefix()).isEqualTo("ypbin-job-");
+        assertThat(props.getExecutor().getMaxConcurrency()).isEqualTo(64);
+        assertThat(props.getExecutor().getQueueCapacity()).isEqualTo(256);
     }
 }

@@ -125,6 +125,99 @@ public final class IpAddress {
     }
 
     /**
+     * 判断是否为可路由的公网单点地址。
+     *
+     * <p>回环、RFC1918 私网、CGNAT、链路本地、组播、保留段、文档示例段与 IPv6 ULA 等均返回
+     * {@code false}。自动封禁用它避免在反向代理未配置 {@code trusted-proxies} 时封掉代理地址，
+     * 从而把整站打成 403。</p>
+     *
+     * @param raw 原始文本
+     * @return 公网单点返回 {@code true}；非法或非公网返回 {@code false}
+     */
+    public static boolean isPublic(@Nullable String raw) {
+        IpAddress address = parse(raw);
+        if (address == null) {
+            return false;
+        }
+        return address.bitLength == IPV4_BITS ? isPublicIpv4(address.bytes) : isPublicIpv6(address.bytes);
+    }
+
+    private static boolean isPublicIpv4(byte[] bytes) {
+        int first = bytes[0] & 0xFF;
+        int second = bytes[1] & 0xFF;
+        int third = bytes[2] & 0xFF;
+        if (first == 0 || first == 10 || first == 127) {
+            return false;
+        }
+        if (first == 100 && (second & 0xC0) == 64) {
+            return false;
+        }
+        if (first == 169 && second == 254) {
+            return false;
+        }
+        if (first == 172 && (second & 0xF0) == 16) {
+            return false;
+        }
+        if (first == 192 && second == 168) {
+            return false;
+        }
+        if (first == 192 && second == 0 && (third == 0 || third == 2)) {
+            return false;
+        }
+        if (first == 198 && (second == 18 || second == 19)) {
+            return false;
+        }
+        if (first == 198 && second == 51 && third == 100) {
+            return false;
+        }
+        if (first == 203 && second == 0 && third == 113) {
+            return false;
+        }
+        // 组播（224/4）、保留（240/4）与广播
+        return first < 224;
+    }
+
+    private static boolean isPublicIpv6(byte[] bytes) {
+        boolean allZero = true;
+        for (byte value : bytes) {
+            if (value != 0) {
+                allZero = false;
+                break;
+            }
+        }
+        if (allZero) {
+            return false;
+        }
+        // ::1
+        boolean loopback = true;
+        for (int i = 0; i < bytes.length - 1; i++) {
+            if (bytes[i] != 0) {
+                loopback = false;
+                break;
+            }
+        }
+        if (loopback && bytes[bytes.length - 1] == 1) {
+            return false;
+        }
+        int first = bytes[0] & 0xFF;
+        // fc00::/7（ULA）
+        if ((first & 0xFE) == 0xFC) {
+            return false;
+        }
+        // fe80::/10（链路本地）
+        if (first == 0xFE && (bytes[1] & 0xC0) == 0x80) {
+            return false;
+        }
+        // ff00::/8（组播）
+        if (first == 0xFF) {
+            return false;
+        }
+        // 2001:db8::/32（文档示例）
+        return !(first == 0x20 && (bytes[1] & 0xFF) == 0x01
+            && (bytes[2] & 0xFF) == 0x0D && (bytes[3] & 0xFF) == 0xB8);
+    }
+
+    /**
      * 规范化 IP 字面量（去掉 IPv6 方括号/zone、统一 IPv6 形式）。
      *
      * @param raw 原始文本

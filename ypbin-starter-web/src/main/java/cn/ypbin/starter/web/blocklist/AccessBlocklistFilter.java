@@ -22,6 +22,7 @@ import cn.ypbin.starter.core.blocklist.BlocklistRule;
 import cn.ypbin.starter.core.blocklist.BlocklistStore;
 import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.core.model.R;
+import cn.ypbin.starter.web.util.WebRequestUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -150,11 +151,6 @@ public class AccessBlocklistFilter extends OncePerRequestFilter {
     }
 
     private static String resolvePath(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        String contextPath = request.getContextPath();
-        if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) {
-            path = path.substring(contextPath.length());
-        }
-        return path;
+        return WebRequestUtils.pathWithoutContext(request);
     }
 }

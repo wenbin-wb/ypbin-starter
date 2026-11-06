@@ -15,6 +15,8 @@
  */
 package cn.ypbin.starter.datapermission.core;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 数据权限激活上下文。
  *
@@ -59,5 +61,28 @@ public final class DataPermissionContext {
      */
     public static boolean isActive() {
         return DEPTH.get() != null;
+    }
+
+    /**
+     * 抓取当前线程的作用域计数快照（供跨线程传播器使用）。
+     *
+     * @return 计数；未激活时为 {@code null}
+     */
+    @Nullable
+    public static Integer snapshot() {
+        return DEPTH.get();
+    }
+
+    /**
+     * 以快照还原当前线程的作用域计数（供跨线程传播器使用）。
+     *
+     * @param depth 快照；{@code null} 表示清空
+     */
+    public static void restore(@Nullable Integer depth) {
+        if (depth == null) {
+            DEPTH.remove();
+        } else {
+            DEPTH.set(depth);
+        }
     }
 }

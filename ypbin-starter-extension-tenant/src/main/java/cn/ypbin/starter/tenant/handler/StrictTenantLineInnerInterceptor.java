@@ -20,6 +20,7 @@ import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
 import java.util.List;
 import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.update.Update;
 import net.sf.jsqlparser.statement.update.UpdateSet;
 
@@ -33,6 +34,11 @@ import net.sf.jsqlparser.statement.update.UpdateSet;
  *
  * <p>INSERT 侧由 {@link DefaultTenantLineHandler#ignoreInsert(List, String)} 恒返回 {@code false}
  * 兜底：显式写租户列的 INSERT / INSERT..SELECT 会被插件追加重复列并由数据库拒绝。</p>
+ *
+ * <p><b>WHERE 子查询：</b>MyBatis-Plus 只在 SELECT 的 {@code PlainSelect} 里处理 WHERE 子查询，
+ * {@code UPDATE}/{@code DELETE} 的 WHERE 直接交给租户条件拼接——{@code ... WHERE id IN
+ * (SELECT id FROM other_table)} 里的子查询不会追加租户条件，等于让当前租户按其它租户的数据
+ * 决定改/删哪些行（越权读 + 跨租户命中）。本类在父类改写前先对 WHERE 做一次子查询处理。</p>
  *
  * @author wenbin
  * @since 2026-11-06
@@ -60,6 +66,15 @@ public class StrictTenantLineInnerInterceptor extends TenantLineInnerInterceptor
                 }
             }
         }
+        // 父类只处理 SELECT 的 WHERE 子查询与 UPDATE 的 SET 值子查询，WHERE 里的子查询需在此补处理
+        processWhereSubSelect(update.getWhere(), (String) obj);
         super.processUpdate(update, index, sql, obj);
+    }
+
+    @Override
+    protected void processDelete(Delete delete, int index, String sql, Object obj) {
+        // 同 processUpdate：DELETE 的 WHERE 子查询默认不会被追加租户条件
+        processWhereSubSelect(delete.getWhere(), (String) obj);
+        super.processDelete(delete, index, sql, obj);
     }
 }

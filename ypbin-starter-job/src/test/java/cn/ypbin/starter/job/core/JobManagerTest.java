@@ -25,12 +25,19 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -292,6 +299,114 @@ class JobManagerTest {
         verify(firstPrevious, never()).cancel(false);
         verify(secondPrevious, never()).cancel(false);
         verify(candidate).cancel(false);
+    }
+
+    private static final Instant REGISTERED_AT = Instant.parse("2026-11-06T10:00:00Z");
+
+    private JobManager managerAt(Instant now, TaskScheduler taskScheduler, Executor executor,
+            JobExecutionListener listener, JobManager.JobLock lock) {
+        return new JobManager("node-1", taskScheduler, executor, Map.of("demo", context -> {
+        }), listener, lock, CRON_SERVICE, Clock.fixed(now, ZoneOffset.UTC));
+    }
+
+    private JobManager manager(TaskScheduler taskScheduler, Executor executor, JobExecutionListener listener,
+            JobManager.JobLock lock) {
+        return managerAt(REGISTERED_AT, taskScheduler, executor, listener, lock);
+    }
+
+    @Test
+    void cronTriggerTimesFollowScheduleSequence() {
+        JobManager manager = manager(scheduler, Runnable::run, new JobExecutionListener() {
+        }, ALWAYS);
+        JobDefinition definition = new JobDefinition(20L, "cron", "demo", "0 * * * * *");
+
+        Supplier<Instant> times = manager.triggerTimes(definition);
+
+        // 注册时刻 10:00:00，下一次整分触发；序列逐次推进，与节点实际执行时刻无关
+        assertThat(times.get()).isEqualTo(Instant.parse("2026-11-06T10:01:00Z"));
+        assertThat(times.get()).isEqualTo(Instant.parse("2026-11-06T10:02:00Z"));
+    }
+
+    @Test
+    void fixedRateTriggerTimesAreBucketedByPeriod() {
+        JobManager manager = managerAt(Instant.parse("2026-11-06T10:00:07Z"), scheduler, Runnable::run,
+            new JobExecutionListener() {
+            }, ALWAYS);
+
+        Supplier<Instant> times = manager.triggerTimes(fixedRate(21L, "demo", 5));
+
+        // 10:00:07 归入 5 秒窗口 [10:00:05, 10:00:10)
+        assertThat(times.get()).isEqualTo(Instant.parse("2026-11-06T10:00:05Z"));
+    }
+
+    @Test
+    void cronLockKeyUsesScheduledTriggerTime() {
+        TaskScheduler taskScheduler = mock(TaskScheduler.class);
+        doReturn(mock(ScheduledFuture.class))
+            .when(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
+        List<String> keys = new CopyOnWriteArrayList<>();
+        JobManager.JobLock recordingLock = new JobManager.JobLock() {
+            @Override
+            public boolean tryLock(String key, String owner, Duration ttl) {
+                keys.add(key);
+                return true;
+            }
+
+            @Override
+            public boolean unlock(String key, String owner) {
+                return true;
+            }
+        };
+        JobManager manager = manager(taskScheduler, Runnable::run, new JobExecutionListener() {
+        }, recordingLock);
+        manager.register(new JobDefinition(22L, "cron", "demo", "0 * * * * *"));
+
+        ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+        verify(taskScheduler).schedule(taskCaptor.capture(), any(Trigger.class));
+        taskCaptor.getValue().run();
+
+        assertThat(keys).containsExactly(
+            "ypbin:job:22:" + Instant.parse("2026-11-06T10:01:00Z").getEpochSecond());
+    }
+
+    @Test
+    void rejectedScheduledTriggerSkipsWithoutThrowing() {
+        TaskScheduler taskScheduler = mock(TaskScheduler.class);
+        doReturn(mock(ScheduledFuture.class))
+            .when(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
+        Executor rejecting = task -> {
+            throw new RejectedExecutionException("full");
+        };
+        AtomicInteger skips = new AtomicInteger();
+        JobExecutionListener listener = new JobExecutionListener() {
+            @Override
+            public void onSkip(JobContext context) {
+                skips.incrementAndGet();
+            }
+        };
+        JobManager manager = manager(taskScheduler, rejecting, listener, ALWAYS);
+        manager.register(new JobDefinition(23L, "cron", "demo", "0 * * * * *"));
+
+        ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+        verify(taskScheduler).schedule(taskCaptor.capture(), any(Trigger.class));
+
+        // 异常绝不能逃逸到调度线程：Spring 的 ReschedulingRunnable 抛出后不再排期，任务会静默停摆
+        taskCaptor.getValue().run();
+
+        assertThat(skips.get()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectedManualTriggerFailsLoudly() {
+        Executor rejecting = task -> {
+            throw new RejectedExecutionException("full");
+        };
+        JobManager manager = manager(scheduler, rejecting, new JobExecutionListener() {
+        }, ALWAYS);
+
+        assertThatThrownBy(() -> manager.triggerNow(fixedRate(24L, "demo", 3600)))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("执行线程池已满");
     }
 
     private JobManager manager(TaskScheduler taskScheduler) {

@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.crud.controller;
 
+import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.model.R;
 import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.model.PageResult;
@@ -26,7 +27,12 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -79,6 +85,11 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
     private static final String ACTION_EDIT = "edit";
     private static final String ACTION_DELETE = "delete";
 
+    private static final Logger log = LoggerFactory.getLogger(CrudController.class);
+
+    /** Sa-Token 方法解析结果缓存（类名 → 方法，未引入时为空）。 */
+    private static final Map<String, Optional<Method>> STP_METHOD_CACHE = new ConcurrentHashMap<>();
+
     /**
      * 提供业务服务实例。
      *
@@ -89,6 +100,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
     @GetMapping("/{id}")
     public R<RESP> get(@PathVariable ID id) {
         checkPermission(ACTION_LIST);
+        checkOwnership(id, "get");
         return R.ok(toResp(getBaseService().getById(id)));
     }
 
@@ -109,30 +121,58 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
     }
 
     @PostMapping
-    public R<Void> save(@RequestBody REQ req) {
+    public R<Void> save(@Valid @RequestBody REQ req) {
         checkPermission(ACTION_ADD);
         T entity = toEntity(req);
         beforeSave(req, entity);
-        getBaseService().save(entity);
+        // 写操作必须看结果：失败时不能返回 R.ok() 让调用方以为已保存
+        if (!getBaseService().save(entity)) {
+            throw new BusinessException("保存失败，请稍后重试");
+        }
         afterSave(req, entity);
         return R.ok();
     }
 
     @PutMapping("/{id}")
-    public R<Void> update(@PathVariable ID id, @RequestBody REQ req) {
+    public R<Void> update(@PathVariable ID id, @Valid @RequestBody REQ req) {
         checkPermission(ACTION_EDIT);
+        checkOwnership(id, ACTION_EDIT);
         T entity = toEntity(req);
         beforeUpdate(id, req, entity);
-        getBaseService().updateById(entity);
+        // 影响行数为 0：id 不存在、已被删除，或（启用租户/数据权限时）目标行不属于当前用户——
+        // 一律按「资源不存在或无权操作」处理，不能返回成功掩盖越权/无效写入
+        if (!getBaseService().updateById(entity)) {
+            throw new BusinessException("资源不存在或无权操作：" + id);
+        }
         afterUpdate(id, req, entity);
         return R.ok();
+    }
+
+    /**
+     * 按 id 操作前的归属校验扩展点。
+     *
+     * <p><b>默认空实现，必须由业务按需覆盖</b>：仅靠 {@link #permissionPrefix()} 只能校验「有没有
+     * 某类权限」，不能校验「这条数据是不是我的」。未覆盖本方法时，任何持有 {@code :edit}/{@code :delete}
+     * 权限的调用方都能按 id 改动他人数据；启用多租户/数据权限时这类越权会被插件兜住，单租户场景则不会。</p>
+     *
+     * <p>典型实现：按 id 查出记录并比对当前用户/部门，不匹配时抛 {@code BusinessException}（或
+     * {@code AccessDeniedException}），失败即中止本次操作。</p>
+     *
+     * @param id     目标数据 ID
+     * @param action 动作（get / edit / delete）
+     */
+    protected void checkOwnership(ID id, String action) {
+        // 默认不校验：保持向后兼容；受保护资源请覆盖本方法或依赖租户/数据权限插件
     }
 
     @DeleteMapping("/{id}")
     public R<Void> delete(@PathVariable ID id) {
         checkPermission(ACTION_DELETE);
+        checkOwnership(id, ACTION_DELETE);
         beforeDelete(id);
-        getBaseService().removeById(id);
+        if (!getBaseService().removeById(id)) {
+            throw new BusinessException("资源不存在或无权操作：" + id);
+        }
         afterDelete(id);
         return R.ok();
     }
@@ -166,12 +206,13 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
         if (prefix == null || prefix.isBlank()) {
             return;
         }
-        try {
-            Class<?> stpUtil = Class.forName(STP_UTIL_CLASS);
-            Method method = stpUtil.getMethod("checkPermission", String.class);
-            method.invoke(null, prefix + ":" + action);
-        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+        Optional<Method> resolved = resolveStpCheckPermission();
+        if (resolved.isEmpty()) {
             // 未引入 sa-token：不做权限校验（仅受全局登录拦截约束）
+            return;
+        }
+        try {
+            resolved.get().invoke(null, prefix + ":" + action);
         } catch (InvocationTargetException e) {
             // Sa-Token 抛出的鉴权异常（无权限）需向上传播，交全局异常处理器转 403
             Throwable cause = e.getCause();
@@ -182,6 +223,28 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
         } catch (IllegalAccessException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * 解析并缓存 Sa-Token 的 {@code checkPermission(String)} 方法。
+     *
+     * <p>每请求 {@code Class.forName} + {@code getMethod} 纯属浪费，故按类名缓存。缓存必须区分两种情况：
+     * <b>类不存在</b>（未引入 sa-token，合法跳过）与<b>类存在但方法不在</b>（版本不兼容，权限校验会整体
+     * 失效）——后者曾被静默吞掉，sa-token 换签名后所有 CRUD 端点直接放开且无任何日志。</p>
+     *
+     * @return 方法；未引入 sa-token 时为空
+     */
+    static Optional<Method> resolveStpCheckPermission() {
+        return STP_METHOD_CACHE.computeIfAbsent(STP_UTIL_CLASS, className -> {
+            try {
+                return Optional.of(Class.forName(className).getMethod("checkPermission", String.class));
+            } catch (ClassNotFoundException e) {
+                return Optional.empty();
+            } catch (NoSuchMethodException e) {
+                log.error("[ypbin-starter] 检测到 Sa-Token 但缺少 checkPermission(String)，CRUD 权限校验无法执行", e);
+                throw new IllegalStateException("Sa-Token 版本不兼容：缺少 checkPermission(String) 方法", e);
+            }
+        });
     }
 
     /**

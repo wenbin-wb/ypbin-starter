@@ -77,6 +77,15 @@ class IdempotentAspectTest {
         assertThat(service.submitReq(new OrderReq(2L, "open"))).isEqualTo("done");
     }
 
+    @Test
+    void zeroInterval_failsFast() {
+        // interval=0 时占位立即过期，内存实现下每次调用都放行（幂等静默失效），必须显式失败
+        assertThatThrownBy(() -> service.submitZeroInterval("order-1"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("interval")
+            .hasMessageContaining(">= 1");
+    }
+
     @EnableAspectJAutoProxy
     static class Config {
         @Bean
@@ -104,6 +113,11 @@ class IdempotentAspectTest {
 
         @Idempotent(interval = 60, message = "请勿重复提交")
         public String submitReq(OrderReq req) {
+            return "done";
+        }
+
+        @Idempotent(key = "#orderNo", interval = 0)
+        public String submitZeroInterval(String orderNo) {
             return "done";
         }
     }

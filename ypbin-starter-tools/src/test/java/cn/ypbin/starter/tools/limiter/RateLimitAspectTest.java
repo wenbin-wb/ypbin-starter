@@ -102,6 +102,15 @@ class RateLimitAspectTest {
         assertThat(store.calls).hasValue(1);
     }
 
+    @Test
+    void staticKeyWithHash_isNotTreatedAsSpel() {
+        // 静态键里带 # 是合法写法：若按 contains("#") 判 SpEL，会抛 SpelParseException 且毫无提示
+        assertThat(service.staticKeyWithHash()).isEqualTo("ok");
+        assertThatThrownBy(() -> service.staticKeyWithHash())
+            .as("同一静态键应共用计数，说明按字面量而非 SpEL 求值")
+            .isInstanceOf(RateLimitException.class);
+    }
+
     @EnableAspectJAutoProxy
     static class Config {
         @Bean
@@ -157,6 +166,11 @@ class RateLimitAspectTest {
 
         @RateLimit(window = 1, count = 3, byIp = false)
         public String minWindow() {
+            return "ok";
+        }
+
+        @RateLimit(key = "order#create", window = 60, count = 1, byIp = false)
+        public String staticKeyWithHash() {
             return "ok";
         }
     }

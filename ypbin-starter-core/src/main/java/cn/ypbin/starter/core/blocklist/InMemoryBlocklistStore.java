@@ -111,9 +111,12 @@ public class InMemoryBlocklistStore implements BlocklistStore {
 
     @Override
     public long recordViolation(String clientIp, Duration window, int threshold, Duration banDuration, String reason) {
-        if (clientIp == null || clientIp.isBlank() || window.isNegative() || window.isZero() || threshold <= 0) {
+        if (clientIp == null || clientIp.isBlank() || threshold <= 0) {
             return 0L;
         }
+        // 与 Redis 实现同口径：窗口/封禁时长 <= 0 按最小 1 秒处理，避免两种存储语义相反
+        Duration effectiveWindow = window.isNegative() || window.isZero() ? Duration.ofSeconds(1) : window;
+        Duration effectiveBan = banDuration.isNegative() || banDuration.isZero() ? Duration.ofSeconds(1) : banDuration;
         Instant now = clock.instant();
         if (!violations.containsKey(clientIp) && violations.size() >= maxViolationEntries) {
             violations.entrySet().removeIf(entry -> !now.isBefore(entry.getValue().expireAt()));
@@ -125,13 +128,13 @@ public class InMemoryBlocklistStore implements BlocklistStore {
         }
         Violation counter = violations.compute(clientIp, (key, old) -> {
             if (old == null || !now.isBefore(old.expireAt())) {
-                return new Violation(now.plus(window), 1L);
+                return new Violation(now.plus(effectiveWindow), 1L);
             }
             return new Violation(old.expireAt(), old.count() + 1L);
         });
         if (counter.count() >= threshold) {
             violations.remove(clientIp);
-            bans.put(clientIp, new Ban(reason, now.plus(banDuration)));
+            bans.put(clientIp, new Ban(reason, now.plus(effectiveBan)));
         }
         return counter.count();
     }

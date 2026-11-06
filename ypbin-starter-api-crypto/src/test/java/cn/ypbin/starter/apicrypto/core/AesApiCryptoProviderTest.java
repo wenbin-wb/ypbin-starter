@@ -34,6 +34,19 @@ class AesApiCryptoProviderTest {
     private final AesApiCryptoProvider provider = new AesApiCryptoProvider(KEY);
 
     @Test
+    void invalidKeyLength_shouldFailAtConstruction() {
+        // 配错密钥必须在启动期失败，而不是等到首个加解密请求才炸
+        assertThatThrownBy(() -> new AesApiCryptoProvider("short-key"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("16/24/32")
+            .hasMessageContaining("当前 9 字节");
+        assertThatThrownBy(() -> new AesApiCryptoProvider(""))
+            .isInstanceOf(IllegalStateException.class);
+        // 中文按 UTF-8 多字节计：8 个汉字 = 24 字节，合法
+        assertThat(new AesApiCryptoProvider("密钥密钥密钥密钥")).isNotNull();
+    }
+
+    @Test
     void encryptThenDecrypt_shouldRoundTrip() {
         String plain = "{\"userId\":\"123\",\"amount\":99.5}";
 

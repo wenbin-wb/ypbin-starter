@@ -140,6 +140,31 @@ class RedisBlocklistStoreTest {
     }
 
     @Test
+    @DisplayName("自动封禁列表按到期时间倒序返回")
+    void autoBansOrdersByExpiry() {
+        store.ban("1.1.1.1", Duration.ofMinutes(1), "short");
+        store.ban("2.2.2.2", Duration.ofMinutes(10), "long");
+
+        assertThat(store.autoBans()).extracting(AutoBanEntry::clientIp)
+            .containsExactly("2.2.2.2", "1.1.1.1");
+    }
+
+    @Test
+    @DisplayName("窗口/封禁时长为 0 时按最小 1 秒处理")
+    void zeroDurationsUseMinimumOneSecond() {
+        // 直接断言归一化结果：1 秒 TTL 的键在慢机器上可能已被删除，靠读 TTL 断言会偶发失败
+        assertThat(RedisBlocklistStore.normalizedSeconds(Duration.ZERO)).isEqualTo(1L);
+        assertThat(RedisBlocklistStore.normalizedSeconds(Duration.ofSeconds(-5))).isEqualTo(1L);
+        assertThat(RedisBlocklistStore.normalizedSeconds(null)).isEqualTo(1L);
+        assertThat(RedisBlocklistStore.normalizedSeconds(Duration.ofSeconds(30))).isEqualTo(30L);
+
+        store.recordViolation("1.2.3.4", Duration.ZERO, 1, Duration.ZERO, "x");
+
+        // 只断言「不是永久键」：-1 表示没有 TTL；-2/0 表示确实设过 TTL 且已到期
+        assertThat(redis.getExpire(BlocklistKeys.ban("1.2.3.4"), TimeUnit.SECONDS)).isNotEqualTo(-1L);
+    }
+
+    @Test
     @DisplayName("索引中的过期记录在读取时清理")
     void autoBansPrunesExpired() {
         redis.opsForHash().put(BlocklistKeys.BAN_INDEX, "1.2.3.4",

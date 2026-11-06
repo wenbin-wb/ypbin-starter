@@ -82,6 +82,26 @@ class IpAddressTest {
     }
 
     @Test
+    @DisplayName("公网判定排除私网、回环、CGNAT、链路本地与文档段")
+    void publicAddressDetection() {
+        assertThat(IpAddress.isPublic("8.8.8.8")).isTrue();
+        assertThat(IpAddress.isPublic("203.0.113.9")).isFalse();
+        assertThat(IpAddress.isPublic("10.0.0.1")).isFalse();
+        assertThat(IpAddress.isPublic("172.16.0.1")).isFalse();
+        assertThat(IpAddress.isPublic("192.168.1.1")).isFalse();
+        assertThat(IpAddress.isPublic("127.0.0.1")).isFalse();
+        assertThat(IpAddress.isPublic("100.64.0.1")).isFalse();
+        assertThat(IpAddress.isPublic("169.254.1.1")).isFalse();
+        assertThat(IpAddress.isPublic("224.0.0.1")).isFalse();
+        assertThat(IpAddress.isPublic("::1")).isFalse();
+        assertThat(IpAddress.isPublic("fc00::1")).isFalse();
+        assertThat(IpAddress.isPublic("fe80::1")).isFalse();
+        assertThat(IpAddress.isPublic("2001:db8::1")).isFalse();
+        assertThat(IpAddress.isPublic("2606:4700:4700::1111")).isTrue();
+        assertThat(IpAddress.isPublic("not-an-ip")).isFalse();
+    }
+
+    @Test
     @DisplayName("IPv6 省略、嵌入 IPv4、方括号带端口均按字面量解析")
     void ipv6Literals() {
         assertThat(IpAddress.isValidIp("[2001:db8::1]:443")).isTrue();

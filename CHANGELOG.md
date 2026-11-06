@@ -54,6 +54,60 @@
   （issue #162）。
 - `LogSanitizer` 控制字符覆盖补齐 C1 区间（`\u0080-\u009f`，含 NEL），与注释声称一致。
 - `ypbin-starter-test` 的 `ContainerSupport`：修正 Nacos 端口常量上方的悬空 Javadoc。
+- **操作日志默认不脱敏**：`LogMaskModule` 除 `@LogMask` 外，按字段名/请求参数名/请求头名识别
+  口令、令牌、密钥类字段并掩码，业务漏标注解也不会把密码写进日志（issue #152）。
+- **自动封禁会封掉反向代理与内网地址**：新增 `ypbin.security.blocklist.auto-ban.allow-non-public-ip`
+  （默认 `false`），非公网地址不计数；Redis 自动封禁索引按到期时间排序并定期清理，
+  内存与 Redis 实现的 `window/ban<=0` 统一按 1 秒处理（issue #151）。
+- **网关限流计数非原子且 429 响应不是 `R` 信封**：`INCR` 与 `EXPIRE` 合并为单个 Lua 脚本并带 TTL
+  自愈；429 响应体改为标准 `R`；`window-seconds` 修正为按 epoch 对齐的固定窗口；Redis 故障与
+  超限拒绝的 WARN 按 5 秒降频（issue #157）。
+- **定时任务集群防重锁键取执行时刻导致多节点各跑一次**：cron 任务按 `CronExpression` 顺序推算
+  计划时刻、固定频率按 epoch/周期分桶，锁键时间片改为 epoch 秒；执行线程池由无界
+  `SimpleAsyncTaskExecutor` 改为有界线程池（虚拟线程工厂，可配 `ypbin.job.executor.*`），
+  拒绝时定时触发回调 `onSkip`、手动触发抛异常，且异常不再逃逸到调度线程（issue #153）。
+- **OAuth 回调不校验 state（login CSRF）**：`authorizeUrl` 登记 state、`login` 一次性消费校验；
+  新增可覆盖的 `SocialStateStore`（默认进程内、5 分钟、容量有界）（issue #154）。
+- **WebSocket 默认放开任意来源**：`ypbin.websocket.allowed-origin-patterns` 默认改为空（仅同源），
+  避免任意站点携带 Cookie 建立连接（CSWSH）（issue #154）。
+- **短信群发把变量 Map 的 toString 当正文发送**：默认模板群发改为逐号按模板渲染，新增
+  `sendBatch(templateId, phones, variables)` 走厂商批量接口（issue #154）。
+- **宿主机覆盖 `DictCache`/`RefTextManager` 后 `@DictText`/`@RefText` 静默失效**：绑定动作移到独立
+  初始化 Bean，取容器内实际生效的实例（issue #158）。
+- **静态键含 `#` 被误判为 SpEL**：`@RateLimit`/`@Idempotent`/`@DistributedLock` 只认 `#` 或 `T(`
+  前缀为 SpEL；`@Idempotent.interval<=0` 首次调用即抛异常（issue #158）。
+- **CORS 默认 `*` + 携带凭证**：默认改为仅同源、不带凭证；两者与 `*` 同时配置时启动即失败
+  （issue #159）。
+- **`/actuator/ypbin` 版本恒为硬编码 `1.4.0`**：改为读取打包填充的 `META-INF/ypbin-starter.properties`，
+  读不到返回 `unknown`（issue #159）。
+- **AES 接口加解密密钥不校验长度**：构造期校验 UTF-8 字节长度为 16/24/32，配错启动即失败
+  （issue #159）。
+- **XSS 清洗误伤合法值且 context-path 下排除规则失效**：事件属性正则加词边界（`config=true`、
+  `connection=keep-alive` 不再被改写）；排除规则统一按剥离 context-path 的路径匹配（issue #159）。
+- **S3 客户端无超时且策略替换后不释放**：`OssStorageStrategy` 配置 `apiCallTimeout` /
+  `apiCallAttemptTimeout`（默认 30s / 10s，可配），`StorageRouter` 关闭被替换的旧策略
+  （issue #155）。
+- **Excel 同步读取全量入堆**：`read*` 改为流式收集并默认限制 10 万行，超限抛 `BusinessException`；
+  新增 `readLimited(...)` 显式限额重载（issue #155）。
+- **CRUD 写接口缺校验与结果检查**：`save`/`update` 补 `@Valid`；影响行数为 0 时抛业务异常而不是
+  返回成功；Sa-Token 权限方法解析加缓存，类存在但方法缺失时 `log.error` + 抛异常，不再静默放行
+  （issue #156）。
+- **数据权限作用域不跨线程传播**：新增 `DataPermissionContextPropagator` 并注册，`@Async` 内
+  不再静默失去数据范围（issue #156）。
+- **数据范围片段在 JOIN 查询中落错表**：`DataScopeMultiHandler` 解析后按当前表别名（无别名时用表名）
+  补齐未限定的列，已显式限定的列保持原样；表名与别名都推导不出时直接拒绝执行，不再生成裸列条件
+  导致 `ambiguous column` 或条件被数据库解析到 JOIN 的另一张表（issue #156）。
+- **CRUD 按 id 操作缺归属校验扩展点**：新增 `checkOwnership(id, action)`，`get`/`update`/`delete`
+  在权限校验后调用；默认空实现保持兼容，Javadoc 明确「只校验权限、不校验数据归属」时的越权风险
+  （issue #156）。
+- **租户隔离在 `UPDATE`/`DELETE` 的 WHERE 子查询中失效**：MyBatis-Plus 只在 SELECT 中处理 WHERE
+  子查询，`... WHERE id IN (SELECT ...)` 的子查询不追加租户条件；`StrictTenantLineInnerInterceptor`
+  在父类改写前补处理（覆盖 `IN`/`EXISTS` 等），避免按其它租户的数据决定改/删范围（issue #156）。
+- **AI 动态模型客户端泄漏线程且流式回答被截断**：动态构建的 `SpringAiOpenAiHttpClient` 持有非守护
+  OkHttp 调度线程池（core=0 / max=∞），此前按请求创建却从不关闭；改为同步调用结束、流式终止
+  （完成/异常/取消）时显式关闭。传输层超时拆分为连接（新增 `ypbin.ai.chat.connect-timeout`，默认 10s）
+  与读写（`client-timeout`，默认 60s），不再设置整次调用硬截止——长回答的总时长由
+  `ypbin.ai.chat.stream-timeout-ms` 约束（issue #155）。
 
 ## [4.3.0] - 2026-11-05
 

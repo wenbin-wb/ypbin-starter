@@ -143,6 +143,7 @@ public class AiChatAutoConfiguration {
         return new DefaultAiChatService(chatClientProvider.getIfAvailable(), chatMemory, vectorStore,
             modelResolverProvider.getIfAvailable(), props.getDefaultSystemPrompt(),
             props.isRagEnabled(), props.getStreamTimeoutMs(), toolCallbackProvider.getIfAvailable(),
-            usageListenersProvider.orderedStream().toList(), props.getClientTimeout());
+            usageListenersProvider.orderedStream().toList(), props.getClientTimeout(),
+            props.getConnectTimeout());
     }
 }

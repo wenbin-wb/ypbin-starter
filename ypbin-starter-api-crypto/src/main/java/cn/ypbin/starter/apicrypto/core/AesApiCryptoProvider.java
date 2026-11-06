@@ -40,8 +40,22 @@ public class AesApiCryptoProvider implements ApiCryptoProvider {
 
     private final byte[] key;
 
+    /**
+     * 以 UTF-8 编码的密钥构造。
+     *
+     * <p><b>长度在构造期校验</b>：AES 只接受 16/24/32 字节密钥。原先不校验，配错（空串、中文多字节
+     * 导致实际长度不符）时直到<b>首个加解密请求</b>才抛 {@code IllegalStateException}——那时才发现的
+     * 代价是线上接口整体不可用；现在启动期 fail-fast 并写明允许长度。</p>
+     *
+     * @param key 密钥（UTF-8 编码后必须为 16/24/32 字节）
+     */
     public AesApiCryptoProvider(String key) {
-        this.key = key.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = key.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length != 16 && bytes.length != 24 && bytes.length != 32) {
+            throw new IllegalStateException("接口加解密密钥长度非法：AES 要求 UTF-8 编码后为 16/24/32 字节，当前 "
+                + bytes.length + " 字节（ypbin.api-crypto.key）");
+        }
+        this.key = bytes;
     }
 
     @Override

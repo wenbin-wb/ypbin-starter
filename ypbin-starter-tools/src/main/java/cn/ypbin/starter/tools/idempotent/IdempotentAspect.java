@@ -57,6 +57,11 @@ public class IdempotentAspect {
 
     @Around("@annotation(idempotent)")
     public Object around(ProceedingJoinPoint point, Idempotent idempotent) throws Throwable {
+        if (idempotent.interval() <= 0) {
+            // interval<=0 时占位键立即过期，幂等形同虚设（内存实现下每次都放行），必须显式失败
+            throw new IllegalArgumentException("@Idempotent.interval 必须 >= 1 秒（当前 "
+                + idempotent.interval() + "）：窗口为 0 会让占位立即过期，幂等失效");
+        }
         String key = buildKey(point, idempotent);
         // 属主标识：释放时必须核对，避免业务耗时超过窗口、占位已被下一个请求重新占用时
         // 误删他人的占位（那会让第三个请求与第二个并发执行，正是幂等要防的事）

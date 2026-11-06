@@ -35,8 +35,13 @@ public class CorsProperties {
     /** 是否启用跨域，默认关闭 */
     private boolean enabled = false;
 
-    /** 允许的来源模式（支持 {@code https://*.example.com} 形式） */
-    private List<String> allowedOriginPatterns = List.of("*");
+    /**
+     * 允许的来源模式（支持 {@code https://*.example.com} 形式）。
+     *
+     * <p><b>默认为空 = 仅同源</b>。默认放开 {@code *} 且允许携带凭证时，任意站点都能带用户 Cookie
+     * 跨域读取响应；需要前后端分域时按实际前端域名显式配置。</p>
+     */
+    private List<String> allowedOriginPatterns = List.of();
 
     /** 允许的请求方法 */
     private List<String> allowedMethods = List.of("*");
@@ -47,8 +52,14 @@ public class CorsProperties {
     /** 暴露给浏览器的响应头 */
     private List<String> exposedHeaders = List.of();
 
-    /** 是否允许携带凭证 */
-    private boolean allowCredentials = true;
+    /**
+     * 是否允许携带凭证（Cookie / Authorization）。
+     *
+     * <p>默认 {@code false}：需要带凭证的跨域必须同时把来源收敛到具体域名
+     * （{@code allowed-origin-patterns=*} 与 {@code allow-credentials=true} 的组合被 CORS 规范禁止，
+     * 启动时会直接失败）。</p>
+     */
+    private boolean allowCredentials = false;
 
     /** 预检请求缓存时间（秒） */
     private long maxAge = 3600L;

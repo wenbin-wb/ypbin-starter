@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.web.xss;
 
+import cn.ypbin.starter.web.util.WebRequestUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,7 +61,8 @@ public class XssFilter extends OncePerRequestFilter {
         if (excludes == null || excludes.isEmpty()) {
             return false;
         }
-        String uri = request.getRequestURI();
+        // 用剥离 context-path 后的路径匹配：否则设置了 server.servlet.context-path 时排除规则全部失配
+        String uri = WebRequestUtils.pathWithoutContext(request);
         for (String pattern : excludes) {
             if (pathMatcher.match(pattern, uri)) {
                 return true;

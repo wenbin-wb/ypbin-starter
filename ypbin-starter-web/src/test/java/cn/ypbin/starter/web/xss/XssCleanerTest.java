@@ -41,6 +41,16 @@ class XssCleanerTest {
     @Test
     void removesOnEventAttribute() {
         assertThat(XssCleaner.clean("<img onerror=alert(1)>")).doesNotContain("onerror=");
+        assertThat(XssCleaner.clean("x onclick=\"alert(1)\"")).doesNotContain("onclick=");
+    }
+
+    @Test
+    void legitValuesContainingOnWordOfAreNotRewritten() {
+        // 事件属性名必须从词边界开始：config= / connection= 中的 "onfig=" "onnection=" 不是事件属性，
+        // 命中它们会把参数值与请求头静默改坏（config=true 变成 ctrue）
+        assertThat(XssCleaner.clean("config=true")).isEqualTo("config=true");
+        assertThat(XssCleaner.clean("connection=keep-alive")).isEqualTo("connection=keep-alive");
+        assertThat(XssCleaner.clean("on-line=on")).isEqualTo("on-line=on");
     }
 
     @Test
