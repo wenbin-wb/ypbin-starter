@@ -18,6 +18,7 @@ package cn.ypbin.starter.datapermission.autoconfigure;
 import cn.ypbin.starter.core.context.ContextPropagator;
 import cn.ypbin.starter.data.core.InnerInterceptorProvider;
 import cn.ypbin.starter.datapermission.aspect.DataPermissionAspect;
+import cn.ypbin.starter.datapermission.aspect.DataPermissionPointcut;
 import cn.ypbin.starter.datapermission.core.DataPermissionContextPropagator;
 import cn.ypbin.starter.datapermission.core.DataScopeHandler;
 import cn.ypbin.starter.datapermission.handler.DataScopeMultiHandler;
@@ -25,6 +26,8 @@ import com.baomidou.mybatisplus.extension.plugins.inner.DataPermissionIntercepto
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.Advisor;
+import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -86,6 +89,19 @@ public class DataPermissionAutoConfiguration {
     @ConditionalOnMissingBean
     public DataPermissionAspect dataPermissionAspect() {
         return new DataPermissionAspect();
+    }
+
+    /**
+     * 数据权限切面装配：自定义切点同时覆盖实现类、目标类、接口方法与接口类上的注解，
+     * CGLIB / JDK 两种代理行为一致。
+     *
+     * @param aspect 数据权限切面
+     * @return 切面顾问
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "dataPermissionAdvisor")
+    public Advisor dataPermissionAdvisor(DataPermissionAspect aspect) {
+        return new DefaultPointcutAdvisor(new DataPermissionPointcut(), aspect);
     }
 
     /**
