@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import cn.ypbin.starter.datapermission.core.DataPermissionContext;
+import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.schema.Table;
 import org.junit.jupiter.api.AfterEach;
@@ -50,7 +51,56 @@ class DataScopeMultiHandlerTest {
         Expression expression = handler.getSqlSegment(table, null, "com.demo.OrderMapper.selectList");
 
         assertThat(expression).isNotNull();
-        assertThat(expression.toString()).isEqualToIgnoringWhitespace("dept_id IN (1, 2, 3)");
+        // 裸列按当前表名限定，避免 JOIN 场景 ambiguous column / 条件落到别的表
+        assertThat(expression.toString()).isEqualToIgnoringWhitespace("sys_order.dept_id IN (1, 2, 3)");
+    }
+
+    @Test
+    void shouldQualifyBareColumnsWithTableAlias() {
+        Table aliased = new Table("sys_order");
+        aliased.setAlias(new Alias("o"));
+        DataScopeMultiHandler handler = new DataScopeMultiHandler((mappedStatementId, tableName) -> "dept_id = 1 OR user_id = 2");
+        DataPermissionContext.enter();
+
+        Expression expression = handler.getSqlSegment(aliased, null, "com.demo.OrderMapper.selectList");
+
+        assertThat(expression.toString())
+            .isEqualToIgnoringWhitespace("o.dept_id = 1 OR o.user_id = 2");
+    }
+
+    @Test
+    void shouldKeepAlreadyQualifiedColumns() {
+        DataScopeMultiHandler handler = new DataScopeMultiHandler(
+            (mappedStatementId, tableName) -> "other.dept_id = dept_id");
+        DataPermissionContext.enter();
+
+        Expression expression = handler.getSqlSegment(table, null, "com.demo.OrderMapper.selectList");
+
+        // 已显式限定的列保持原样（允许业务书写跨表条件），未限定的才补当前表
+        assertThat(expression.toString())
+            .isEqualToIgnoringWhitespace("other.dept_id = sys_order.dept_id");
+    }
+
+    @Test
+    void shouldQualifyColumnsInsideFunctionArguments() {
+        DataScopeMultiHandler handler = new DataScopeMultiHandler(
+            (mappedStatementId, tableName) -> "find_in_set(1, dept_path)");
+        DataPermissionContext.enter();
+
+        Expression expression = handler.getSqlSegment(table, null, "com.demo.OrderMapper.selectList");
+
+        assertThat(expression.toString())
+            .isEqualToIgnoringWhitespace("find_in_set(1, sys_order.dept_path)");
+    }
+
+    @Test
+    void shouldFailClosedWhenTableNameAndAliasAreBothMissing() {
+        DataScopeMultiHandler handler = new DataScopeMultiHandler((mappedStatementId, tableName) -> "dept_id = 1");
+        DataPermissionContext.enter();
+
+        assertThatThrownBy(() -> handler.getSqlSegment(new Table(), null, "com.demo.OrderMapper.selectList"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("无法推导数据范围片段的表限定名");
     }
 
     @Test

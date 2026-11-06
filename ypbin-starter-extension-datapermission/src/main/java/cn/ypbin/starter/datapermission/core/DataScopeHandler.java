@@ -27,6 +27,11 @@ import org.jspecify.annotations.Nullable;
  * <p>相比让业务方直接操作 JSqlParser 的 Expression，返回 SQL 字符串更直观易用；
  * 需要精细控制时仍可自行实现 MyBatis-Plus 的处理器覆盖本模块的适配 Bean。</p>
  *
+ * <p><b>列名写法：</b>片段里的列可以不写表限定名（写 {@code dept_id IN (1,2)} 即可），
+ * 适配层会按当前查询的表别名（无别名时用表名）自动补全，避免多表查询出现
+ * {@code ambiguous column} 或条件落到 JOIN 的另一张表上。已显式限定的列（{@code other.dept_id}）
+ * 保持原样，可用于确有需要的跨表条件。</p>
+ *
  * @author wenbin
  * @since 2026-07-30
  */
