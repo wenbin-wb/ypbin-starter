@@ -30,7 +30,10 @@ import cn.ypbin.starter.tools.lock.LockRenewalScheduler;
 import cn.ypbin.starter.tools.lock.LockService;
 import cn.ypbin.starter.tools.lock.RedisLockService;
 import cn.ypbin.starter.tools.lock.ScheduledLockRenewalScheduler;
+import cn.ypbin.starter.tools.support.RequestUtils;
+import jakarta.annotation.PostConstruct;
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -67,8 +70,37 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @ConditionalOnClass(ProceedingJoinPoint.class)
 @AutoConfigureAfter(name = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration")
 @Import(ToolsAutoConfiguration.RedisStoreConfiguration.class)
-@EnableConfigurationProperties(RateLimitProperties.class)
+@EnableConfigurationProperties({RateLimitProperties.class, ToolsProperties.class})
 public class ToolsAutoConfiguration {
+
+    private final ToolsProperties toolsProperties;
+
+    /**
+     * 兼容构造：保留历史上的公开无参构造，避免打断以 {@code new ToolsAutoConfiguration()} 方式
+     * 使用的宿主（公开 API 向后兼容门禁要求）。Spring 装配走下面的注入构造。
+     */
+    public ToolsAutoConfiguration() {
+        this(new ToolsProperties());
+    }
+
+    /**
+     * 模块级配置需要在启动时下发给静态工具类：{@code RequestUtils} 是静态门面，
+     * 无法直接注入 {@code @ConfigurationProperties}。
+     *
+     * @param toolsProperties 模块级配置
+     */
+    @Autowired
+    public ToolsAutoConfiguration(ToolsProperties toolsProperties) {
+        this.toolsProperties = toolsProperties;
+    }
+
+    /**
+     * 下发可信代理配置，使 {@code getClientIp(true)} 与 core/sign/log 的解析口径一致。
+     */
+    @PostConstruct
+    void applyClientIpConfiguration() {
+        RequestUtils.configureTrustedProxies(toolsProperties.getTrustedProxies());
+    }
 
     /**
      * 幂等能力配置前缀。

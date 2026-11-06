@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.gateway.blocklist;
 
+import cn.ypbin.starter.core.blocklist.AutoBanIpGuard;
 import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
 import cn.ypbin.starter.core.blocklist.BlocklistProperties;
 import cn.ypbin.starter.core.blocklist.BlocklistRequest;
@@ -28,6 +29,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -72,6 +74,9 @@ public class AccessBlocklistGlobalFilter implements GlobalFilter, Ordered {
     private final ClientIpResolver clientIpResolver;
 
     private final ObjectMapper objectMapper;
+
+    /** 非公网地址跳过计数的 WARN 只打一次（反代场景每个请求都会命中） */
+    private final AtomicBoolean nonPublicWarned = new AtomicBoolean();
 
     public AccessBlocklistGlobalFilter(BlocklistProperties properties, BlocklistMatcher matcher,
                                        ReactiveBlocklistStore store, ClientIpResolver clientIpResolver,
@@ -135,6 +140,16 @@ public class AccessBlocklistGlobalFilter implements GlobalFilter, Ordered {
         // 429 是限流真状态码，任何路径都计数；401/403 默认不在 status-codes 内，
         // 仅当宿主显式配置真 401/403 时才按 path-prefixes 限定路径。
         if (statusCode != 429 && !matcher.isExcludedPath(path, autoBan.getPathPrefixes())) {
+            return Mono.empty();
+        }
+        // 与 servlet / 登录失败两条旁路同口径：反代未配 trusted-proxies 时刷 429 会把代理自己封掉
+        if (AutoBanIpGuard.shouldSkip(clientIp, autoBan.isAllowNonPublicIp())) {
+            if (nonPublicWarned.compareAndSet(false, true)) {
+                log.warn("[ypbin-starter] 客户端地址 {} 不是公网单点地址，已跳过自动封禁计数；"
+                    + "若网关位于反向代理之后，请配置 ypbin.security.blocklist.trusted-proxies，"
+                    + "否则 429 等计数会计在代理地址上并把代理封掉。"
+                    + "纯内网部署可设置 auto-ban.allow-non-public-ip=true。", clientIp);
+            }
             return Mono.empty();
         }
         return store.recordViolation(clientIp, Duration.ofSeconds(autoBan.getWindowSeconds()),

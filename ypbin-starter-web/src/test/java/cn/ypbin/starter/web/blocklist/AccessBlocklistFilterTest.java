@@ -138,6 +138,33 @@ class AccessBlocklistFilterTest {
     }
 
     @Test
+    @DisplayName("非公网地址刷 429 不计数，避免把代理自己封掉（自伤式全站 403）")
+    void nonPublicIpIsNotAutoBannedByRateLimit() throws Exception {
+        properties.getAutoBan().setThreshold(1);
+        properties.getAutoBan().setWindowSeconds(60);
+        properties.getAutoBan().setBanSeconds(60);
+        FilterChain tooManyRequests = (request, response) -> ((HttpServletResponse) response).setStatus(429);
+
+        filter.doFilter(request("/system/user", "10.0.0.5"), new MockHttpServletResponse(), tooManyRequests);
+
+        assertThat(store.isBanned("10.0.0.5")).isFalse();
+    }
+
+    @Test
+    @DisplayName("allow-non-public-ip=true 时内网地址照常计数")
+    void nonPublicIpCountsWhenExplicitlyAllowed() throws Exception {
+        properties.getAutoBan().setAllowNonPublicIp(true);
+        properties.getAutoBan().setThreshold(1);
+        properties.getAutoBan().setWindowSeconds(60);
+        properties.getAutoBan().setBanSeconds(60);
+        FilterChain tooManyRequests = (request, response) -> ((HttpServletResponse) response).setStatus(429);
+
+        filter.doFilter(request("/system/user", "10.0.0.5"), new MockHttpServletResponse(), tooManyRequests);
+
+        assertThat(store.isBanned("10.0.0.5")).isTrue();
+    }
+
+    @Test
     @DisplayName("已自动封禁的 IP 直接返回 403")
     void blocksBannedIp() throws Exception {
         store.ban("1.2.3.4", Duration.ofMinutes(10), "manual");

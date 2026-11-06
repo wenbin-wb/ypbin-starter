@@ -19,6 +19,9 @@
   `AccessBlocklistFilter` 同口径。`WebRequestUtils.ip()` 无条件信任 `X-Forwarded-For` 首段，
   已标记 `@Deprecated`，仅保留给非安全场景——安全计数/限流/黑名单应使用新方法，避免入口
   追加转发头时客户端伪造来源导致计数嫁祸（issue #140）。
+- `ypbin.tools.trusted-proxies`：tools 侧可信代理网段。配置后 `RequestUtils.getClientIp(true)`
+  改走 `ClientIpResolver` 的多级解析（从右往左跳过可信代理），与 core/sign/log 同口径；
+  未配置时保持「最右一跳」旧语义（issue #149）。
 - `ypbin.sign.trusted-proxies`：可信代理网段，配合 `trust-forwarded-header` 支持多级代理链的
   来源 IP 解析（与 `ClientIpResolver` 同口径）。
 
@@ -46,6 +49,12 @@
   （issue #147）。
 - **`RequestUtils.getClientIp()` 默认信任 XFF 且取最左段**：无参重载改为只取直连地址；
   显式 `trustForwarded=true` 时取最右一跳，不再采用客户端可伪造的最左段（issue #149）。
+- **429 计数路径未跳过非公网地址**：`0f60cad` 的守卫只加在登录失败旁路，servlet
+  `AccessBlocklistFilter` 与网关 `AccessBlocklistGlobalFilter` 仍直接计数——反代未配
+  `trusted-proxies` 时刷 429 即可把代理自身写进封禁表（全站 403 的自伤式 DoS）。两处补同款守卫，
+  三个入口共用 `AutoBanIpGuard`，WARN 单次去重（issue #151）。
+- **`CrudController#checkOwnership` 的 fail-open 默认值只写在 Javadoc 里**：`docs/MODULES.md` 与
+  README 对接表补「必读 + 最小实现」，说明 `permissionPrefix()` 不校验数据归属（issue #156）。
 - **管理端点守卫装配崩溃**：`ypbin.security.enabled=false` + `management.guard-enabled=true` 时
   `PermissionProvider` 缺失导致启动失败；改为弱依赖 + 空权限数据源（fail-closed）并 WARN（issue #150）。
 - **`@Sensitive` 用在非 String 字段打挂整个响应**：序列化器回退不再写死 `String.class`，

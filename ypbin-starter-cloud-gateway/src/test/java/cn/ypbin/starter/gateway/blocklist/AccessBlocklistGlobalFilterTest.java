@@ -43,6 +43,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -175,6 +176,48 @@ class AccessBlocklistGlobalFilterTest {
         assertThat(body.get("message").asString()).isEqualTo("访问已被限制");
         assertThat(body.get("data").isNull()).isTrue();
         assertThat(appender.list).anyMatch(event -> event.getLevel() == Level.ERROR);
+    }
+
+    @Test
+    @DisplayName("非公网地址刷 429 不写自动封禁计数（反代未配 trusted-proxies 时的自伤防护）")
+    void nonPublicIpDoesNotCountViolation() {
+        properties.getAutoBan().setThreshold(1);
+        when(store.isBanned(anyString())).thenReturn(Mono.just(false));
+        when(store.rules()).thenReturn(Mono.just(List.of()));
+        when(store.recordViolation(anyString(), any(Duration.class), anyInt(), any(Duration.class), anyString()))
+            .thenReturn(Mono.empty());
+        GatewayFilterChain chain = mock(GatewayFilterChain.class);
+        when(chain.filter(any())).thenAnswer(invocation -> {
+            ServerWebExchange exchange = invocation.getArgument(0);
+            exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
+            return Mono.empty();
+        });
+
+        filter.filter(exchange("/system/user", "10.0.0.5"), chain).block();
+
+        verify(store, never()).recordViolation(anyString(), any(Duration.class), anyInt(),
+            any(Duration.class), anyString());
+    }
+
+    @Test
+    @DisplayName("allow-non-public-ip=true 时网关照常计数")
+    void nonPublicIpCountsWhenExplicitlyAllowed() {
+        properties.getAutoBan().setAllowNonPublicIp(true);
+        properties.getAutoBan().setThreshold(1);
+        when(store.isBanned(anyString())).thenReturn(Mono.just(false));
+        when(store.rules()).thenReturn(Mono.just(List.of()));
+        when(store.recordViolation(anyString(), any(Duration.class), anyInt(), any(Duration.class), anyString()))
+            .thenReturn(Mono.just(1L));
+        GatewayFilterChain chain = mock(GatewayFilterChain.class);
+        when(chain.filter(any())).thenAnswer(invocation -> {
+            ServerWebExchange exchange = invocation.getArgument(0);
+            exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
+            return Mono.empty();
+        });
+
+        filter.filter(exchange("/system/user", "10.0.0.5"), chain).block();
+
+        verify(store).recordViolation(anyString(), any(Duration.class), anyInt(), any(Duration.class), anyString());
     }
 
     private static MockServerWebExchange exchange(String path, String ip) {

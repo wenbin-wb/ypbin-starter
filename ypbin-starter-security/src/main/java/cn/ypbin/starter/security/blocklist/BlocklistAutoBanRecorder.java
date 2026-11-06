@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.security.blocklist;
 
+import cn.ypbin.starter.core.blocklist.AutoBanIpGuard;
 import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
 import cn.ypbin.starter.core.blocklist.BlocklistProperties;
 import cn.ypbin.starter.core.blocklist.BlocklistStore;
@@ -72,7 +73,7 @@ public class BlocklistAutoBanRecorder {
             return;
         }
         BlocklistProperties.AutoBan autoBan = properties.getAutoBan();
-        if (!autoBan.isAllowNonPublicIp() && !IpAddress.isPublic(clientIp)) {
+        if (AutoBanIpGuard.shouldSkip(clientIp, autoBan.isAllowNonPublicIp())) {
             if (nonPublicWarned.compareAndSet(false, true)) {
                 log.warn("[ypbin-starter] 客户端地址 {} 不是公网单点地址，已跳过自动封禁；"
                     + "若服务位于反向代理之后，请配置 ypbin.security.blocklist.trusted-proxies，"
