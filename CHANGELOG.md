@@ -94,6 +94,12 @@
   （issue #156）。
 - **数据权限作用域不跨线程传播**：新增 `DataPermissionContextPropagator` 并注册，`@Async` 内
   不再静默失去数据范围（issue #156）。
+- **数据范围片段在 JOIN 查询中落错表**：`DataScopeMultiHandler` 解析后按当前表别名（无别名时用表名）
+  补齐未限定的列，已显式限定的列保持原样；表名与别名都推导不出时直接拒绝执行，不再生成裸列条件
+  导致 `ambiguous column` 或条件被数据库解析到 JOIN 的另一张表（issue #156）。
+- **CRUD 按 id 操作缺归属校验扩展点**：新增 `checkOwnership(id, action)`，`get`/`update`/`delete`
+  在权限校验后调用；默认空实现保持兼容，Javadoc 明确「只校验权限、不校验数据归属」时的越权风险
+  （issue #156）。
 
 ## [4.3.0] - 2026-11-05
 
