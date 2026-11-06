@@ -80,7 +80,8 @@ class TrackRequestContextResolverTest {
     void shouldHonorTrustForwardedSwitch() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("172.16.0.1");
-        request.addHeader("X-Forwarded-For", "203.0.113.9, 172.16.0.1");
+        // 一跳代理只追加真实客户端地址；客户端自行塞入的伪造值会落在左侧，取最右一跳即可避开
+        request.addHeader("X-Forwarded-For", "203.0.113.9");
         bindRequest(request);
 
         // 网关之后：信任转发头，取到真实客户端
