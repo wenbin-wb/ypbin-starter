@@ -15,8 +15,12 @@
  */
 package cn.ypbin.starter.job.core;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,12 +28,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.support.CronExpression;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.scheduling.support.PeriodicTrigger;
 
@@ -41,8 +49,19 @@ import org.springframework.scheduling.support.PeriodicTrigger;
  *
  * <p><strong>防重双保险</strong>：执行入口先做<em>任务级内存互斥</em>（同一节点上同任务绝不同时执行，
  * 慢执行跨触发间隔不会在本节点双跑），再做<em>per-slice 分布式锁</em>抢占（多节点只有一个实例真正执行，
- * 锁键带触发时间片，长任务不会持锁挡住下一次触发）。内存互斥仅单节点生效；跨节点同一触发时刻仍可能
- * 双双执行（各节点各自持片锁），彻底防重需再叠加任务级分布式锁，由宿主按需引入。</p>
+ * 锁键带触发时间片，长任务不会持锁挡住下一次触发）。</p>
+ *
+ * <p><strong>时间片取「计划触发时刻」而非执行时刻</strong>：锁键里的时间片若取执行线程拿到任务时的
+ * {@code now()}，节点间会因排队延迟、时钟毫秒差得到不同的键，同一触发时刻在各节点各跑一次，防重失效。
+ * 故：cron 任务在调度线程里按 {@link CronExpression} 顺序推算本次计划时刻（各节点同一 cron 得到完全
+ * 相同的序列）；固定频率任务按 {@code epochSecond / fixedRateSeconds} 分桶（同一频率下相邻两次触发
+ * 必落不同桶）。锁键时间片用 <b>epoch 秒</b>，与节点时区无关。内存互斥仅单节点生效；跨节点同一触发
+ * 时刻仍可能双双执行（各节点各自持片锁），彻底防重需再叠加任务级分布式锁，由宿主按需引入。</p>
+ *
+ * <p><strong>执行线程池拒绝</strong>：提交到 {@link Executor} 时可能被拒（有界线程池满或已关闭）。
+ * 定时触发被拒时回调 {@code onSkip} 并记 WARN，<b>绝不让异常逃逸到调度线程</b>——Spring 的
+ * {@code ReschedulingRunnable} 一旦抛出，后续触发不再排期，任务会静默停摆。手动触发被拒时抛
+ * {@link IllegalStateException}，由调用方（接口）明确告知用户。</p>
  *
  * <p>本类不持久化任务；任务的存储/CRUD/页面由业务方实现，通过本类的方法把内存调度与任务表同步。</p>
  *
@@ -61,6 +80,7 @@ public class JobManager {
     private final JobExecutionListener listener;
     private final JobLock jobLock;
     private final CronService cronService;
+    private final Clock clock;
 
     /** jobId -> 运行时调度句柄 */
     private final Map<Long, Scheduled> registry = new ConcurrentHashMap<>();
@@ -79,6 +99,24 @@ public class JobManager {
     public JobManager(String nodeId, TaskScheduler taskScheduler, Executor jobExecutor,
             Map<String, JobHandler> handlers,
             JobExecutionListener listener, JobLock jobLock, CronService cronService) {
+        this(nodeId, taskScheduler, jobExecutor, handlers, listener, jobLock, cronService, Clock.systemDefaultZone());
+    }
+
+    /**
+     * 指定时钟构造（触发时刻、锁键时间片以此为基准，便于测试跨节点一致的锁键）。
+     *
+     * @param nodeId        节点标识
+     * @param taskScheduler 调度线程池
+     * @param jobExecutor   执行线程池
+     * @param handlers      执行器名称 → 执行体
+     * @param listener      执行监听
+     * @param jobLock       集群防重锁
+     * @param cronService   cron 校验服务
+     * @param clock         时钟
+     */
+    public JobManager(String nodeId, TaskScheduler taskScheduler, Executor jobExecutor,
+            Map<String, JobHandler> handlers,
+            JobExecutionListener listener, JobLock jobLock, CronService cronService, Clock clock) {
         this.nodeId = nodeId;
         this.taskScheduler = taskScheduler;
         this.jobExecutor = jobExecutor;
@@ -86,6 +124,7 @@ public class JobManager {
         this.listener = listener;
         this.jobLock = jobLock;
         this.cronService = cronService;
+        this.clock = clock;
     }
 
     /**
@@ -171,7 +210,7 @@ public class JobManager {
             throw new IllegalArgumentException("任务未注册：" + jobId);
         }
         // 使用执行线程池执行，调度线程不阻塞
-        jobExecutor.execute(() -> runWithGuard(scheduled.definition(), true));
+        submit(scheduled.definition(), true, clock.instant());
     }
 
     /**
@@ -181,7 +220,7 @@ public class JobManager {
      */
     public void triggerNow(JobDefinition definition) {
         validate(definition);
-        jobExecutor.execute(() -> runWithGuard(definition, true));
+        submit(definition, true, clock.instant());
     }
 
     /**
@@ -205,10 +244,12 @@ public class JobManager {
 
     private Scheduled createCandidate(JobDefinition definition) {
         Object activationToken = new Object();
+        // 计划时刻序列随定义创建：重新注册（改 cron）即换新序列，不会复用旧表达式的进度
+        Supplier<Instant> triggerTimes = triggerTimes(definition);
         // 调度线程只负责判断激活态和提交，不执行任何阻塞操作
         Runnable task = () -> {
             if (isActive(definition.getId(), activationToken)) {
-                jobExecutor.execute(() -> runWithGuard(definition, false));
+                submit(definition, false, triggerTimes.get());
             }
         };
         ScheduledFuture<?> future = schedule(definition, task);
@@ -216,6 +257,69 @@ public class JobManager {
             throw new IllegalStateException("任务调度器未返回调度句柄：" + definition.getId());
         }
         return new Scheduled(definition, future, activationToken);
+    }
+
+    /**
+     * 构造「本次计划触发时刻」的序列（各节点同一定义应得到相同取值，用作分布式锁时间片）。
+     *
+     * <p>cron：按 {@link CronExpression} 从注册时刻起顺序推进，节点间序列完全一致；固定频率：按
+     * {@code epochSecond / fixedRateSeconds} 分桶，同一频率下相邻两次触发必落不同桶。</p>
+     *
+     * @param definition 任务定义
+     * @return 每次调用返回下一次计划触发时刻（整秒）
+     */
+    Supplier<Instant> triggerTimes(JobDefinition definition) {
+        String cron = definition.getCron();
+        if (cron != null && !cron.isBlank()) {
+            CronExpression expression = CronExpression.parse(cron);
+            ZoneId zone = clock.getZone();
+            AtomicReference<Instant> next = new AtomicReference<>(nextCronTime(expression, clock.instant(), zone));
+            return () -> {
+                // 调度线程串行触发，无需加锁；表达式走到尽头（无后续时刻）时保留当前值
+                Instant current = next.get();
+                next.set(nextCronTime(expression, current, zone));
+                return current;
+            };
+        }
+        Long fixedRateSeconds = definition.getFixedRateSeconds();
+        long period = fixedRateSeconds == null || fixedRateSeconds <= 0 ? 1L : fixedRateSeconds;
+        return () -> {
+            long epochSecond = clock.instant().getEpochSecond();
+            return Instant.ofEpochSecond(Math.floorDiv(epochSecond, period) * period);
+        };
+    }
+
+    /**
+     * cron 的下一次计划触发时刻。
+     *
+     * <p>{@link CronExpression#next} 需要带时区的日历类型（{@code Instant} 不支持星期/月等字段），
+     * 故先按 {@link Clock#getZone()} 转成 {@link ZonedDateTime} 再求值——与 {@code CronTrigger}
+     * 默认按系统时区排期同口径。表达式无后续时刻时返回入参（任务已走到尽头）。</p>
+     */
+    private static Instant nextCronTime(CronExpression expression, Instant after, ZoneId zone) {
+        ZonedDateTime next = expression.next(after.atZone(zone));
+        return next == null ? after : next.toInstant();
+    }
+
+    /**
+     * 提交到执行线程池；被拒绝时按触发方式分流处理（见类注释）。
+     */
+    private void submit(JobDefinition definition, boolean manual, Instant triggerTime) {
+        try {
+            jobExecutor.execute(() -> runWithGuard(definition, manual, triggerTime));
+        } catch (RejectedExecutionException e) {
+            if (manual) {
+                throw new IllegalStateException("任务执行线程池已满或已关闭，本次触发被拒绝：" + definition.getName(), e);
+            }
+            log.warn("[ypbin-starter] job skipped: 执行线程池已满或已关闭，本次触发不再执行: name={}, trigger={}",
+                definition.getName(), triggerTime);
+            listener.onSkip(context(definition, manual, triggerTime));
+        }
+    }
+
+    private JobContext context(JobDefinition definition, boolean manual, Instant triggerTime) {
+        return new JobContext(definition.getId(), definition.getName(), definition.getExecutor(),
+            definition.getArgs(), manual, LocalDateTime.ofInstant(triggerTime, clock.getZone()));
     }
 
     @Nullable
@@ -270,9 +374,8 @@ public class JobManager {
     /**
      * 执行入口：任务级内存互斥 → per-slice 分布式抢锁 → 找执行体 → 回调监听 → 执行。
      */
-    private void runWithGuard(JobDefinition definition, boolean manual) {
-        JobContext context = new JobContext(definition.getId(), definition.getName(), definition.getExecutor(),
-            definition.getArgs(), manual, LocalDateTime.now());
+    private void runWithGuard(JobDefinition definition, boolean manual, Instant triggerTime) {
+        JobContext context = context(definition, manual, triggerTime);
 
         JobHandler handler = handlers.get(definition.getExecutor());
         if (handler == null) {
@@ -291,12 +394,13 @@ public class JobManager {
             return;
         }
         try {
-            // 集群防重：锁键带触发时间片，避免长任务持锁挡住下一次正常触发；
+            // 集群防重：锁键带「计划触发时刻」的时间片，避免长任务持锁挡住下一次正常触发；
+            // 时间片用 epoch 秒（与节点时区无关），各节点同一次触发得到同一个键
             // 内存互斥已消除单节点并发，分布式锁在此承担多节点抢跑仲裁
             String lockKey = null;
             boolean locked = false;
             if (guarded) {
-                lockKey = "ypbin:job:" + definition.getId() + ":" + context.getTriggerTime().withNano(0);
+                lockKey = "ypbin:job:" + definition.getId() + ":" + triggerTime.getEpochSecond();
                 // timeoutSeconds 仅作锁 TTL 放大依据（非执行超时）：长任务按「timeoutSeconds + 5」秒持锁，
                 // 确保执行完成前锁不过期、其它节点不抢跑；未配置时取 1 小时兜底。任务不会被该值强制中断
                 Duration ttl = Duration.ofSeconds(definition.getTimeoutSeconds() > 0

@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
@@ -35,8 +36,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
@@ -57,16 +58,46 @@ public class JobAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(JobAutoConfiguration.class);
 
     /**
+     * 旧签名：保留二进制兼容，实际装配由 {@link #jobExecutor(JobProperties)} 完成。
+     *
+     * @return 按默认配置创建的执行线程池
+     * @deprecated 请使用 {@link #jobExecutor(JobProperties)}（本方法不再注册 Bean）
+     */
+    @Deprecated
+    public Executor jobExecutor() {
+        return createJobExecutor(new JobProperties());
+    }
+
+    /**
      * 任务执行线程池（与调度线程池隔离）。
      *
-     * <p>采用虚拟线程，每个任务独占一条虚拟线程；调度线程只负责触发和提交，不直接执行业务 handler，
-     * 避免单个阻塞任务堵住调度器、导致其他 cron/fixed-rate 任务延迟触发。</p>
+     * <p>执行体跑在虚拟线程上，每个任务独占一条虚拟线程；调度线程只负责触发和提交，不直接执行业务
+     * handler，避免单个阻塞任务堵住调度器、导致其他 cron/fixed-rate 任务延迟触发。</p>
+     *
+     * <p><b>并发与排队必须有界</b>：原先用 {@code SimpleAsyncTaskExecutor} 无界创建线程，一个每秒
+     * 触发、执行缓慢且 {@code concurrentGuard=false} 的任务可以无限堆叠执行体直至内存耗尽。现改为
+     * 「有界线程池 + 虚拟线程工厂 + 拒绝即跳过」（{@link JobProperties.ExecutorProperties}），
+     * 拒绝的语义与日志由 {@code JobManager} 负责（定时触发不抛异常到调度线程，避免任务静默停摆）。</p>
      */
-    @Bean
+    @Bean(name = "jobExecutor")
     @ConditionalOnMissingBean(name = "jobExecutor")
-    public Executor jobExecutor() {
-        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("ypbin-job-exec-");
+    public Executor jobExecutor(JobProperties properties) {
+        return createJobExecutor(properties);
+    }
+
+    private static Executor createJobExecutor(JobProperties properties) {
+        JobProperties.ExecutorProperties pool = properties.getExecutor();
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("ypbin-job-exec-");
         executor.setVirtualThreads(true);
+        executor.setCorePoolSize(Math.max(1, pool.getMaxConcurrency()));
+        executor.setMaxPoolSize(Math.max(1, pool.getMaxConcurrency()));
+        executor.setQueueCapacity(Math.max(0, pool.getQueueCapacity()));
+        // 拒绝而不是 CallerRuns：CallerRuns 会让调度线程执行阻塞任务，堵死后续触发
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
         return executor;
     }
 
