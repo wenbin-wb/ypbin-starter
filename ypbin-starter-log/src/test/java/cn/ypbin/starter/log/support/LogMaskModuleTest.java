@@ -35,6 +35,12 @@ class LogMaskModuleTest {
         public String password;
     }
 
+    static class CredentialRequest {
+        public String nickname;
+        public String password;
+        public String accessToken;
+    }
+
     private final ObjectMapper mapper = new ObjectMapper().rebuild()
         .addModule(new LogMaskModule())
         .build();
@@ -61,6 +67,21 @@ class LogMaskModuleTest {
         String json = mapper.writeValueAsString(request);
 
         assertThat(json).contains("\"password\":null");
+    }
+
+    @Test
+    void serialize_shouldMaskSensitiveFieldNamesWithoutAnnotation() throws Exception {
+        CredentialRequest request = new CredentialRequest();
+        request.nickname = "tom";
+        request.password = "s3cret";
+        request.accessToken = "tok-123";
+
+        String json = mapper.writeValueAsString(request);
+
+        assertThat(json).contains("\"nickname\":\"tom\"");
+        assertThat(json).contains("\"password\":\"******\"");
+        assertThat(json).contains("\"accessToken\":\"******\"");
+        assertThat(json).doesNotContain("s3cret").doesNotContain("tok-123");
     }
 
     @Test

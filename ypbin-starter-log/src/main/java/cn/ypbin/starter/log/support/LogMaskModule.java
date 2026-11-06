@@ -27,10 +27,12 @@ import tools.jackson.databind.ser.BeanPropertyWriter;
 import tools.jackson.databind.ser.ValueSerializerModifier;
 
 /**
- * 日志专用 Jackson 3 模块：将标注 {@link LogMask} 的字段固定序列化为 {@code ******}。
+ * 日志专用 Jackson 3 模块：将标注 {@link LogMask} 或字段名命中敏感关键字的字段固定序列化为
+ * {@code ******}。
  *
- * <p>只注册到 {@code AccessLogAspect} 使用的日志专用 {@code ObjectMapper}，不影响业务
- * 接口响应的正常序列化——同一个 DTO 打给前端仍是明文，打到日志里才会被掩码。</p>
+ * <p>只注册到日志专用的 {@code ObjectMapper}，不影响业务接口响应的正常序列化——同一个 DTO
+ * 打给前端仍是明文，打到日志里才会被掩码。字段名兜底用于覆盖业务忘记标注 {@code @LogMask}
+ * 的密码、token、Cookie 等常见字段。</p>
  *
  * @author wenbin
  * @since 2026-08-07
@@ -44,7 +46,8 @@ public class LogMaskModule extends SimpleModule {
             public List<BeanPropertyWriter> changeProperties(SerializationConfig config,
                 BeanDescription.Supplier beanDesc, List<BeanPropertyWriter> beanProperties) {
                 for (BeanPropertyWriter writer : beanProperties) {
-                    if (writer.getAnnotation(LogMask.class) != null) {
+                    if (writer.getAnnotation(LogMask.class) != null
+                        || SensitiveFieldNames.matches(writer.getName())) {
                         writer.assignSerializer(new MaskSerializer());
                     }
                 }

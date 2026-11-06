@@ -174,7 +174,8 @@ public class LogCollector {
             if (!sb.isEmpty()) {
                 sb.append('&');
             }
-            sb.append(key).append('=').append(String.join(",", values));
+            String value = SensitiveFieldNames.matches(key) ? "******" : String.join(",", values);
+            sb.append(key).append('=').append(value);
         });
         return sb.toString();
     }
@@ -188,7 +189,7 @@ public class LogCollector {
         }
         while (names.hasMoreElements()) {
             String name = names.nextElement();
-            headers.put(name, request.getHeader(name));
+            headers.put(name, SensitiveFieldNames.matches(name) ? "******" : request.getHeader(name));
         }
         return headers;
     }

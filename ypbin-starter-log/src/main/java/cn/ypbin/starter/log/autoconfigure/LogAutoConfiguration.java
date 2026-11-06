@@ -25,6 +25,7 @@ import cn.ypbin.starter.log.dao.LogDao;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.event.LogEventListener;
 import cn.ypbin.starter.log.support.LogCollector;
+import cn.ypbin.starter.log.support.LogMaskModule;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -132,8 +133,12 @@ public class LogAutoConfiguration {
     private LogCollector createLogCollector(LogUserProvider userProvider, LogClientProvider clientProvider,
         IpLocationResolver ipLocationResolver, ObjectProvider<ObjectMapper> objectMapperProvider,
         ClientIpResolver clientIpResolver) {
-        // 复用容器中的 ObjectMapper（继承 json 模块配置），无则退化为默认实例
-        ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        // 复用容器中的 ObjectMapper（继承 json 模块配置），无则退化为默认实例；
+        // rebuild() 隔离出日志专用实例，注册 @LogMask 与敏感字段名兜底，避免明文口令/token 落库
+        ObjectMapper base = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        ObjectMapper objectMapper = base.rebuild()
+            .addModule(new LogMaskModule())
+            .build();
         return new LogCollector(userProvider, clientProvider, ipLocationResolver, objectMapper, clientIpResolver);
     }
 
