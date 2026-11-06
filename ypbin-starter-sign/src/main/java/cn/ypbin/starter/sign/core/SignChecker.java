@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.sign.core;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
 import jakarta.servlet.http.HttpServletRequest;
@@ -75,6 +76,7 @@ public class SignChecker {
     private final ObjectMapper objectMapper;
     private final SignAppProvider appProvider;
     private final SignAppVerifier appVerifier;
+    private final ClientIpResolver clientIpResolver;
 
     public SignChecker(SignProperties properties, NonceStore nonceStore, ObjectMapper objectMapper,
         SignAppProvider appProvider) {
@@ -93,6 +95,7 @@ public class SignChecker {
             .build();
         this.appProvider = appProvider;
         this.appVerifier = (appVerifier != null) ? appVerifier : SignAppVerifier.DEFAULT;
+        this.clientIpResolver = new ClientIpResolver(properties.getTrustedProxies());
     }
 
     /**
@@ -299,21 +302,41 @@ public class SignChecker {
     }
 
     /**
-     * 解析客户端来源地址。
+     * 解析客户端来源地址（IP 白名单用）。
      *
-     * <p><b>刻意默认不信任 {@code X-Forwarded-For}</b>：该头可被客户端伪造，只有在
-     * 前面确有可信代理时才可信。故由配置 {@code ypbin.sign.trust-forwarded-header} 显式开启，
-     * 开启后取 XFF <b>最左</b>值（原始客户端）。未开启时用 {@code getRemoteAddr()}。</p>
+     * <p><b>刻意默认不信任 {@code X-Forwarded-For}</b>：该头可被客户端伪造，只有前面确有可信代理时才可信，
+     * 故必须由 {@code ypbin.sign.trust-forwarded-header} 显式开启；未开启时一律用 {@code getRemoteAddr()}。</p>
+     *
+     * <p><b>开启后的口径（安全关键）</b>：绝不能取 XFF 的<b>最左</b>值——追加式代理
+     * （nginx 默认 {@code proxy_add_x_forwarded_for}）会把客户端自带的 XFF 原样保留在最左，
+     * 于是「伪造一条头就能通过 IP 白名单」。因此：</p>
+     * <ol>
+     *   <li>配置了 {@code ypbin.sign.trusted-proxies}：交给 {@link ClientIpResolver} 按「右起跳过可信代理、
+     *       取第一个不可信跳」解析，支持多级代理链路，与黑名单/网关同一口径；</li>
+     *   <li>未配置（只声明信任一跳）：取 XFF 的<b>最右</b>一跳——由最近的代理追加，客户端无法伪造。</li>
+     * </ol>
      */
     private String resolveClientIp(HttpServletRequest request) {
-        if (properties.isTrustForwardedHeader()) {
-            String forwarded = request.getHeader("X-Forwarded-For");
-            if (forwarded != null && !forwarded.isBlank()) {
-                int comma = forwarded.indexOf(',');
-                return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
+        String remote = request.getRemoteAddr();
+        if (!properties.isTrustForwardedHeader()) {
+            return remote;
+        }
+        if (!properties.getTrustedProxies().isEmpty()) {
+            return clientIpResolver.resolve(remote,
+                request.getHeader(ClientIpResolver.HEADER_FORWARDED_FOR),
+                request.getHeader(ClientIpResolver.HEADER_REAL_IP));
+        }
+        String forwarded = request.getHeader(ClientIpResolver.HEADER_FORWARDED_FOR);
+        if (forwarded == null || forwarded.isBlank()) {
+            return remote;
+        }
+        String last = null;
+        for (String hop : forwarded.split(",")) {
+            if (!hop.isBlank()) {
+                last = hop.trim();
             }
         }
-        return request.getRemoteAddr();
+        return last == null ? remote : last;
     }
 
     /**

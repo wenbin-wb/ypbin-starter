@@ -174,6 +174,40 @@ class TreeUtilsTest {
     }
 
     @Test
+    void buildAndFilter_shouldKeepMatchedNodeAndItsAncestorChain() {
+        // 回归：旧实现"先过滤再建树"，父节点被过滤掉的命中节点会变成根，祖先链丢失
+        List<Node> nodes = new ArrayList<>(List.of(
+            new Node(1L, null),
+            new Node(2L, 1L),
+            new Node(3L, 2L),
+            new Node(4L, 1L)));
+
+        List<Node> filtered = TreeUtils.buildAndFilter(nodes, node -> node.id.equals(3L));
+
+        assertThat(filtered).hasSize(1);
+        assertThat(filtered.get(0).id).as("根必须是 1（祖先链保留），而不是命中节点自己升为根").isEqualTo(1L);
+        assertThat(filtered.get(0).children).hasSize(1);
+        assertThat(filtered.get(0).children.get(0).id).isEqualTo(2L);
+        assertThat(filtered.get(0).children.get(0).children).hasSize(1);
+        assertThat(filtered.get(0).children.get(0).children.get(0).id).isEqualTo(3L);
+    }
+
+    @Test
+    void buildAndFilter_shouldDropBranchesWithoutMatches() {
+        List<Node> nodes = new ArrayList<>(List.of(
+            new Node(1L, null),
+            new Node(2L, 1L),
+            new Node(5L, null),
+            new Node(6L, 5L)));
+
+        List<Node> filtered = TreeUtils.buildAndFilter(nodes, node -> node.id.equals(2L));
+
+        assertThat(filtered).hasSize(1);
+        assertThat(filtered.get(0).id).isEqualTo(1L);
+        assertThat(filtered.get(0).children).extracting(child -> child.id).containsExactly(2L);
+    }
+
+    @Test
     void build_emptyOrNull_shouldReturnEmpty() {
         List<Node> empty = new ArrayList<>();
         assertThat(TreeUtils.build(empty)).isEmpty();

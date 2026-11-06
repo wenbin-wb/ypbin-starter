@@ -14,7 +14,7 @@
 - [ ] 💥 破坏性变更（Breaking Change）
 
 ### 质量自查清单
-- [ ] 代码遵循统一规范，已运行 `mvn spotless:apply`
+- [ ] 代码遵循统一规范，已在改动模块内运行 `mvn spotless:apply`（根目录解析不到该插件前缀）
 - [ ] 新增或修改的功能已补充单元测试，且 `mvn test` 100% 通过
 - [ ] 没有引入内联全限定类名（FQCN），顶部 import 规范
 - [ ] 无冗余的 TODO / FIXME 遗留

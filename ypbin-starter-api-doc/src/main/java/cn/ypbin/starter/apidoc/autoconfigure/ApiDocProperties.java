@@ -34,7 +34,12 @@ public class ApiDocProperties {
     /** 是否启用 API 文档，默认开启 */
     private boolean enabled = true;
 
-    /** 生产环境是否关闭 SpringDoc 端点，默认关闭 */
+    /**
+     * 生产环境是否关闭 SpringDoc 端点，<b>默认 true（即生产环境默认关闭文档）</b>。
+     *
+     * <p>"生产环境"的判定见 {@code ApiDocDefaultsEnvironmentPostProcessor}：当前按 active profile
+     * 精确等于 {@code prod} 识别。</p>
+     */
     private boolean disableInProd = true;
 
     /** 文档标题 */

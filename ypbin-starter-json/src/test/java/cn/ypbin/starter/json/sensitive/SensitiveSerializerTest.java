@@ -40,6 +40,13 @@ class SensitiveSerializerTest {
     ) {
     }
 
+    record NumericTypes(
+        @Sensitive(value = SensitiveType.PHONE, prefixKeep = 3, suffixKeep = 4) Long phone,
+        @Sensitive(SensitiveType.ALL) Integer idCard,
+        String name
+    ) {
+    }
+
     private final ObjectMapper mapper = JsonMapper.builder().build();
 
     @Test
@@ -53,6 +60,16 @@ class SensitiveSerializerTest {
     void shouldMaskAllWithAllType() throws Exception {
         String json = mapper.writeValueAsString(new AllType("abc"));
         assertThat(json).contains("***");
+    }
+
+    @Test
+    void shouldMaskNonStringFieldWithoutCrashing() throws Exception {
+        // 回归：非 String 字段曾因回退写死 findValueSerializer(String.class) 抛
+        // DatabindException: Long cannot be cast to String，一条字段打挂整个响应
+        String json = mapper.writeValueAsString(new NumericTypes(13800008000L, 1234567, "张三"));
+        assertThat(json).contains("138****8000");
+        assertThat(json).contains("\"name\":\"张三\"");
+        assertThat(json).doesNotContain("13800008000");
     }
 
     @Test

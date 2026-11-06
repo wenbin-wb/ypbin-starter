@@ -735,7 +735,7 @@ OnlineUserHelper.record(ip, browser, os);   // 可选：记录终端信息供在
 
 面向「按授权交付」的商业软件：供应方离线签发授权，运行端离线验签放行。基于国密 SM2（签名验签）+ SM4（授权文件对称加密）+ SM3（机器指纹摘要），私钥只在供应方签发端持有，运行端仅需公钥，无需联网即可校验。
 
-- **一行集成**：在需保护的方法或类上标注 `@LicenseCheck`，进入方法前自动校验当前授权；类上标注对其下所有方法生效，方法上可覆盖。校验不通过抛授权异常，由全局异常处理器转统一响应体。
+- **一行集成**：在需保护的方法或类上标注 `@LicenseCheck`，进入方法前自动校验当前授权；类上标注对其下所有方法生效，方法上可覆盖。注解写在接口方法上同样生效（实现类 + CGLIB、接口 + JDK 代理等组合均已覆盖）。校验不通过抛授权异常，由全局异常处理器转统一响应体。
 - **校验维度按需组合**：基础可用性（合法或宽限期内，过期即拦截，默认）；`module()` 要求授权范围包含指定功能模块，实现模块级细粒度授权；`online()` 要求触发一次联机回验以感知远程吊销（需接入联机校验扩展点）。
 - **机器指纹绑定**：`MachineFingerprint` 采集主机特征生成 SM3 摘要，授权文件可绑定指纹，换机即失效，默认开启。
 - **离线状态机**：`LicenseStatus` 表达合法 / 宽限期 / 过期 / 非法等状态，`LicenseManager` 加载并缓存当前授权，`LicenseVerifier` 做验签与状态判定。
@@ -1115,9 +1115,11 @@ public void sendSms(Long userId) { ... }
 ```
 
 - `key` 支持 SpEL，可按用户等业务维度限流；留空则用方法全限定名。
-- `byIp = true`（默认）时把客户端 IP 纳入限流键。v2.2.2 起 IP 默认取**真实对端地址**
+- `byIp = true`（默认）时把客户端 IP 纳入限流键。IP 默认取**真实对端地址**
   （`request.getRemoteAddr()`），不信任转发头——若服务位于可信反向代理之后且需按真实客户端 IP 限流，
   请显式开启 `ypbin.tools.rate-limit.trust-forwarded=true`（否则所有客户端共享代理出口 IP 一个限流桶）。
+  开启后取 `X-Forwarded-For` 的**最右一跳**（代理追加的地址），不取客户端可伪造的最左段；多级代理链
+  需要精确回溯时，应使用 `ClientIpResolver` + `trusted-proxies` 的能力。
 - 分布式版基于 `StringRedisTemplate` + Lua 脚本，多节点共享窗口。
 - `window` 必须 **≥ 1 秒**：`window <= 0` 会让计数键立即过期（`EXPIRE key 0` 等价于删除），每次请求都被当作新窗口、限流形同虚设——该配置错误在**首次调用**时抛 `IllegalArgumentException`（fail-fast，不静默降级）。
 - Lua 脚本带 TTL 兜底：计数键已存在却**没有过期时间**（历史残留、人工 `SET`、主从切换/持久化恢复丢 TTL）时补设 `EXPIRE` 自愈，避免键永久驻留、计数只增不减导致该接口/用户被**永久限流**。
@@ -1349,7 +1351,9 @@ public class Order extends TenantBaseEntity {
 }
 ```
 
-租户隔离由行级拦截器自动在 SQL 追加 `tenant_id` 条件，`tenantId` 字段供实体层读写；不需要租户的实体继承 `BaseEntity` 即可，避免基础表被迫带 `tenant_id` 列。
+租户隔离由行级拦截器自动在 SQL 追加 `tenant_id` 条件，`tenantId` 字段只用于读取；不需要租户的实体继承 `BaseEntity` 即可，避免基础表被迫带 `tenant_id` 列。
+
+写路径是 fail-closed 的：显式携带 `tenant_id` 的 INSERT / INSERT..SELECT 会被追加重复列后由数据库拒绝，`UPDATE ... SET tenant_id` 会被拦截器直接拒绝；实体字段标记了 `updateStrategy = NEVER`。合法的跨租户迁移（后台补数等）必须显式使用 `@TenantIgnore` / `TenantContext.executeIgnore`，不要从请求体绑定 `tenantId`。
 
 ### extension-datapermission — 数据权限
 
@@ -2024,6 +2028,12 @@ ypbin:
     algorithm: HMAC_SHA256    # 或 MD5（兼容旧系统）
     timeout: 60               # 签名有效期(秒)
     replay-protect: true      # nonce 防重放（有 Redis 用 Redis，否则内存）
+    # 来源 IP 白名单的取值口径（apps[].ip-whitelist）：
+    #   false（默认）            → 只用 TCP 对端地址 getRemoteAddr()，转发头一律忽略
+    #   true                     → 只信任一跳：取 X-Forwarded-For 的**最右**值（由最近的代理追加，客户端无法伪造）
+    #   true + trusted-proxies   → 按 ClientIpResolver「右起跳过可信代理、取第一个不可信跳」解析，支持多级代理
+    trust-forwarded-header: false
+    trusted-proxies: []       # 可信代理网段（IP/CIDR），与 ypbin.security.blocklist.trusted-proxies 同口径
     apps:
       - access-key: ak-001
         secret-key: your-secret-key

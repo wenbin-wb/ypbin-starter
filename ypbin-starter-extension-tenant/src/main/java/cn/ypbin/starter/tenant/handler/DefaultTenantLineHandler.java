@@ -17,13 +17,16 @@ package cn.ypbin.starter.tenant.handler;
 
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.tenant.autoconfigure.TenantProperties;
+import cn.ypbin.starter.tenant.core.TenantBaseEntity;
 import cn.ypbin.starter.tenant.core.TenantContext;
 import cn.ypbin.starter.tenant.core.TenantProvider;
 import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.schema.Column;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -77,5 +80,22 @@ public class DefaultTenantLineHandler implements TenantLineHandler {
     public boolean ignoreTable(String tableName) {
         // 线程级忽略（@TenantIgnore / TenantContext）优先，其次是配置的静态忽略表
         return TenantContext.isIgnored() || ignoreTables.contains(tableName);
+    }
+
+    /**
+     * 永不忽略 INSERT 的租户列。
+     *
+     * <p>默认实现发现 SQL 已显式包含租户列就整体跳过，导致请求体绑定
+     * {@link TenantBaseEntity#getTenantId()} 后可以写入任意租户。
+     * 这里恒返回 {@code false}：插件会再追加一次同名列，数据库因重复列拒绝该 SQL（fail-closed），
+     * 而不是静默放过跨租户写入。</p>
+     *
+     * @param columns        插入列
+     * @param tenantIdColumn 租户列名
+     * @return 恒为 false
+     */
+    @Override
+    public boolean ignoreInsert(List<Column> columns, String tenantIdColumn) {
+        return false;
     }
 }

@@ -229,10 +229,50 @@ class SignCheckerExtensionsTest {
 
         MockHttpServletRequest request = signedRequest("ak-001");
         request.setRemoteAddr("192.168.1.5");
-        request.addHeader("X-Forwarded-For", "10.1.2.3, 172.16.0.1");
+        // 追加式代理（nginx 默认 proxy_add_x_forwarded_for）会把客户端地址追加到**最右**
+        request.addHeader("X-Forwarded-For", "172.16.0.1, 10.1.2.3");
 
-        // 取 XFF 最左值（原始客户端）
+        // 未配置 trusted-proxies 时按「只信任一跳」取最右值
         assertThat(checker.check(request).success()).isTrue();
+    }
+
+    @Test
+    void shouldIgnoreForgedLeftmostForwardedEntry() {
+        // 越权回归：XFF 最左段完全由客户端控制，绝不能参与 IP 白名单判定
+        SignProperties properties = baseProperties();
+        properties.setTrustForwardedHeader(true);
+        SignApp app = new SignApp("ak-001", SECRET);
+        app.setIpWhitelist("10.0.0.0/8");
+        SignChecker checker = checker(properties, app);
+
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setRemoteAddr("192.168.1.5");
+        // 客户端伪造 10.1.2.3（白名单内），代理追加真实来源 203.0.113.9（白名单外）
+        request.addHeader("X-Forwarded-For", "10.1.2.3, 203.0.113.9");
+
+        assertThat(checker.check(request).success())
+            .as("最左段伪造不得通过白名单：真实来源由代理追加在最右")
+            .isFalse();
+    }
+
+    @Test
+    void shouldResolveMultiHopWhenTrustedProxiesConfigured() {
+        // 多级代理（客户端 → nginx → 网关 → 应用）：配置可信代理后按「右起跳过可信代理」解析
+        SignProperties properties = baseProperties();
+        properties.setTrustForwardedHeader(true);
+        properties.setTrustedProxies(List.of("192.168.1.5", "172.16.0.0/12"));
+        SignApp app = new SignApp("ak-001", SECRET);
+        app.setIpWhitelist("10.0.0.0/8");
+        SignChecker checker = checker(properties, app);
+
+        MockHttpServletRequest request = signedRequest("ak-001");
+        request.setRemoteAddr("192.168.1.5");
+        // 客户端伪造 10.1.2.3；nginx 追加真实来源；网关追加 nginx 地址（可信）
+        request.addHeader("X-Forwarded-For", "10.1.2.3, 203.0.113.9, 172.16.0.1");
+
+        assertThat(checker.check(request).success())
+            .as("右起跳过可信代理后应取到 203.0.113.9（白名单外）")
+            .isFalse();
     }
 
     @Test

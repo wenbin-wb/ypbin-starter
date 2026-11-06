@@ -58,12 +58,12 @@ public final class RequestUtils {
     }
 
     /**
-     * 获取客户端 IP（默认信任反向代理注入的转发头，取首个非 unknown 条目）。
+     * 获取客户端 IP（默认只取真实对端地址，不信任可伪造的转发头）。
      *
      * @return 客户端 IP，无上下文时返回 {@code unknown}
      */
     public static String getClientIp() {
-        return getClientIp(true);
+        return getClientIp(false);
     }
 
     /**
@@ -71,7 +71,8 @@ public final class RequestUtils {
      *
      * @param trustForwarded 是否信任转发头（X-Forwarded-For/X-Real-IP 等）。限流等安全敏感场景应传
      *                       {@code false} 只取真实对端地址（{@link HttpServletRequest#getRemoteAddr()}），
-     *                       避免客户端伪造转发头绕过；确经可信代理清洗后再开启
+     *                       避免客户端伪造转发头绕过；确经可信代理清洗后再开启。开启时取最右一跳
+     *                       （代理追加的地址），而非客户端可控制的最左段
      * @return 客户端 IP，无上下文时返回 {@code unknown}
      */
     public static String getClientIp(boolean trustForwarded) {
@@ -85,8 +86,9 @@ public final class RequestUtils {
         for (String header : IP_HEADERS) {
             String value = request.getHeader(header);
             if (value != null && !value.isBlank() && !UNKNOWN.equalsIgnoreCase(value)) {
-                int comma = value.indexOf(',');
-                return (comma > 0) ? value.substring(0, comma).trim() : value.trim();
+                // 代理通常把真实来源追加在右侧；最左段完全由客户端控制，不能采用
+                int comma = value.lastIndexOf(',');
+                return (comma >= 0) ? value.substring(comma + 1).trim() : value.trim();
             }
         }
         return request.getRemoteAddr();

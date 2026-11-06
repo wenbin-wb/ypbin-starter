@@ -90,17 +90,17 @@ public final class ContainerSupport {
     /** 外部 Nacos 地址环境变量（容器/CI 场景更顺手） */
     public static final String ENV_NACOS_ADDR = "YPBIN_TEST_NACOS_ADDR";
 
+    /** 外部 Redis 默认端口（未配置 {@link #ENV_REDIS_PORT} 时使用） */
+    private static final String DEFAULT_REDIS_PORT = "6379";
+
     /**
-     * Nacos 容器起始宿主端口。
+     * Nacos 容器起始宿主端口（在 {@code [18848, 19048)} 区间内找一对连续空闲端口）。
      *
      * <p>Nacos 客户端固定按「服务端口 + 1000」连接 gRPC（3.x 客户端没有端口偏移配置项），
      * 而 Testcontainers 默认把 8848/9848 映射成互不相干的随机端口，客户端必然连不上
      * （表现为 {@code Client not connected, current status:STARTING}）。因此必须把两个端口绑定到
      * 一对相隔 {@link #NACOS_GRPC_PORT_OFFSET} 的连续空闲宿主端口。</p>
      */
-    /** 外部 Redis 默认端口 */
-    private static final String DEFAULT_REDIS_PORT = "6379";
-
     private static final int NACOS_BASE_PORT = 18848;
 
     /** 服务端口与 gRPC 端口的固定偏移 */

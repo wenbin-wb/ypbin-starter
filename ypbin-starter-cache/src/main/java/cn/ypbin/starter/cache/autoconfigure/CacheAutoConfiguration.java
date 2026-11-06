@@ -17,6 +17,7 @@ package cn.ypbin.starter.cache.autoconfigure;
 
 import cn.ypbin.starter.cache.annotation.CacheEvictAspect;
 import cn.ypbin.starter.cache.core.CacheService;
+import cn.ypbin.starter.cache.multilevel.MultiLevelCacheProperties;
 import cn.ypbin.starter.cache.redis.RedisCacheService;
 import cn.ypbin.starter.cache.redis.RedisJsonSerializerFactory;
 import org.aspectj.lang.JoinPoint;
@@ -92,8 +93,25 @@ public class CacheAutoConfiguration {
         return template;
     }
 
+    /**
+     * 默认（单级）缓存服务：String 键 + JSON 值的 Redis 实现。
+     *
+     * <p><strong>为什么多级缓存启用时必须让位</strong>：{@code MultiLevelCacheAutoConfiguration#cacheService}
+     * 的 {@code @Bean} 方法名与本方法同名（都是 {@code cacheService}），而多级配置声明为
+     * {@code @AutoConfiguration(after = CacheAutoConfiguration.class)}，本方法必然先注册；Spring Boot 默认
+     * 禁止 Bean 定义覆盖（{@code allow-bean-definition-overriding=false}），第二个同名定义会抛
+     * {@code BeanDefinitionOverrideException}，宿主一开 {@code ypbin.cache.multi-level.enabled=true} 就启动失败。
+     * 类型级 {@code @ConditionalOnMissingBean} 在多级配置求值时还看不到 {@code MultiLevelCacheService}，
+     * 挡不住这条同名冲突。故这里显式按「多级启用则让位」排除：容器中始终只有一个 {@link CacheService}，
+     * Bean 名仍是 {@code cacheService}（宿主按名注入不破），实际实现由多级配置提供。</p>
+     *
+     * @param redisTemplate String 键 + JSON 值的 Redis 模板
+     * @return 单级缓存服务
+     */
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = MultiLevelCacheProperties.PREFIX, name = "enabled",
+        havingValue = "false", matchIfMissing = true)
     public CacheService cacheService(RedisTemplate<String, Object> redisTemplate) {
         return new RedisCacheService(redisTemplate);
     }

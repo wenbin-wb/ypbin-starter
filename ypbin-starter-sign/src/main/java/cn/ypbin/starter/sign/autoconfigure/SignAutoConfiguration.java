@@ -107,8 +107,20 @@ public class SignAutoConfiguration {
         return new SignInterceptor(properties, signChecker, objectMapper.getIfAvailable(ObjectMapper::new));
     }
 
+    /**
+     * 注册签名拦截器（{@link WebMvcConfigurer} 是**集合贡献者**：容器里允许多个实例共存）。
+     *
+     * <p><strong>为什么条件必须按 Bean 名而不是按类型</strong>：这里曾用裸 {@code @ConditionalOnMissingBean}，
+     * 它按方法返回类型 {@link WebMvcConfigurer} 判定——宿主只要已定义**任意一个** {@code WebMvcConfigurer}
+     * Bean（加 CORS、加参数解析、加消息转换都是常规操作），本 Bean 就不注册，{@code addInterceptors}
+     * 从不执行 ⇒ 签名校验整体静默不生效（零日志、零启动失败）。改为按名让位后，宿主仍可用同名 Bean
+     * 显式替换，且不会误伤"宿主另加一个 WebMvcConfigurer"的正常场景。</p>
+     *
+     * @param signInterceptor 签名拦截器
+     * @return 注册签名拦截器的 WebMvc 配置器
+     */
     @Bean
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(name = "signWebMvcConfigurer")
     public WebMvcConfigurer signWebMvcConfigurer(SignInterceptor signInterceptor) {
         return new WebMvcConfigurer() {
             @Override

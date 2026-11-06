@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-05T17:33:34.550Z",
+  "generatedAt": "2026-11-06T00:46:55.039Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 405,
+    "customPropertyCount": 406,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 445,
+    "totalEntryCount": 446,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -692,7 +692,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 53
+              "line": 58
             }
           ],
           "default": true,
@@ -702,7 +702,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 53
+              "line": 58
             }
           ],
           "group": "ypbin.api-doc",
@@ -724,7 +724,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 44
+              "line": 49
             }
           ],
           "default": "",
@@ -734,7 +734,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 44
+              "line": 49
             }
           ],
           "group": "ypbin.api-doc",
@@ -748,7 +748,7 @@
           "defaultValue": true,
           "required": false,
           "requiredWhen": null,
-          "description": "生产环境是否关闭 SpringDoc 端点，默认关闭",
+          "description": "生产环境是否关闭 SpringDoc 端点， 默认 true（即生产环境默认关闭文档） 。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
           "safetyNotes": [
@@ -758,7 +758,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 38
+              "line": 43
             }
           ],
           "default": true,
@@ -770,7 +770,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 38
+              "line": 43
             }
           ],
           "group": "ypbin.api-doc",
@@ -828,7 +828,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 50
+              "line": 55
             }
           ],
           "default": "default",
@@ -838,7 +838,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 50
+              "line": 55
             }
           ],
           "group": "ypbin.api-doc",
@@ -900,7 +900,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 56
+              "line": 61
             }
           ],
           "default": true,
@@ -910,7 +910,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 56
+              "line": 61
             }
           ],
           "group": "ypbin.api-doc",
@@ -932,7 +932,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 68
+              "line": 73
             }
           ],
           "default": null,
@@ -942,7 +942,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 68
+              "line": 73
             }
           ],
           "group": "ypbin.api-doc",
@@ -964,7 +964,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 65
+              "line": 70
             }
           ],
           "default": null,
@@ -974,7 +974,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 65
+              "line": 70
             }
           ],
           "group": "ypbin.api-doc",
@@ -996,7 +996,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 62
+              "line": 67
             }
           ],
           "default": null,
@@ -1006,7 +1006,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 62
+              "line": 67
             }
           ],
           "group": "ypbin.api-doc",
@@ -1028,7 +1028,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 59
+              "line": 64
             }
           ],
           "default": null,
@@ -1038,7 +1038,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 59
+              "line": 64
             }
           ],
           "group": "ypbin.api-doc",
@@ -1060,7 +1060,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 71
+              "line": 76
             }
           ],
           "default": null,
@@ -1070,7 +1070,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 71
+              "line": 76
             }
           ],
           "group": "ypbin.api-doc",
@@ -1092,7 +1092,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 41
+              "line": 46
             }
           ],
           "default": "API 文档",
@@ -1102,7 +1102,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 41
+              "line": 46
             }
           ],
           "group": "ypbin.api-doc",
@@ -1124,7 +1124,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 47
+              "line": 52
             }
           ],
           "default": "1.0.0",
@@ -1134,7 +1134,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-api-doc/src/main/java/cn/ypbin/starter/apidoc/autoconfigure/ApiDocProperties.java",
-              "line": 47
+              "line": 52
             }
           ],
           "group": "ypbin.api-doc",
@@ -3458,7 +3458,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2274
+              "line": 2284
             }
           ],
           "default": null,
@@ -3468,7 +3468,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2274
+              "line": 2284
             }
           ]
         }
@@ -4550,7 +4550,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2181
+              "line": 2191
             }
           ],
           "default": null,
@@ -4560,7 +4560,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2181
+              "line": 2191
             }
           ]
         },
@@ -4580,7 +4580,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2181
+              "line": 2191
             }
           ],
           "default": null,
@@ -4590,7 +4590,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2181
+              "line": 2191
             }
           ]
         },
@@ -4892,7 +4892,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2370
+              "line": 2380
             }
           ],
           "default": null,
@@ -4902,7 +4902,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2370
+              "line": 2380
             }
           ]
         },
@@ -4924,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2370
+              "line": 2380
             }
           ],
           "default": null,
@@ -4936,7 +4936,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2370
+              "line": 2380
             }
           ]
         },
@@ -4956,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2370
+              "line": 2380
             }
           ],
           "default": null,
@@ -4966,7 +4966,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2370
+              "line": 2380
             }
           ]
         }
@@ -5056,7 +5056,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2424
+              "line": 2434
             }
           ],
           "default": null,
@@ -5066,7 +5066,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2424
+              "line": 2434
             }
           ]
         },
@@ -5086,7 +5086,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2424
+              "line": 2434
             }
           ],
           "default": null,
@@ -5096,7 +5096,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2424
+              "line": 2434
             }
           ]
         }
@@ -6484,7 +6484,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1976
+              "line": 1980
             }
           ],
           "default": "messages",
@@ -6494,7 +6494,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1976
+              "line": 1980
             }
           ]
         }
@@ -8880,7 +8880,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1674
+              "line": 1678
             }
           ],
           "default": null,
@@ -8890,7 +8890,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1674
+              "line": 1678
             }
           ]
         }
@@ -10851,7 +10851,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 79
+              "line": 95
             }
           ],
           "default": null,
@@ -10861,7 +10861,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 79
+              "line": 95
             }
           ],
           "group": "ypbin.sign",
@@ -11011,7 +11011,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 85
+              "line": 101
             }
           ],
           "default": null,
@@ -11021,7 +11021,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 85
+              "line": 101
             }
           ],
           "group": "ypbin.sign",
@@ -11043,7 +11043,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 82
+              "line": 98
             }
           ],
           "default": null,
@@ -11053,7 +11053,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 82
+              "line": 98
             }
           ],
           "group": "ypbin.sign",
@@ -11107,7 +11107,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 76
+              "line": 83
             }
           ],
           "default": false,
@@ -11117,7 +11117,39 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 76
+              "line": 83
+            }
+          ],
+          "group": "ypbin.sign",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-sign",
+          "key": "ypbin.sign.trusted-proxies",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "可信代理网段（IP 或 CIDR），与 ypbin.security.blocklist.trusted-proxies 同一口径。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 92
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
+              "line": 92
             }
           ],
           "group": "ypbin.sign",
@@ -11141,7 +11173,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 192
+              "line": 216
             }
           ],
           "default": null,
@@ -11153,7 +11185,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 192
+              "line": 216
             }
           ],
           "group": "ypbin.sign",
@@ -11178,7 +11210,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 194
+              "line": 218
             }
           ],
           "default": null,
@@ -11191,7 +11223,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 194
+              "line": 218
             }
           ],
           "group": "ypbin.sign",
@@ -11213,7 +11245,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 196
+              "line": 220
             }
           ],
           "default": null,
@@ -11223,7 +11255,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 196
+              "line": 220
             }
           ],
           "group": "ypbin.sign",
@@ -11245,7 +11277,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 198
+              "line": 222
             }
           ],
           "default": null,
@@ -11255,7 +11287,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 198
+              "line": 222
             }
           ],
           "group": "ypbin.sign",
@@ -11277,7 +11309,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 200
+              "line": 224
             }
           ],
           "default": "true",
@@ -11287,7 +11319,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 200
+              "line": 224
             }
           ],
           "group": "ypbin.sign",
@@ -11309,7 +11341,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 202
+              "line": 226
             }
           ],
           "default": null,
@@ -11319,7 +11351,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 202
+              "line": 226
             }
           ],
           "group": "ypbin.sign",
@@ -11341,7 +11373,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 204
+              "line": 228
             }
           ],
           "default": "new ArrayList<>()",
@@ -11351,7 +11383,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 204
+              "line": 228
             }
           ],
           "group": "ypbin.sign",
@@ -11373,7 +11405,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 206
+              "line": 230
             }
           ],
           "default": null,
@@ -11383,7 +11415,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 206
+              "line": 230
             }
           ],
           "group": "ypbin.sign",
@@ -11405,7 +11437,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 208
+              "line": 232
             }
           ],
           "default": null,
@@ -11415,7 +11447,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 208
+              "line": 232
             }
           ],
           "group": "ypbin.sign",
@@ -11437,7 +11469,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 210
+              "line": 234
             }
           ],
           "default": null,
@@ -11447,7 +11479,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-sign/src/main/java/cn/ypbin/starter/sign/autoconfigure/SignProperties.java",
-              "line": 210
+              "line": 234
             }
           ],
           "group": "ypbin.sign",

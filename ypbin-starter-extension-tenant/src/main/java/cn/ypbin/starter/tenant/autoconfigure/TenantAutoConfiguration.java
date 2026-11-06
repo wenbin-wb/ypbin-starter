@@ -23,6 +23,7 @@ import cn.ypbin.starter.tenant.core.TenantContextPropagator;
 import cn.ypbin.starter.tenant.core.TenantProvider;
 import cn.ypbin.starter.tenant.core.TenantThreadLocalAccessor;
 import cn.ypbin.starter.tenant.handler.DefaultTenantLineHandler;
+import cn.ypbin.starter.tenant.handler.StrictTenantLineInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
 import io.micrometer.context.ContextRegistry;
@@ -69,7 +70,7 @@ public class TenantAutoConfiguration {
         return new InnerInterceptorProvider() {
             @Override
             public InnerInterceptor getInnerInterceptor() {
-                return new TenantLineInnerInterceptor(
+                return new StrictTenantLineInnerInterceptor(
                     new DefaultTenantLineHandler(tenantProvider, properties));
             }
 

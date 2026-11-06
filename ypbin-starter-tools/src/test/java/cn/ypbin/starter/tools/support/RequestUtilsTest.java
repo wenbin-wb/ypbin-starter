@@ -52,7 +52,8 @@ class RequestUtilsTest {
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
         assertThat(RequestUtils.getRequest()).isSameAs(request);
-        assertThat(RequestUtils.getClientIp()).isEqualTo("1.2.3.4");
+        // 默认不信任转发头：客户端可自行伪造 XFF，不能作为来源
+        assertThat(RequestUtils.getClientIp()).isEqualTo("10.0.0.1");
         assertThat(RequestUtils.getUserAgent()).isEqualTo("test-agent");
         assertThat(RequestUtils.getHeader("X-Custom")).isEqualTo("custom-value");
         assertThat(RequestUtils.getHeaders()).containsKey("x-custom");
@@ -76,7 +77,7 @@ class RequestUtilsTest {
 
         // 不信任转发头时取真实对端地址，防伪造 XFF 绕过限流
         assertThat(RequestUtils.getClientIp(false)).isEqualTo("10.0.0.1");
-        // 显式信任转发头时保持转发头优先（与无参重载一致）
-        assertThat(RequestUtils.getClientIp(true)).isEqualTo("1.2.3.4");
+        // 显式信任转发头时取最右一跳（代理追加的真实来源），而不是客户端可控的最左段
+        assertThat(RequestUtils.getClientIp(true)).isEqualTo("5.6.7.8");
     }
 }
