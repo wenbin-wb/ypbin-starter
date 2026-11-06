@@ -16,6 +16,7 @@
 package cn.ypbin.starter.security.management;
 
 import cn.ypbin.starter.security.core.PermissionProvider;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -97,12 +98,14 @@ public class ManagementEndpointGuardAutoConfiguration {
      */
     @Deprecated(since = "4.4.0", forRemoval = false)
     public FilterRegistrationBean<ManagementEndpointGuard> managementEndpointGuardRegistration(
-            ManagementEndpointProperties properties, PermissionProvider permissionProvider, ObjectMapper objectMapper) {
+            ManagementEndpointProperties properties, PermissionProvider permissionProvider,
+            @Nullable ObjectMapper objectMapper) {
         return createRegistration(properties, permissionProvider, objectMapper);
     }
 
     private FilterRegistrationBean<ManagementEndpointGuard> createRegistration(
-            ManagementEndpointProperties properties, PermissionProvider permissionProvider, ObjectMapper objectMapper) {
+            ManagementEndpointProperties properties, PermissionProvider permissionProvider,
+            @Nullable ObjectMapper objectMapper) {
         FilterRegistrationBean<ManagementEndpointGuard> registration = new FilterRegistrationBean<>(
             new ManagementEndpointGuard(properties, permissionProvider, objectMapper));
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);

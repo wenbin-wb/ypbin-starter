@@ -25,6 +25,7 @@ import cn.ypbin.starter.license.extension.RemoteVerifyProvider;
 import java.lang.reflect.Method;
 import java.util.List;
 import org.aopalliance.intercept.MethodInterceptor;
+import org.jspecify.annotations.Nullable;
 import org.aopalliance.intercept.MethodInvocation;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Aspect;
@@ -63,7 +64,7 @@ public class LicenseCheckAspect implements MethodInterceptor {
     }
 
     @Override
-    public Object invoke(MethodInvocation invocation) throws Throwable {
+    public @Nullable Object invoke(MethodInvocation invocation) throws Throwable {
         return checkAndProceed(invocation.getMethod(), invocation.getThis(), invocation::proceed);
     }
 
@@ -74,12 +75,13 @@ public class LicenseCheckAspect implements MethodInterceptor {
      * @return 方法返回值
      * @throws Throwable 方法或授权校验抛出的异常
      */
-    public Object around(ProceedingJoinPoint point) throws Throwable {
+    public @Nullable Object around(ProceedingJoinPoint point) throws Throwable {
         return checkAndProceed(((MethodSignature) point.getSignature()).getMethod(), point.getTarget(),
             point::proceed);
     }
 
-    private Object checkAndProceed(Method method, Object target, CheckedSupplier proceed) throws Throwable {
+    private @Nullable Object checkAndProceed(Method method, @Nullable Object target, CheckedSupplier proceed)
+        throws Throwable {
         Class<?> targetClass = target == null ? method.getDeclaringClass() : AopUtils.getTargetClass(target);
         LicenseCheck check = resolveAnnotation(method, targetClass);
         if (check == null) {
@@ -111,7 +113,7 @@ public class LicenseCheckAspect implements MethodInterceptor {
      * @param targetClass 目标类（非代理类）
      * @return 合并后的注解；解析不到返回 null
      */
-    static LicenseCheck resolveAnnotation(Method method, Class<?> targetClass) {
+    static @Nullable LicenseCheck resolveAnnotation(Method method, Class<?> targetClass) {
         Method specific = AopUtils.getMostSpecificMethod(method, targetClass);
         LicenseCheck check = AnnotatedElementUtils.findMergedAnnotation(specific, LicenseCheck.class);
         if (check != null) {
@@ -159,6 +161,6 @@ public class LicenseCheckAspect implements MethodInterceptor {
 
     @FunctionalInterface
     private interface CheckedSupplier {
-        Object get() throws Throwable;
+        @Nullable Object get() throws Throwable;
     }
 }
