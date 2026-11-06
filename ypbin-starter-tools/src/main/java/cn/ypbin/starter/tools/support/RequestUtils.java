@@ -15,11 +15,13 @@
  */
 package cn.ypbin.starter.tools.support;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -40,6 +42,24 @@ public final class RequestUtils {
     private static final String[] IP_HEADERS = {
         "X-Forwarded-For", "X-Real-IP", "Proxy-Client-IP", "WL-Proxy-Client-IP"
     };
+
+    /**
+     * 配置了可信代理（{@code ypbin.tools.trusted-proxies}）时的多级解析器；为 {@code null}
+     * 表示未配置，保持「只取最右一跳」的既有语义。
+     */
+    @Nullable
+    private static volatile ClientIpResolver clientIpResolver;
+
+    /**
+     * 注入可信代理配置（由 tools 自动配置在启动时调用）。
+     *
+     * @param trustedProxies 可信代理 IP/CIDR；为空表示不启用多级解析
+     */
+    public static void configureTrustedProxies(@Nullable List<String> trustedProxies) {
+        clientIpResolver = trustedProxies == null || trustedProxies.isEmpty()
+            ? null
+            : new ClientIpResolver(trustedProxies);
+    }
 
     private RequestUtils() {
     }
@@ -71,8 +91,10 @@ public final class RequestUtils {
      *
      * @param trustForwarded 是否信任转发头（X-Forwarded-For/X-Real-IP 等）。限流等安全敏感场景应传
      *                       {@code false} 只取真实对端地址（{@link HttpServletRequest#getRemoteAddr()}），
-     *                       避免客户端伪造转发头绕过；确经可信代理清洗后再开启。开启时取最右一跳
-     *                       （代理追加的地址），而非客户端可控制的最左段
+     *                       避免客户端伪造转发头绕过；确经可信代理清洗后再开启。开启时：
+     *                       配置了 {@code ypbin.tools.trusted-proxies} 则走 {@link ClientIpResolver}
+     *                       的多级解析（与 core/sign/log 同口径），否则取最右一跳（代理追加的地址），
+     *                       而非客户端可控制的最左段
      * @return 客户端 IP，无上下文时返回 {@code unknown}
      */
     public static String getClientIp(boolean trustForwarded) {
@@ -82,6 +104,13 @@ public final class RequestUtils {
         }
         if (!trustForwarded) {
             return request.getRemoteAddr();
+        }
+        ClientIpResolver resolver = clientIpResolver;
+        if (resolver != null) {
+            // 多级代理：从右往左跳过可信代理取第一个不可信地址；直连地址不可信时内部直接返回它
+            return resolver.resolve(request.getRemoteAddr(),
+                request.getHeader(ClientIpResolver.HEADER_FORWARDED_FOR),
+                request.getHeader(ClientIpResolver.HEADER_REAL_IP));
         }
         for (String header : IP_HEADERS) {
             String value = request.getHeader(header);

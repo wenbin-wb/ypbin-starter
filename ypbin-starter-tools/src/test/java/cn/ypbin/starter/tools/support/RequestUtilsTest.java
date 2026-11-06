@@ -17,6 +17,8 @@ package cn.ypbin.starter.tools.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,13 +28,19 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 /**
  * 请求上下文工具测试。
  *
+ * <p>客户端 IP 部分额外覆盖 {@code ypbin.tools.trusted-proxies}：配置后必须与 core/sign/log 的
+ * {@link ClientIpResolver} 口径一致，未配置时保持「最右一跳」旧语义。</p>
+ *
  * @author wenbin
  * @since 2026-08-31
  */
 class RequestUtilsTest {
 
+    private static final List<String> TRUSTED = List.of("10.0.0.0/8");
+
     @AfterEach
     void tearDown() {
+        RequestUtils.configureTrustedProxies(null);
         RequestContextHolder.resetRequestAttributes();
     }
 
@@ -79,5 +87,33 @@ class RequestUtilsTest {
         assertThat(RequestUtils.getClientIp(false)).isEqualTo("10.0.0.1");
         // 显式信任转发头时取最右一跳（代理追加的真实来源），而不是客户端可控的最左段
         assertThat(RequestUtils.getClientIp(true)).isEqualTo("5.6.7.8");
+    }
+
+    @Test
+    void trustedProxiesShouldResolveLikeCoreResolver() {
+        RequestUtils.configureTrustedProxies(TRUSTED);
+        // 客户端 → nginx(10.0.0.7) → 应用直连方(10.0.0.5)
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("10.0.0.5");
+        request.addHeader(ClientIpResolver.HEADER_FORWARDED_FOR, "203.0.113.9, 10.0.0.7");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        String resolved = RequestUtils.getClientIp(true);
+
+        assertThat(resolved).isEqualTo("203.0.113.9");
+        // 与 core 的解析器逐字一致：sign/log/core 用的就是它
+        assertThat(new ClientIpResolver(TRUSTED).resolve("10.0.0.5", "203.0.113.9, 10.0.0.7", null))
+            .isEqualTo(resolved);
+    }
+
+    @Test
+    void untrustedDirectPeerShouldIgnoreForwardedHeaders() {
+        RequestUtils.configureTrustedProxies(TRUSTED);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("198.51.100.5");
+        request.addHeader(ClientIpResolver.HEADER_FORWARDED_FOR, "203.0.113.9");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        assertThat(RequestUtils.getClientIp(true)).isEqualTo("198.51.100.5");
     }
 }

@@ -1266,6 +1266,28 @@ public class ArticleController extends CrudController<Article, Long, ArticleReq,
 
 > 安全默认：`permissionPrefix()` 默认返回 `null`（不校验，仅受全局登录拦截）；受保护资源务必覆盖它。依赖 Sa-Token，未引入时自动跳过。
 
+**数据归属校验（必读）**：`permissionPrefix()` 只回答「有没有这类权限」，不回答「这条数据是不是我的」。
+`checkOwnership(id, action)` 在 `get`/`update`/`delete` 前调用，**默认空实现——这是有意保留的 fail-open**，
+保证存量应用升级不中断；不覆盖它时，任何持有 `:edit`/`:delete` 权限的调用方都能按 id 改动他人数据。
+启用多租户/数据权限插件时这类越权会被插件兜住，**单租户且未启用数据权限时不会被兜住**，必须自己校验：
+
+```java
+public class ArticleController extends CrudController<Article, Long, ArticleReq, ArticleResp, PageQuery> {
+
+    @Override
+    protected void checkOwnership(Long id, String action) {
+        Article article = service.getById(id);
+        if (article == null || !Objects.equals(article.getOwnerId(), UserContext.getUserId())) {
+            // 与「影响行数为 0」同一口径，不区分「不存在」与「无权」，避免探测他人数据是否存在
+            throw new BusinessException("资源不存在或无权操作：" + id);
+        }
+    }
+}
+```
+
+`action` 取值 `get` / `edit` / `delete`，需要按动作区分时可用它分支；校验抛出的 `BusinessException` /
+`AccessDeniedException` 会直接中止本次操作。
+
 **精细控制**：需要某端点单独权限码/逻辑时，仍可 `@Override` 端点挂 `@SaCheckPermission` 再 `super.xxx()`，与前缀机制共存：
 
 ```java

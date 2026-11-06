@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-06T04:12:24.843Z",
+  "generatedAt": "2026-11-06T07:27:10.828Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 412,
+    "customPropertyCount": 413,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 452,
+    "totalEntryCount": 453,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -3490,7 +3490,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2286
+              "line": 2308
             }
           ],
           "default": null,
@@ -3500,7 +3500,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2286
+              "line": 2308
             }
           ]
         }
@@ -4582,7 +4582,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2193
+              "line": 2215
             }
           ],
           "default": null,
@@ -4592,7 +4592,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2193
+              "line": 2215
             }
           ]
         },
@@ -4612,7 +4612,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2193
+              "line": 2215
             }
           ],
           "default": null,
@@ -4622,7 +4622,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2193
+              "line": 2215
             }
           ]
         },
@@ -4924,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2382
+              "line": 2404
             }
           ],
           "default": null,
@@ -4934,7 +4934,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2382
+              "line": 2404
             }
           ]
         },
@@ -4956,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2382
+              "line": 2404
             }
           ],
           "default": null,
@@ -4968,7 +4968,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2382
+              "line": 2404
             }
           ]
         },
@@ -4988,7 +4988,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2382
+              "line": 2404
             }
           ],
           "default": null,
@@ -4998,7 +4998,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2382
+              "line": 2404
             }
           ]
         }
@@ -5088,7 +5088,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2436
+              "line": 2458
             }
           ],
           "default": null,
@@ -5098,7 +5098,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2436
+              "line": 2458
             }
           ]
         },
@@ -5118,7 +5118,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2436
+              "line": 2458
             }
           ],
           "default": null,
@@ -5128,7 +5128,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2436
+              "line": 2458
             }
           ]
         }
@@ -6536,7 +6536,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1982
+              "line": 2004
             }
           ],
           "default": "messages",
@@ -6546,7 +6546,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1982
+              "line": 2004
             }
           ]
         }
@@ -8972,7 +8972,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1680
+              "line": 1702
             }
           ],
           "default": null,
@@ -8982,7 +8982,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1680
+              "line": 1702
             }
           ]
         }
@@ -12680,6 +12680,38 @@
               "kind": "java-property",
               "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/limiter/RateLimitProperties.java",
               "line": 35
+            }
+          ],
+          "group": "ypbin.tools",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-tools",
+          "key": "ypbin.tools.trusted-proxies",
+          "type": "java.util.List<java.lang.String>",
+          "defaultDefined": false,
+          "defaultValue": null,
+          "required": false,
+          "requiredWhen": null,
+          "description": "可信代理（精确 IP 或 CIDR）。",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/autoconfigure/ToolsProperties.java",
+              "line": 42
+            }
+          ],
+          "default": null,
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-tools/src/main/java/cn/ypbin/starter/tools/autoconfigure/ToolsProperties.java",
+              "line": 42
             }
           ],
           "group": "ypbin.tools",

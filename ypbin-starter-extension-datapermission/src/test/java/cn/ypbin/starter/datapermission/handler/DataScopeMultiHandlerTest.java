@@ -82,6 +82,22 @@ class DataScopeMultiHandlerTest {
     }
 
     @Test
+    void shouldNotQualifyColumnsInsideSubQuery() {
+        Table aliased = new Table("sys_user");
+        aliased.setAlias(new Alias("u"));
+        DataScopeMultiHandler handler = new DataScopeMultiHandler(
+            (mappedStatementId, tableName) -> "dept_id IN (SELECT id FROM sys_dept WHERE parent_bit = 7)");
+        DataPermissionContext.enter();
+
+        Expression expression = handler.getSqlSegment(aliased, null, "com.demo.UserMapper.selectList");
+
+        // 子查询内的裸列属于子查询自身的表，不能被外层别名污染；该形态依赖 jsqlparser
+        // ExpressionVisitorAdapter 的遍历边界，升级时若行为变化会静默改变语义，故固化断言
+        assertThat(expression.toString())
+            .isEqualToIgnoringWhitespace("u.dept_id IN (SELECT id FROM sys_dept WHERE parent_bit = 7)");
+    }
+
+    @Test
     void shouldQualifyColumnsInsideFunctionArguments() {
         DataScopeMultiHandler handler = new DataScopeMultiHandler(
             (mappedStatementId, tableName) -> "find_in_set(1, dept_path)");

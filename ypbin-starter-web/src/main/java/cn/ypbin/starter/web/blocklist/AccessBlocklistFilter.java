@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.web.blocklist;
 
+import cn.ypbin.starter.core.blocklist.AutoBanIpGuard;
 import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
 import cn.ypbin.starter.core.blocklist.BlocklistProperties;
 import cn.ypbin.starter.core.blocklist.BlocklistRequest;
@@ -33,6 +34,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -65,6 +67,9 @@ public class AccessBlocklistFilter extends OncePerRequestFilter {
     private final ClientIpResolver clientIpResolver;
 
     private final ObjectMapper objectMapper;
+
+    /** 非公网地址跳过计数的 WARN 只打一次（反代场景每个请求都会命中） */
+    private final AtomicBoolean nonPublicWarned = new AtomicBoolean();
 
     public AccessBlocklistFilter(BlocklistProperties properties, BlocklistMatcher matcher,
                                  BlocklistStore store, ClientIpResolver clientIpResolver,
@@ -126,6 +131,12 @@ public class AccessBlocklistFilter extends OncePerRequestFilter {
         if (status != 429 && !matcher.isExcludedPath(path, autoBan.getPathPrefixes())) {
             return;
         }
+        // 与登录失败旁路同口径：反代未配 trusted-proxies 时 clientIp 对所有用户都是代理地址，
+        // 刷 429 就能把代理自己封掉（全站 403 的自伤式 DoS）
+        if (AutoBanIpGuard.shouldSkip(clientIp, autoBan.isAllowNonPublicIp())) {
+            warnNonPublicOnce(clientIp);
+            return;
+        }
         try {
             store.recordViolation(clientIp, Duration.ofSeconds(autoBan.getWindowSeconds()),
                 autoBan.getThreshold(), Duration.ofSeconds(autoBan.getBanSeconds()),
@@ -133,6 +144,20 @@ public class AccessBlocklistFilter extends OncePerRequestFilter {
         } catch (RuntimeException ex) {
             // 自动封禁是旁路增强，不能影响已完成的业务响应
             log.warn("[ypbin-starter] 记录访问违规失败：ip={} status={}", clientIp, status, ex);
+        }
+    }
+
+    /**
+     * 非公网地址跳过计数只告警一次：反代场景下每个请求都会命中，逐条 WARN 会淹没日志。
+     *
+     * @param clientIp 被跳过的地址
+     */
+    private void warnNonPublicOnce(String clientIp) {
+        if (nonPublicWarned.compareAndSet(false, true)) {
+            log.warn("[ypbin-starter] 客户端地址 {} 不是公网单点地址，已跳过自动封禁计数；"
+                + "若服务位于反向代理之后，请配置 ypbin.security.blocklist.trusted-proxies，"
+                + "否则 429 等计数会计在代理地址上并把代理封掉。"
+                + "纯内网部署可设置 auto-ban.allow-non-public-ip=true。", clientIp);
         }
     }
 

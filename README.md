@@ -256,6 +256,11 @@ Error Prone + NullAway + JSpecify、`@tiptap/*`、Vue 运行时与编译器）�
 
 除「必须」项外均有默认实现（多为读配置文件），想接数据库/后台配置时才覆盖。所有能力 Bean 均 `@ConditionalOnMissingBean`，定义同类型 Bean 即覆盖。
 
+> ⚠️ **用 `CrudController` 时请覆盖 `checkOwnership`**：`permissionPrefix()` 只校验「有没有 `:edit`/`:delete`
+> 权限」，不校验「这条数据是不是我的」。`checkOwnership(id, action)` **默认空实现（有意 fail-open，
+> 保证存量应用升级不中断）**，未覆盖时持有对应权限的调用方可以按 id 改动他人数据；多租户/数据权限插件
+> 能兜住一部分，单租户场景不会。最小实现见 [docs/MODULES.md](docs/MODULES.md#extension-crud--通用-crud)。
+
 > 💡 完整的企业级落地范例见配套项目 **[ypbin-admin](https://github.com/wenbin-wb/ypbin-admin)**：基于本 starter 构建的后台管理系统，演示了 RBAC、字典、在线用户、任务调度等扩展点如何对接数据库与前端。
 
 ## 🏢 单体 vs 微服务
