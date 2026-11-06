@@ -16,6 +16,7 @@
 package cn.ypbin.starter.tenant.core;
 
 import cn.ypbin.starter.data.core.BaseEntity;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import java.io.Serial;
 
@@ -40,8 +41,14 @@ public abstract class TenantBaseEntity extends BaseEntity {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    /** 租户 ID。插入时由租户行拦截器自动注入 SQL 条件，本字段供实体层读写租户值 */
-    @TableField("tenant_id")
+    /**
+     * 租户 ID。插入时由租户行拦截器补齐，实体更新永不写该列（防止把当前租户的数据迁到其它租户）。
+     *
+     * <p>不要用请求体直接绑定本字段：租户列只由 {@code DefaultTenantLineHandler} 从当前上下文注入。
+     * 合法的跨租户迁移（后台补数等）必须显式使用 {@code @TenantIgnore} /
+     * {@code TenantContext.executeIgnore}。</p>
+     */
+    @TableField(value = "tenant_id", updateStrategy = FieldStrategy.NEVER)
     private Long tenantId;
 
     public Long getTenantId() {

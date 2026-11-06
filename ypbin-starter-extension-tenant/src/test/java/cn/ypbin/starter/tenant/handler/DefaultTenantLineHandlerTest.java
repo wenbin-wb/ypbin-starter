@@ -21,8 +21,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.tenant.autoconfigure.TenantProperties;
 import cn.ypbin.starter.tenant.core.TenantContext;
+import java.util.List;
 import java.util.Optional;
 import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.statement.update.Update;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -86,5 +90,36 @@ class DefaultTenantLineHandlerTest {
             Optional::empty, new TenantProperties());
 
         TenantContext.runIgnore(() -> assertThat(handler.ignoreTable("sys_user")).isTrue());
+    }
+
+    @Test
+    void insertWithExplicitTenantColumnIsNeverIgnored() {
+        DefaultTenantLineHandler handler = new DefaultTenantLineHandler(
+            () -> Optional.of(10L), new TenantProperties());
+
+        assertThat(handler.ignoreInsert(List.of(new Column("tenant_id")), "tenant_id")).isFalse();
+        assertThat(handler.ignoreInsert(List.of(new Column("TENANT_ID")), "tenant_id")).isFalse();
+    }
+
+    @Test
+    void updateSetTenantColumnIsRejected() throws Exception {
+        StrictTenantLineInnerInterceptor interceptor = new StrictTenantLineInnerInterceptor(
+            new DefaultTenantLineHandler(() -> Optional.of(10L), new TenantProperties()));
+        Update update = (Update) CCJSqlParserUtil.parse("update orders set tenant_id = 99 where id = 1");
+
+        assertThatThrownBy(() -> interceptor.processUpdate(update, 0, null, null))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("禁止通过 UPDATE 修改租户列");
+    }
+
+    @Test
+    void updateWithoutTenantColumnIsAllowed() throws Exception {
+        StrictTenantLineInnerInterceptor interceptor = new StrictTenantLineInnerInterceptor(
+            new DefaultTenantLineHandler(() -> Optional.of(10L), new TenantProperties()));
+        Update update = (Update) CCJSqlParserUtil.parse("update orders set status = 1 where id = 1");
+
+        interceptor.processUpdate(update, 0, null, null);
+
+        assertThat(update.toString()).contains("tenant_id = 10");
     }
 }
