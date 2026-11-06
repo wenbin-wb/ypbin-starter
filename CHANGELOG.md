@@ -100,6 +100,9 @@
 - **CRUD 按 id 操作缺归属校验扩展点**：新增 `checkOwnership(id, action)`，`get`/`update`/`delete`
   在权限校验后调用；默认空实现保持兼容，Javadoc 明确「只校验权限、不校验数据归属」时的越权风险
   （issue #156）。
+- **租户隔离在 `UPDATE`/`DELETE` 的 WHERE 子查询中失效**：MyBatis-Plus 只在 SELECT 中处理 WHERE
+  子查询，`... WHERE id IN (SELECT ...)` 的子查询不追加租户条件；`StrictTenantLineInnerInterceptor`
+  在父类改写前补处理（覆盖 `IN`/`EXISTS` 等），避免按其它租户的数据决定改/删范围（issue #156）。
 
 ## [4.3.0] - 2026-11-05
 
