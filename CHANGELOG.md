@@ -103,6 +103,11 @@
 - **租户隔离在 `UPDATE`/`DELETE` 的 WHERE 子查询中失效**：MyBatis-Plus 只在 SELECT 中处理 WHERE
   子查询，`... WHERE id IN (SELECT ...)` 的子查询不追加租户条件；`StrictTenantLineInnerInterceptor`
   在父类改写前补处理（覆盖 `IN`/`EXISTS` 等），避免按其它租户的数据决定改/删范围（issue #156）。
+- **AI 动态模型客户端泄漏线程且流式回答被截断**：动态构建的 `SpringAiOpenAiHttpClient` 持有非守护
+  OkHttp 调度线程池（core=0 / max=∞），此前按请求创建却从不关闭；改为同步调用结束、流式终止
+  （完成/异常/取消）时显式关闭。传输层超时拆分为连接（新增 `ypbin.ai.chat.connect-timeout`，默认 10s）
+  与读写（`client-timeout`，默认 60s），不再设置整次调用硬截止——长回答的总时长由
+  `ypbin.ai.chat.stream-timeout-ms` 约束（issue #155）。
 
 ## [4.3.0] - 2026-11-05
 

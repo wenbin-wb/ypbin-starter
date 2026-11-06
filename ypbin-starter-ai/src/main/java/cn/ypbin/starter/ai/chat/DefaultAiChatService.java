@@ -23,6 +23,7 @@ import com.openai.client.OpenAIClientAsync;
 import com.openai.client.OpenAIClientAsyncImpl;
 import com.openai.client.OpenAIClientImpl;
 import com.openai.core.ClientOptions;
+import com.openai.core.Timeout;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,6 +86,9 @@ public class DefaultAiChatService implements AiChatService {
      */
     private static final long TIMEOUT_PROPAGATION_GRACE_MS = 1_000L;
 
+    /** 动态客户端默认连接超时：建连阶段卡住要尽快失败，不能占满调用方线程 */
+    private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(10);
+
     /** yml 模型 starter 装配的 ChatClient；为空时按 {@link AiModelConfigResolver} 动态构建 */
     @Nullable
     private final ChatClient chatClient;
@@ -98,8 +102,10 @@ public class DefaultAiChatService implements AiChatService {
     private final String defaultSystemPrompt;
     private final boolean ragEnabled;
     private final long streamTimeoutMs;
-    /** 动态构建 OpenAI 兼容客户端时的传输层超时（连接 + 读写） */
+    /** 动态构建 OpenAI 兼容客户端时的读写超时（两次数据包之间的最长等待） */
     private final Duration clientTimeout;
+    /** 动态构建 OpenAI 兼容客户端时的连接超时 */
+    private final Duration connectTimeout;
     /** @Tool 工具回调提供者（可空：无工具时动态 ChatClient 不注册工具） */
     @Nullable
     private final ToolCallbackProvider toolCallbackProvider;
@@ -126,6 +132,15 @@ public class DefaultAiChatService implements AiChatService {
             @Nullable AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
             long streamTimeoutMs, @Nullable ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners,
             Duration clientTimeout) {
+        this(chatClient, chatMemory, vectorStore, modelResolver, defaultSystemPrompt, ragEnabled, streamTimeoutMs,
+                toolCallbackProvider, usageListeners, clientTimeout, DEFAULT_CONNECT_TIMEOUT);
+    }
+
+    public DefaultAiChatService(@Nullable ChatClient chatClient, ChatMemory chatMemory,
+            @Nullable VectorStore vectorStore,
+            @Nullable AiModelConfigResolver modelResolver, String defaultSystemPrompt, boolean ragEnabled,
+            long streamTimeoutMs, @Nullable ToolCallbackProvider toolCallbackProvider, List<AiUsageListener> usageListeners,
+            Duration clientTimeout, Duration connectTimeout) {
         this.chatClient = chatClient;
         this.chatMemory = chatMemory;
         this.vectorStore = vectorStore;
@@ -136,29 +151,43 @@ public class DefaultAiChatService implements AiChatService {
         this.toolCallbackProvider = toolCallbackProvider;
         this.usageListeners = usageListeners != null ? usageListeners : List.of();
         this.clientTimeout = clientTimeout != null ? clientTimeout : Duration.ofMillis(DEFAULT_STREAM_TIMEOUT_MS);
+        this.connectTimeout = connectTimeout != null && !connectTimeout.isNegative()
+                ? connectTimeout : DEFAULT_CONNECT_TIMEOUT;
     }
 
     /**
      * 解析当前会话使用的 ChatClient：优先 yml 装配的实例；
      * 否则通过 {@link AiModelConfigResolver} 动态构建 OpenAI 兼容模型。
+     *
+     * <p><b>每次请求独立构建、用完必须关闭：</b>Spring AI 流式调用结束后会关闭持有的 OpenAI
+     * 客户端（连带关闭底层连接池），共享实例会导致后续请求被拒绝，故不能缓存复用。但
+     * {@link SpringAiOpenAiHttpClient} 在构建时会创建一个<b>非守护</b>的 OkHttp 调度线程池
+     * （core=0 / max=∞ / 60s 保活），不显式关闭就会随请求数不断堆线程。所以动态客户端必须连同
+     * 传输层实例一起返回，由调用方在流终止（{@code doFinally}）或同步调用结束时关闭。</p>
      */
-    private ChatClient resolveClient() {
+    private DynamicChatClient resolveClient() {
         if (chatClient != null) {
-            return chatClient;
+            return new DynamicChatClient(chatClient, null);
         }
         AiModelConfigResolver.AiModelInfo info = modelResolver == null ? null : modelResolver.resolve();
         if (info == null || info.baseUrl() == null || info.baseUrl().isBlank()
                 || info.apiKey() == null || info.apiKey().isBlank()) {
             throw new IllegalStateException("未配置可用的模型（缺少接口地址或 API Key），请在 AI 配置中新增并设为默认模型");
         }
-        // 传输层客户端必须按请求独立创建：Spring AI 流式调用结束后会关闭持有的
-        // OpenAI 客户端（连带关闭底层连接池），共享实例会导致后续请求被拒绝
+        // connect/read 分开配置：建连卡住要快速失败，读超时只约束「两个数据包之间」的间隔；
+        // 整次调用不设硬截止（request=0），流式回答的总时长由 ypbin.ai.chat.stream-timeout-ms 约束
+        Timeout timeout = Timeout.builder()
+            .connect(connectTimeout)
+            .read(clientTimeout)
+            .request(Duration.ZERO)
+            .build();
+        SpringAiOpenAiHttpClient httpClient = SpringAiOpenAiHttpClient.builder()
+            .timeout(timeout)
+            .build();
         ClientOptions options = ClientOptions.builder()
             .apiKey(info.apiKey())
             .baseUrl(normalizeBaseUrl(info.baseUrl()))
-            .httpClient(SpringAiOpenAiHttpClient.builder()
-                .timeout(clientTimeout)
-                .build())
+            .httpClient(httpClient)
             .build();
         OpenAIClient client = new OpenAIClientImpl(options);
         OpenAIClientAsync asyncClient = new OpenAIClientAsyncImpl(options);
@@ -176,7 +205,28 @@ public class DefaultAiChatService implements AiChatService {
             log.debug("[ypbin-ai] @Tool 已注册到动态 ChatClient");
         }
         log.debug("[ypbin-ai] dynamic ChatClient built: baseUrl={}, model={}", info.baseUrl(), info.modelName());
-        return builder.build();
+        return new DynamicChatClient(builder.build(), httpClient);
+    }
+
+    /**
+     * 动态客户端的「客户端 + 传输层」组合：只有动态构建时才有需要关闭的传输层实例。
+     *
+     * @param client     对话客户端
+     * @param httpClient 传输层实例；yml 装配的 {@code ChatClient} 走 Spring 容器管理，为 {@code null}
+     */
+    private record DynamicChatClient(ChatClient client, @Nullable SpringAiOpenAiHttpClient httpClient) {
+
+        private void close() {
+            if (httpClient == null) {
+                return;
+            }
+            try {
+                httpClient.close();
+            } catch (RuntimeException e) {
+                // 关闭失败不影响已交付的结果，但必须留痕，避免线程/连接泄漏悄悄发生
+                log.warn("[ypbin-ai] 关闭动态模型传输层客户端失败", e);
+            }
+        }
     }
 
     private static String normalizeBaseUrl(String baseUrl) {
@@ -204,16 +254,22 @@ public class DefaultAiChatService implements AiChatService {
         // 产生（见 trackUsage 的 alwaysTimeout），block 只多留一段「错误传播余量」。
         // 若 block 与 Flux.timeout 用同一截止时间，先到的会是 block 自己的取消（实测被记成 CANCELLED），
         // 与「超时＝失败」的语义相悖，且回调可能晚于本方法抛出异常。
-        StreamResponseSpec responseSpec = resolveClient().prompt()
-            .advisors(spec -> spec
-                .advisors(buildAdvisors())
-                .param(ChatMemory.CONVERSATION_ID, conversationId))
-            .user(userMessage)
-            .stream();
-        List<String> tokens = trackUsage(responseSpec, conversationId, true)
-            .collectList()
-            .block(Duration.ofMillis(streamTimeoutMs() + TIMEOUT_PROPAGATION_GRACE_MS));
-        return tokens == null ? "" : String.join("", tokens);
+        DynamicChatClient dynamic = resolveClient();
+        try {
+            StreamResponseSpec responseSpec = dynamic.client().prompt()
+                .advisors(spec -> spec
+                    .advisors(buildAdvisors())
+                    .param(ChatMemory.CONVERSATION_ID, conversationId))
+                .user(userMessage)
+                .stream();
+            List<String> tokens = trackUsage(responseSpec, conversationId, true)
+                .collectList()
+                .block(Duration.ofMillis(streamTimeoutMs() + TIMEOUT_PROPAGATION_GRACE_MS));
+            return tokens == null ? "" : String.join("", tokens);
+        } finally {
+            // 同步路径在 block 返回时流已终止，可立即关闭传输层
+            dynamic.close();
+        }
     }
 
     /**
@@ -418,13 +474,15 @@ public class DefaultAiChatService implements AiChatService {
     @Override
     public Flux<String> chatStream(String conversationId, String userMessage) {
         log.debug("[ypbin-ai] chatStream: conversationId={}", conversationId);
-        StreamResponseSpec responseSpec = resolveClient().prompt()
+        DynamicChatClient dynamic = resolveClient();
+        StreamResponseSpec responseSpec = dynamic.client().prompt()
             .advisors(spec -> spec
                 .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
             .stream();
-        return trackUsage(responseSpec, conversationId, false);
+        // 流式路径必须在终止（完成/异常/取消）时关闭传输层，调用方负责订阅
+        return trackUsage(responseSpec, conversationId, false).doFinally(signal -> dynamic.close());
     }
 
     @Override
@@ -442,26 +500,28 @@ public class DefaultAiChatService implements AiChatService {
         var ragAdvisor = RetrievalAugmentationAdvisor.builder()
             .documentRetriever(retriever)
             .build();
-        StreamResponseSpec responseSpec = resolveClient().prompt()
+        DynamicChatClient dynamic = resolveClient();
+        StreamResponseSpec responseSpec = dynamic.client().prompt()
             .advisors(spec -> spec
                 .advisors(memoryAdvisor(), ragAdvisor)
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
             .stream();
-        return trackUsage(responseSpec, conversationId, false);
+        return trackUsage(responseSpec, conversationId, false).doFinally(signal -> dynamic.close());
     }
 
     @Override
     public Flux<String> chatWithSystemPrompt(String conversationId, String systemPrompt, String userMessage) {
         log.debug("[ypbin-ai] chatWithSystemPrompt: conversationId={}", conversationId);
-        StreamResponseSpec responseSpec = resolveClient().prompt()
+        DynamicChatClient dynamic = resolveClient();
+        StreamResponseSpec responseSpec = dynamic.client().prompt()
             .system(systemPrompt)
             .advisors(spec -> spec
                 .advisors(buildAdvisors())
                 .param(ChatMemory.CONVERSATION_ID, conversationId))
             .user(userMessage)
             .stream();
-        return trackUsage(responseSpec, conversationId, false);
+        return trackUsage(responseSpec, conversationId, false).doFinally(signal -> dynamic.close());
     }
 
     @Override

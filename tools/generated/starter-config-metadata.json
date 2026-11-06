@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-06T02:35:05.724Z",
+  "generatedAt": "2026-11-06T04:12:24.843Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -13,9 +13,9 @@
   "summary": {
     "moduleCount": 41,
     "modulesWithConfigCount": 31,
-    "customPropertyCount": 411,
+    "customPropertyCount": 412,
     "standardHostPropertyCount": 40,
-    "totalEntryCount": 451,
+    "totalEntryCount": 452,
     "modulesWithoutMetadata": 11
   },
   "prefixIndex": [
@@ -66,7 +66,7 @@
           "defaultValue": "60s",
           "required": false,
           "requiredWhen": null,
-          "description": "动态构建 OpenAI 兼容客户端时的传输层超时（连接 + 读写），默认 60s",
+          "description": "动态构建 OpenAI 兼容客户端时的读写超时：约束「两次数据包之间」的最长等待，默认 60s。",
           "allowedValues": [],
           "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
           "safetyNotes": [],
@@ -74,7 +74,7 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-ai/src/main/java/cn/ypbin/starter/ai/autoconfigure/chat/AiChatProperties.java",
-              "line": 47
+              "line": 52
             }
           ],
           "default": "60s",
@@ -84,7 +84,39 @@
             {
               "kind": "java-property",
               "path": "ypbin-starter-ai/src/main/java/cn/ypbin/starter/ai/autoconfigure/chat/AiChatProperties.java",
-              "line": 47
+              "line": 52
+            }
+          ],
+          "group": "ypbin.ai",
+          "deprecation": null
+        },
+        {
+          "module": "ypbin-starter-ai",
+          "key": "ypbin.ai.chat.connect-timeout",
+          "type": "java.time.Duration",
+          "defaultDefined": true,
+          "defaultValue": "10s",
+          "required": false,
+          "requiredWhen": null,
+          "description": "动态构建 OpenAI 兼容客户端时的连接超时，默认 10s（建连卡住时快速失败）",
+          "allowedValues": [],
+          "enablement": "绑定后由对应模块读取；模块还需满足类路径和自动装配条件。",
+          "safetyNotes": [],
+          "sources": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-ai/src/main/java/cn/ypbin/starter/ai/autoconfigure/chat/AiChatProperties.java",
+              "line": 55
+            }
+          ],
+          "default": "10s",
+          "values": [],
+          "notes": [],
+          "source": [
+            {
+              "kind": "java-property",
+              "path": "ypbin-starter-ai/src/main/java/cn/ypbin/starter/ai/autoconfigure/chat/AiChatProperties.java",
+              "line": 55
             }
           ],
           "group": "ypbin.ai",
@@ -3458,7 +3490,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2284
+              "line": 2286
             }
           ],
           "default": null,
@@ -3468,7 +3500,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2284
+              "line": 2286
             }
           ]
         }
@@ -4550,7 +4582,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2191
+              "line": 2193
             }
           ],
           "default": null,
@@ -4560,7 +4592,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2191
+              "line": 2193
             }
           ]
         },
@@ -4580,7 +4612,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2191
+              "line": 2193
             }
           ],
           "default": null,
@@ -4590,7 +4622,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2191
+              "line": 2193
             }
           ]
         },
@@ -4892,7 +4924,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2380
+              "line": 2382
             }
           ],
           "default": null,
@@ -4902,7 +4934,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2380
+              "line": 2382
             }
           ]
         },
@@ -4924,7 +4956,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2380
+              "line": 2382
             }
           ],
           "default": null,
@@ -4936,7 +4968,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2380
+              "line": 2382
             }
           ]
         },
@@ -4956,7 +4988,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2380
+              "line": 2382
             }
           ],
           "default": null,
@@ -4966,7 +4998,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2380
+              "line": 2382
             }
           ]
         }
@@ -5056,7 +5088,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2434
+              "line": 2436
             }
           ],
           "default": null,
@@ -5066,7 +5098,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2434
+              "line": 2436
             }
           ]
         },
@@ -5086,7 +5118,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2434
+              "line": 2436
             }
           ],
           "default": null,
@@ -5096,7 +5128,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 2434
+              "line": 2436
             }
           ]
         }
@@ -6203,7 +6235,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 158
+              "line": 160
             }
           ],
           "default": null,
@@ -6213,7 +6245,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 158
+              "line": 160
             }
           ]
         }
@@ -6504,7 +6536,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1980
+              "line": 1982
             }
           ],
           "default": "messages",
@@ -6514,7 +6546,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1980
+              "line": 1982
             }
           ]
         }
@@ -8940,7 +8972,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1678
+              "line": 1680
             }
           ],
           "default": null,
@@ -8950,7 +8982,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 1678
+              "line": 1680
             }
           ]
         }
@@ -10684,7 +10716,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 410
+              "line": 412
             }
           ],
           "default": 2592000,
@@ -10694,7 +10726,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 410
+              "line": 412
             }
           ]
         },
@@ -10714,7 +10746,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 410
+              "line": 412
             }
           ],
           "default": 1800,
@@ -10724,7 +10756,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 410
+              "line": 412
             }
           ]
         },
@@ -10744,7 +10776,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 410
+              "line": 412
             }
           ],
           "default": true,
@@ -10754,7 +10786,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 410
+              "line": 412
             }
           ]
         }
@@ -12281,7 +12313,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 845
+              "line": 847
             }
           ],
           "default": null,
@@ -12291,7 +12323,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 845
+              "line": 847
             }
           ]
         },
@@ -12311,7 +12343,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 845
+              "line": 847
             }
           ],
           "default": null,
@@ -12321,7 +12353,7 @@
             {
               "kind": "spring-standard-or-third-party",
               "path": "docs/MODULES.md",
-              "line": 845
+              "line": 847
             }
           ]
         }
@@ -14150,7 +14182,7 @@
             {
               "kind": "conditional-on-property",
               "path": "ypbin-starter-extension-datapermission/src/main/java/cn/ypbin/starter/datapermission/autoconfigure/DataPermissionAutoConfiguration.java",
-              "line": 49
+              "line": 54
             }
           ],
           "default": null,
@@ -14162,7 +14194,7 @@
             {
               "kind": "conditional-on-property",
               "path": "ypbin-starter-extension-datapermission/src/main/java/cn/ypbin/starter/datapermission/autoconfigure/DataPermissionAutoConfiguration.java",
-              "line": 49
+              "line": 54
             }
           ],
           "group": "ypbin.data-permission",
