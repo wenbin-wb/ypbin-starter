@@ -234,7 +234,7 @@ public abstract class CrudController<T, ID extends Serializable, REQ, RESP, Q ex
      *
      * @return 方法；未引入 sa-token 时为空
      */
-    private static Optional<Method> resolveStpCheckPermission() {
+    static Optional<Method> resolveStpCheckPermission() {
         return STP_METHOD_CACHE.computeIfAbsent(STP_UTIL_CLASS, className -> {
             try {
                 return Optional.of(Class.forName(className).getMethod("checkPermission", String.class));
