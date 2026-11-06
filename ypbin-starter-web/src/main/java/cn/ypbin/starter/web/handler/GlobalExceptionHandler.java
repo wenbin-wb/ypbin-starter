@@ -30,6 +30,7 @@ import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -170,6 +171,20 @@ public class GlobalExceptionHandler {
         log.warn("[上传超限] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
             LogSanitizer.sanitize(e.getMessage()));
         return R.fail(GlobalErrorCode.PAYLOAD_TOO_LARGE, "上传文件超出大小限制，请压缩后重试");
+    }
+
+    /**
+     * 请求媒体类型不支持（{@code Content-Type} 与接口声明不符）。
+     *
+     * <p>此前该异常落到 {@code Exception.class} 兜底，返回 {@code code=500 / "系统内部错误"}：
+     * 调用方按 500 重试而不会修正 Content-Type，监控也会把它算成服务端故障。按 415 返回，
+     * 与 {@code CONTRACT.md} §3 码表一致；响应文案不回显客户端提供的媒体类型。</p>
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public R<Void> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException e, HttpServletRequest request) {
+        log.warn("[媒体类型不支持] {} -> {}", LogSanitizer.sanitize(request.getRequestURI()),
+            LogSanitizer.sanitize(String.valueOf(e.getContentType())));
+        return R.fail(GlobalErrorCode.UNSUPPORTED_MEDIA_TYPE, "不支持的请求媒体类型，请检查 Content-Type");
     }
 
     /**
