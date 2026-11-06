@@ -17,12 +17,25 @@ package cn.ypbin.starter.arch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.ypbin.starter.cache.autoconfigure.CacheAutoConfiguration;
+import cn.ypbin.starter.cache.autoconfigure.MultiLevelCacheAutoConfiguration;
+import cn.ypbin.starter.cache.core.CacheService;
+import cn.ypbin.starter.cache.multilevel.MultiLevelCacheService;
+import cn.ypbin.starter.cache.redis.RedisCacheService;
+import cn.ypbin.starter.core.blocklist.BlocklistAutoConfiguration;
+import cn.ypbin.starter.core.blocklist.BlocklistStore;
+import cn.ypbin.starter.core.blocklist.ClientIpResolverAutoConfiguration;
+import cn.ypbin.starter.gateway.autoconfigure.GatewayAutoConfiguration;
+import cn.ypbin.starter.gateway.blocklist.AccessBlocklistGlobalFilter;
+import cn.ypbin.starter.gateway.blocklist.ReactiveBlocklistStore;
 import cn.ypbin.starter.messaging.autoconfigure.SseAutoConfiguration;
 import cn.ypbin.starter.messaging.sse.RedisSseTicketStore;
 import cn.ypbin.starter.messaging.sse.SseEmitterManager;
 import cn.ypbin.starter.messaging.sse.SseFanoutBridge;
 import cn.ypbin.starter.messaging.sse.SseTicketStore;
 import cn.ypbin.starter.security.autoconfigure.SecurityAutoConfiguration;
+import cn.ypbin.starter.security.blocklist.BlocklistStoreAutoConfiguration;
+import cn.ypbin.starter.security.blocklist.RedisBlocklistStore;
 import cn.ypbin.starter.security.password.lock.PasswordAttemptStore;
 import cn.ypbin.starter.security.password.lock.RedisPasswordAttemptStore;
 import cn.ypbin.starter.sign.autoconfigure.SignAutoConfiguration;
@@ -41,6 +54,7 @@ import cn.ypbin.starter.tools.lock.LeaseLockGuard;
 import cn.ypbin.starter.tools.lock.LeaseLockService;
 import cn.ypbin.starter.tools.lock.LockService;
 import cn.ypbin.starter.tools.lock.RedisLockService;
+import cn.ypbin.starter.web.autoconfigure.WebAutoConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
@@ -48,12 +62,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration;
+import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * <b>真实 Boot 自动配置组合</b>的装配冒烟（跨模块，防「单模块用例全绿但生产起不来」）。
@@ -206,6 +225,105 @@ class AssemblySmokeTest {
             });
     }
 
+    @Test
+    @DisplayName("★ 单级缓存（默认）：cacheService 走 Redis 实现，且全容器只有一个")
+    void singleLevelCache_withRedis_usesRedisCacheService() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DataRedisAutoConfiguration.class,
+                CacheAutoConfiguration.class,
+                MultiLevelCacheAutoConfiguration.class))
+            .withUserConfiguration(RedisStubsConfiguration.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBeanNamesForType(CacheService.class))
+                    .as("单级缓存默认开启时只应有 cacheService 一个实现")
+                    .containsExactly("cacheService");
+                assertThat(context.getBean(CacheService.class)).isInstanceOf(RedisCacheService.class);
+            });
+    }
+
+    /**
+     * 曾经的 P0：两个自动配置都声明了名为 {@code cacheService} 的 {@code @Bean}，宿主一开多级缓存
+     * 就因 {@code BeanDefinitionOverrideException} 启动失败——而两个模块各自的单测全绿。
+     * 本用例把「开启多级缓存」的真实组合放进同一个容器，直接守住这条回归。
+     */
+    @Test
+    @DisplayName("★ 多级缓存开启：与单级缓存配置共存时不重名、不启动失败，实际实现为多级")
+    void multiLevelCacheEnabled_startsAndKeepsSingleCacheService() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DataRedisAutoConfiguration.class,
+                CacheAutoConfiguration.class,
+                MultiLevelCacheAutoConfiguration.class))
+            .withPropertyValues("ypbin.cache.multi-level.enabled=true")
+            .withUserConfiguration(RedisStubsConfiguration.class)
+            .run(context -> {
+                assertThat(context)
+                    .as("同名 Bean 不得导致 BeanDefinitionOverrideException")
+                    .hasNotFailed();
+                assertThat(context.getBeanNamesForType(CacheService.class))
+                    .as("单级配置必须让位，容器中始终只有一个 cacheService")
+                    .containsExactly("cacheService");
+                assertThat(context.getBean(CacheService.class))
+                    .as("开启多级缓存后实际实现必须是 MultiLevelCacheService，而不是静默仍是单级实现")
+                    .isInstanceOf(MultiLevelCacheService.class);
+            });
+    }
+
+    @Test
+    @DisplayName("★ 黑名单（servlet）：开启后过滤器与 Redis 存储同时装配")
+    void servletBlocklist_withRedis_registersFilterAndRedisStore() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DataRedisAutoConfiguration.class,
+                BlocklistAutoConfiguration.class,
+                ClientIpResolverAutoConfiguration.class,
+                BlocklistStoreAutoConfiguration.class,
+                WebAutoConfiguration.class))
+            .withPropertyValues("ypbin.security.blocklist.enabled=true")
+            .withUserConfiguration(RedisStubsConfiguration.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(BlocklistStore.class))
+                    .as("有 Redis 时必须选中 Redis 存储：多实例共享同一份封禁表")
+                    .isInstanceOf(RedisBlocklistStore.class);
+                assertThat(context)
+                    .as("servlet 侧必须注册黑名单过滤器，否则规则配了也不生效")
+                    .hasBean("accessBlocklistFilterRegistration");
+                assertThat(context.getBean("accessBlocklistFilterRegistration", FilterRegistrationBean.class))
+                    .isNotNull();
+            });
+    }
+
+    /**
+     * 网关的黑名单过滤器在 servlet 侧之外单独存在（reactive 栈），装配条件同样依赖 Boot 注册的
+     * {@code ReactiveStringRedisTemplate}——正是本仓反复出现的「顺序陷阱」高发区，故单独冒烟。
+     */
+    @Test
+    @DisplayName("★ 黑名单（gateway）：开启后全局过滤器与 reactive Redis 存储同时装配")
+    void gatewayBlocklist_withReactiveRedis_registersGlobalFilter() {
+        new ReactiveWebApplicationContextRunner()
+            .withBean(ObjectMapper.class, ObjectMapper::new)
+            .withConfiguration(AutoConfigurations.of(
+                DataRedisReactiveAutoConfiguration.class,
+                BlocklistAutoConfiguration.class,
+                ClientIpResolverAutoConfiguration.class,
+                GatewayAutoConfiguration.class))
+            .withPropertyValues("ypbin.security.blocklist.enabled=true")
+            .withUserConfiguration(ReactiveRedisStubsConfiguration.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.containsBean("reactiveStringRedisTemplate"))
+                    .as("前置条件：Boot 的 reactive Redis 自动配置已注册模板")
+                    .isTrue();
+                assertThat(context).hasSingleBean(ReactiveBlocklistStore.class);
+                assertThat(context)
+                    .as("网关侧必须注册黑名单全局过滤器，否则规则配了也不生效")
+                    .hasSingleBean(AccessBlocklistGlobalFilter.class);
+            });
+    }
+
     /**
      * Redis 桩：连接工厂 + 订阅容器 + **执行成功的模板替身**。
      *
@@ -239,6 +357,19 @@ class AssemblySmokeTest {
             Mockito.when(template.execute(Mockito.any(org.springframework.data.redis.core.script.RedisScript.class),
                 Mockito.anyList(), Mockito.any(Object[].class))).thenReturn(1L);
             return template;
+        }
+    }
+
+    /**
+     * reactive Redis 桩：仅提供连接工厂，模板由 Boot 的
+     * {@link DataRedisReactiveAutoConfiguration} 注册——这正是要复现的真实装配路径。
+     */
+    @Configuration(proxyBeanMethods = false)
+    static class ReactiveRedisStubsConfiguration {
+
+        @Bean
+        ReactiveRedisConnectionFactory reactiveRedisConnectionFactory() {
+            return Mockito.mock(ReactiveRedisConnectionFactory.class);
         }
     }
 

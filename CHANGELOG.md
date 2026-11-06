@@ -117,11 +117,39 @@
 - **租户隔离在 `UPDATE`/`DELETE` 的 WHERE 子查询中失效**：MyBatis-Plus 只在 SELECT 中处理 WHERE
   子查询，`... WHERE id IN (SELECT ...)` 的子查询不追加租户条件；`StrictTenantLineInnerInterceptor`
   在父类改写前补处理（覆盖 `IN`/`EXISTS` 等），避免按其它租户的数据决定改/删范围（issue #156）。
+- **`@PlatformAccess` 注解在接口上时 JDK 代理下静默放行**：`@within` 表达式只认目标类，注解挂在接口类
+  或接口方法上、宿主使用 JDK 动态代理时切面完全不织入（平台资源对所有用户开放）。改为
+  `PlatformAccessPointcut` + `MethodInterceptor`，按「实现方法 → 目标类 → 接口方法 → 接口类」解析注解，
+  两种代理模式一致；切点命中却解析不到注解时记 WARN 并拒绝（fail-closed）（issue #161）。
+- **引用翻译自动预加载增强从未装配**：`RefTextResponseAdvice` 的 `@ConditionalOnBean(RefTextResolver.class)`
+  位于自动配置成员类，条件在解析阶段求值、此时解析器定义尚未注册 ⇒ 恒假，列表翻译退回逐行回源（N+1）
+  且无任何日志。改为弱依赖构造（`ObjectProvider`）在实例化阶段取解析器，缺席时空操作（issue #161）。
+- **XSS / 可重复读 / 请求链路 ID 过滤器可被宿主挤掉**：三者以 `FilterRegistrationBean` 为返回类型却用了
+  类型级 `@ConditionalOnMissingBean`，宿主只要定义任意一个 `FilterRegistrationBean` 就会把它们静默移除；
+  改为按 Bean 名让位（issue #161）。
+- **Nacos 测试容器端口竞态导致偶发启动失败**：`ContainerSupport` 先探测空闲端口再交给 Docker 绑定，
+  两步之间可能被抢占；启动失败时改为换一对新端口重试（最多 3 次），仍失败才抛出（issue #162）。
 - **AI 动态模型客户端泄漏线程且流式回答被截断**：动态构建的 `SpringAiOpenAiHttpClient` 持有非守护
   OkHttp 调度线程池（core=0 / max=∞），此前按请求创建却从不关闭；改为同步调用结束、流式终止
   （完成/异常/取消）时显式关闭。传输层超时拆分为连接（新增 `ypbin.ai.chat.connect-timeout`，默认 10s）
   与读写（`client-timeout`，默认 60s），不再设置整次调用硬截止——长回答的总时长由
   `ypbin.ai.chat.stream-timeout-ms` 约束（issue #155）。
+
+### 测试与门禁
+
+- **装配冒烟补齐缓存与黑名单组合**：`AssemblySmokeTest` 新增单级缓存、多级缓存（与单级配置共存）、
+  servlet 黑名单、网关黑名单四组真实 Boot 自动配置组合，直接守住「单模块用例全绿、多配置共存才崩」
+  的失败形态（issue #161）。
+- **新增 `@Bean` 名全局唯一规则**（`AutoConfigurationBeanNamesTest`）：自动配置及其嵌套配置的 Bean 名
+  重复即在构建期失败（白名单须写明运行期互斥依据），拦住 `cacheService` 同名的同类问题（issue #161）。
+- **新增集合贡献者条件规则**（`CodingRulesTest`）：返回 `WebMvcConfigurer`/`Filter`/`Converter`/
+  `FilterRegistrationBean` 等的 `@Bean` 不得使用类型级 `@ConditionalOnMissingBean`（issue #161）。
+- **`json` 模块补条件装配用例**：`ApplicationContextRunner` + `FilteredClassLoader` 覆盖
+  Dict/RefText 可选 Provider、缺失 spring-webmvc、缺失 Jackson 3、开关关闭四种形态（issue #161）。
+- **`@PlatformAccess` 补真实 AOP 织入矩阵**：CGLIB 与 JDK 代理各一组用例，断言注解命中与未命中行为
+  （issue #161）。
+- **`ypbin-starter-test` 补单元测试**：端口对探测的偏移、可绑定性与占用端口判定；该模块的主体是
+  容器基座，覆盖率门槛按 `architecture-tests` 同款显式跳过并注明理由（issue #162）。
 
 ## [4.3.0] - 2026-11-05
 

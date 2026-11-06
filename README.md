@@ -75,7 +75,8 @@
 
 | 门禁 | 拦住什么 | 本地命令 |
 |---|---|---|
-| **架构约束测试**（ArchUnit，43 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失 | `mvn -pl ypbin-starter-architecture-tests test` |
+| **架构约束测试**（ArchUnit，50 项） | 分层依赖倒置、`@Transactional` 漏写 `rollbackFor`、字段注入、`printStackTrace`、内联全限定类名、Lombok `@Data` 越界、自动配置注册缺失、自动配置 `@Bean` 名重复、集合贡献者误用类型级 `@ConditionalOnMissingBean` | `mvn -pl ypbin-starter-architecture-tests test` |
+| **跨模块装配冒烟**（真实 Boot 自动配置组合：Redis / 单级与多级缓存 / servlet 与网关黑名单 / SSE / 锁） | 「单模块用例全绿、多自动配置共存才崩」的启动失败（如 `cacheService` 同名冲突、`@ConditionalOnBean` 求值顺序恒假导致 Bean 静默缺失） | `mvn -pl ypbin-starter-architecture-tests test` |
 | **空值语义静态检查**（NullAway + Error Prone，逐模块声明 `nullaway.packages`，当前覆盖 35 个能力模块的主源码（`benchmarks` 基准类不参与）） | 可能返回 null 却被当非空使用、漏判空的参数、契约与实现不一致 | `mvn -Pnullaway -pl <模块> clean compile` |
 | **依赖版本收敛**（enforcer `dependencyConvergence`） | 同一依赖出现多个版本（Maven 会静默按声明顺序择一，不报错） | `mvn -Pdep-convergence validate` |
 | **公开 API 向后兼容**（japicmp 对比 Central 上一发布版） | 删除/收窄 public/protected 类型或方法（semver 破坏性变更未在 CHANGELOG 登记） | GitHub Actions `api-compat.yml`；显式例外：PR 打 `api-breaking-approved` 标签 |

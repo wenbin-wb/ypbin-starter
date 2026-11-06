@@ -18,9 +18,17 @@ package cn.ypbin.starter.security.platform;
 import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.security.core.UserContext;
+import java.lang.reflect.Method;
+import org.aopalliance.intercept.MethodInterceptor;
+import org.aopalliance.intercept.MethodInvocation;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.aop.support.AopUtils;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.util.ClassUtils;
 
 /**
  * 平台用户访问守卫切面。
@@ -29,17 +37,27 @@ import org.aspectj.lang.annotation.Before;
  * 双形态取值：微服务身份头优先、Sa-Token 会话回退）是否为平台用户；未登录（拿不到 userId）
  * 或非平台用户抛出 {@link BusinessException}（403）。</p>
  *
+ * <p><strong>为什么不再用 {@code @Before("@within(...) || @annotation(...)")}</strong>：
+ * AspectJ 注解切入点按被调用方法匹配，{@code @within} 只认<strong>目标类</strong>。注解只挂在
+ * <strong>接口</strong>上、宿主又采用 JDK 动态代理时，切面完全不织入——平台资源对所有用户开放，
+ * 且无任何报错（越权风险）。改为自定义切点（{@link PlatformAccessPointcut}）+
+ * {@link MethodInterceptor}，按「实现方法 → 目标类 → 接口方法 → 接口类」逐层解析注解，
+ * CGLIB 与 JDK 代理行为一致（与 {@code @DataPermission}、{@code @LicenseCheck} 同一范式）。</p>
+ *
  * <p><strong>fail-closed：</strong>业务方未提供 {@link PlatformUserChecker} 实现时，默认判定
  * 为"非平台用户"，标注资源一律拒绝（见 {@link PlatformUserChecker#isPlatformUser}）。</p>
  *
- * <p>本切面由 {@link PlatformAccessAutoConfiguration} 注册为 Bean（starter 类不在宿主组件扫描范围，
- * 不使用 {@code @Component}）。切点合并类级与方法级标注，类与方法都标注时只执行一次校验。</p>
+ * <p>本切面由 {@link PlatformAccessAutoConfiguration} 注册为 Bean 并由其
+ * {@code platformAccessAdvisor} 挂到容器上（starter 类不在宿主组件扫描范围，不使用 {@code @Component}）。
+ * 保留 {@code @Aspect} 仅为标记语义，类上不再声明任何 AspectJ 通知——否则会与 Advisor 重复织入。</p>
  *
  * @author wenbin
  * @since 2026-09-01
  */
 @Aspect
-public class PlatformAccessAspect {
+public class PlatformAccessAspect implements MethodInterceptor {
+
+    private static final Logger log = LoggerFactory.getLogger(PlatformAccessAspect.class);
 
     private final PlatformUserChecker checker;
 
@@ -47,10 +65,68 @@ public class PlatformAccessAspect {
         this.checker = checker;
     }
 
-    @Before("@within(cn.ypbin.starter.security.platform.PlatformAccess)"
-        + " || @annotation(cn.ypbin.starter.security.platform.PlatformAccess)")
+    /**
+     * 兼容旧命名的直接调用入口（历史签名）：直接调用时总是校验。
+     *
+     * @param joinPoint 连接点（未使用，保留签名以兼容既有调用方）
+     */
     public void guard(JoinPoint joinPoint) {
         checkPlatformAccess();
+    }
+
+    @Override
+    @Nullable
+    public Object invoke(MethodInvocation invocation) throws Throwable {
+        Object target = invocation.getThis();
+        @Nullable Class<?> targetClass = target == null ? null : AopUtils.getTargetClass(target);
+        if (resolveAnnotation(invocation.getMethod(), targetClass) == null) {
+            // 切点已匹配却解析不到注解：多为代理/接口组合异常。安全场景必须 fail-closed，
+            // 不能当作「无注解」放行——宁可拒绝并留下日志
+            log.warn("[ypbin-starter] @PlatformAccess 切点已匹配但无法解析注解，按未授权处理（拒绝）：{}",
+                invocation.getMethod().getName());
+        }
+        checkPlatformAccess();
+        return invocation.proceed();
+    }
+
+    /**
+     * 解析生效的 {@link PlatformAccess} 注解：最具体方法 → 目标类 → 接口方法 → 接口类。
+     *
+     * @param method      调用方看到的方法（JDK 代理下为接口方法）
+     * @param targetClass 目标类（可能为代理类，可空）
+     * @return 注解；无时为 {@code null}
+     */
+    static @Nullable PlatformAccess resolveAnnotation(Method method, @Nullable Class<?> targetClass) {
+        if (targetClass == null) {
+            return AnnotatedElementUtils.findMergedAnnotation(method, PlatformAccess.class);
+        }
+        Class<?> userClass = ClassUtils.getUserClass(targetClass);
+        Method specific = AopUtils.getMostSpecificMethod(method, userClass);
+        PlatformAccess onSpecific = AnnotatedElementUtils.findMergedAnnotation(specific, PlatformAccess.class);
+        if (onSpecific != null) {
+            return onSpecific;
+        }
+        PlatformAccess onClass = AnnotatedElementUtils.findMergedAnnotation(userClass, PlatformAccess.class);
+        if (onClass != null) {
+            return onClass;
+        }
+        for (Class<?> iface : ClassUtils.getAllInterfacesForClassAsSet(userClass)) {
+            PlatformAccess onInterfaceClass = AnnotatedElementUtils.findMergedAnnotation(iface, PlatformAccess.class);
+            if (onInterfaceClass != null) {
+                return onInterfaceClass;
+            }
+            try {
+                Method interfaceMethod = iface.getMethod(method.getName(), method.getParameterTypes());
+                PlatformAccess onInterfaceMethod =
+                    AnnotatedElementUtils.findMergedAnnotation(interfaceMethod, PlatformAccess.class);
+                if (onInterfaceMethod != null) {
+                    return onInterfaceMethod;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // 该接口没有同名同参方法，继续查找其它接口
+            }
+        }
+        return null;
     }
 
     private void checkPlatformAccess() {

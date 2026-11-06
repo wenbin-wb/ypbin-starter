@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-06T07:27:10.828Z",
+  "generatedAt": "2026-11-06T12:36:14.565Z",
   "sourceRoot": "ypbin-starter",
   "methodology": [
     "扫描各模块 target/classes/META-INF/spring-configuration-metadata.json（spring-boot-configuration-processor 产物）",
@@ -10680,7 +10680,7 @@
             {
               "kind": "conditional-on-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/platform/PlatformAccessAutoConfiguration.java",
-              "line": 35
+              "line": 41
             }
           ],
           "default": "true",
@@ -10692,7 +10692,7 @@
             {
               "kind": "conditional-on-property",
               "path": "ypbin-starter-security/src/main/java/cn/ypbin/starter/security/platform/PlatformAccessAutoConfiguration.java",
-              "line": 35
+              "line": 41
             }
           ],
           "group": "ypbin.security",

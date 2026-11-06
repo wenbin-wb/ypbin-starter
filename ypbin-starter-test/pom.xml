@@ -70,5 +70,12 @@
     <properties>
         <!-- 参与 NullAway 空值语义检查：根包（父 pom 的 nullaway profile 据此限定检查范围） -->
         <nullaway.packages>cn.ypbin.starter.test</nullaway.packages>
+        <!--
+          本模块主体是集成测试基座：真正的代码路径要么直接拉起 Redis/MySQL/Nacos 容器，
+          要么只在宿主引入本模块跑 *IT 时才被走到，单元测试里无法覆盖（需要真实中间件）。
+          父 pom 的 80% 指令下限对本模块不可达，故与 architecture-tests / benchmarks 一致
+          显式跳过覆盖率门槛；可脱离中间件验证的纯逻辑（如端口对探测）仍由 src/test 守护。
+        -->
+        <jacoco.skip>true</jacoco.skip>
     </properties>
 </project>
