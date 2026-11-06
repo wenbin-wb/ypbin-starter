@@ -188,10 +188,10 @@ public class RedisBlocklistStore implements BlocklistStore {
         try {
             Long count = redisTemplate.execute(violationScript,
                 List.of(BlocklistKeys.violation(clientIp), banKey),
-                String.valueOf(Math.max(1L, window.toSeconds())),
+                String.valueOf(normalizedSeconds(window)),
                 String.valueOf(threshold),
                 reason,
-                String.valueOf(Math.max(1L, banDuration.toSeconds())));
+                String.valueOf(normalizedSeconds(banDuration)));
             if (count != null && count >= threshold) {
                 syncBanIndex(clientIp, banKey, reason);
             }
@@ -200,6 +200,17 @@ public class RedisBlocklistStore implements BlocklistStore {
             warnFailure("[ypbin-starter] 记录访问违规失败：ip={}", clientIp, ex);
             return 0L;
         }
+    }
+
+    /**
+     * 时长归一化：配置为 0（或负值）时按最小 1 秒处理，避免 {@code EXPIRE 0} 立即删键、
+     * 也避免写成永久键。抽成独立方法便于直接断言，不必依赖 Redis TTL 的读时序。
+     *
+     * @param duration 配置时长
+     * @return 秒数，最小 1
+     */
+    static long normalizedSeconds(@Nullable Duration duration) {
+        return duration == null ? 1L : Math.max(1L, duration.toSeconds());
     }
 
     /**
