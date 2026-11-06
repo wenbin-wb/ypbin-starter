@@ -207,6 +207,7 @@ public class JacksonAutoConfiguration {
      * @return 绑定初始化器
      */
     @Bean
+    @ConditionalOnMissingBean
     public DictBindingInitializer dictBindingInitializer(ObjectProvider<DictCache> dictCacheProvider) {
         return new DictBindingInitializer(dictCacheProvider);
     }
@@ -219,6 +220,7 @@ public class JacksonAutoConfiguration {
      * @return 绑定初始化器
      */
     @Bean
+    @ConditionalOnMissingBean
     public RefTextBindingInitializer refTextBindingInitializer(
             ObjectProvider<RefTextManager> refTextManagerProvider) {
         return new RefTextBindingInitializer(refTextManagerProvider);
