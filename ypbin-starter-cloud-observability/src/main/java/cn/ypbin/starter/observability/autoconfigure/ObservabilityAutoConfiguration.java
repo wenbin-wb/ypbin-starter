@@ -45,7 +45,9 @@ import org.springframework.core.Ordered;
 public class ObservabilityAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean
+    // 集合贡献者：按 Bean 名精确让位。类型级条件会让宿主任意一个 FilterRegistrationBean
+    // 把本注册静默挤掉（请求链路 ID 消失且无报错）
+    @ConditionalOnMissingBean(name = "requestIdMdcFilterRegistration")
     public FilterRegistrationBean<RequestIdMdcFilter> requestIdMdcFilterRegistration(ObservabilityProperties properties) {
         FilterRegistrationBean<RequestIdMdcFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new RequestIdMdcFilter(properties.getRequestIdHeader(), properties.getMdcKey()));

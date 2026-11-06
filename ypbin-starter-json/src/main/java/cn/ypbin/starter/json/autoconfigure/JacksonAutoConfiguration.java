@@ -269,9 +269,15 @@ public class JacksonAutoConfiguration {
     }
 
     /**
-     * 引用翻译自动预加载装配：仅在 Servlet Web 环境、类路径存在 ResponseBodyAdvice、存在
-     * {@link RefTextResolver}、且 {@code ypbin.json.ref-text.auto-resolve=true}（默认）时生效。
+     * 引用翻译自动预加载装配：仅在 Servlet Web 环境、类路径存在 ResponseBodyAdvice、
+     * 且 {@code ypbin.json.ref-text.auto-resolve=true}（默认）时生效。
      * 业务无需手动 preload 即享列表零 N+1 翻译。
+     *
+     * <p><strong>为何条件里没有 {@code @ConditionalOnBean(RefTextResolver.class)}</strong>：
+     * 自动配置成员类的条件在解析阶段求值，此时外层配置的 {@code RefTextResolver} 定义尚未注册，
+     * 条件恒假 ⇒ 增强静默不装配（列表翻译退回 N+1，无任何日志）。改由
+     * {@link RefTextResponseAdvice} 的弱依赖构造在实例化阶段取解析器：缺席时不做事、存在时生效，
+     * 与自动配置顺序无关。</p>
      */
     @AutoConfiguration
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
@@ -281,10 +287,10 @@ public class JacksonAutoConfiguration {
     static class RefTextWebConfiguration {
 
         @Bean
-        @ConditionalOnBean(RefTextResolver.class)
         @ConditionalOnMissingBean
-        public RefTextResponseAdvice refTextResponseAdvice(RefTextResolver resolver) {
-            return new RefTextResponseAdvice(resolver);
+        public RefTextResponseAdvice refTextResponseAdvice(
+                ObjectProvider<RefTextResolver> resolverProvider) {
+            return new RefTextResponseAdvice(resolverProvider);
         }
     }
 }

@@ -50,6 +50,13 @@
             <artifactId>ypbin-starter-cache</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 多级缓存 L1 实现（cache 模块中的 optional 依赖，不会传递过来）；
+             装配冒烟需要它才能复现「多级缓存开启」的真实组合 -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>cn.ypbin</groupId>
             <artifactId>ypbin-starter-security</artifactId>

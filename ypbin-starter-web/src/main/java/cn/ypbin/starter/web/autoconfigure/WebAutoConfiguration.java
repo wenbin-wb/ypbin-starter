@@ -181,7 +181,9 @@ public class WebAutoConfiguration {
      * {@code ypbin.web.repeatable-read.max-body-bytes}），超限请求在包装阶段即被拒绝读取。</p>
      */
     @Bean
-    @ConditionalOnMissingBean
+    // 集合贡献者：按 Bean 名精确让位，不能按返回类型——宿主只要定义任意一个 FilterRegistrationBean，
+    // 类型级条件就会把本过滤器静默挤掉
+    @ConditionalOnMissingBean(name = "repeatableReadRequestFilterRegistration")
     @ConditionalOnProperty(prefix = RepeatableReadProperties.PREFIX, name = "enabled", havingValue = "true")
     public FilterRegistrationBean<RepeatableReadRequestFilter> repeatableReadRequestFilterRegistration(
         RepeatableReadProperties properties, ObjectProvider<ObjectMapper> objectMapperProvider) {
@@ -204,7 +206,8 @@ public class WebAutoConfiguration {
      * 仅作用于普通请求，不拦截异步分发。</p>
      */
     @Bean
-    @ConditionalOnMissingBean
+    // 同上：集合贡献者必须按名让位，否则宿主任意 FilterRegistrationBean 都会挤掉 XSS 过滤器
+    @ConditionalOnMissingBean(name = "xssFilterRegistration")
     @ConditionalOnProperty(prefix = XssProperties.PREFIX, name = "enabled", havingValue = "true")
     public FilterRegistrationBean<XssFilter> xssFilterRegistration(XssProperties properties) {
         FilterRegistrationBean<XssFilter> registration = new FilterRegistrationBean<>();

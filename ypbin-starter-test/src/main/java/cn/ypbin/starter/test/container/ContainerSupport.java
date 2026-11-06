@@ -106,6 +106,12 @@ public final class ContainerSupport {
     /** 服务端口与 gRPC 端口的固定偏移 */
     private static final int NACOS_GRPC_PORT_OFFSET = 1000;
 
+    /** 端口探测与 Docker 绑定之间的竞态重试次数（每次换一对新端口） */
+    private static final int NACOS_START_ATTEMPTS = 3;
+
+    /** 从 {@link #NACOS_BASE_PORT} 起向后扫描的端口个数 */
+    private static final int NACOS_PORT_SCAN_RANGE = 200;
+
     private static final Map<String, String> EXTERNAL = System.getenv();
 
     @Nullable
@@ -308,6 +314,13 @@ public final class ContainerSupport {
         return address;
     }
 
+    /**
+     * 拉起 Nacos 容器。
+     *
+     * <p>端口是「先探测空闲、再交给 Docker 绑定」，两步之间必然存在竞态（TOCTOU）：其他进程或并行测试
+     * 可能抢先占用，Docker 绑定失败会让整个测试套件因端口冲突而红。这里在启动失败时<strong>换一对新端口重试</strong>，
+     * 有限次后仍失败才抛出，避免把偶发竞态放大成必现失败。</p>
+     */
     private static void ensureNacosContainer() {
         if (nacosAddress != null) {
             return;
@@ -316,29 +329,60 @@ public final class ContainerSupport {
             if (nacosAddress != null) {
                 return;
             }
-            int basePort = findFreePortPair();
-            GenericContainer<?> started = new GenericContainer<>(DockerImageName.parse(NACOS_IMAGE))
-                .withEnv("MODE", "standalone")
-                .withEnv("PREFER_HOST_MODE", "hostname")
-                // Nacos 3 镜像的启动脚本强制要求鉴权三件套（缺任一即 exit 255）；
-                // 显式 NACOS_AUTH_ENABLE=false 后开放 API 无需口令，测试不必维护凭据。
-                .withEnv("NACOS_AUTH_ENABLE", "false")
-                .withEnv("NACOS_AUTH_TOKEN", randomBase64Token())
-                .withEnv("NACOS_AUTH_IDENTITY_KEY", "serverIdentity")
-                .withEnv("NACOS_AUTH_IDENTITY_VALUE", randomHexIdentity())
-                .withExposedPorts(8848, 9848)
-                .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withPortBindings(
-                    new PortBinding(Ports.Binding.bindPort(basePort), new ExposedPort(8848)),
-                    new PortBinding(Ports.Binding.bindPort(basePort + NACOS_GRPC_PORT_OFFSET),
-                        new ExposedPort(9848))))
-                // 就绪探测用「监听端口」而非 HTTP 健康路径：Nacos 3 已移除 v2 的
-                // /nacos/v1/console/health/readiness（会 404 直到超时）
-                .waitingFor(Wait.forListeningPorts(8848, 9848).withStartupTimeout(Duration.ofMinutes(3)));
-            started.start();
-            nacosContainer = started;
-            nacosAddress = started.getHost() + ":" + basePort;
-            log.info("[ypbin-test] Nacos 容器已启动：{}（gRPC 端口 {}）", nacosAddress,
-                basePort + NACOS_GRPC_PORT_OFFSET);
+            for (int attempt = 1; attempt <= NACOS_START_ATTEMPTS; attempt++) {
+                int basePort = findFreePortPair();
+                GenericContainer<?> container = newNacosContainer(basePort);
+                try {
+                    container.start();
+                } catch (RuntimeException ex) {
+                    log.warn("[ypbin-test] Nacos 容器启动失败（第 {}/{} 次，端口 {}/{}），重新挑选端口重试",
+                        attempt, NACOS_START_ATTEMPTS, basePort, basePort + NACOS_GRPC_PORT_OFFSET, ex);
+                    discardContainer(container);
+                    if (attempt == NACOS_START_ATTEMPTS) {
+                        throw new IllegalStateException("Nacos 容器启动失败：已重试 " + NACOS_START_ATTEMPTS
+                            + " 次（端口被抢占或镜像不可用）", ex);
+                    }
+                    continue;
+                }
+                nacosContainer = container;
+                nacosAddress = container.getHost() + ":" + basePort;
+                log.info("[ypbin-test] Nacos 容器已启动：{}（gRPC 端口 {}）", nacosAddress,
+                    basePort + NACOS_GRPC_PORT_OFFSET);
+                return;
+            }
+            throw new IllegalStateException("Nacos 容器启动失败：未执行任何启动尝试");
+        }
+    }
+
+    private static GenericContainer<?> newNacosContainer(int basePort) {
+        return new GenericContainer<>(DockerImageName.parse(NACOS_IMAGE))
+            .withEnv("MODE", "standalone")
+            .withEnv("PREFER_HOST_MODE", "hostname")
+            // Nacos 3 镜像的启动脚本强制要求鉴权三件套（缺任一即 exit 255）；
+            // 显式 NACOS_AUTH_ENABLE=false 后开放 API 无需口令，测试不必维护凭据。
+            .withEnv("NACOS_AUTH_ENABLE", "false")
+            .withEnv("NACOS_AUTH_TOKEN", randomBase64Token())
+            .withEnv("NACOS_AUTH_IDENTITY_KEY", "serverIdentity")
+            .withEnv("NACOS_AUTH_IDENTITY_VALUE", randomHexIdentity())
+            .withExposedPorts(8848, 9848)
+            .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withPortBindings(
+                new PortBinding(Ports.Binding.bindPort(basePort), new ExposedPort(8848)),
+                new PortBinding(Ports.Binding.bindPort(basePort + NACOS_GRPC_PORT_OFFSET),
+                    new ExposedPort(9848))))
+            // 就绪探测用「监听端口」而非 HTTP 健康路径：Nacos 3 已移除 v2 的
+            // /nacos/v1/console/health/readiness（会 404 直到超时）
+            .waitingFor(Wait.forListeningPorts(8848, 9848).withStartupTimeout(Duration.ofMinutes(3)));
+    }
+
+    /**
+     * 清理启动失败的容器：失败可能发生在已创建容器之后，留下会占住端口与磁盘。
+     * 清理本身再失败只记日志——异常已被调用方保留并最终抛出，不能在这里覆盖掉原始原因。
+     */
+    private static void discardContainer(GenericContainer<?> container) {
+        try {
+            container.stop();
+        } catch (RuntimeException ex) {
+            log.warn("[ypbin-test] 清理启动失败的 Nacos 容器时出错，可能残留容器实例：{}", ex.toString());
         }
     }
 
@@ -361,19 +405,34 @@ public final class ContainerSupport {
         return fromEnv.trim();
     }
 
-    /** 找一对相隔 {@link #NACOS_GRPC_PORT_OFFSET} 且都空闲的宿主端口 */
-    private static int findFreePortPair() {
-        for (int base = NACOS_BASE_PORT; base < NACOS_BASE_PORT + 200; base++) {
+    /**
+     * 找一对相隔 {@link #NACOS_GRPC_PORT_OFFSET} 且都空闲的宿主端口。
+     *
+     * <p>包级可见仅为便于单元测试直接验证端口对约束；不属于对外 API。</p>
+     *
+     * @return 服务端口（gRPC 端口为返回值加偏移）
+     */
+    static int findFreePortPair() {
+        for (int base = NACOS_BASE_PORT; base < NACOS_BASE_PORT + NACOS_PORT_SCAN_RANGE; base++) {
             if (isPortFree(base) && isPortFree(base + NACOS_GRPC_PORT_OFFSET)) {
                 return base;
             }
         }
-        throw new IllegalStateException("未找到可用的 Nacos 宿主端口对（起始 " + NACOS_BASE_PORT + "）");
+        throw new IllegalStateException("未找到可用的 Nacos 宿主端口对（起始 " + NACOS_BASE_PORT
+            + "，扫描 " + NACOS_PORT_SCAN_RANGE + " 个端口）");
     }
 
-    private static boolean isPortFree(int port) {
+    /**
+     * 端口在 {@code 127.0.0.1} 上是否可绑定（包级可见仅为便于单元测试）。
+     *
+     * @param port 待探测端口
+     * @return 可绑定返回 {@code true}
+     */
+    static boolean isPortFree(int port) {
         try (ServerSocket socket = new ServerSocket()) {
-            socket.setReuseAddress(true);
+            // 刻意不设 SO_REUSEADDR：Windows 下该选项允许绑定到已被监听/占用的端口，
+            // 探测会把忙碌端口误判为空闲，违背本方法用途。Linux 下 TIME_WAIT 造成的
+            // 误判只是多跳过一个端口，扫描区间足够覆盖。
             socket.bind(new InetSocketAddress("127.0.0.1", port));
             return true;
         } catch (IOException ex) {

@@ -19,6 +19,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaFieldAccess;
@@ -29,11 +30,14 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -189,6 +193,93 @@ class CodingRulesTest {
         assertThat(ALLOWED_WITHOUT_CONDITIONAL_ON_MISSING_BEAN)
             .as("白名单存在已失效条目：对应方法已加注解或已删除，请清理白名单")
             .isSubsetOf(actual);
+    }
+
+    /**
+     * 集合贡献者类型的 Bean 名（按方法名默认注册）。
+     *
+     * <p>Spring 对这类类型是「收集全部实例」而非「取唯一一个」：{@code WebMvcConfigurer}、{@code Filter}、
+     * {@code Converter}、注册包装 Bean 等，容器里同时存在多个是常态。因此类型级
+     * {@code @ConditionalOnMissingBean}（不带 {@code value}/{@code name}）会把「宿主另加了任意一个同类 Bean」
+     * 误判为「内置能力已被替换」，把拦截器/过滤器/转换器<strong>静默挤掉</strong>——签名拦截器被挤掉
+     * 就是这一形态。此类 Bean 只允许按 Bean 名做条件（{@code name = "..."}）或不带条件。</p>
+     */
+    private static final Set<String> COLLECTION_CONTRIBUTOR_TYPES = Set.of(
+        "org.springframework.web.servlet.config.annotation.WebMvcConfigurer",
+        "org.springframework.web.servlet.config.annotation.WebMvcRegistrations",
+        "org.springframework.boot.web.servlet.FilterRegistrationBean",
+        "org.springframework.boot.web.servlet.ServletRegistrationBean",
+        "org.springframework.boot.web.servlet.ServletListenerRegistrationBean",
+        "jakarta.servlet.Filter",
+        "org.springframework.web.server.WebFilter",
+        "org.springframework.core.convert.converter.Converter",
+        "org.springframework.core.convert.converter.GenericConverter",
+        "org.springframework.core.convert.converter.ConverterFactory",
+        "org.springframework.http.converter.HttpMessageConverter");
+
+    @Test
+    @DisplayName("集合贡献者 Bean 不得使用类型级 @ConditionalOnMissingBean（会被宿主任意同类 Bean 挤掉）")
+    void collectionContributorsShouldNotCarryTypeLevelConditionalOnMissingBean() {
+        List<String> violations = new ArrayList<>();
+        for (JavaClass clazz : classes) {
+            for (JavaMethod method : clazz.getMethods()) {
+                if (method.tryGetAnnotationOfType(Bean.class).isEmpty()) {
+                    continue;
+                }
+                String returnType = method.getRawReturnType().getName();
+                if (!COLLECTION_CONTRIBUTOR_TYPES.contains(returnType)) {
+                    continue;
+                }
+                JavaAnnotation<JavaMethod> condition = conditionalOnMissingBean(method).orElse(null);
+                if (condition != null && !hasExplicitConditionTargets(condition)) {
+                    violations.add(clazz.getName() + "#" + method.getName() + "（返回 " + returnType + "）");
+                }
+            }
+        }
+        assertThat(violations)
+            .as("集合贡献者 Bean 使用了类型级 @ConditionalOnMissingBean：宿主只要定义任意同类 Bean，"
+                + "内置能力就会被静默挤掉。请改为 @ConditionalOnMissingBean(name = \"<本 Bean 名>\")"
+                + "（按名精确让位），或不加条件")
+            .isEmpty();
+    }
+
+    /**
+     * 取方法上的 {@code @ConditionalOnMissingBean} 注解实例（ArchUnit 形态，可读取属性值）。
+     *
+     * @param method 待检查方法
+     * @return 存在则返回注解实例
+     */
+    private static Optional<JavaAnnotation<JavaMethod>> conditionalOnMissingBean(JavaMethod method) {
+        return method.getAnnotations().stream()
+            .filter(annotation -> annotation.getRawType().isEquivalentTo(ConditionalOnMissingBean.class))
+            .findFirst();
+    }
+
+    /**
+     * 条件是否显式限定了目标（{@code value} 指定类型或 {@code name} 指定 Bean 名）。
+     *
+     * @param condition {@code @ConditionalOnMissingBean} 注解实例
+     * @return 显式限定返回 {@code true}；默认的「按方法返回类型」返回 {@code false}
+     */
+    private static boolean hasExplicitConditionTargets(JavaAnnotation<JavaMethod> condition) {
+        return condition.get("value").map(CodingRulesTest::hasEntries).orElse(false)
+            || condition.get("name").map(CodingRulesTest::hasEntries).orElse(false);
+    }
+
+    private static boolean hasEntries(Object raw) {
+        if (raw == null) {
+            return false;
+        }
+        if (raw instanceof String text) {
+            return !text.isBlank();
+        }
+        if (raw instanceof Collection<?> values) {
+            return !values.isEmpty();
+        }
+        if (raw.getClass().isArray()) {
+            return Array.getLength(raw) > 0;
+        }
+        return true;
     }
 
     @Test
