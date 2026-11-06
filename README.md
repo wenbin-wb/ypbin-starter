@@ -313,7 +313,7 @@ mvn -pl <改动模块> com.diffplug.spotless:spotless-maven-plugin:apply
 # 只验证改动模块的空值语义（快，建议提交前跑）
 mvn -Pnullaway -pl <改动模块> clean compile
 
-# 架构约束（43 项铁律）
+# 架构约束（50 项铁律）
 mvn -pl ypbin-starter-architecture-tests test
 
 # 发布前：一次跑全六道硬门禁
