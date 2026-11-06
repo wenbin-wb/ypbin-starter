@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -67,11 +68,17 @@ public class OssStorageStrategy implements StorageStrategy {
             .pathStyleAccessEnabled(config.isPathStyleAccess())
             .build();
         URI endpoint = URI.create(config.getEndpoint());
+        // 显式超时（铁律 11）：默认无超时时，对象存储一旦挂起会让上传线程无限等待
+        ClientOverrideConfiguration override = ClientOverrideConfiguration.builder()
+            .apiCallTimeout(Duration.ofSeconds(Math.max(1, config.getApiCallTimeoutSeconds())))
+            .apiCallAttemptTimeout(Duration.ofSeconds(Math.max(1, config.getApiCallAttemptTimeoutSeconds())))
+            .build();
         this.s3Client = S3Client.builder()
             .endpointOverride(endpoint)
             .region(Region.of(config.getRegion()))
             .credentialsProvider(credentials)
             .serviceConfiguration(s3Config)
+            .overrideConfiguration(override)
             .build();
         this.presigner = S3Presigner.builder()
             .endpointOverride(endpoint)
@@ -79,6 +86,15 @@ public class OssStorageStrategy implements StorageStrategy {
             .credentialsProvider(credentials)
             .serviceConfiguration(s3Config)
             .build();
+    }
+
+    /**
+     * 关闭 SDK 客户端（内部持有连接池与线程池）。
+     */
+    @Override
+    public void close() {
+        presigner.close();
+        s3Client.close();
     }
 
     @Override

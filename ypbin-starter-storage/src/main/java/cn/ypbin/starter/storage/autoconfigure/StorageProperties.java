@@ -194,6 +194,12 @@ public class StorageProperties {
         /** 访问域名前缀（自定义 CDN 域名，为空则由客户端生成） */
         private String domain = "";
 
+        /** 单次 API 调用总超时（秒），含重试；默认 30 */
+        private int apiCallTimeoutSeconds = 30;
+
+        /** 单次尝试超时（秒，含建连与一次往返）；默认 10 */
+        private int apiCallAttemptTimeoutSeconds = 10;
+
         public String getPlatform() {
             return platform;
         }
@@ -264,6 +270,22 @@ public class StorageProperties {
 
         public void setDomain(String domain) {
             this.domain = domain;
+        }
+
+        public int getApiCallTimeoutSeconds() {
+            return apiCallTimeoutSeconds;
+        }
+
+        public void setApiCallTimeoutSeconds(int apiCallTimeoutSeconds) {
+            this.apiCallTimeoutSeconds = apiCallTimeoutSeconds;
+        }
+
+        public int getApiCallAttemptTimeoutSeconds() {
+            return apiCallAttemptTimeoutSeconds;
+        }
+
+        public void setApiCallAttemptTimeoutSeconds(int apiCallAttemptTimeoutSeconds) {
+            this.apiCallAttemptTimeoutSeconds = apiCallAttemptTimeoutSeconds;
         }
     }
 }
