@@ -87,6 +87,13 @@
 - **S3 客户端无超时且策略替换后不释放**：`OssStorageStrategy` 配置 `apiCallTimeout` /
   `apiCallAttemptTimeout`（默认 30s / 10s，可配），`StorageRouter` 关闭被替换的旧策略
   （issue #155）。
+- **Excel 同步读取全量入堆**：`read*` 改为流式收集并默认限制 10 万行，超限抛 `BusinessException`；
+  新增 `readLimited(...)` 显式限额重载（issue #155）。
+- **CRUD 写接口缺校验与结果检查**：`save`/`update` 补 `@Valid`；影响行数为 0 时抛业务异常而不是
+  返回成功；Sa-Token 权限方法解析加缓存，类存在但方法缺失时 `log.error` + 抛异常，不再静默放行
+  （issue #156）。
+- **数据权限作用域不跨线程传播**：新增 `DataPermissionContextPropagator` 并注册，`@Async` 内
+  不再静默失去数据范围（issue #156）。
 
 ## [4.3.0] - 2026-11-05
 

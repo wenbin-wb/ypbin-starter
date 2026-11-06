@@ -15,8 +15,10 @@
  */
 package cn.ypbin.starter.datapermission.autoconfigure;
 
+import cn.ypbin.starter.core.context.ContextPropagator;
 import cn.ypbin.starter.data.core.InnerInterceptorProvider;
 import cn.ypbin.starter.datapermission.aspect.DataPermissionAspect;
+import cn.ypbin.starter.datapermission.core.DataPermissionContextPropagator;
 import cn.ypbin.starter.datapermission.core.DataScopeHandler;
 import cn.ypbin.starter.datapermission.handler.DataScopeMultiHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.DataPermissionInterceptor;
@@ -84,5 +86,19 @@ public class DataPermissionAutoConfiguration {
     @ConditionalOnMissingBean
     public DataPermissionAspect dataPermissionAspect() {
         return new DataPermissionAspect();
+    }
+
+    /**
+     * 数据权限作用域的跨线程传播器。
+     *
+     * <p>不注册时，异步任务（{@code @Async}、自定义线程池）内的查询拿不到作用域，拦截器不拼数据范围，
+     * 查询静默退化为全量——属 fail-open 的越权读。</p>
+     *
+     * @return 上下文传播器
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public ContextPropagator<Integer> dataPermissionContextPropagator() {
+        return new DataPermissionContextPropagator();
     }
 }
