@@ -276,7 +276,7 @@ public class JobManager {
             AtomicReference<Instant> next = new AtomicReference<>(nextCronTime(expression, clock.instant(), zone));
             return () -> {
                 // 调度线程串行触发，无需加锁；表达式走到尽头（无后续时刻）时保留当前值
-                Instant current = next.get();
+                Instant current = Objects.requireNonNull(next.get());
                 next.set(nextCronTime(expression, current, zone));
                 return current;
             };

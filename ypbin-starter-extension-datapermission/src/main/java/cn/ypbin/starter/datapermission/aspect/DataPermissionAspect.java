@@ -56,18 +56,21 @@ public class DataPermissionAspect implements MethodInterceptor {
      * @return 方法返回值
      * @throws Throwable 目标方法抛出的异常
      */
+    @Nullable
     public Object around(ProceedingJoinPoint point) throws Throwable {
         Method method = ((MethodSignature) point.getSignature()).getMethod();
         return proceed(point::proceed, method, point.getTarget() == null ? null : point.getTarget().getClass());
     }
 
     @Override
+    @Nullable
     public Object invoke(MethodInvocation invocation) throws Throwable {
         Object target = invocation.getThis();
         return proceed(invocation::proceed, invocation.getMethod(),
             target == null ? null : AopUtils.getTargetClass(target));
     }
 
+    @Nullable
     private Object proceed(ProceedingJoinPointLike point, Method method, @Nullable Class<?> targetClass)
             throws Throwable {
         DataPermission annotation = resolveAnnotation(method, targetClass);
@@ -134,6 +137,7 @@ public class DataPermissionAspect implements MethodInterceptor {
     @FunctionalInterface
     private interface ProceedingJoinPointLike {
 
+        @Nullable
         Object proceed() throws Throwable;
     }
 }
