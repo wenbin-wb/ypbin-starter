@@ -39,7 +39,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
  *
  * <p>{@link GlobalExceptionHandlerTest} 直接调用 handler 方法，只能证明方法本身返回业务码（前三类 400、
  * 上传超限 413）；
- * 本类经 MockMvc 走真实异常解析链，证明这 4 类异常被 {@code @ExceptionHandler} 命中，
+ * 本类经 MockMvc 走真实异常解析链，证明这些异常被 {@code @ExceptionHandler} 命中，
  * <strong>不会</strong>跌入 {@code Exception.class} 兜底分支（ERROR 日志 + 业务码 500）。</p>
  *
  * @author wenbin
@@ -91,8 +91,19 @@ class GlobalExceptionHandlerRoutingTest {
             .andExpect(jsonPath("$.code").value(413));
     }
 
+    /** Content-Type 与接口声明不符 → HttpMediaTypeNotSupportedException（415，不再跌入 500）。 */
+    @Test
+    void unsupportedMediaTypeShouldReturnUnsupportedMediaTypeEnvelope() throws Exception {
+        mockMvc.perform(post("/test/body")
+                .contentType(MediaType.TEXT_PLAIN)
+                .content("{}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(415))
+            .andExpect(jsonPath("$.success").value(false));
+    }
+
     /**
-     * 测试用控制器：分别触发 4 类客户端异常。
+     * 测试用控制器：分别触发各类客户端异常。
      */
     @RestController
     private static class TestController {

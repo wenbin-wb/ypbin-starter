@@ -49,6 +49,9 @@ public enum GlobalErrorCode implements ErrorCode {
     /** 请求体过大（超过可重复读缓存等上限被拒绝） */
     PAYLOAD_TOO_LARGE(413, "请求体过大"),
 
+    /** 请求媒体类型不支持（接口只接受 JSON 却上传表单等） */
+    UNSUPPORTED_MEDIA_TYPE(415, "不支持的请求媒体类型"),
+
     /** 请求过于频繁（被限流/熔断拒绝） */
     TOO_MANY_REQUESTS(429, "请求过于频繁，请稍后重试"),
 

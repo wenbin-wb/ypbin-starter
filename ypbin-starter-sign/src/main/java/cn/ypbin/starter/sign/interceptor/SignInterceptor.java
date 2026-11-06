@@ -15,15 +15,18 @@
  */
 package cn.ypbin.starter.sign.interceptor;
 
+import cn.ypbin.starter.core.exception.GlobalErrorCode;
 import cn.ypbin.starter.core.model.R;
 import cn.ypbin.starter.sign.annotation.ApiSign;
 import cn.ypbin.starter.sign.autoconfigure.SignProperties;
 import cn.ypbin.starter.sign.core.SignChecker;
+import cn.ypbin.starter.sign.core.SignFailure;
 import cn.ypbin.starter.sign.core.SignResult;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.MediaType;
 import org.springframework.util.AntPathMatcher;
@@ -40,7 +43,8 @@ import tools.jackson.databind.ObjectMapper;
  *     <li>ANNOTATION：仅对标注 {@link ApiSign} 的接口校验（方法/类，类可被方法 ignore 排除）；</li>
  *     <li>GLOBAL：全局校验，按 {@code skip-path} 排除。</li>
  * </ul>
- * 校验失败返回统一 {@link R} 结构（HTTP 200，业务码非 0）。注解查找用 Spring 工具，兼容代理。</p>
+ * 校验失败返回统一 {@link R} 结构（HTTP 200，业务码按失败类型取 401/403/400，见 {@link SignFailure}）。
+ * 注解查找用 Spring 工具，兼容代理。</p>
  *
  * @author wenbin
  * @since 2026-07-30
@@ -68,8 +72,26 @@ public class SignInterceptor implements HandlerInterceptor {
         if (result.success()) {
             return true;
         }
-        writeFail(response, result.message());
+        writeFail(response, resolveErrorCode(result.failure()), result.message());
         return false;
+    }
+
+    /**
+     * 失败类型映射为业务码：此前一律 {@code R.fail(message)}（code=500），
+     * 前端会当成服务端故障重试，监控也把鉴权失败算进 5xx。
+     *
+     * @param failure 失败类型；自定义校验器未声明类型时为 {@code null}
+     * @return 业务码
+     */
+    private static GlobalErrorCode resolveErrorCode(@Nullable SignFailure failure) {
+        if (failure == null) {
+            return GlobalErrorCode.FORBIDDEN;
+        }
+        return switch (failure) {
+            case UNAUTHORIZED -> GlobalErrorCode.UNAUTHORIZED;
+            case FORBIDDEN -> GlobalErrorCode.FORBIDDEN;
+            case BAD_REQUEST -> GlobalErrorCode.BAD_REQUEST;
+        };
     }
 
     private boolean needCheck(HttpServletRequest request, Object handler) {
@@ -103,9 +125,9 @@ public class SignInterceptor implements HandlerInterceptor {
         return skipPath.stream().anyMatch(p -> pathMatcher.match(p, finalUri));
     }
 
-    private void writeFail(HttpServletResponse response, String message) throws Exception {
+    private void writeFail(HttpServletResponse response, GlobalErrorCode errorCode, String message) throws Exception {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write(objectMapper.writeValueAsString(R.fail(message)));
+        response.getWriter().write(objectMapper.writeValueAsString(R.fail(errorCode, message)));
     }
 }

@@ -123,18 +123,18 @@ public class SignChecker {
         if (isBlank(accessKey) || isBlank(timestamp) || isBlank(nonce) || isBlank(sign)) {
             // 部分携带一律拒绝（fail-closed）：若这里放行，攻击者可故意只带部分参数
             // 落进上面的 OPTIONAL 分支，形成**降级绕过**。
-            return SignResult.fail("缺少签名参数");
+            return SignResult.fail("缺少签名参数", SignFailure.UNAUTHORIZED);
         }
 
         SignApp app = appProvider.findByAccessKey(accessKey).orElse(null);
         if (app == null) {
-            return SignResult.fail("应用不存在");
+            return SignResult.fail("应用不存在", SignFailure.UNAUTHORIZED);
         }
         if (!app.isEnabled()) {
-            return SignResult.fail("应用已禁用");
+            return SignResult.fail("应用已禁用", SignFailure.FORBIDDEN);
         }
         if (app.isExpired()) {
-            return SignResult.fail("应用已过期");
+            return SignResult.fail("应用已过期", SignFailure.FORBIDDEN);
         }
 
         long now = System.currentTimeMillis() / 1000;
@@ -142,7 +142,7 @@ public class SignChecker {
         try {
             requestTime = Long.parseLong(timestamp);
         } catch (NumberFormatException e) {
-            return SignResult.fail("时间戳格式错误");
+            return SignResult.fail("时间戳格式错误", SignFailure.BAD_REQUEST);
         }
         // 过去方向按 timeout 判过期；未来方向只容忍小幅时钟偏移（防"未来时间戳"扩大重放窗口）。
         // 用「比较」而非「相减」：requestTime 完全由请求方提供，相减在极值（如 Long.MIN_VALUE）下会溢出，
@@ -150,11 +150,11 @@ public class SignChecker {
         long lowerBound = now - properties.getTimeout();
         long upperBound = now + CLOCK_SKEW_SECONDS;
         if (requestTime < lowerBound || requestTime > upperBound) {
-            return SignResult.fail("签名已过期");
+            return SignResult.fail("签名已过期", SignFailure.UNAUTHORIZED);
         }
         long delta = requestTime - now;
         if (delta > CLOCK_SKEW_SECONDS || delta < -properties.getTimeout()) {
-            return SignResult.fail("签名已过期");
+            return SignResult.fail("签名已过期", SignFailure.UNAUTHORIZED);
         }
 
         CollectedParams collected = collectParams(request);
@@ -165,7 +165,7 @@ public class SignChecker {
             // 必须直接拒绝。（空请求体不算失败：两侧都读不到 body 字段，无降级空间。）
             log.warn("[ypbin-starter] JSON 请求体格式非法，拒绝验签 accessKey={}",
                 LogSanitizer.sanitize(accessKey));
-            return SignResult.fail("JSON 请求体格式非法");
+            return SignResult.fail("JSON 请求体格式非法", SignFailure.BAD_REQUEST);
         }
         Map<String, String> params = collected.params();
         String secret = resolveSecret(request, app);
@@ -176,13 +176,13 @@ public class SignChecker {
             // 且异常路径会绕过"恒定时间比较"，把密钥错误与签名错误区分开（可被用于枚举探测）。
             log.warn("[ypbin-starter] 无可用签名密钥（哈希校验未通过或密钥缺失）accessKey={}",
                 LogSanitizer.sanitize(accessKey));
-            return SignResult.fail("签名验证失败");
+            return SignResult.fail("签名验证失败", SignFailure.FORBIDDEN);
         }
         String expected = SignGenerator.generate(params, secret, properties.getAlgorithm());
         // 恒定时间比较，避免逐字符短路带来的时序侧信道；不记录明文签名，防泄漏
         if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), sign.getBytes(StandardCharsets.UTF_8))) {
             log.warn("[ypbin-starter] 签名验证失败 accessKey={}", LogSanitizer.sanitize(accessKey));
-            return SignResult.fail("签名验证失败");
+            return SignResult.fail("签名验证失败", SignFailure.FORBIDDEN);
         }
 
         // nonce 防重放：**刻意放在签名比对通过之后**占用。
@@ -196,7 +196,7 @@ public class SignChecker {
             // 故按请求时间戳动态计算 TTL。上面校验已保证该值落在 [1, 2*timeout+1]，不会为负。
             long ttlSeconds = properties.getTimeout() + delta + 1;
             if (!nonceStore.tryUse(nonceKey, Duration.ofSeconds(ttlSeconds))) {
-                return SignResult.fail("请求重复（nonce 已使用）");
+                return SignResult.fail("请求重复（nonce 已使用）", SignFailure.FORBIDDEN);
             }
         }
 
@@ -296,7 +296,7 @@ public class SignChecker {
             // 保持单一路径、避免将来改取值来源时漏掉。
             log.warn("[ypbin-starter] 来源 IP 不在白名单 accessKey={}, ip={}",
                 LogSanitizer.sanitize(app.getAccessKey()), LogSanitizer.sanitize(clientIp));
-            return SignResult.fail("来源地址不在允许范围");
+            return SignResult.fail("来源地址不在允许范围", SignFailure.FORBIDDEN);
         }
         return null;
     }
@@ -352,12 +352,12 @@ public class SignChecker {
             if (!appVerifier.scopesAllowed(app, scopes)) {
                 log.warn("[ypbin-starter] 作用域校验未通过 accessKey={}, scopes={}",
                     LogSanitizer.sanitize(app.getAccessKey()), LogSanitizer.sanitize(scopes));
-                return SignResult.fail("作用域不被允许");
+                return SignResult.fail("作用域不被允许", SignFailure.FORBIDDEN);
             }
         } catch (RuntimeException ex) {
             log.error("[ypbin-starter] 作用域校验实现抛出异常，按拒绝处理 accessKey={}",
                 LogSanitizer.sanitize(app.getAccessKey()), ex);
-            return SignResult.fail("作用域校验失败");
+            return SignResult.fail("作用域校验失败", SignFailure.FORBIDDEN);
         }
         return null;
     }
@@ -374,14 +374,14 @@ public class SignChecker {
             SignAppVerifier.QuotaDecision decision = appVerifier.checkQuota(app);
             if (decision != null && !decision.allowed()) {
                 String message = decision.message();
-                return SignResult.fail(isBlank(message) ? "请求过于频繁或超过配额" : message);
+                return SignResult.fail(isBlank(message) ? "请求过于频繁或超过配额" : message, SignFailure.FORBIDDEN);
             }
         } catch (RuntimeException ex) {
             // 配额判定的存储（如 Redis）异常：**按拒绝处理**。
             // 与"限流可用性"相比，超配额放行的代价是资源被打满，故此处刻意选择 fail-closed。
             log.error("[ypbin-starter] 配额判定实现抛出异常，按拒绝处理 accessKey={}",
                 LogSanitizer.sanitize(app.getAccessKey()), ex);
-            return SignResult.fail("配额判定失败");
+            return SignResult.fail("配额判定失败", SignFailure.FORBIDDEN);
         }
         return null;
     }
