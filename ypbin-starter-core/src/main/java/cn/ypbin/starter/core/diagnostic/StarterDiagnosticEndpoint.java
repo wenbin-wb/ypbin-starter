@@ -16,6 +16,8 @@
 package cn.ypbin.starter.core.diagnostic;
 
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +27,11 @@ import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringBootVersion;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
@@ -44,8 +50,13 @@ import org.springframework.util.ClassUtils;
 @Endpoint(id = "ypbin")
 public class StarterDiagnosticEndpoint {
 
+    private static final Logger log = LoggerFactory.getLogger(StarterDiagnosticEndpoint.class);
+
     private static final String AUTO_CONFIGURATION_IMPORTS =
             "META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports";
+
+    /** 打包时由 Maven 资源过滤填充版本号（见 ypbin-starter-core/pom.xml）。 */
+    private static final String VERSION_RESOURCE = "META-INF/ypbin-starter.properties";
 
     private final ApplicationContext applicationContext;
 
@@ -74,12 +85,44 @@ public class StarterDiagnosticEndpoint {
         return info;
     }
 
+    /**
+     * 解析 starter 自身版本。
+     *
+     * <p>取值顺序：① jar 清单的 {@code Implementation-Version}；② 打包时填充的
+     * {@code META-INF/ypbin-starter.properties}；③ 都没有时返回 {@code unknown}。
+     * <b>绝不回落到硬编码版本号</b>——曾经的常量 {@code 1.4.0} 会让端点对外自报一个与制品无关的
+     * 历史版本（发布制品通常没有 {@code Implementation-Version}，等于恒错）。</p>
+     *
+     * @return 版本号或 {@code unknown}
+     */
     private String resolveStarterVersion() {
         Package pkg = StarterDiagnosticEndpoint.class.getPackage();
         if (pkg != null && pkg.getImplementationVersion() != null) {
             return pkg.getImplementationVersion();
         }
-        return "1.4.0";
+        String fromResource = readVersionResource();
+        return fromResource != null ? fromResource : "unknown";
+    }
+
+    @Nullable
+    private String readVersionResource() {
+        Properties properties = new Properties();
+        try (InputStream input = StarterDiagnosticEndpoint.class.getClassLoader()
+                .getResourceAsStream(VERSION_RESOURCE)) {
+            if (input == null) {
+                return null;
+            }
+            properties.load(input);
+            String version = properties.getProperty("version");
+            // 未经过资源过滤时值为 "${project.version}" 字面量，不能当作版本对外暴露
+            if (version == null || version.isBlank() || version.startsWith("${")) {
+                return null;
+            }
+            return version;
+        } catch (IOException e) {
+            log.warn("[ypbin-starter] 读取 {} 失败，版本按 unknown 处理", VERSION_RESOURCE, e);
+            return null;
+        }
     }
 
     private List<String> resolveAutoConfigurations() {

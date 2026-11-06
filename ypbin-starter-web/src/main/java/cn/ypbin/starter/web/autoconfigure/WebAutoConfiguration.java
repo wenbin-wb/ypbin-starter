@@ -146,6 +146,16 @@ public class WebAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = CorsProperties.PREFIX, name = "enabled", havingValue = "true")
     public CorsFilter corsFilter(CorsProperties properties) {
+        if (properties.isAllowCredentials()
+                && properties.getAllowedOriginPatterns().stream().anyMatch("*"::equals)) {
+            // 规范禁止「任意来源 + 携带凭证」，浏览器行为不可预期；与其静默放宽，不如启动即失败并给出提示
+            throw new IllegalStateException("ypbin.web.cors 配置非法：allow-credentials=true 与 "
+                + "allowed-origin-patterns=* 不能同时使用，请把来源收敛到具体域名（如 https://app.example.com）");
+        }
+        if (properties.getAllowedOriginPatterns().isEmpty()) {
+            log.debug("[ypbin-starter] CORS 未配置来源模式：仅同源请求可通过，跨域请显式配置 "
+                + "ypbin.web.cors.allowed-origin-patterns。");
+        }
         CorsConfiguration config = new CorsConfiguration();
         properties.getAllowedOriginPatterns().forEach(config::addAllowedOriginPattern);
         properties.getAllowedMethods().forEach(config::addAllowedMethod);

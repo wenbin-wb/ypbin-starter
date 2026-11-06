@@ -48,8 +48,10 @@ public final class XssCleaner {
         // javascript: / vbscript:
         Pattern.compile("javascript:", Pattern.CASE_INSENSITIVE),
         Pattern.compile("vbscript:", Pattern.CASE_INSENSITIVE),
-        // on事件属性，如 onclick= onload=
-        Pattern.compile("on\\w+\\s*=", Pattern.CASE_INSENSITIVE | Pattern.DOTALL)
+        // on 事件属性，如 onclick= / onload=
+        // 负向后行断言要求 on 前不是单词字符：否则 config=true、connection=keep-alive 这类**合法值**
+        // 会被 "onfig=" / "onnection=" 命中并静默改写（参数值与请求头被改真，全局生效）
+        Pattern.compile("(?<![\\w-])on\\w+\\s*=", Pattern.CASE_INSENSITIVE | Pattern.DOTALL)
     };
 
     private XssCleaner() {

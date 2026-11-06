@@ -17,8 +17,11 @@ package cn.ypbin.starter.core.diagnostic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.support.GenericApplicationContext;
 
@@ -30,6 +33,21 @@ import org.springframework.context.support.GenericApplicationContext;
  */
 class StarterDiagnosticEndpointTest {
 
+    /** 与主代码同一份打包元数据：测试 classpath 里由资源过滤填充为 ${project.version} 的实际值。 */
+    private static String expectedVersion() {
+        Properties properties = new Properties();
+        try (InputStream input = StarterDiagnosticEndpointTest.class.getClassLoader()
+                .getResourceAsStream("META-INF/ypbin-starter.properties")) {
+            assertThat(input).as("打包元数据 META-INF/ypbin-starter.properties 应存在").isNotNull();
+            properties.load(input);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        String version = properties.getProperty("version");
+        assertThat(version).as("版本资源必须被 Maven 资源过滤填充").doesNotStartWith("${");
+        return version;
+    }
+
     @Test
     void diagnosticInfo_returnsExpectedMetadata() {
         GenericApplicationContext context = new GenericApplicationContext();
@@ -40,7 +58,9 @@ class StarterDiagnosticEndpointTest {
 
         assertThat(info).isNotNull();
         assertThat(info.get("framework")).isEqualTo("ypbin-starter");
-        assertThat(info.get("version")).isNotNull();
+        // 版本必须来自打包元数据（META-INF/ypbin-starter.properties）或清单，绝不回落到历史常量
+        assertThat(info.get("version")).isNotEqualTo("1.4.0");
+        assertThat(info.get("version")).isEqualTo(expectedVersion());
         assertThat(info.get("javaVersion")).isNotNull();
         assertThat(info.get("springBootVersion")).isNotNull();
 
