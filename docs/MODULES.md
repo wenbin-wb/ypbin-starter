@@ -1114,9 +1114,11 @@ public void sendSms(Long userId) { ... }
 ```
 
 - `key` 支持 SpEL，可按用户等业务维度限流；留空则用方法全限定名。
-- `byIp = true`（默认）时把客户端 IP 纳入限流键。v2.2.2 起 IP 默认取**真实对端地址**
+- `byIp = true`（默认）时把客户端 IP 纳入限流键。IP 默认取**真实对端地址**
   （`request.getRemoteAddr()`），不信任转发头——若服务位于可信反向代理之后且需按真实客户端 IP 限流，
   请显式开启 `ypbin.tools.rate-limit.trust-forwarded=true`（否则所有客户端共享代理出口 IP 一个限流桶）。
+  开启后取 `X-Forwarded-For` 的**最右一跳**（代理追加的地址），不取客户端可伪造的最左段；多级代理链
+  需要精确回溯时，应使用 `ClientIpResolver` + `trusted-proxies` 的能力。
 - 分布式版基于 `StringRedisTemplate` + Lua 脚本，多节点共享窗口。
 - `window` 必须 **≥ 1 秒**：`window <= 0` 会让计数键立即过期（`EXPIRE key 0` 等价于删除），每次请求都被当作新窗口、限流形同虚设——该配置错误在**首次调用**时抛 `IllegalArgumentException`（fail-fast，不静默降级）。
 - Lua 脚本带 TTL 兜底：计数键已存在却**没有过期时间**（历史残留、人工 `SET`、主从切换/持久化恢复丢 TTL）时补设 `EXPIRE` 自愈，避免键永久驻留、计数只增不减导致该接口/用户被**永久限流**。
