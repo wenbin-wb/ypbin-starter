@@ -81,8 +81,30 @@ public class ManagementEndpointGuardAutoConfiguration {
             permissionProvider = new PermissionProvider() {
             };
         }
+        return createRegistration(properties, permissionProvider, objectMappers.getIfAvailable());
+    }
+
+    /**
+     * 保留旧方法签名以维持二进制兼容；实际 Bean 由
+     * {@link #managementEndpointGuardRegistration(ManagementEndpointProperties, ObjectProvider, ObjectProvider)}
+     * 注册。
+     *
+     * @param properties         守卫配置
+     * @param permissionProvider 权限数据源
+     * @param objectMapper       拒绝响应序列化器（可空）
+     * @return 过滤器注册
+     * @deprecated 由容器装配过滤器注册，不要直接调用本方法
+     */
+    @Deprecated(since = "4.4.0", forRemoval = false)
+    public FilterRegistrationBean<ManagementEndpointGuard> managementEndpointGuardRegistration(
+            ManagementEndpointProperties properties, PermissionProvider permissionProvider, ObjectMapper objectMapper) {
+        return createRegistration(properties, permissionProvider, objectMapper);
+    }
+
+    private FilterRegistrationBean<ManagementEndpointGuard> createRegistration(
+            ManagementEndpointProperties properties, PermissionProvider permissionProvider, ObjectMapper objectMapper) {
         FilterRegistrationBean<ManagementEndpointGuard> registration = new FilterRegistrationBean<>(
-            new ManagementEndpointGuard(properties, permissionProvider, objectMappers.getIfAvailable()));
+            new ManagementEndpointGuard(properties, permissionProvider, objectMapper));
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
         return registration;
     }

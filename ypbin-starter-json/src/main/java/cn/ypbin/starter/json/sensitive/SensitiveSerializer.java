@@ -74,4 +74,17 @@ public class SensitiveSerializer extends ValueSerializer<Object> {
         String text = String.valueOf(value);
         gen.writeString(type == null ? text : type.apply(text, prefixKeep, suffixKeep));
     }
+
+    /**
+     * 保留旧版 {@code ValueSerializer<String>} 的公开方法签名以维持二进制兼容。
+     *
+     * @param value 字段值
+     * @param gen   JSON 生成器
+     * @param ctxt  序列化上下文
+     * @deprecated 使用 {@link #serialize(Object, JsonGenerator, SerializationContext)}
+     */
+    @Deprecated(since = "4.4.0", forRemoval = false)
+    public void serialize(String value, JsonGenerator gen, SerializationContext ctxt) {
+        serialize((Object) value, gen, ctxt);
+    }
 }
