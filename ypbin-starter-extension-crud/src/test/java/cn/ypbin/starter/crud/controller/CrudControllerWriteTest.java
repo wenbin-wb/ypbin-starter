@@ -15,8 +15,12 @@
  */
 package cn.ypbin.starter.crud.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -25,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import cn.ypbin.starter.crud.model.PageQuery;
 import cn.ypbin.starter.crud.service.BaseService;
+import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -97,6 +102,7 @@ class CrudControllerWriteTest {
     @Test
     void saveShouldInvokeBeforeSave() throws Exception {
         BaseService<Demo> service = mock(BaseService.class);
+        when(service.save(any())).thenReturn(true);
         boolean[] hooks = new boolean[3];
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WriteController(service, hooks)).build();
 
@@ -113,6 +119,7 @@ class CrudControllerWriteTest {
     @Test
     void updateShouldInvokeAfterUpdate() throws Exception {
         BaseService<Demo> service = mock(BaseService.class);
+        when(service.updateById(any())).thenReturn(true);
         boolean[] hooks = new boolean[3];
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WriteController(service, hooks)).build();
 
@@ -126,8 +133,42 @@ class CrudControllerWriteTest {
 
     @SuppressWarnings("unchecked")
     @Test
+    void updateWithZeroAffectedRows_failsInsteadOfReportingSuccess() throws Exception {
+        // 影响行数为 0（id 不存在 / 跨租户 / 无权限）必须失败，不能返回 R.ok() 掩盖无效写入
+        BaseService<Demo> service = mock(BaseService.class);
+        when(service.updateById(any())).thenReturn(false);
+        boolean[] hooks = new boolean[3];
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WriteController(service, hooks)).build();
+
+        // standalone MockMvc 不接管未处理异常：业务异常以 ServletException 抛出，断言其 message
+        assertThatThrownBy(() -> mockMvc.perform(put("/write-demos/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"updated\"}")))
+            .isInstanceOf(ServletException.class)
+            .hasMessageContaining("资源不存在或无权操作");
+
+        verify(service).updateById(any());
+        assertThat(hooks[1]).as("失败时不得回调 afterUpdate").isFalse();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void deleteWithZeroAffectedRows_fails() throws Exception {
+        BaseService<Demo> service = mock(BaseService.class);
+        when(service.removeById(1L)).thenReturn(false);
+        boolean[] hooks = new boolean[3];
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WriteController(service, hooks)).build();
+
+        assertThatThrownBy(() -> mockMvc.perform(delete("/write-demos/1")))
+            .isInstanceOf(ServletException.class)
+            .hasMessageContaining("资源不存在或无权操作");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
     void deleteShouldInvokeBeforeDelete() throws Exception {
         BaseService<Demo> service = mock(BaseService.class);
+        when(service.removeById(1L)).thenReturn(true);
         boolean[] hooks = new boolean[3];
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WriteController(service, hooks)).build();
 
