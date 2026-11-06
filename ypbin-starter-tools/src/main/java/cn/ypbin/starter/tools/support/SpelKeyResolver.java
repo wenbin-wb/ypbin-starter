@@ -72,7 +72,14 @@ public final class SpelKeyResolver {
         return String.valueOf(value);
     }
 
+    /**
+     * 只按**前缀**判定 SpEL：静态键里带 {@code #} 是合法写法（如 {@code order#create}），
+     * 按 {@code contains("#")} 判定会把它送进解析器并抛 {@code SpelParseException}。
+     *
+     * @param key 注解上的键
+     * @return 是否按 SpEL 求值
+     */
     private static boolean isSpel(String key) {
-        return key.contains("#") || key.startsWith("T(");
+        return key.startsWith("#") || key.startsWith("T(");
     }
 }

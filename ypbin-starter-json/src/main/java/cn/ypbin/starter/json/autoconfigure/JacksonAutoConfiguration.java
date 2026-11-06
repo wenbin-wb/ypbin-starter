@@ -38,6 +38,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -167,7 +168,6 @@ public class JacksonAutoConfiguration {
     public DictCache dictCache(DictProvider dictProvider, JacksonProperties properties) {
         JacksonProperties.Dict config = properties.getDict();
         DictCache dictCache = new DictCache(dictProvider, config.getTtlSeconds(), config.getMaxSize());
-        DictUtils.bind(dictCache);
         log.debug("[ypbin-starter] dict cache initialized, ttlSeconds={}, maxSize={}.",
             config.getTtlSeconds(), config.getMaxSize());
         return dictCache;
@@ -190,9 +190,67 @@ public class JacksonAutoConfiguration {
         RefTextCache cache = new RefTextCache(Duration.ofSeconds(config.getTtlSeconds()).toMillis(),
             config.getMaxSize());
         RefTextManager manager = new RefTextManager(providers, cache);
-        RefTextUtils.bind(manager);
         log.debug("[ypbin-starter] ref-text manager initialized, providers={}.", providers.size());
         return manager;
+    }
+
+    /**
+     * 把容器中<b>最终生效</b>的 {@link DictCache} 绑定到 {@link DictUtils}。
+     *
+     * <p>绑定不能写在默认 {@code dictCache} Bean 的创建方法里：该方法带
+     * {@code @ConditionalOnMissingBean}，宿主按铁律 2 覆盖 {@code DictCache} 时默认 Bean 不创建，
+     * 绑定就永不执行 ⇒ {@code @DictText} 静默失效、零日志（序列化器仍会翻译，只是拿不到缓存）。
+     * 独立的初始化 Bean 通过 {@link ObjectProvider} 取「实际存在的那个」Bean，与默认实现解耦；
+     * 没有任何 {@code DictCache} 时不做事。</p>
+     *
+     * @param dictCacheProvider 字典缓存（可能是宿主的实现）
+     * @return 绑定初始化器
+     */
+    @Bean
+    public DictBindingInitializer dictBindingInitializer(ObjectProvider<DictCache> dictCacheProvider) {
+        return new DictBindingInitializer(dictCacheProvider);
+    }
+
+    /**
+     * 把容器中<b>最终生效</b>的 {@link RefTextManager} 绑定到 {@link RefTextUtils}（与
+     * {@link #dictBindingInitializer(ObjectProvider)} 同因：不写在默认 Bean 的创建方法里）。
+     *
+     * @param refTextManagerProvider 引用翻译管理器（可能是宿主的实现）
+     * @return 绑定初始化器
+     */
+    @Bean
+    public RefTextBindingInitializer refTextBindingInitializer(
+            ObjectProvider<RefTextManager> refTextManagerProvider) {
+        return new RefTextBindingInitializer(refTextManagerProvider);
+    }
+
+    /**
+     * 字典缓存绑定初始化器：构造时把实际生效的 {@link DictCache} 绑定到 {@link DictUtils}。
+     */
+    static final class DictBindingInitializer {
+
+        DictBindingInitializer(ObjectProvider<DictCache> provider) {
+            DictCache dictCache = provider.getIfAvailable();
+            if (dictCache != null) {
+                DictUtils.bind(dictCache);
+                log.debug("[ypbin-starter] dict cache bound to DictUtils: {}.", dictCache.getClass().getName());
+            }
+        }
+    }
+
+    /**
+     * 引用翻译绑定初始化器：构造时把实际生效的 {@link RefTextManager} 绑定到 {@link RefTextUtils}。
+     */
+    static final class RefTextBindingInitializer {
+
+        RefTextBindingInitializer(ObjectProvider<RefTextManager> provider) {
+            RefTextManager manager = provider.getIfAvailable();
+            if (manager != null) {
+                RefTextUtils.bind(manager);
+                log.debug("[ypbin-starter] ref-text manager bound to RefTextUtils: {}.",
+                    manager.getClass().getName());
+            }
+        }
     }
 
     /**

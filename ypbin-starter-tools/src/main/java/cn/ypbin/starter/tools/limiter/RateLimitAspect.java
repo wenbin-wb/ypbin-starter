@@ -109,7 +109,9 @@ public class RateLimitAspect {
     }
 
     private boolean isSpel(String key) {
-        return key.startsWith("#") || key.startsWith("T(") || key.contains("#");
+        // 只按**前缀**判定 SpEL：静态键里带 # 是合法写法（如 "order#create"），
+        // 按 contains("#") 判定会把它送进解析器并抛 SpelParseException，且报错完全看不出原因
+        return key.startsWith("#") || key.startsWith("T(");
     }
 
     private String evaluateSpel(String expression, Method method, Object[] args) {
