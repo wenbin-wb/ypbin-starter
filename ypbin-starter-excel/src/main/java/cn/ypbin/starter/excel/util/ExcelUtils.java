@@ -15,19 +15,26 @@
  */
 package cn.ypbin.starter.excel.util;
 
+import cn.ypbin.starter.core.exception.BusinessException;
 import cn.ypbin.starter.tools.web.DownloadResponses;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 import org.apache.fesod.sheet.ExcelWriter;
 import org.apache.fesod.sheet.FesodSheet;
+import org.apache.fesod.sheet.context.AnalysisContext;
+import org.apache.fesod.sheet.read.builder.ExcelReaderBuilder;
+import org.apache.fesod.sheet.read.builder.ExcelReaderSheetBuilder;
 import org.apache.fesod.sheet.read.listener.PageReadListener;
+import org.apache.fesod.sheet.read.listener.ReadListener;
 import org.apache.fesod.sheet.write.metadata.WriteSheet;
 import org.apache.fesod.sheet.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Excel 读写工具。
@@ -42,6 +49,14 @@ import org.apache.fesod.sheet.write.style.column.LongestMatchColumnWidthStyleStr
 public final class ExcelUtils {
 
     private static final String XLSX = ".xlsx";
+
+    /**
+     * 同步读取的默认行数上限：超过即抛 {@link BusinessException}。
+     *
+     * <p>{@code doReadSync} 会把整个 sheet 读进堆，上传入口一旦接上该方法就等于把 OOM 暴露给外部
+     * 请求。上限存在的意义是「宁可报错也不 OOM」；需要更大数据量请用 {@link #readInBatch} 流式分批。</p>
+     */
+    public static final int DEFAULT_MAX_ROWS = 100_000;
 
     private static final String EXCEL_CONTENT_TYPE =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -60,7 +75,69 @@ public final class ExcelUtils {
      * @return 数据列表
      */
     public static <T> List<T> read(InputStream inputStream, Class<T> clazz) {
-        return FesodSheet.read(inputStream).head(clazz).sheet().doReadSync();
+        return readWithLimit(inputStream, clazz, null, null, DEFAULT_MAX_ROWS);
+    }
+
+    /**
+     * 读取并限制最大行数（流式读取，命中上限立即中止，不会先把整个文件读进堆）。
+     *
+     * @param inputStream Excel 输入流
+     * @param clazz       目标类型
+     * @param maxRows     最大行数（必须 &gt;= 1）
+     * @param <T>         类型
+     * @return 数据列表
+     */
+    public static <T> List<T> readLimited(InputStream inputStream, Class<T> clazz, int maxRows) {
+        return readWithLimit(inputStream, clazz, null, null, maxRows);
+    }
+
+    /**
+     * 读取指定 sheet、自定义表头行数，并限制最大行数。
+     *
+     * @param inputStream   Excel 输入流
+     * @param clazz         目标类型
+     * @param sheetNo       sheet 序号（从 0 开始）
+     * @param headRowNumber 表头占用的行数
+     * @param maxRows       最大行数（必须 &gt;= 1）
+     * @param <T>           类型
+     * @return 数据列表
+     */
+    public static <T> List<T> readLimited(InputStream inputStream, Class<T> clazz, int sheetNo,
+                                          int headRowNumber, int maxRows) {
+        return readWithLimit(inputStream, clazz, sheetNo, headRowNumber, maxRows);
+    }
+
+    /**
+     * 同步读取的公共实现：以流式监听器收集，超过 {@code maxRows} 立即抛
+     * {@link BusinessException} 中止。
+     */
+    private static <T> List<T> readWithLimit(InputStream inputStream, Class<T> clazz,
+                                             @Nullable Integer sheetNo, @Nullable Integer headRowNumber, int maxRows) {
+        if (maxRows <= 0) {
+            throw new IllegalArgumentException("maxRows 必须 >= 1（当前 " + maxRows + "）");
+        }
+        List<T> rows = new ArrayList<>();
+        ReadListener<T> listener = new ReadListener<>() {
+            @Override
+            public void invoke(T data, AnalysisContext context) {
+                if (rows.size() >= maxRows) {
+                    throw new BusinessException("Excel 行数超过上限 " + maxRows + " 行，请拆分文件或改用 readInBatch 分批读取");
+                }
+                rows.add(data);
+            }
+
+            @Override
+            public void doAfterAllAnalysed(AnalysisContext context) {
+                // 无需额外处理：数据已在 invoke 中收集
+            }
+        };
+        ExcelReaderBuilder builder = FesodSheet.read(inputStream, clazz, listener);
+        ExcelReaderSheetBuilder sheet = sheetNo == null ? builder.sheet() : builder.sheet(sheetNo);
+        if (headRowNumber != null) {
+            sheet.headRowNumber(headRowNumber);
+        }
+        sheet.doRead();
+        return rows;
     }
 
     /**
@@ -73,7 +150,7 @@ public final class ExcelUtils {
      * @return 数据列表
      */
     public static <T> List<T> read(InputStream inputStream, Class<T> clazz, int sheetNo) {
-        return FesodSheet.read(inputStream).head(clazz).sheet(sheetNo).doReadSync();
+        return readWithLimit(inputStream, clazz, sheetNo, null, DEFAULT_MAX_ROWS);
     }
 
     /**
@@ -87,7 +164,7 @@ public final class ExcelUtils {
      * @return 数据列表
      */
     public static <T> List<T> read(InputStream inputStream, Class<T> clazz, int sheetNo, int headRowNumber) {
-        return FesodSheet.read(inputStream).head(clazz).sheet(sheetNo).headRowNumber(headRowNumber).doReadSync();
+        return readWithLimit(inputStream, clazz, sheetNo, headRowNumber, DEFAULT_MAX_ROWS);
     }
 
     /**
