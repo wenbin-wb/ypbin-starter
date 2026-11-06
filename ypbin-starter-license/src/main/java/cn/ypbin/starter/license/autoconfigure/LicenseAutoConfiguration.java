@@ -17,6 +17,7 @@ package cn.ypbin.starter.license.autoconfigure;
 
 import cn.ypbin.starter.job.core.JobHandler;
 import cn.ypbin.starter.license.aspect.LicenseCheckAspect;
+import cn.ypbin.starter.license.aspect.LicenseCheckPointcut;
 import cn.ypbin.starter.license.core.LicenseManager;
 import cn.ypbin.starter.license.diagnostic.LicenseHealthIndicator;
 import cn.ypbin.starter.license.exception.LicenseErrorCode;
@@ -32,6 +33,8 @@ import cn.ypbin.starter.sign.core.SignClient;
 import java.nio.file.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.Advisor;
+import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -109,6 +112,21 @@ public class LicenseAutoConfiguration {
     public LicenseCheckAspect licenseCheckAspect(LicenseManager licenseManager,
         ObjectProvider<RemoteVerifyProvider> remoteVerifyProviders) {
         return new LicenseCheckAspect(licenseManager, remoteVerifyProviders.orderedStream().toList());
+    }
+
+    /**
+     * {@code @LicenseCheck} 切点 Advisor：同时匹配实现类、目标类与接口上的注解。
+     *
+     * <p>不用 AspectJ 的 {@code @annotation}/{@code @within} 表达式：注解只写在接口上时，CGLIB
+     * 代理下切点不命中，授权校验会静默失效。</p>
+     *
+     * @param licenseCheckAspect 授权校验切面
+     * @return 切点 Advisor
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "licenseCheckAdvisor")
+    public Advisor licenseCheckAdvisor(LicenseCheckAspect licenseCheckAspect) {
+        return new DefaultPointcutAdvisor(new LicenseCheckPointcut(), licenseCheckAspect);
     }
 
     /**
