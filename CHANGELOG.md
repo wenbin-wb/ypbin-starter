@@ -26,6 +26,10 @@
 
 - `BlocklistAutoBanRecorder` 计数前检查 `exclude-ips`：与 `AccessBlocklistFilter` 同口径，
   被宿主排除的网关/内网地址不会因登录失败旁路写入封禁表（issue #142）。
+- 操作日志与访问日志的客户端 IP 解析改用 `ClientIpResolver`，与黑名单过滤器同口径：仅当直连
+  地址命中 `ypbin.security.blocklist.trusted-proxies` 时才采信 `X-Forwarded-For` / `X-Real-IP`，
+  避免入口未清洗转发头时日志记录客户端伪造的来源 IP。未配置可信代理时只记录直连地址；
+  原 `LogPayloadSupport.resolveIp(HttpServletRequest)` 已标记 `@Deprecated`。
 - **多级缓存开启即启动失败**：`CacheAutoConfiguration#cacheService` 与
   `MultiLevelCacheAutoConfiguration#cacheService` 同名冲突（`BeanDefinitionOverrideException`）。
   单级实现改为「多级启用时让位」，容器中始终只有一个 `CacheService`（issue #145）。

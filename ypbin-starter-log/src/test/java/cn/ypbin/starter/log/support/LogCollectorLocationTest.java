@@ -17,10 +17,12 @@ package cn.ypbin.starter.log.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.log.core.IpLocationResolver;
 import cn.ypbin.starter.log.enums.Include;
 import cn.ypbin.starter.log.model.LogRecord;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -88,6 +90,36 @@ class LogCollectorLocationTest {
 
         assertThat(record.getIp()).isEqualTo("1.2.3.4");
         assertThat(record.getLocation()).isNull();
+    }
+
+    @Test
+    void shouldResolveIpFromForwardedHeaderOnlyForTrustedProxy() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("10.0.0.1");
+        request.addHeader("X-Forwarded-For", "203.0.113.5, 10.0.0.2");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        LogCollector collector = new LogCollector(Optional::empty, Optional::empty, ip -> null,
+            new ObjectMapper(), new ClientIpResolver(List.of("10.0.0.0/8")));
+        LogRecord record = new LogRecord();
+
+        collector.collect(record, EnumSet.of(Include.IP), null, null, null);
+
+        assertThat(record.getIp()).isEqualTo("203.0.113.5");
+    }
+
+    @Test
+    void shouldIgnoreForwardedHeaderFromUntrustedPeer() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("203.0.113.10");
+        request.addHeader("X-Forwarded-For", "1.2.3.4");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        LogCollector collector = new LogCollector(Optional::empty, Optional::empty, ip -> null,
+            new ObjectMapper(), new ClientIpResolver(List.of("10.0.0.0/8")));
+        LogRecord record = new LogRecord();
+
+        collector.collect(record, EnumSet.of(Include.IP), null, null, null);
+
+        assertThat(record.getIp()).isEqualTo("203.0.113.10");
     }
 
     @Test
