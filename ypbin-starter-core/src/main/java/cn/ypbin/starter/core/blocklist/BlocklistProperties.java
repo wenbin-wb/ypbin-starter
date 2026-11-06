@@ -170,6 +170,15 @@ public class BlocklistProperties {
         /** 内存存储的违规计数条目上限；超过后先清理过期项，仍满则本次不计数。 */
         private int maxViolationEntries = 10_000;
 
+        /**
+         * 是否允许自动封禁非公网地址，默认 {@code false}。
+         *
+         * <p>未配置 {@code trusted-proxies} 时，同机反向代理会让所有请求的直连地址都变成代理 IP；
+         * 若继续按该地址计数并封禁，会把整站打成 403。默认只封公网单点地址，内网/回环/CGNAT
+         * 等地址跳过并 WARN 一次；纯内网部署确需按内网 IP 封禁时显式打开。</p>
+         */
+        private boolean allowNonPublicIp;
+
         /** 参与计数的响应状态码；默认仅真 429。 */
         private List<Integer> statusCodes = new ArrayList<>(List.of(429));
 
@@ -215,6 +224,14 @@ public class BlocklistProperties {
 
         public void setMaxViolationEntries(int maxViolationEntries) {
             this.maxViolationEntries = maxViolationEntries;
+        }
+
+        public boolean isAllowNonPublicIp() {
+            return allowNonPublicIp;
+        }
+
+        public void setAllowNonPublicIp(boolean allowNonPublicIp) {
+            this.allowNonPublicIp = allowNonPublicIp;
         }
 
         public List<Integer> getStatusCodes() {

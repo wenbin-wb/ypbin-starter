@@ -170,6 +170,7 @@ public class RedisBlocklistStore implements BlocklistStore {
         redisTemplate.opsForValue().set(BlocklistKeys.ban(clientIp), reason, duration);
         redisTemplate.opsForHash().put(BlocklistKeys.BAN_INDEX, BlocklistKeys.canonicalIp(clientIp),
             encodeBan(reason, expireAt));
+        pruneBanIndexIfNeeded();
     }
 
     @Override
@@ -230,15 +231,40 @@ public class RedisBlocklistStore implements BlocklistStore {
                 staleIps.add(entry.getKey());
                 continue;
             }
-            if (result.size() < MAX_AUTO_BANS) {
-                result.add(new AutoBanEntry(ip, record.reason(), record.expireAt()));
-            }
+            result.add(new AutoBanEntry(ip, record.reason(), record.expireAt()));
         }
         if (!staleIps.isEmpty()) {
             redisTemplate.opsForHash().delete(BlocklistKeys.BAN_INDEX, staleIps.toArray());
         }
+        // 先排序再截断，返回最近到期的 MAX_AUTO_BANS 条，而不是 Hash 迭代顺序的前 500 条
         result.sort((left, right) -> right.expireAt().compareTo(left.expireAt()));
-        return result;
+        return result.size() <= MAX_AUTO_BANS ? result : result.subList(0, MAX_AUTO_BANS);
+    }
+
+    /**
+     * 索引条目超过阈值时清理已过期项，避免 {@code autoBans()} 长期未被调用导致 Hash 无界增长。
+     */
+    private void pruneBanIndexIfNeeded() {
+        try {
+            Long size = redisTemplate.opsForHash().size(BlocklistKeys.BAN_INDEX);
+            if (size == null || size <= (long) MAX_AUTO_BANS * 4) {
+                return;
+            }
+            Map<Object, Object> entries = redisTemplate.opsForHash().entries(BlocklistKeys.BAN_INDEX);
+            Instant now = Instant.now();
+            List<Object> staleIps = new ArrayList<>();
+            for (Map.Entry<Object, Object> entry : entries.entrySet()) {
+                BanRecord record = decodeBan(entry.getValue() instanceof String text ? text : null);
+                if (record == null || !record.expireAt().isAfter(now)) {
+                    staleIps.add(entry.getKey());
+                }
+            }
+            if (!staleIps.isEmpty()) {
+                redisTemplate.opsForHash().delete(BlocklistKeys.BAN_INDEX, staleIps.toArray());
+            }
+        } catch (RuntimeException ex) {
+            warnFailure("[ypbin-starter] 清理自动封禁索引失败", ex);
+        }
     }
 
     private void warnFailure(String message, Object... args) {

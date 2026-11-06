@@ -140,6 +140,25 @@ class RedisBlocklistStoreTest {
     }
 
     @Test
+    @DisplayName("自动封禁列表按到期时间倒序返回")
+    void autoBansOrdersByExpiry() {
+        store.ban("1.1.1.1", Duration.ofMinutes(1), "short");
+        store.ban("2.2.2.2", Duration.ofMinutes(10), "long");
+
+        assertThat(store.autoBans()).extracting(AutoBanEntry::clientIp)
+            .containsExactly("2.2.2.2", "1.1.1.1");
+    }
+
+    @Test
+    @DisplayName("窗口/封禁时长为 0 时按最小 1 秒处理")
+    void zeroDurationsUseMinimumOneSecond() {
+        store.recordViolation("1.2.3.4", Duration.ZERO, 1, Duration.ZERO, "x");
+
+        assertThat(store.isBanned("1.2.3.4")).isTrue();
+        assertThat(redis.getExpire(BlocklistKeys.ban("1.2.3.4"), TimeUnit.SECONDS)).isPositive();
+    }
+
+    @Test
     @DisplayName("索引中的过期记录在读取时清理")
     void autoBansPrunesExpired() {
         redis.opsForHash().put(BlocklistKeys.BAN_INDEX, "1.2.3.4",
