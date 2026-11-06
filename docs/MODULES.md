@@ -735,7 +735,7 @@ OnlineUserHelper.record(ip, browser, os);   // 可选：记录终端信息供在
 
 面向「按授权交付」的商业软件：供应方离线签发授权，运行端离线验签放行。基于国密 SM2（签名验签）+ SM4（授权文件对称加密）+ SM3（机器指纹摘要），私钥只在供应方签发端持有，运行端仅需公钥，无需联网即可校验。
 
-- **一行集成**：在需保护的方法或类上标注 `@LicenseCheck`，进入方法前自动校验当前授权；类上标注对其下所有方法生效，方法上可覆盖。校验不通过抛授权异常，由全局异常处理器转统一响应体。
+- **一行集成**：在需保护的方法或类上标注 `@LicenseCheck`，进入方法前自动校验当前授权；类上标注对其下所有方法生效，方法上可覆盖。注解写在接口方法上同样生效（实现类 + CGLIB、接口 + JDK 代理等组合均已覆盖）。校验不通过抛授权异常，由全局异常处理器转统一响应体。
 - **校验维度按需组合**：基础可用性（合法或宽限期内，过期即拦截，默认）；`module()` 要求授权范围包含指定功能模块，实现模块级细粒度授权；`online()` 要求触发一次联机回验以感知远程吊销（需接入联机校验扩展点）。
 - **机器指纹绑定**：`MachineFingerprint` 采集主机特征生成 SM3 摘要，授权文件可绑定指纹，换机即失效，默认开启。
 - **离线状态机**：`LicenseStatus` 表达合法 / 宽限期 / 过期 / 非法等状态，`LicenseManager` 加载并缓存当前授权，`LicenseVerifier` 做验签与状态判定。
@@ -1350,7 +1350,9 @@ public class Order extends TenantBaseEntity {
 }
 ```
 
-租户隔离由行级拦截器自动在 SQL 追加 `tenant_id` 条件，`tenantId` 字段供实体层读写；不需要租户的实体继承 `BaseEntity` 即可，避免基础表被迫带 `tenant_id` 列。
+租户隔离由行级拦截器自动在 SQL 追加 `tenant_id` 条件，`tenantId` 字段只用于读取；不需要租户的实体继承 `BaseEntity` 即可，避免基础表被迫带 `tenant_id` 列。
+
+写路径是 fail-closed 的：显式携带 `tenant_id` 的 INSERT / INSERT..SELECT 会被追加重复列后由数据库拒绝，`UPDATE ... SET tenant_id` 会被拦截器直接拒绝；实体字段标记了 `updateStrategy = NEVER`。合法的跨租户迁移（后台补数等）必须显式使用 `@TenantIgnore` / `TenantContext.executeIgnore`，不要从请求体绑定 `tenantId`。
 
 ### extension-datapermission — 数据权限
 

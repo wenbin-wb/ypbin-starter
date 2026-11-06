@@ -33,6 +33,15 @@
   `WebMvcConfigurer` Bean 挤掉，导致签名拦截器从不生效；改为按 Bean 名让位（issue #148）。
 - **签名 IP 白名单可被伪造 XFF 绕过**：`trust-forwarded-header=true` 时改为「只信任一跳取最右值」，
   配置 `trusted-proxies` 后走 `ClientIpResolver` 右起解析；不再取客户端可控的最左段（issue #148）。
+- **`@LicenseCheck` 注解在接口上时静默放行**：改为自定义切点同时检查实现类、目标类、接口方法与
+  接口类，并用 `AopUtils.getMostSpecificMethod` 解析注解；注解在接口 + CGLIB、实现类 + JDK 代理
+  等四种组合均在非法授权时抛异常（issue #146）。
+- **租户隔离可被显式 `tenant_id` 绕过**：`ignoreInsert` 恒返回 `false`，显式租户列的
+  INSERT / INSERT..SELECT 由插件追加重复列后失败；新增 `StrictTenantLineInnerInterceptor` 拒绝
+  `UPDATE ... SET tenant_id`；`TenantBaseEntity` 的租户字段标记 `updateStrategy = NEVER`
+  （issue #147）。
+- **`RequestUtils.getClientIp()` 默认信任 XFF 且取最左段**：无参重载改为只取直连地址；
+  显式 `trustForwarded=true` 时取最右一跳，不再采用客户端可伪造的最左段（issue #149）。
 - **管理端点守卫装配崩溃**：`ypbin.security.enabled=false` + `management.guard-enabled=true` 时
   `PermissionProvider` 缺失导致启动失败；改为弱依赖 + 空权限数据源（fail-closed）并 WARN（issue #150）。
 - **`@Sensitive` 用在非 String 字段打挂整个响应**：序列化器回退不再写死 `String.class`，
