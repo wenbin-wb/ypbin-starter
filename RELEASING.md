@@ -156,16 +156,26 @@ git push && git push --tags
 
 **每次发版必做**：更新 CHANGELOG.md、打对应 `vX.Y.Z` git tag、发布说明同步到 GitHub Release。
 
-## 四、快照版本（开发期）
+## 四、快照版本（开发期，默认预发布通道）
 
-开发期版本带 `-SNAPSHOT` 后缀（如 `1.1.0-SNAPSHOT`），特点：
+> **2026-11-07 起：正式版发布前必须先发 SNAPSHOT 供宿主回归。** 正式发布占用 Central 组织的
+> **月度文件数配额**，配额用尽后到次月 1 日，正式版与快照上传都会被拒（实测两者均 403）。
+> 因此节奏改为：`x.y.z-SNAPSHOT` → 宿主（admin/iot）在真实环境回归 → 通过后再执行正式发布。
+> 这样「发出去才发现问题、只能再补一版」的频率会显著下降。
+
+开发期版本带 `-SNAPSHOT` 后缀（如 `4.4.1-SNAPSHOT`），特点：
 - 可反复覆盖发布，供联调用；不进正式仓库、不永久保留。
-- Central Portal 的 snapshot 仓库地址：`https://central.sonatype.com/repository/maven-snapshots/`；使用方需在自己的 pom/settings 显式配置该 snapshot 仓库才能拉取。
-- 快照无需 `-Prelease` 全套签名，但发布快照同样要在 settings.xml 配 `central` server 认证。
+- 根 pom 已声明 `distributionManagement` 指向 Central snapshot 仓库
+  `https://central.sonatype.com/repository/maven-snapshots/`，直接 `mvn clean deploy` 即可上传
+  （无需 `-Prelease`/GPG 签名；凭据复用 `settings.xml` 的 `central` server）。
+- 使用方在自己的 pom 声明同名 `repository` 后即可解析 `x.y.z-SNAPSHOT`（仓库公开只读，拉取不需要凭据）。
+- **发布正式版的判据**：宿主回归通过 + `mvn clean deploy -Prelease` 成功 + repo1 出现该版本。
+- 若快照上传同样返回 403，说明是**组织级发布封锁**（配额用尽），重试无效，只能等下月 1 日
+  配额重置或升级 Sonatype 套餐；此时应先评估「宿主侧规避」或推迟发布。
 
 ```bash
-# 开发期发快照（可选，供下游联调）
-mvn clean deploy    # revision 为 x.y.z-SNAPSHOT 时走 snapshot 仓库
+# 发快照供宿主回归（revision 为 x.y.z-SNAPSHOT）
+mvn clean deploy
 ```
 
 > 日常本地开发只需 `mvn install` 装到本地 `.m2`（admin 等同机项目直接引用），无需发快照到远程。仅当需要让**其他机器/成员**拉到未正式发布的版本时，才发快照。
