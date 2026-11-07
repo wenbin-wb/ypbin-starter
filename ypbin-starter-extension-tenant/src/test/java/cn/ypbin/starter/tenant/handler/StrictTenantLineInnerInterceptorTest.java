@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import cn.ypbin.starter.core.exception.BusinessException;
 import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
 import java.util.List;
+import java.util.Map;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
@@ -165,6 +166,84 @@ class StrictTenantLineInnerInterceptorTest {
             .containsExactly("id", "tenant_id");
     }
 
+    @Test
+    void insertShouldBeRejectedWhenContextTenantMissing() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (1, 1)");
+        ExposedInterceptor noContext = new ExposedInterceptor(new StubTenantLineHandler(false, null));
+
+        assertThatThrownBy(() -> noContext.rewriteInsert(insert, null))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("（无法校验）");
+    }
+
+    @Test
+    void insertSelectShouldBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) SELECT id, 1 FROM sys_order");
+
+        assertThatThrownBy(() -> interceptor.rewriteInsert(insert, null))
+            .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void multiRowInsertShouldBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (1, 1), (2, 1)");
+
+        assertThatThrownBy(() -> interceptor.rewriteInsert(insert, null))
+            .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void paramMapWrappedEntityShouldBeAccepted() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (?, ?)");
+
+        interceptor.rewriteInsert(insert, Map.of("et", new TenantEntity(1L)));
+
+        assertThat(insert.getColumns()).extracting(Column::getColumnName)
+            .containsExactly("id", "tenant_id");
+    }
+
+    @Test
+    void paramMapParam1EntityShouldBeAccepted() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (?, ?)");
+
+        interceptor.rewriteInsert(insert, Map.of("param1", new TenantEntity(1L)));
+
+        assertThat(insert.getColumns()).extracting(Column::getColumnName)
+            .containsExactly("id", "tenant_id");
+    }
+
+    @Test
+    void paramMapWithoutEntityShouldBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (?, ?)");
+
+        assertThatThrownBy(() -> interceptor.rewriteInsert(insert, Map.of("other", 1)))
+            .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void entityWithoutTenantGetterShouldBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (?, ?)");
+
+        assertThatThrownBy(() -> interceptor.rewriteInsert(insert, new Object()))
+            .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void entityWithNonNumericTenantShouldBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (?, ?)");
+
+        assertThatThrownBy(() -> interceptor.rewriteInsert(insert, new StringTenantEntity()))
+            .isInstanceOf(BusinessException.class);
+    }
+
     private static Expression subSelectWhere(Expression expression) {
         Expression right = expression instanceof InExpression inExpression
             ? inExpression.getRightExpression()
@@ -212,21 +291,36 @@ class StrictTenantLineInnerInterceptorTest {
         }
     }
 
+    /** 租户值非数值：无法与上下文比较，应按 fail-closed 拒绝。 */
+    private static final class StringTenantEntity {
+
+        public String getTenantId() {
+            return "1";
+        }
+    }
+
     private static final class StubTenantLineHandler implements TenantLineHandler {
 
         private final boolean ignoreTable;
+
+        private final Expression tenantId;
 
         private StubTenantLineHandler() {
             this(false);
         }
 
         private StubTenantLineHandler(boolean ignoreTable) {
+            this(ignoreTable, new LongValue(1));
+        }
+
+        private StubTenantLineHandler(boolean ignoreTable, Expression tenantId) {
             this.ignoreTable = ignoreTable;
+            this.tenantId = tenantId;
         }
 
         @Override
         public Expression getTenantId() {
-            return new LongValue(1);
+            return tenantId;
         }
 
         @Override

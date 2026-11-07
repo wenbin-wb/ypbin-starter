@@ -165,7 +165,9 @@ public class StrictTenantLineInnerInterceptor extends TenantLineInnerInterceptor
      * @return 显式租户值；无法判定时为 {@code null}
      */
     private static @Nullable Long declaredTenant(Insert insert, int tenantIndex, @Nullable Object parameterObject) {
-        Values values = insert.getValues();
+        // 注意：Insert#getValues() 在 INSERT..SELECT 上会直接把 Select 强转为 Values 并抛 ClassCastException，
+        // 故先在 Select 上判定形态
+        Values values = insert.getSelect() instanceof Values candidate ? candidate : null;
         if (values == null) {
             // INSERT ... SELECT：值来自子查询，无法静态核对
             return null;
