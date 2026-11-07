@@ -21,6 +21,7 @@ import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerIntercept
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
@@ -172,32 +173,40 @@ public class StrictTenantLineInnerInterceptor extends TenantLineInnerInterceptor
             // INSERT ... SELECT：值来自子查询，无法静态核对
             return null;
         }
-        List<Expression> row = singleRow(values);
-        if (row == null || tenantIndex >= row.size()) {
+        Optional<List<Expression>> singleRow = singleRow(values);
+        if (singleRow.isEmpty() || tenantIndex >= singleRow.get().size()) {
             return null;
         }
-        Expression value = row.get(tenantIndex);
+        Expression value = singleRow.get().get(tenantIndex);
         if (value instanceof LongValue longValue) {
             return longValue.getValue();
         }
         return entityTenantId(parameterObject);
     }
 
-    private static @Nullable List<Expression> singleRow(Values values) {
+    /**
+     * 取单行 VALUES 的表达式列表；多行或空列表（无法核对）返回 {@link Optional#empty()}。
+     *
+     * <p>返回 {@code Optional} 而不是 {@code null}：本仓规范禁止集合返回值出现 {@code null}。</p>
+     *
+     * @param values VALUES 子句
+     * @return 单行表达式列表；无法判定时为空
+     */
+    private static Optional<List<Expression>> singleRow(Values values) {
         List<Expression> expressions = values.getExpressions();
         if (expressions == null || expressions.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
         if (expressions.size() == 1 && expressions.get(0) instanceof ParenthesedExpressionList<?> row) {
-            return List.copyOf(row);
+            return Optional.of(List.copyOf(row));
         }
         for (Expression expression : expressions) {
             if (expression instanceof ParenthesedExpressionList<?>) {
                 // 多行 VALUES：每行一个括号列表，无法用单个实体对象核对
-                return null;
+                return Optional.empty();
             }
         }
-        return List.copyOf(expressions);
+        return Optional.of(List.copyOf(expressions));
     }
 
     /**
