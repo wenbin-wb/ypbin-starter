@@ -87,8 +87,10 @@ public class DefaultTenantLineHandler implements TenantLineHandler {
      *
      * <p>默认实现发现 SQL 已显式包含租户列就整体跳过，导致请求体绑定
      * {@link TenantBaseEntity#getTenantId()} 后可以写入任意租户。
-     * 这里恒返回 {@code false}：插件会再追加一次同名列，数据库因重复列拒绝该 SQL（fail-closed），
-     * 而不是静默放过跨租户写入。</p>
+     * 这里恒返回 {@code false}：对未显式携带租户列的 INSERT，由插件按上下文追加；
+     * 对显式携带租户列的 INSERT，由 {@link StrictTenantLineInnerInterceptor#processInsert}
+     * 先做「显式值必须等于上下文租户」的校验（相等则跳过追加，避免同名列重复），
+     * 不一致或无法判定才拒绝。</p>
      *
      * @param columns        插入列
      * @param tenantIdColumn 租户列名

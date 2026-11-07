@@ -11,6 +11,20 @@
 
 > 下一开发版 `4.5.0-SNAPSHOT`（向后兼容的新增与修复；破坏性变更须留到下个主版本）。
 
+## [4.4.1] - 2026-11-07
+
+> 修订版（`4.4.0` → `4.4.1`）：修复 4.4.0 引入的租户 INSERT 兼容性问题，其余行为不变。
+
+### 修复
+
+- **显式 `tenant_id` 的 INSERT 在 4.4.0 全部失败**：`DefaultTenantLineHandler#ignoreInsert` 恒返回
+  `false` 后，宿主实体若在 INSERT 前 `setTenantId(当前租户)`（admin/iot 有大量此类写法），插件会再追加
+  一次同名列，数据库报 `Column 'tenant_id' specified twice`，正常写入被误伤。
+  `StrictTenantLineInnerInterceptor` 新增 INSERT 校验：显式值与当前上下文租户**相等**时保持原 SQL
+  （不追加，行为回到 4.3.x）；不等或无法判定（多行 VALUES、`INSERT..SELECT`、读不到实体租户）时抛
+  `BusinessException` 并给出跨租户写入的正确做法；`@TenantIgnore` / `TenantContext.executeIgnore`
+  通道不受影响，显式值与上下文不一致的越权写入仍被拒绝。
+
 ## [4.4.0] - 2026-11-06
 
 > 次版本升级（`4.3.0` → `4.4.0`），向后兼容：收口 #140–#162 的审查修复，补齐测试与门禁，
