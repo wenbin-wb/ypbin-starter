@@ -29,6 +29,7 @@ import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.delete.Delete;
+import net.sf.jsqlparser.statement.insert.Insert;
 import net.sf.jsqlparser.statement.select.ParenthesedSelect;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
@@ -96,6 +97,74 @@ class StrictTenantLineInnerInterceptorTest {
             .hasMessageContaining("禁止通过 UPDATE 修改租户列");
     }
 
+    // ---------- INSERT：显式租户列与上下文的一致性 ----------
+
+    @Test
+    void insertWithDeclaredTenantMatchingContextShouldKeepSingleTenantColumn() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (1, 1)");
+
+        interceptor.rewriteInsert(insert, null);
+
+        // 相等 ⇒ 不追加（追加会变成同名列，数据库直接拒绝）
+        assertThat(insert.toString()).isEqualToIgnoringWhitespace(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (1, 1)");
+    }
+
+    @Test
+    void insertWithDeclaredTenantDifferentFromContextShouldBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (1, 2)");
+
+        assertThatThrownBy(() -> interceptor.rewriteInsert(insert, null))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("与当前租户上下文 1 不一致");
+    }
+
+    @Test
+    void insertWithoutDeclaredTenantShouldAppendTenantColumn() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse("INSERT INTO sys_order (id) VALUES (1)");
+
+        interceptor.rewriteInsert(insert, null);
+
+        assertThat(insert.getColumns()).extracting(Column::getColumnName).contains("tenant_id");
+        assertThat(insert.toString()).isEqualToIgnoringWhitespace(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (1, 1)");
+    }
+
+    @Test
+    void insertFromEntityWithMatchingTenantShouldNotBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (?, ?)");
+
+        interceptor.rewriteInsert(insert, new TenantEntity(1L));
+
+        assertThat(insert.getColumns()).extracting(Column::getColumnName)
+            .containsExactly("id", "tenant_id");
+    }
+
+    @Test
+    void insertFromEntityWithDifferentTenantShouldBeRejected() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (?, ?)");
+
+        assertThatThrownBy(() -> interceptor.rewriteInsert(insert, new TenantEntity(2L)))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("不一致或无法校验");
+    }
+
+    @Test
+    void insertInsideIgnoredContextShouldKeepDeclaredTenant() throws Exception {
+        Insert insert = (Insert) CCJSqlParserUtil.parse(
+            "INSERT INTO sys_order (id, tenant_id) VALUES (1, 2)");
+        ExposedInterceptor ignoring = new ExposedInterceptor(new StubTenantLineHandler(true));
+
+        ignoring.rewriteInsert(insert, null);
+
+        assertThat(insert.getColumns()).extracting(Column::getColumnName)
+            .containsExactly("id", "tenant_id");
+    }
+
     private static Expression subSelectWhere(Expression expression) {
         Expression right = expression instanceof InExpression inExpression
             ? inExpression.getRightExpression()
@@ -123,9 +192,37 @@ class StrictTenantLineInnerInterceptorTest {
         private void rewriteDelete(Delete delete) {
             processDelete(delete, 0, delete.toString(), null);
         }
+
+        private void rewriteInsert(Insert insert, Object parameterObject) {
+            processInsert(insert, 0, insert.toString(), parameterObject);
+        }
+    }
+
+    /** 模拟 MyBatis-Plus 由实体生成的 INSERT 参数对象（读取 {@code getTenantId()}）。 */
+    private static final class TenantEntity {
+
+        private final Long tenantId;
+
+        private TenantEntity(Long tenantId) {
+            this.tenantId = tenantId;
+        }
+
+        public Long getTenantId() {
+            return tenantId;
+        }
     }
 
     private static final class StubTenantLineHandler implements TenantLineHandler {
+
+        private final boolean ignoreTable;
+
+        private StubTenantLineHandler() {
+            this(false);
+        }
+
+        private StubTenantLineHandler(boolean ignoreTable) {
+            this.ignoreTable = ignoreTable;
+        }
 
         @Override
         public Expression getTenantId() {
@@ -139,12 +236,13 @@ class StrictTenantLineInnerInterceptorTest {
 
         @Override
         public boolean ignoreTable(String tableName) {
-            return false;
+            return ignoreTable;
         }
 
         @Override
         public boolean ignoreInsert(List<Column> columns, String tenantIdColumn) {
-            return true;
+            // 与生产实现一致：未显式携带租户列时由插件追加
+            return false;
         }
     }
 }
