@@ -88,7 +88,7 @@
     </modules>
 
     <properties>
-        <revision>4.5.0-SNAPSHOT</revision>
+        <revision>4.4.1-SNAPSHOT</revision>
         <java.version>21</java.version>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -147,6 +147,21 @@
             </plugin>
         </plugins>
     </build>
+
+    <!--
+      快照发布通道（SNAPSHOT 供宿主联调/回归，正式版仍由 -Prelease 的 central-publishing 插件上传）。
+      正式版发布受 Central 组织月度文件数配额约束（超出即 12-01 才重置），故引入「先发 SNAPSHOT 验证、
+      再发正式版」的节奏：`mvn deploy` 会把 x.y.z-SNAPSHOT 上传到 Central 的 snapshot 仓库，
+      该仓库不计入正式发布的文件配额。宿主只需在 pom 中声明同名仓库即可拉取（公开只读，无需凭据）；
+      上传凭据复用 settings.xml 里的 server id `central`。
+    -->
+    <distributionManagement>
+        <snapshotRepository>
+            <id>central</id>
+            <name>Central Portal Snapshots</name>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <profiles>
         <!--
