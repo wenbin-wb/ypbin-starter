@@ -50,7 +50,7 @@
         <spring-ai.version>2.0.2</spring-ai.version>
         <xxl-job.version>3.5.0</xxl-job.version>
         <spotless-maven-plugin.version>3.10.4</spotless-maven-plugin.version>
-        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
         <!--
           覆盖率 BRANCH 下限（JaCoCo check）：默认值适用于未单独覆盖阈值的模块；
           参与模块只需在自己的 <properties> 里把 jacoco.branch.minimum 覆盖为本模块实测值略低的数，
