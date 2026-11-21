@@ -15,7 +15,6 @@
  */
 package cn.ypbin.starter.web.blocklist;
 
-import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.core.blocklist.AutoBanIpGuard;
 import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
 import cn.ypbin.starter.core.blocklist.BlocklistProperties;
@@ -24,6 +23,7 @@ import cn.ypbin.starter.core.blocklist.BlocklistRule;
 import cn.ypbin.starter.core.blocklist.BlocklistStore;
 import cn.ypbin.starter.core.blocklist.ClientIpResolver;
 import cn.ypbin.starter.core.model.R;
+import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.web.util.WebRequestUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
