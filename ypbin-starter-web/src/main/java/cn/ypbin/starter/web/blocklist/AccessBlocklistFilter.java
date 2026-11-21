@@ -15,6 +15,7 @@
  */
 package cn.ypbin.starter.web.blocklist;
 
+import cn.ypbin.starter.core.util.LogSanitizer;
 import cn.ypbin.starter.core.blocklist.AutoBanIpGuard;
 import cn.ypbin.starter.core.blocklist.BlocklistMatcher;
 import cn.ypbin.starter.core.blocklist.BlocklistProperties;
@@ -100,8 +101,11 @@ public class AccessBlocklistFilter extends OncePerRequestFilter {
         Optional<BlocklistRule> matched = match(clientIp, request.getHeader("User-Agent"), path);
         if (matched.isPresent() || store.isBanned(clientIp)) {
             if (log.isDebugEnabled()) {
+                // ip/path 都来自请求（path 即 URI），必须净化：否则可用 CR/LF 伪造整条日志行
+                // （java/log-injection 的实质）。starter 已有 LogSanitizer，直接复用而不另造工具。
                 log.debug("[ypbin-starter] access blocked: ip={} path={} rule={}",
-                    clientIp, path, matched.map(BlocklistRule::getId).orElse("auto-ban"));
+                    LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(path),
+                    matched.map(BlocklistRule::getId).orElse("auto-ban"));
             }
             reject(response);
             return;
