@@ -72,7 +72,7 @@
         -->
         <nullaway.packages>cn.ypbin.starter.__nullaway_placeholder__</nullaway.packages>
         <nullaway.version>0.14.3</nullaway.version>
-        <error-prone.version>2.51.0</error-prone.version>
+        <error-prone.version>2.52.0</error-prone.version>
     </properties>
 
     <dependencyManagement>
